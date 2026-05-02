@@ -56,10 +56,6 @@ The canvas is the canonical editing surface. Text views are entry and export onl
 
 Don't add infrastructure before the need. The design doc's MVP discipline is the rule.
 
-## Reference Designs
-
-**[pipecat-ai/pipecat-flows-editor](https://github.com/pipecat-ai/pipecat-flows-editor)** (Next.js 16 + React Flow + TypeBox + Ajv + Zustand, BSD-2-Clause) — visual editor for Pipecat Flows. We evaluated forking it and chose to build from scratch because its schema is tightly coupled to Pipecat's `NodeConfig`, which violates our "execution separate from spec" principle. Still a useful reference — steal patterns, not code. Worth reading before inventing:
-
 - **Routing lives on functions, not edges.** Edges in the canvas are derived from function metadata (`next_node_id` / `decision`), never persisted as standalone entities. Maps cleanly onto our `routing.exit_paths`.
 - **Decisions as visualization-helper nodes.** Inline decision nodes render on the canvas but persist as metadata on the parent function, not as separate graph nodes. Keeps the schema clean while giving users the visual they expect.
 - **Ajv + TypeBox validation pipeline** (`lib/validation/`) — two layers: schema validation, then custom graph rules (unique IDs, valid references).
@@ -101,7 +97,6 @@ From the product design doc. The ones that most affect editor decisions:
 - **Flows are modular and reusable across agents.** A flow authored for one agent should be droppable into another. Flow-specific data (including translatable scripts) lives inside the flow, not at the agent level. Prefer flow-level schema fields for anything that should travel with a reused flow; agent-level is for things genuinely shared across the whole deployment (plan-level variables, guardrails, glossary). When flows need to interoperate with different callers, use variable mapping (v1 call-step `input_mapping` / `output_mapping`) rather than hard-coded variable names or agent-specific enum values in flow routing.
 - **Anything referenceable has a stable `id`.** Editor-generated, never authored.
 - **Optional by default.** Valid schema with minimal fields. Depth added incrementally.
-- **Findings are evidence, not certifications.** Simulation results show what failed and why — do not present scores with implied precision the evaluator does not support.
 - **Decomposition is the substrate.** Monolithic prompts hit an instruction-following ceiling in regulated behavior spaces; modular flows are how agents stay reliable at scale.
 - **Decomposition is progressive.** Start coarse, split when there's a real seam. The principle above applies *at scale*; for small specs the right move is *less* decomposition. Node count is a result of behavioral seams, not a target.
 
