@@ -152,7 +152,7 @@ function CanvasInner({ spec }: { spec: Spec }) {
         onPaneClick={() => useSpecStore.getState().setSelection(null)}
         onConnect={(c) => {
           if (c.source && c.target) {
-            useSpecStore.getState().addExitPath(c.source, c.target);
+            useSpecStore.getState().addExitPath(c.source, c.target, true);
           }
         }}
         nodeTypes={nodeTypes}

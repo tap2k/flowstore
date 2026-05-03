@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { SheetShell } from "./SheetShell";
 import { useSettingsStore } from "@/lib/store/settings";
+import { GOOGLE_MODELS } from "@/lib/llm/dispatch";
 
 interface SettingsSheetProps {
   onClose: () => void;
@@ -9,11 +10,15 @@ interface SettingsSheetProps {
 export function SettingsSheet({ onClose }: SettingsSheetProps) {
   const stored = useSettingsStore((s) => s.googleApiKey);
   const setGoogleApiKey = useSettingsStore((s) => s.setGoogleApiKey);
+  const storedModel = useSettingsStore((s) => s.googleModel);
+  const setGoogleModel = useSettingsStore((s) => s.setGoogleModel);
   const [value, setValue] = useState(stored);
+  const [model, setModel] = useState(storedModel);
   const [reveal, setReveal] = useState(false);
 
   function save() {
     setGoogleApiKey(value.trim());
+    setGoogleModel(model);
     onClose();
   }
 
@@ -25,7 +30,6 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   return (
     <SheetShell
       title="Settings"
-      subtitle="Bring-your-own Google API key for chat-based authoring."
       onClose={onClose}
       maxWidth="max-w-lg"
     >
@@ -47,7 +51,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           </button>
         </div>
         <p className="text-[11px] text-zinc-500">
-          Stored in this browser&apos;s localStorage. Anyone with access to this browser can read it. Do not use a shared machine.
+          Only for chat functions. Stored in this browser&apos;s localStorage. Anyone with access to this browser can read it. Do not use a shared machine.
           Get a key at{" "}
           <a
             href="https://aistudio.google.com/app/apikey"
@@ -59,6 +63,20 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           </a>
           .
         </p>
+      </div>
+      <div className="space-y-2 pt-3">
+        <label className="text-xs font-medium text-zinc-700">Model</label>
+        <select
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+        >
+          {GOOGLE_MODELS.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.label}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="flex items-center justify-end gap-2 pt-2">
         <button

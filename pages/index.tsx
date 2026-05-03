@@ -12,12 +12,13 @@ import {
   loadSavedSpec,
   startSpecPersistence,
 } from "@/lib/store/persistence";
-import { loadSavedSettings } from "@/lib/store/settings";
+import { loadSavedSettings, useSettingsStore } from "@/lib/store/settings";
 import { validateSpec } from "@/lib/validation/ajv";
 
 export default function Home() {
   const spec = useSpecStore((s) => s.spec);
   const setSpec = useSpecStore((s) => s.setSpec);
+  const apiKey = useSettingsStore((s) => s.googleApiKey);
   const [hydrating, setHydrating] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -64,9 +65,6 @@ export default function Home() {
 
   if (hydrating) return null;
 
-  const flowCount = spec?.flows.length ?? 0;
-  const interruptCount = spec?.flows.filter((f) => f.type === "interrupt").length ?? 0;
-
   return (
     <>
       <Head>
@@ -85,21 +83,21 @@ export default function Home() {
             )}
           </div>
           <div className="ml-auto flex items-center gap-4">
-            <ImportExportToolbar
-              onOpenSettings={() => setSettingsOpen(true)}
-              onToggleChat={() => setChatOpen((v) => !v)}
-              chatOpen={chatOpen}
-            />
-            {spec && (
-              <span className="text-xs text-zinc-500">
-                {flowCount} flow{flowCount === 1 ? "" : "s"} ({interruptCount} interrupt{interruptCount === 1 ? "" : "s"})
-              </span>
-            )}
+            <ImportExportToolbar onOpenSettings={() => setSettingsOpen(true)} />
           </div>
         </header>
         <main className="flex flex-1 min-h-0">
-          <div className="flex-1 min-w-0">
+          <div className="relative flex-1 min-w-0">
             <Canvas />
+            {apiKey && !chatOpen && (
+              <button
+                onClick={() => setChatOpen(true)}
+                className="absolute top-3 right-3 z-10 flex items-center gap-1.5 rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white shadow-md hover:bg-zinc-700"
+              >
+                <ChatIcon />
+                Chat
+              </button>
+            )}
           </div>
           <FlowInspector />
           <EdgeInspector />
@@ -115,5 +113,13 @@ export default function Home() {
       </div>
       {settingsOpen && <SettingsSheet onClose={() => setSettingsOpen(false)} />}
     </>
+  );
+}
+
+function ChatIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSettingsStore } from "@/lib/store/settings";
-import { chat, DEFAULT_MODEL, DEFAULT_PROVIDER } from "@/lib/llm/dispatch";
+import { chat, DEFAULT_PROVIDER } from "@/lib/llm/dispatch";
 import { findTool, toolDefinitions } from "@/lib/llm/tools";
 import { systemPrompt } from "@/lib/llm/prompts";
 import { formatErrors, validateSpec } from "@/lib/validation/ajv";
@@ -14,10 +14,11 @@ interface ChatPanelProps {
   onOpenSettings: () => void;
 }
 
-const MAX_AGENT_LOOPS = 6;
+const MAX_AGENT_LOOPS = 12;
 
 export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
   const apiKey = useSettingsStore((s) => s.googleApiKey);
+  const model = useSettingsStore((s) => s.googleModel);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -51,7 +52,7 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
 
     try {
       for (let i = 0; i < MAX_AGENT_LOOPS; i++) {
-        const res = await chat(DEFAULT_PROVIDER, apiKey, DEFAULT_MODEL, {
+        const res = await chat(DEFAULT_PROVIDER, apiKey, model, {
           systemPrompt,
           messages: history,
           tools: toolDefinitions,
@@ -131,7 +132,7 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
       <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2">
         <div>
           <div className="text-sm font-semibold text-zinc-900">Chat</div>
-          <div className="text-[11px] text-zinc-500">{DEFAULT_MODEL}</div>
+          <div className="text-[11px] text-zinc-500">{model}</div>
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -218,6 +219,7 @@ function EmptyHint({
       <p>Ask me to create or edit the spec on the canvas. Try:</p>
       <ul className="list-disc pl-4 space-y-0.5">
         <li>&ldquo;Create a coffee-ordering agent with greet, order, and confirm flows.&rdquo;</li>
+        <li>&ldquo;Paste a system prompt and I&rsquo;ll build the spec from it.&rdquo;</li>
         <li>&ldquo;Add a guardrail that we never ask for credit card numbers.&rdquo;</li>
         <li>&ldquo;Split flow_greet into greet + collect_name.&rdquo;</li>
       </ul>

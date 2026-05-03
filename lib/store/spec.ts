@@ -15,9 +15,13 @@ interface SpecState {
   updateFlow: (id: string, patch: Partial<Flow>) => void;
   updateAgent: (patch: Partial<Agent>) => void;
   updateExitPath: (flowId: string, exitPathId: string, patch: Partial<ExitPath>) => void;
-  addFlow: () => string;
+  addFlow: (select?: boolean) => string;
   removeFlow: (id: string) => void;
-  addExitPath: (sourceFlowId: string, targetFlowId: string | null) => string | null;
+  addExitPath: (
+    sourceFlowId: string,
+    targetFlowId: string | null,
+    select?: boolean,
+  ) => string | null;
   removeExitPath: (flowId: string, exitPathId: string) => void;
 }
 
@@ -79,19 +83,20 @@ export const useSpecStore = create<SpecState>((set) => ({
         },
       };
     }),
-  addFlow: () => {
+  addFlow: (select = false) => {
     const newId = genId("flow");
     set((state) => {
       const flow = blankFlow(newId);
+      const nextSelection: Selection = select ? { kind: "flow", id: newId } : state.selection;
       if (!state.spec) {
         return {
           spec: { agent: blankAgent(newId), flows: [flow] },
-          selection: { kind: "flow", id: newId },
+          selection: nextSelection,
         };
       }
       return {
         spec: { ...state.spec, flows: [...state.spec.flows, flow] },
-        selection: { kind: "flow", id: newId },
+        selection: nextSelection,
       };
     });
     return newId;
@@ -123,7 +128,7 @@ export const useSpecStore = create<SpecState>((set) => ({
         selection: null,
       };
     }),
-  addExitPath: (sourceFlowId, targetFlowId) => {
+  addExitPath: (sourceFlowId, targetFlowId, select = false) => {
     const xpId = genId("xp");
     let added = false;
     set((state) => {
@@ -146,7 +151,9 @@ export const useSpecStore = create<SpecState>((set) => ({
             };
           }),
         },
-        selection: { kind: "edge", flowId: sourceFlowId, exitPathId: xpId },
+        selection: select
+          ? { kind: "edge", flowId: sourceFlowId, exitPathId: xpId }
+          : state.selection,
       };
     });
     return added ? xpId : null;

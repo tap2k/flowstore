@@ -10,8 +10,6 @@ import { KnowledgeSheet } from "@/components/sheets/KnowledgeSheet";
 
 interface ImportExportToolbarProps {
   onOpenSettings: () => void;
-  onToggleChat: () => void;
-  chatOpen: boolean;
 }
 
 const buttonClass =
@@ -34,8 +32,6 @@ function tryParseSpecText(input: string): { ok: true; data: unknown } | { ok: fa
 
 export function ImportExportToolbar({
   onOpenSettings,
-  onToggleChat,
-  chatOpen,
 }: ImportExportToolbarProps) {
   const spec = useSpecStore((s) => s.spec);
   const setSpec = useSpecStore((s) => s.setSpec);
@@ -71,7 +67,7 @@ export function ImportExportToolbar({
   return (
     <>
       <div className="flex items-center gap-2">
-        <button onClick={addFlow} className={`${buttonClass} bg-zinc-900 !text-white border-zinc-900 hover:bg-zinc-700`}>
+        <button onClick={() => addFlow(true)} className={`${buttonClass} bg-zinc-900 !text-white border-zinc-900 hover:bg-zinc-700`}>
           + New flow
         </button>
         <span className="w-px h-5 bg-zinc-200" />
@@ -98,12 +94,6 @@ export function ImportExportToolbar({
           Export
         </button>
         <span className="w-px h-5 bg-zinc-200" />
-        <button
-          onClick={onToggleChat}
-          className={`${buttonClass} ${chatOpen ? "bg-zinc-100" : ""}`}
-        >
-          {chatOpen ? "Hide chat" : "Chat"}
-        </button>
         <button onClick={onOpenSettings} className={buttonClass}>
           Settings
         </button>
