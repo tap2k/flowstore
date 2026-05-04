@@ -228,6 +228,16 @@ Why chat over a parse modal: chat tool-calls mutate the same zustand store the i
 
 **Files (planned):** `lib/llm/{dispatch,tools,prompts}.ts`, `components/sheets/SettingsSheet.tsx`, `components/chat/ChatPanel.tsx`, `lib/store/chat.ts`.
 
+### 11. Simulate panel (text chat against the runner)
+
+Editor-resident text chat against [`../uxflows-runner/`](../uxflows-runner/). BYOK Gemini, localhost runner, request/response per turn. Designer talks to the spec they're authoring without setting up the voice/STT/TTS stack.
+
+Sequenced: runner-side text I/O adapter ships first (lives in the runner repo); editor wires up after the contract is live.
+
+Full plan and contract in [SIMULATE-PLAN.md](./SIMULATE-PLAN.md).
+
+**Files (planned):** `components/runtime/SimulatePanel.tsx`, `lib/runtime/{textClient,eventTypes}.ts`, `lib/store/simulate.ts`, `pages/index.tsx` (mount).
+
 ---
 
 ## Post-MVP (deferred, with reasons)

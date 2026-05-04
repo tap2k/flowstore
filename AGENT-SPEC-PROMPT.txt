@@ -31,7 +31,10 @@ If a required field can't be inferred from the source, fill it with
 a reasonable best-guess. If a field is uncertain, encode the
 uncertainty in the data itself (e.g., placeholder text marked
 "[INCOMPLETE: ...]") so the user sees it on the canvas. Never drop
-content silently.
+content silently. Markers like "[INCOMPLETE: ...]" and "[INFERRED]"
+go in descriptive fields only (`description`, `instructions`,
+`meta.purpose`). Never in `scripts.text` — those are utterances the
+runtime speaks verbatim, so a marker would be read aloud.
 
 ---
 
@@ -45,16 +48,16 @@ V0 SCHEMA
       "name": "string",
       "purpose": "one-sentence description",
       "client": "string (optional)",
-      "languages": ["EN", "es-MX", "..."],
+      "languages": ["EN", "es-MX", "..."] /* optional */,
       "modes": ["voice", "text"]
     },
     "system_prompt": "string (optional, verbatim if source provides one)",
     "chatbot_initiates": true,
     "variables": {
       "<variable_name>": {
-        "type": "string | number | boolean | enum",
-        "description": "string",
-        "values": ["literal", "..."]
+        "type": "string | number | boolean | enum (optional)",
+        "description": "string (optional)",
+        "values": ["literal", "..."] /* only when type is enum */
       }
     },
     "guardrails": [
@@ -64,10 +67,10 @@ V0 SCHEMA
       {
         "id": "cap_<snake_case>",
         "name": "snake_case_dispatch_name",
-        "description": "when/why this is used (optional)",
+        "description": "when/why this is used",
         "kind": "function | retrieval",
-        "inputs": ["variable_name (optional)"],
-        "outputs": ["variable_name (optional; omit for fire-and-forget)"]
+        "inputs": ["variable_name"] /* optional */,
+        "outputs": ["variable_name"] /* optional; omit for fire-and-forget */
       }
     ],
     "knowledge": {
@@ -111,24 +114,21 @@ V0 SCHEMA
       "routing": {
         "entry_condition": {
           "expression": "trigger phrase or intent (interrupt flows only)",
-          "method": "llm | calculation | direct",
-          "pattern": "string (optional, when method is calculation)"
+          "method": "llm | calculation | direct"
         },
         "exit_paths": [
           {
             "id": "xp_<snake_case>",
             "type": "happy | sad | off | exit | return_to_caller",
             "condition": {
-              "expression": "string (omit for unconditional exits)",
-              "method": "llm | calculation | direct",
-              "pattern": "string (optional, when method is calculation)"
+              "expression": "string (omit the whole condition object for unconditional exits)",
+              "method": "llm | calculation | direct"
             },
             "next_flow_id": "<id> | null",
             "assigns": {
               "<variable_name>": {
                 "method": "llm | calculation | direct",
-                "value": "any (used when method is direct)",
-                "pattern": "string (optional, when method is calculation)"
+                "value": "any (required; literal for direct, expression string for calculation, description for llm)"
               }
             },
             "actions": [{ "capability_id": "cap_<id>" }]
@@ -188,18 +188,19 @@ Condition expressions:
   verified", not "customer says they are {customer_name}").
 - For `method: "calculation"`, variables appear bare in expressions
   (`verified == True`, `loan_amount > 50000`).
-- For `method: "calculation"` with regex pattern matching, set the
-  optional `pattern` field to the regex string and put the variable
-  name in `expression`. The runtime tests the variable's value
-  against the pattern instead of evaluating the expression. Use this
-  for shape checks (zip code, account number format, etc.), not for
-  semantic intent — that's what `llm` is for.
 
-Assigns: `assigns[var]` accepts the same three methods. `direct` =
-literal `value`. `calculation` = expression (or `pattern` over a
-named variable) producing the value. `llm` = extract the value from
-the conversation by description. Don't default to `direct` when the
-value actually comes from the conversation — that's `llm`.
+Conditions are exactly two fields: `expression` and `method`. To
+make an exit path unconditional, omit the entire `condition` object.
+
+Assigns: `assigns[var]` is exactly two fields, `method` and `value`.
+`value` is required, interpreted by `method`:
+- `direct`: literal value ({ method: "direct", value: 5 })
+- `calculation`: expression string the runtime evaluates
+  ({ method: "calculation", value: "total_due_amount" })
+- `llm`: natural-language description of what to extract
+  ({ method: "llm", value: "the date the customer committed to pay" })
+Don't default to `direct` when the value comes from the conversation —
+that's `llm`. `direct` does not interpolate `{placeholders}`.
 
 exit_path.type semantics:
 - "happy" — successful continuation along the intended path.
@@ -210,6 +211,37 @@ exit_path.type semantics:
 - "exit" — conversation ends here; `next_flow_id` must be null.
 - "return_to_caller" — interrupt only; resumes the interrupted flow.
   `next_flow_id` must be null.
+
+`next_flow_id` is required on every exit_path. For terminal or
+return paths, set it explicitly to `null` — don't omit it.
+
+These five values apply to `exit_path.type`, not `flow.type`. Flow
+types are `happy | sad | off | utility | interrupt` — never "exit"
+or "return_to_caller". A terminal flow (one that always ends the
+call) is still a `happy` / `sad` / `off` flow; the actual ending
+happens on its `exit_path` with `type: "exit"`. Every flow needs a
+`routing.exit_paths` array, even terminal ones — the runtime has no
+way to end without an exit_path of `type: "exit"`.
+
+flow.type semantics (which kind of flow this is):
+- "happy" — primary path of the conversation (greeting, asking for
+  the reason, confirming the action). Most flows are happy.
+- "sad" — failure / dead-end path (verification failed, escalate to
+  human, customer can't proceed).
+- "off" — legitimate off-script (customer is unavailable, third
+  party answered, customer says they already paid). Not the primary
+  intent, but not a failure either.
+- "utility" — reusable helper flow called by multiple flows (date
+  math, lookup, formatting). Rarely needed in v0.
+- "interrupt" — fires from another flow on a trigger (FAQ asked,
+  voicemail detected, user wants to end). See INTERRUPTS section.
+
+The runtime ends the conversation only when an exit_path with
+`type: "exit"` is taken (or any non-return path with
+`next_flow_id: null`). Saying "and end the call" in `instructions`
+has no effect on its own — it must be backed by an `exit_path` with
+the right `type`. An interrupt that should terminate the call uses
+`type: "exit"`, not `type: "return_to_caller"`.
 
 ---
 
@@ -252,6 +284,23 @@ Phrases like "during the call", "at any point", "at any time", or
 Only set `scope` on interrupt flows. Omit it on happy / sad / off /
 utility flows — it's meaningless there.
 
+If the source has an FAQ block, populate `agent.knowledge.faq` AND
+add a global interrupt that fires when the user asks a covered
+question — the data without the interrupt means the runtime has no
+trigger to consult it. The interrupt's `instructions` should be one
+sentence ("answer using `agent.knowledge.faq`, then return to the
+caller").
+
+Keep interrupts caller-agnostic. The interrupt's `instructions`
+describe what *it* does, not how each possible caller should resume
+afterward. `return_to_caller` hands control back; the caller flow's
+own `instructions` and `scripts` decide how it picks up. Don't
+branch on "if the prior step was X, ask Y" inside the interrupt —
+that logic belongs in the caller. Per-caller resumption phrasing
+("introduction resumes with s_resume_v1..v4, negotiation resumes
+with '¿Tienes más preguntas?'") couples the interrupt to its
+callers and breaks reuse, even when phrased as a hint.
+
 GUARDRAILS
 
 Cross-cutting rules go in `agent.guardrails`. Flow-specific rules go
@@ -277,6 +326,25 @@ DON'T OVER-SPECIFY
 Underspecified is better than speculative. Emit a field only when
 the source warrants it.
 
+- flows: spec authoring is progressive — start at the coarsest level
+  that captures the real seams in the source, and let the user
+  decompose further on the canvas. Your output is a scaffold to
+  build on, not a finished decomposition. Default toward fewer,
+  larger flows over many small ones.
+
+  A new flow earns its keep only if at least one is true: distinct
+  routing logic (branches to multiple downstream flows), observability
+  value (a stage someone needs to assert was reached), reuse from
+  multiple callers, different guardrails, a max_turns retry budget,
+  or a distinct type. If none apply, fold the behavior into the
+  caller's exit_path.
+
+  A single-utterance terminal close ("wrong number, end call") with
+  one caller is not a flow — it's an exit_path with type: "exit" on
+  the caller, plus the closing utterance in that caller's scripts.
+  Source-document section labels (STEP 1, STEP 2, "INTRODUCTION_GREETING")
+  are author scaffolding, not flow boundaries — collapse them unless
+  a seam above actually applies.
 - max_turns: set only when the source describes a retry or loop
   budget. Don't pick numbers; don't add "default" budgets. When
   set, the flow needs an unconditional sad exit path (omit the
@@ -290,21 +358,25 @@ the source warrants it.
   "CALLBACK", "WELCOME") are typically flow-name references — the
   same syntactic register as named section headers. Treat them as
   targets for `next_flow_id`, not as capabilities to dispatch.
-  `description`, `inputs`, and `outputs` are all optional — emit
-  only what the source warrants. Omit `outputs` for fire-and-forget
-  side effects (a CRM write that returns nothing usable). `name` is
-  the runtime dispatch identifier (snake_case, author-controlled,
-  stable across spec edits); `id` is an editor-side handle for
-  cross-references inside this spec. The two can match.
+  `description` is required (one short sentence on when/why it's
+  used). `inputs` and `outputs` are optional — omit `outputs` for
+  fire-and-forget side effects (a CRM write that returns nothing
+  usable). `name` is the runtime dispatch identifier (snake_case,
+  author-controlled, stable across spec edits); `id` is an
+  editor-side handle for cross-references inside this spec. The
+  two can match.
 - guardrails: emit only guardrails the source actually states or
   strongly implies. If you must infer one, prefix the statement
   with "[INFERRED] ..." so the user can review it.
-- knowledge.faq / knowledge.glossary: do not invent entries.
-  Include only what's explicitly in the source. `glossary` and
-  `tables` are agent-level only. `faq` exists at both agent and
-  flow level — put an entry on a flow only if it's specific to that
-  flow and would travel with it on reuse; otherwise put it on the
-  agent.
+- knowledge.faq / knowledge.glossary: do not invent entries, but
+  do transcribe every entry the source provides — verbatim, not
+  paraphrased or sampled. If the source has 49 FAQ entries, the
+  spec has 49 entries with their full answer text in the original
+  language. Loss of FAQ content is a bug, not a simplification.
+  `glossary` and `tables` are agent-level only. `faq` exists at
+  both agent and flow level — put an entry on a flow only if it's
+  specific to that flow and would travel with it on reuse;
+  otherwise put it on the agent.
 
 ---
 
@@ -317,6 +389,38 @@ source said>]" so the user sees it and resolves it on the canvas.
 Behavioral instructions in non-obvious locations (comments, footnotes,
 rows below active content) — place them in the appropriate field
 regardless of where they appeared in the source.
+
+Source documents often use ALL-CAPS section labels
+("DATE_CALCULATIONS_RULES", "USER_BUSY_EXAMPLES",
+"FAQ_ENDING_QUESTION_VARIATIONS") and ALL-CAPS emphasis ("MANDATORY
+VERIFICATION", "MUST", "ALWAYS", "STEP 1", "CRITICAL"). Both are
+scaffolding for the source author, not part of the spec. When
+carrying that prose into `instructions`, lowercase references to
+match actual flow ids ("after the introduction flow") or inline the
+contents ("if the user is busy ('ahorita estoy trabajando',
+'voy manejando', etc.) → ..."), and rewrite emphasis as plain prose
+("verify the date before responding", not "MANDATORY VERIFICATION
+BEFORE RESPONDING"). ALL CAPS in your output is a tell that you
+copied source scaffolding verbatim instead of resolving it.
+
+---
+
+PRESERVE SOURCE CONTENT
+
+Compression is fine for `instructions` prose. Loss of source content
+isn't.
+
+- Named behavioral handlers — any case the source describes with
+  distinct trigger and response (e.g., "if the user says they
+  already spoke to someone, do X", "if the user disputes the due
+  date, do Y", "if safety concern, do Z") — each becomes its own
+  flow or interrupt. The granularity rule above applies to
+  utterance-label closes, not to behavioral handlers like these.
+- Domain terms the source defines or refers to repeatedly belong in
+  `knowledge.glossary` even if the source has no labeled "glossary"
+  section.
+- Variables that any script or instruction references must be
+  declared in `agent.variables` (or the flow's `variables`).
 
 ---
 
