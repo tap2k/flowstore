@@ -43,13 +43,15 @@ Start a session. Returns a session id + the agent's opening turn (if `chatbot_in
   "spec": { /* full v0 spec JSON */ },
   "api_key": "AIza...",
   "model": "gemini-2.5-flash",
-  "language": "es-MX"
+  "language": "es-MX",
+  "context_vars": { "customer_name": "Maria Lopez", "loan_amount": 5000 }
 }
 ```
 - `spec` — optional. If omitted, the runner falls back to its env-default spec (`UXFLOWS_SPEC_PATH`). The editor always sends one.
 - `api_key` — **optional**. Google AI Studio key (NOT a service-account JSON). The runner uses it for this session only and forgets it on disconnect. **If omitted**, the runner falls back to its env service-account credentials (Vertex) — same auth voice mode uses. So designers without an AI Studio key can still simulate locally if the runner has GCP creds; designers without GCP creds can BYOK to use AI Studio's free tier.
 - `model` — optional; runner default if omitted (`gemini-2.5-flash` for AI Studio, `UXFLOWS_LLM_MODEL` for Vertex fallback).
 - `language` — optional; falls back to `agent.meta.languages[0]`.
+- `context_vars` — optional. Test values seeded into the dispatcher's variable bag at session start. Used both for `{KEY}` placeholder substitution in the composed system prompt (case-insensitive; unfilled placeholders stay as `{KEY}` literal) AND as initial values readable by routing conditions / capability inputs. NOT emitted as `variable_set` events (those are for exit-path-fired assigns). Designers iterating on a spec with placeholders use this to test under realistic conditions without hard-coding values into the spec text.
 
 **Response:**
 ```json

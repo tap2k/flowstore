@@ -6,6 +6,7 @@ import { EdgeInspector } from "@/components/inspector/EdgeInspector";
 import { ImportExportToolbar } from "@/components/toolbar/ImportExport";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
 import { ChatPanel } from "@/components/chat/ChatPanel";
+import { SimulatePanel } from "@/components/runtime/SimulatePanel";
 import { useSpecStore } from "@/lib/store/spec";
 import {
   clearSavedSpec,
@@ -19,9 +20,11 @@ export default function Home() {
   const spec = useSpecStore((s) => s.spec);
   const setSpec = useSpecStore((s) => s.setSpec);
   const apiKey = useSettingsStore((s) => s.googleApiKey);
+  const runnerUrl = useSettingsStore((s) => s.runnerUrl);
   const [hydrating, setHydrating] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [simulateOpen, setSimulateOpen] = useState(false);
 
   useEffect(() => startSpecPersistence(), []);
 
@@ -89,15 +92,26 @@ export default function Home() {
         <main className="flex flex-1 min-h-0">
           <div className="relative flex-1 min-w-0">
             <Canvas />
-            {apiKey && !chatOpen && (
-              <button
-                onClick={() => setChatOpen(true)}
-                className="absolute top-3 right-3 z-10 flex items-center gap-1.5 rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white shadow-md hover:bg-zinc-700"
-              >
-                <ChatIcon />
-                Chat
-              </button>
-            )}
+            <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+              {spec && runnerUrl && !simulateOpen && (
+                <button
+                  onClick={() => setSimulateOpen(true)}
+                  className="flex items-center gap-1.5 rounded-full bg-white border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
+                >
+                  <SimulateIcon />
+                  Simulate
+                </button>
+              )}
+              {apiKey && !chatOpen && (
+                <button
+                  onClick={() => setChatOpen(true)}
+                  className="flex items-center gap-1.5 rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white shadow-md hover:bg-zinc-700"
+                >
+                  <ChatIcon />
+                  Chat
+                </button>
+              )}
+            </div>
           </div>
           <FlowInspector />
           <EdgeInspector />
@@ -106,6 +120,14 @@ export default function Home() {
             onClose={() => setChatOpen(false)}
             onOpenSettings={() => {
               setChatOpen(false);
+              setSettingsOpen(true);
+            }}
+          />
+          <SimulatePanel
+            open={simulateOpen}
+            onClose={() => setSimulateOpen(false)}
+            onOpenSettings={() => {
+              setSimulateOpen(false);
               setSettingsOpen(true);
             }}
           />
@@ -120,6 +142,14 @@ function ChatIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function SimulateIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polygon points="5 3 19 12 5 21 5 3" />
     </svg>
   );
 }

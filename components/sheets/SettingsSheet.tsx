@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { SheetShell } from "./SheetShell";
-import { useSettingsStore } from "@/lib/store/settings";
+import { useSettingsStore, DEFAULT_RUNNER_URL } from "@/lib/store/settings";
 import { GOOGLE_MODELS } from "@/lib/llm/dispatch";
 
 interface SettingsSheetProps {
@@ -12,13 +12,17 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   const setGoogleApiKey = useSettingsStore((s) => s.setGoogleApiKey);
   const storedModel = useSettingsStore((s) => s.googleModel);
   const setGoogleModel = useSettingsStore((s) => s.setGoogleModel);
+  const storedRunnerUrl = useSettingsStore((s) => s.runnerUrl);
+  const setRunnerUrl = useSettingsStore((s) => s.setRunnerUrl);
   const [value, setValue] = useState(stored);
   const [model, setModel] = useState(storedModel);
+  const [runnerUrl, setRunnerUrlInput] = useState(storedRunnerUrl);
   const [reveal, setReveal] = useState(false);
 
   function save() {
     setGoogleApiKey(value.trim());
     setGoogleModel(model);
+    setRunnerUrl(runnerUrl);
     onClose();
   }
 
@@ -77,6 +81,27 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
             </option>
           ))}
         </select>
+      </div>
+      <div className="space-y-2 pt-3">
+        <label className="text-xs font-medium text-zinc-700">Runner URL</label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={runnerUrl}
+            onChange={(e) => setRunnerUrlInput(e.target.value)}
+            placeholder={DEFAULT_RUNNER_URL}
+            className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400"
+          />
+          <button
+            onClick={() => setRunnerUrlInput(DEFAULT_RUNNER_URL)}
+            className="rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100"
+          >
+            reset
+          </button>
+        </div>
+        <p className="text-[11px] text-zinc-500">
+          Required for Simulate. Default is local.
+        </p>
       </div>
       <div className="flex items-center justify-end gap-2 pt-2">
         <button

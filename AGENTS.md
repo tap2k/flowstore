@@ -42,7 +42,8 @@ The canvas is the canonical editing surface. Text views are entry and export onl
 - **Canvas + inspectors + sheets** — the only place users edit graph structure. Round-trips with the JSON store.
 - **Declarative text import** — paste structured input (JSON or YAML matching the schema). Mechanical parse, no LLM. Used both by humans hand-authoring and as the entry point for upstream parsers' output. [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) produces v0 JSON the user pastes here.
 - **Imperative text import** — paste free-form source: an analyst's script, a process doc, a system prompt, supporting docs. An LLM converts it directly to v0 JSON in one shot, schema-constrained.
-- **Export as JSON** — current behavior. The exported file is the same shape the declarative import accepts; round-trip preserves the spec.
+- **Export as JSON** — the exported file is the same shape the declarative import accepts; round-trip preserves the spec.
+- **Export as system prompt** — deterministic codegen ([lib/codegen/promptGenerator.ts](./lib/codegen/promptGenerator.ts)) that flattens the spec into a single monolithic system prompt. For copy-paste into non-runner runtimes (OpenAI, Claude, Voiceflow, etc.); the runner consumes the JSON directly.
 
 ## Tech Stack
 
@@ -59,7 +60,7 @@ Don't add infrastructure before the need. The design doc's MVP discipline is the
 - **Routing lives on functions, not edges.** Edges in the canvas are derived from function metadata (`next_node_id` / `decision`), never persisted as standalone entities. Maps cleanly onto our `routing.exit_paths`.
 - **Decisions as visualization-helper nodes.** Inline decision nodes render on the canvas but persist as metadata on the parent function, not as separate graph nodes. Keeps the schema clean while giving users the visual they expect.
 - **Ajv + TypeBox validation pipeline** (`lib/validation/`) — two layers: schema validation, then custom graph rules (unique IDs, valid references).
-- **Codegen structure** (`lib/codegen/pythonGenerator.ts`) — clean separation of schema-walking from code-emitting.
+- **Codegen structure** (`lib/codegen/promptGenerator.ts` today; future targets like Pipecat/LiveKit follow the same pattern) — pure functions that walk the schema and emit a string. No LLM.
 - **Schema-driven inspector form pattern** (`components/inspector/forms/`) — one form component per schema shape.
 - **Local-first persistence** — autosave to `localStorage`, debounced. No server calls. Good model for our MVP.
 
@@ -79,11 +80,15 @@ Directional, not prescriptive. Most of this is not built yet.
   /schema/          TypeBox schema definitions mirroring SCHEMA.md
   /store/           zustand stores
   /validation/      Ajv validators + graph rules
-  /codegen/         export targets (UX4 JSON first; later Pipecat, LiveKit, etc.)
+  /codegen/         export targets (system prompt today; later Pipecat, LiveKit, etc.)
+                    /__fixtures__/ paired spec.json + expected.txt for snapshot iteration
   /examples/        sample specs for development and "Load Example"
+/scripts/           dev-only CLIs (preview-prompt.ts renders a spec to stdout)
 /styles/            globals.css, Tailwind
 /public/
 ```
+
+To iterate on a codegen target: edit the generator, re-run `npx tsx scripts/preview-prompt.ts <fixture-or-other-spec>.json`, diff against the saved fixture output.
 
 ## Design Principles
 
