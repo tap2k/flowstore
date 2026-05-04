@@ -1,14 +1,14 @@
 # Simulate Plan — text chat against the runner
 
-How to wire the editor to [`uxflows-runner`](../uxflows-runner/) so a designer can talk to the spec they're authoring without setting up the voice/STT/TTS stack. Text-only, BYOK Gemini, localhost.
+How to wire the editor to [`uxflows-runner`](../uxflows-runner/) so a designer can talk to the spec they're authoring without setting up the voice/STT/TTS stack. Text-only, BYOK Gemini (or env-fallback), localhost.
 
-This is the v0.5 "text chat testing UI" that [RUNNER-PLAN.md](../uxflows-runner/RUNNER-PLAN.md) defers ("Out of scope for v0"). Bringing it forward because we don't have GCP service-account / TTS credentials locally and voice is unshippable without them.
+Originally the v0.5 "text chat testing UI" that [RUNNER-PLAN.md](../uxflows-runner/RUNNER-PLAN.md) deferred ("Out of scope for v0"). Brought forward because we don't have GCP service-account / TTS credentials universally available and voice is unshippable without them.
 
-Two repos change:
-- **`uxflows-runner/`** — new text I/O adapter wrapping the existing dispatcher. Owned by a sibling Claude Code session. See "[Runner-side guidance](#runner-side-guidance-for-a-uxflows-runner-claude-code-session)" below.
-- **`uxflows/`** (this repo) — new `SimulatePanel` that POSTs the live spec to the runner and streams turns. See "[Editor-side changes](#editor-side-changes-this-repo)".
+**Status (2026-05-04):**
+- ✅ **Runner side shipped** as [Phase 1.5](../uxflows-runner/RUNNER-PLAN.md#phase-15--text-io-adapter--shipped-2026-05-04). Endpoints live at `localhost:8000/api/chat/{session,turn,end}`. A standalone debug page exists at `localhost:8000/text.html` for headless testing without the editor.
+- 🟡 **Editor side pending** — see "[Editor-side changes](#editor-side-changes-this-repo)" below.
 
-The two contracts that bind them are pinned in "[Wire protocol](#wire-protocol)". Nail those first; both sides can build in parallel after.
+The two contracts that bind them are pinned in "[Wire protocol](#wire-protocol)" — that section is the live API contract; the runner already implements it.
 
 ---
 
@@ -46,8 +46,9 @@ Start a session. Returns a session id + the agent's opening turn (if `chatbot_in
   "language": "es-MX"
 }
 ```
-- `api_key` — Google AI Studio key (NOT a service-account JSON). The runner uses it for this session only and forgets it on disconnect.
-- `model` — optional; runner default if omitted.
+- `spec` — optional. If omitted, the runner falls back to its env-default spec (`UXFLOWS_SPEC_PATH`). The editor always sends one.
+- `api_key` — **optional**. Google AI Studio key (NOT a service-account JSON). The runner uses it for this session only and forgets it on disconnect. **If omitted**, the runner falls back to its env service-account credentials (Vertex) — same auth voice mode uses. So designers without an AI Studio key can still simulate locally if the runner has GCP creds; designers without GCP creds can BYOK to use AI Studio's free tier.
+- `model` — optional; runner default if omitted (`gemini-2.5-flash` for AI Studio, `UXFLOWS_LLM_MODEL` for Vertex fallback).
 - `language` — optional; falls back to `agent.meta.languages[0]`.
 
 **Response:**
@@ -106,138 +107,35 @@ Mirror [`uxflows-runner/src/uxflows_runner/events/schema.py`](../uxflows-runner/
 
 ---
 
-## Runner-side guidance (for a `uxflows-runner` Claude Code session)
+## Runner-side — shipped (Phase 1.5, 2026-05-04)
 
-Hand this section to the runner-repo Claude. The editor team is working from "[Editor-side changes](#editor-side-changes-this-repo)" in parallel against the contract above.
+The runner-side work landed. Editor side reads the contract in [§"Wire protocol"](#wire-protocol) and ignores the rest of this section unless debugging.
 
-### What you're building
+### What's live in [`uxflows-runner/`](../uxflows-runner/)
 
-A text I/O adapter for the existing dispatcher. Same `Session`, same `routing.plan`/`resolve`, same assigns/capabilities/event emission. Just no Pipecat audio pipeline — instead, you make a direct LLM call per turn using the user's BYOK Gemini API key.
+- **Endpoints** at `localhost:8000`: `POST /api/chat/session`, `POST /api/chat/turn`, `POST /api/chat/end`. Implemented in [`src/uxflows_runner/server/app.py`](../uxflows-runner/src/uxflows_runner/server/app.py).
+- **`TextSession`** ([`server/text_session.py`](../uxflows-runner/src/uxflows_runner/server/text_session.py)) — per-session adapter wrapping the existing dispatcher `Session`. Constructs `LLMContext` and Pipecat's LLM service standalone (no pipeline). Per turn: one `generate_content` call, parses text + function_calls from response parts, dispatches via `apply_tool_call`, runs a follow-up inference inline for `trigger_interrupt`/`return_to_caller` (the same Gemini quirk voice mode handles via `LLMRunFrame`).
+- **`TextSessionRegistry`** ([`server/text_registry.py`](../uxflows-runner/src/uxflows_runner/server/text_registry.py)) — in-memory dict keyed by `session_id`, idle GC sweeper drops sessions inactive >30 min.
+- **Refactor**: extracted [`apply_tool_call(session, tool_name, args) → Decision`](../uxflows-runner/src/uxflows_runner/dispatcher/processor.py) from the Pipecat tool handlers in `processor.py`. Voice handlers are now 3-line wrappers around it. Text mode calls it directly. Voice behavior is byte-identical (existing tests still pass).
+- **`BufferingEventEmitter`** ([`events/emitter.py`](../uxflows-runner/src/uxflows_runner/events/emitter.py)) — sibling to `LoggingEventEmitter`/`QueueEventEmitter`. `TextSession.drain_events()` returns and clears the buffer, so the JSON response carries events inline.
+- **Standalone debug page** at `localhost:8000/text.html` ([`web/text.html`](../uxflows-runner/web/text.html) + `text.js` + `text.css`). Mirrors the voice page (`/`) and the bare-audio debug page (`/audio-test.html`). Useful for headless testing of the runner without the editor.
+- **Tests** at [`tests/test_text_session.py`](../uxflows-runner/tests/test_text_session.py) — 6 e2e tests with mocked `_run_inference` against `examples/coffee.json` (opening turn, take_exit_path with assigns, plain reply, terminal exit, idempotent end, context-history shape). 86/86 total passing.
 
-You are NOT adding canvas-highlighting SSE or persistence. Just the two endpoints in "[Wire protocol](#wire-protocol)" above (plus `/api/chat/end`).
+### Key decisions resolved during shipping
 
-### Critical context to read first
+- **Path A confirmed.** `GoogleLLMService` (the AI Studio variant, not Vertex) accepts a plain `api_key` in its constructor; `LLMContext` constructs standalone with no pipeline plumbing. Both probed in [`scripts/probe_text_mode.py`](../uxflows-runner/scripts/probe_text_mode.py) before any code. The Gemini adapter's `get_llm_invocation_params(context)` does the full `ToolsSchema → function_declarations` translation for free, so text mode shares Pipecat's tool-format conversion with voice mode unchanged. **No Path B fallback needed.**
+- **`api_key` is optional in the request.** If provided → `GoogleLLMService` (BYOK AI Studio). If omitted → `GoogleVertexLLMService` against env service-account credentials (same auth voice mode uses). So local dev needs zero new credentials when the runner has GCP creds; the editor's BYOK flow works for designers without them. This is a strict superset of the original SIMULATE-PLAN contract — adding `api_key` always works, and omitting it just means "use the runner's defaults."
+- **`apply_tool_call` is the framework-agnostic seam.** Voice handlers wrap it with Pipecat's `result_callback` + `LLMRunFrame` follow-up; text mode calls it directly with a second `generate_content_async` for the follow-up. **Both modes share the dispatch logic; only the I/O wiring differs.** Made the dispatcher's framework-agnostic boundary concrete.
 
-In order:
-1. `RUNNER-PLAN.md` §"One LLM call per turn", §"Pipecat wiring", §"Out of scope for v0" (the v0.5 text-chat bullet) — this is the deferred work landing now.
-2. `src/uxflows_runner/dispatcher/processor.py` — the *whole file*. The text adapter has to do what `PreLLMPlanner` + tool handlers + `PostLLMResolver` do today, but driven from a plain `await llm.generate(...)` call instead of frame events.
-3. `src/uxflows_runner/dispatcher/session.py`, `routing.py`, `assigns.py`, `prompt_builder.py` — these are framework-agnostic and you reuse them as-is.
-4. `src/uxflows_runner/server/app.py` — where the new endpoints land.
+### Known runner-side limitations
 
-### The architectural question to resolve before coding
+- **Walkaway gap** carried over from voice — Gemini sometimes responds to a graceful goodbye with text only and no `take_exit_path`, leaving the session "live" until idle GC. Same trade-off as voice; not text-specific. The Reset button in the editor handles this in practice.
+- **Sometimes-silent take_exit turns** — observed live: a clean tool call (e.g. routing into `flow_coffee_order`) can come back with `agent_text == ""`. The state mutation is correct; the model just decided the routing is itself the response. Not a bug introduced by Phase 1.5; same Gemini behavior the voice path lives with. Mostly the *next* turn fills in any silence.
+- **No SSE / streaming** — turn endpoint is request/response by design (one LLM call per turn). When the editor wants out-of-band capability returns later, this becomes the natural place to add SSE.
 
-`Session` requires an `LLMContext` (Pipecat type). Tool handlers are registered on `LLMService` (Pipecat). You have two paths:
+### Whatsupp2 integration deliberately not built
 
-**Path A — keep Pipecat's `LLMContext` and `GoogleVertexLLMService`, drive it without a pipeline.** Construct `LLMContext` standalone (it's mostly a list of message dicts). Construct `GoogleVertexLLMService` configured with the BYOK key. Call its inference method directly per turn. Tool callbacks still fire through `register_function` → your existing handlers in `processor.py` work unchanged.
-
-  - **Pro:** maximum code reuse. The handlers in `processor.py` work as-is. Decision precedence, follow-up `LLMRunFrame` for interrupts, the `tool_handler_fired_this_turn` flag, the `PostLLMResolver` backstop logic — all reusable.
-  - **Con:** Pipecat's `GoogleVertexLLMService` is built for service-account auth and pipeline frame ingress. Driving it standalone with an API key may require monkey-patching or constructing it in an unsupported way. Probe this first — spend an hour with `scripts/probe_text_mode.py` exercising the constructor + a single inference call before committing.
-
-**Path B — bypass Pipecat for text, call `google-generativeai` directly.** Build a tiny `text_dispatch.py` that:
-  - Takes the message history, system prompt, and `ToolsSchema` from `prompt_builder.build_tools(plan)`.
-  - Translates the `ToolsSchema` to Gemini's native `tool_config` / `function_declarations` format. (Pipecat's adapter does this in `pipecat/services/google/llm.py`; you can lift the translation logic.)
-  - Calls `google.generativeai.GenerativeModel(...).generate_content_async(...)` with `tool_config={"function_calling_config": {"mode": "AUTO"}}`.
-  - Walks `candidate.content.parts` (parts ordering not guaranteed — see RUNNER-PLAN §"Gemini tool-call shape") to collect text + function calls.
-  - Calls into `routing.resolve()` directly with the collected tool args, skipping Pipecat's `register_function` machinery entirely. Reimplement the `_apply_decision`-equivalent logic in plain Python (it's ~80 LOC in `processor.py`).
-
-  - **Pro:** clean, no Pipecat surface area in the text path. Text mode and voice mode share *only* the dispatcher core (which is the right boundary per RUNNER-PLAN §"Dispatcher must stay framework-agnostic").
-  - **Con:** duplicates the decision-application logic from `processor.py` (`_do_take_exit`, `_do_trigger_interrupt`, `_do_return_to_caller`, the follow-up `LLMRunFrame` equivalent which becomes a second `generate_content_async` call). ~150-200 LOC of new code. Risk of drift between the two paths' event emission and state mutation.
-
-**Default to Path A.** Reasoning: the two paths' decision logic *must* stay identical or you'll get spec behavior that differs between sim and prod, which is exactly what RUNNER-PLAN §"Why a runner at all" set out to avoid. A is more invasive to Pipecat's surface but keeps one source of truth. Spend the probe budget *first* — if `GoogleVertexLLMService` genuinely cannot be driven standalone with an API key, fall back to B and pay the duplication tax with eyes open.
-
-A third path nobody should pick: refactor the existing handlers to take an injected `apply_decision` function, then call them from both contexts. Sounds clean, ends up being a maze. The handlers are tightly coupled to `FunctionCallParams` and `result_callback`. Don't.
-
-### Suggested module layout
-
-```
-src/uxflows_runner/server/
-  text_session.py    # NEW. The TextSession class — see below.
-  app.py             # MODIFIED. Three new endpoints.
-```
-
-**Why not put text_session under `dispatcher/`?** It's an I/O adapter — same layer as `processor.py` (Pipecat) and `pipeline.py`. The dispatcher core stays framework-agnostic; adapters live next to the server.
-
-### `TextSession` — the per-session object
-
-```python
-class TextSession:
-    """Text adapter wrapping a dispatcher Session.
-
-    One per /api/chat/session call. Lives in an in-memory registry keyed by
-    session_id. GC'd by an idle timer (no activity for 30 min → drop).
-    """
-
-    session: Session                      # the existing dispatcher Session
-    llm: LLMService                       # Path A: GoogleVertexLLMService configured with BYOK key
-                                          # Path B: a thin wrapper over google.generativeai
-    event_buffer: list[Event]             # events emitted since last drain
-    last_active_at: datetime
-    ended: bool
-
-    @classmethod
-    async def start(cls, spec, api_key, model, language) -> tuple["TextSession", str]:
-        """Construct, run session_started + flow_entered, run the opening
-        agent turn if chatbot_initiates. Returns (self, opening_agent_text)."""
-
-    async def turn(self, user_text: str) -> str:
-        """Append user_text to context, run one inference, resolve tool calls,
-        apply decisions, fire follow-up if needed (interrupts), return
-        agent_text. Drains event_buffer to caller via drain_events()."""
-
-    def drain_events(self) -> list[Event]:
-        """Return + clear the buffered events."""
-
-    async def end(self) -> None:
-        """Idempotent. Emit session_ended if not already ended."""
-```
-
-Use a `BufferingEventEmitter` (new — sibling to `LoggingEventEmitter` in `events/emitter.py`) that appends to a list. `TextSession.drain_events()` swaps in a fresh list and returns the old one.
-
-### The session registry
-
-```python
-# In server/app.py or a new server/text_registry.py
-_sessions: dict[str, TextSession] = {}
-
-async def cleanup_idle_sessions():
-    """Run every 5 min via FastAPI startup task. Drop sessions inactive >30 min."""
-```
-
-Single-process, in-memory. Single-user localhost is the deployment model — no Redis, no DB. If concurrency between turns matters (it shouldn't with one tab), wrap each session's `turn()` in an `asyncio.Lock`.
-
-### Gemini call mechanics (Path A specifics)
-
-Even with Path A, `GoogleVertexLLMService` was built for service-account / Vertex auth. For BYOK AI Studio keys, you likely want `GoogleLLMService` instead (or the service-account-free path of whichever class supports `api_key=...`). Probe the constructor signatures in `pipecat/services/google/llm.py` to confirm.
-
-If neither Pipecat class accepts a plain API key cleanly, that's the signal to fall back to Path B — but document the discovery in RUNNER-PLAN's "Phase 1.5 — text adapter" section so the next person doesn't repeat the probe.
-
-### The follow-up inference for interrupts (Path A)
-
-Today `processor.py` pushes `LLMRunFrame()` after `trigger_interrupt` / `return_to_caller` to coax Gemini into producing text. In text mode there's no frame pipeline — you just call the LLM a second time within the same `turn()`, with the new flow's prompt + tools already loaded into the context. Same logic, no frame.
-
-For Path B, this is just a second `generate_content_async` call. Same cost characteristics noted in RUNNER-PLAN §"Live-test follow-up".
-
-### Walkaway gap
-
-Documented in RUNNER-PLAN §"Live-test follow-up". Not yours to fix. If a session "ends" in spec-terms but the LLM didn't fire `take_exit_path`, `ended` stays `false`; the user can keep typing; eventually they'll drop the tab. That's acceptable for v0.5.
-
-### Tests
-
-- Wire up an end-to-end test: load `examples/coffee.json`, start a session, send 3-4 turns through the happy path, assert `agent_text` is non-empty and the right events fire (`flow_entered`, `exit_path_taken`, `variable_set`).
-- Mock the LLM call (Path A: stub `LLMService.run_function_calls` invocation; Path B: stub `generate_content_async`) so the test doesn't need network. Existing tests in `tests/test_routing.py` etc. show the mocking style.
-- Don't add a separate "text-mode dispatcher" test suite. The dispatcher tests (already 80 passing) cover the cognitive layer; new tests just exercise the text wiring.
-
-### What to update in `RUNNER-PLAN.md`
-
-After shipping, add a "Phase 1.5 — text adapter" section between Phase 1 and Phase 2 in §"Work chunks". Note the path you took (A vs B), why, and any Gemini-API-key surprises. Move the v0.5 text-chat bullet from §"Out of scope" into the new phase.
-
-### What NOT to do
-
-- **Do not** add SSE / WebSocket. Request/response only.
-- **Do not** persist sessions to disk. In-memory dict.
-- **Do not** add a `/api/chat/list_sessions` or any introspection endpoint — single user, single tab, you don't need it.
-- **Do not** try to share the `LLMContext` between voice and text in the same session. They're separate sessions even if they happen to load the same spec.
-- **Do not** generalize the BYOK plumbing yet. One provider (Google), one auth model (API key). Multi-provider is a separate ask.
+The runner's sessioned shape doesn't match `callAgent`'s stateless contract; making it work needs a session-aware `callAgent` in whatsupp2, not a stateless shim in the runner (which would silently drift on any spec with assigns/transitions). See [§"Future: whatsupp2 integration"](#future-whatsupp2-integration) below for the full reasoning. The runner endpoints above are what whatsupp2 will eventually call when that work lands; no runner-side change needed.
 
 ---
 
@@ -348,11 +246,13 @@ Two button slots in the canvas overlay area (top-right corner today holds the Ch
 
 The two panels can be open simultaneously (Chat on the right of the canvas, Simulate further right) or stacked — pick stacked-then-replace if width gets cramped. Don't over-design this; ship side-by-side, see how it feels.
 
-Hide the Simulate button when no spec is loaded (existing pattern: the Chat button hides when there's no API key — apply the same gate plus "spec exists").
+Hide the Simulate button when no spec is loaded. Unlike the Chat button, **don't** gate Simulate on the API key being present — the runner accepts an empty key and falls back to its env credentials. Just gate on "spec exists."
 
 ### Settings
 
-The runner uses the same Google API key the chat panel already uses (`useSettingsStore.googleApiKey`). No new settings field. Note in the empty-state copy that the key is sent to your local runner, not Google directly, and that the runner forgets it on disconnect.
+The runner accepts the same Google API key the chat panel already uses (`useSettingsStore.googleApiKey`). No new settings field. **Send the key when present, omit when not** — the runner falls back to its own env service-account credentials. The empty-state copy should note both:
+- "Paste your AI Studio key in Settings to use your own quota, or leave it blank — the runner will use its local Google Cloud credentials if it has them configured."
+- "Either way, the key is sent only to your local runner, never to Google directly. The runner forgets it on disconnect."
 
 ### What about model selection?
 
@@ -366,13 +266,14 @@ Before `start()`: run `validateSpec(spec)` (existing). If invalid, show errors i
 
 ## Open questions
 
-These should be resolved before or during implementation, not after:
+Mostly resolved during runner-side shipping; remaining ones are editor-side calls.
 
-1. **Does `GoogleVertexLLMService` (or `GoogleLLMService`) accept a plain AI Studio API key?** This decides Path A vs B for the runner. Probe before code.
-2. **Where do capability HTTP calls go in text mode?** Same `execution.json` as voice mode? The dispatcher's `CapabilityDispatcher` is shared — yes, same. But: in text mode the editor is the spec source, and `execution.json` lives on the runner's filesystem. Designers iterating on a spec in the editor can't easily edit `execution.json` on the runner. Punt: capabilities can return whatever the configured endpoints return, or no-op if unconfigured. Don't try to plumb editor → runner capability config in v0.5.
+1. ~~**Does `GoogleVertexLLMService` (or `GoogleLLMService`) accept a plain AI Studio API key?**~~ ✅ Resolved during the probe — `GoogleLLMService` accepts `api_key=` cleanly, and the runner ships Path A. Editor doesn't need to think about this.
+2. **Where do capability HTTP calls go in text mode?** Same `execution.json` as voice mode — the runner's `CapabilityDispatcher` is shared. In text mode the editor is the spec source but `execution.json` lives on the runner's filesystem; designers iterating on a spec in the editor can't easily edit it. Punt for v0.5: capabilities return whatever the configured endpoints return, or no-op if unconfigured. Don't try to plumb editor → runner capability config yet.
 3. **What's the runner URL discovery story?** Hardcode `localhost:8000` in `textClient.ts`. RUNNER-PLAN §"Open questions" already acknowledges this is the v0 stance. If the runner port changes, change the constant. Setting comes later.
 4. **CORS for editor → runner.** The runner already has wide-open CORS in `app.py` (`allow_origins=["*"]`). No change needed.
 5. **What if the runner isn't running?** `fetch()` throws `TypeError: Failed to fetch` (Chrome) / similar (Firefox). Show "Runner unreachable at localhost:8000 — start it with `cd ../uxflows-runner && uv run uxflows-runner serve`" in the error state. Don't try to detect-and-launch.
+6. **Do designers need to enter an API key, or use the runner's env credentials?** The runner accepts both: `api_key` is now optional in `/api/chat/session`. Editor can keep the BYOK flow (preferred — designer's own quota, no shared infra) but fall back gracefully if the field is empty: pass nothing, let the runner's env auth handle it. The empty-state copy should mention both modes ("paste your AI Studio key, or leave blank to use the runner's local credentials").
 
 ---
 
@@ -380,7 +281,7 @@ These should be resolved before or during implementation, not after:
 
 A designer with `uv run uxflows-runner serve` going in another terminal:
 1. Loads `public/example.json` in the editor.
-2. Pastes their Google AI Studio key into Settings.
+2. Pastes their Google AI Studio key into Settings — or leaves it blank if the runner has GCP env credentials.
 3. Clicks Simulate.
 4. Sees the agent's opening turn appear within ~3s.
 5. Types a few turns, gets coherent replies that follow the spec's flows.
@@ -391,3 +292,46 @@ A designer without the runner running:
 1. Clicks Simulate, gets the "Runner unreachable" message with the run command.
 
 The walkaway-gap rough edge from RUNNER-PLAN §"Live-test follow-up" still applies — if the spec ends with a graceful goodbye that Gemini treats as text-only, the session won't auto-end. Acceptable; document in the panel's Reset hover ("ends the current session, even if the agent didn't").
+
+---
+
+## Future: whatsupp2 integration
+
+The endpoints SIMULATE-PLAN ships (`/api/chat/session` + `/api/chat/turn`) are *also* the API whatsupp2's agent-testing loop will eventually call when the runner becomes the canonical "agent under test." This section documents that intent and — more importantly — why it's **not** blocking work for SIMULATE-PLAN, and why no compatibility shim should be added on the runner side to make it look closer.
+
+### The shape mismatch
+
+[`whatsupp2/hooks/simulate.js`](../whatsupp2/hooks/simulate.js)'s [`callAgent({agentConfig, messages, persona, apiKeys})`](../whatsupp2/hooks/simulate.js#L63) is **stateless** — every call ships the full transcript and gets `{content}` back. The function is pure of session state; the transcript IS the conversation. That's what every external agent endpoint looks like (OpenAI's API, anyone's chatbot endpoint), and it's the contract `execution.endpoint` was designed for ([`AGENT-CLAUDE.md` L42-43](../whatsupp2/AGENT-CLAUDE.md)).
+
+The runner's dispatcher is **stateful by design**. The flow stack, variable bag, and interrupt context are not derivable from the transcript:
+
+- "yes" on turn N can be a routing answer or an interrupt response — the state machine knows which, the transcript doesn't.
+- A `variable_set` may fire on turn 5's exit even though the user said the captured value on turn 1.
+- An interrupt push/pop looks like a digression in text but is structurally distinct in state.
+
+So a "stateless turn endpoint that re-runs the dispatcher each call from the transcript" is **semantically broken** for any non-trivial spec — same input, different routing, different assigns, sometimes different replies than the sessioned path. This would silently produce sim/prod drift, which is exactly what [RUNNER-PLAN §"Why a runner at all"](../uxflows-runner/RUNNER-PLAN.md#why-a-runner-at-all) exists to prevent. **Do not add such an endpoint to the runner**, even when asked, even with a docstring warning. The compatibility cost shows up later as evaluation findings nobody can reproduce.
+
+### Where the move has to happen
+
+To wire whatsupp2 cleanly, **`callAgent` evolves to be session-aware** — not the runner reshaping itself to look stateless:
+
+- At conversation start, call `/api/chat/session` once with the snapshot spec from `config_snapshot.spec` and the BYOK key from `apiKeys.google`. Stash `session_id` on `interview.metadata.runner_session_id` (or a dedicated column).
+- Per turn, call `/api/chat/turn { session_id, user_text }` and read `agent_text` + `events`.
+- On `ended: true`, drop the session id; the run loop terminates.
+- The `events` stream is upside — extend the evaluator to consume `exit_path_taken` / `variable_set` / `capability_invoked` once whatsupp2 cares (the [AGENT-CLAUDE.md "Pending"](../whatsupp2/AGENT-CLAUDE.md#pending) "Capability invocation evaluation" item is exactly this).
+
+This is a real contract change in whatsupp2, not a wrapper:
+- `callAgent`'s signature gains DB access (`interviewId`, `supabase`) to read/write the session id.
+- Four call sites change ([`hooks/simulate.js:117, 487, 837`](../whatsupp2/hooks/simulate.js); [`pages/api/callagent.js:25`](../whatsupp2/pages/api/callagent.js)).
+- The stateless [`pages/api/callagent.js`](../whatsupp2/pages/api/callagent.js) Chat tab — which has nowhere to persist a session id — either grows ad-hoc per-request session creation (cheap, throwaway) or stays on the existing system-prompt path (`execution.endpoint` empty). Both work.
+- New failure modes: session expiry mid-run, runner restarts, `interview_id` reuse.
+
+Estimated half-day in whatsupp2, not catastrophic — but **a whatsupp2-side decision driven by a whatsupp2-side need.**
+
+### Disposition for SIMULATE-PLAN
+
+- ✅ The runner ships the right endpoints.
+- ❌ The runner does **not** ship a stateless compatibility endpoint.
+- 🔜 The integration lands when whatsupp2 prioritizes session-aware `callAgent`. Tracked there, not blocking here.
+
+When that work starts, the runner side should need zero changes — the endpoints in [§"Wire protocol"](#wire-protocol) above are already the API whatsupp2 will call.
