@@ -228,15 +228,13 @@ Why chat over a parse modal: chat tool-calls mutate the same zustand store the i
 
 **Files (planned):** `lib/llm/{dispatch,tools,prompts}.ts`, `components/sheets/SettingsSheet.tsx`, `components/chat/ChatPanel.tsx`, `lib/store/chat.ts`.
 
-### 11. Simulate panel (text chat against the runner)
+### 11. Simulate panel (text chat against the runner) ✅ shipped 2026-05-04
 
-Editor-resident text chat against [`../uxflows-runner/`](../uxflows-runner/). BYOK Gemini, localhost runner, request/response per turn. Designer talks to the spec they're authoring without setting up the voice/STT/TTS stack.
+Editor-resident text chat against [`../uxflows-runner/`](../uxflows-runner/). BYOK Gemini, localhost runner, request/response per turn. Designer talks to the spec they're authoring without setting up the voice/STT/TTS stack. Canvas highlight (active flow ring + exit-edge pulse) reads from the simulate store directly.
 
-Sequenced: runner-side text I/O adapter ships first (lives in the runner repo); editor wires up after the contract is live.
+Runner-side contract documented in [`../uxflows-runner/RUNNER-PLAN.md` §"Phase 1.5 — text I/O adapter"](../uxflows-runner/RUNNER-PLAN.md#phase-15--text-io-adapter--shipped-2026-05-04).
 
-Full plan and contract in [SIMULATE-PLAN.md](./SIMULATE-PLAN.md).
-
-**Files (planned):** `components/runtime/SimulatePanel.tsx`, `lib/runtime/{textClient,eventTypes}.ts`, `lib/store/simulate.ts`, `pages/index.tsx` (mount).
+**Files:** [`components/runtime/SimulatePanel.tsx`](./components/runtime/SimulatePanel.tsx), [`lib/runtime/textClient.ts`](./lib/runtime/textClient.ts), [`lib/runtime/eventTypes.ts`](./lib/runtime/eventTypes.ts), [`lib/store/simulate.ts`](./lib/store/simulate.ts), with canvas read-out in [`components/canvas/FlowNode.tsx`](./components/canvas/FlowNode.tsx) + [`components/canvas/Canvas.tsx`](./components/canvas/Canvas.tsx).
 
 ---
 
