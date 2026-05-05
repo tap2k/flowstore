@@ -282,7 +282,7 @@ Mostly resolved during runner-side shipping; remaining ones are editor-side call
 ## Acceptance bar
 
 A designer with `uv run uxflows-runner serve` going in another terminal:
-1. Loads `public/example.json` in the editor.
+1. Loads `public/coffee.json` in the editor.
 2. Pastes their Google AI Studio key into Settings — or leaves it blank if the runner has GCP env credentials.
 3. Clicks Simulate.
 4. Sees the agent's opening turn appear within ~3s.

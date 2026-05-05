@@ -96,8 +96,8 @@ Ordered. Each leaves the editor strictly more complete than before.
 
 The editor becomes spec-agnostic at the end of this chunk. Biggest single unit; highest leverage.
 
-- Ship a v0-shaped sample spec at `public/example.json` (plain JSON, no TS import).
-- **Load example** button fetches `public/example.json`, validates, loads into store.
+- Ship a v0-shaped sample spec at `public/coffee.json` (plain JSON, no TS import).
+- **Load example** button fetches `public/coffee.json`, validates, loads into store.
 - **Export** serializes store → JSON → file download.
 - **Import** reads file-picker or paste-textarea, validates, loads into store.
 - **Declarative text import** — second paste-textarea path: schema-shaped outline (YAML/markdown matching the schema) parses mechanically into the same store. One-way; no live mirror. Re-import replaces; confirm if there are unsaved changes.
@@ -106,7 +106,7 @@ The editor becomes spec-agnostic at the end of this chunk. Biggest single unit; 
 - **TypeBox schema** in `lib/schema/v0.ts` mirroring [SCHEMA.md](./SCHEMA.md) — replaces the hand-written types currently in [lib/types/spec.ts](./lib/types/spec.ts). Single source of truth.
 - **Ajv validation** on every import/load; errors listed in a panel; invalid spec is rejected (not partially loaded).
 
-**Files:** new `lib/schema/v0.ts`, `lib/validation/ajv.ts`, `components/toolbar/ImportExport.tsx`, new `public/example.json`.
+**Files:** new `lib/schema/v0.ts`, `lib/validation/ajv.ts`, `components/toolbar/ImportExport.tsx`, new `public/coffee.json`.
 
 **Drift:**
 - "Load example" button removed from the toolbar per design preference — the empty state is just a blank canvas with the toolbar visible. Designer imports a spec or clicks New flow to start.
