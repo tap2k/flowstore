@@ -49,6 +49,7 @@ export interface StartSessionArgs {
   apiKey?: string;
   model?: string;
   language?: string;
+  contextVars?: Record<string, unknown>;
 }
 
 export async function startSession(args: StartSessionArgs): Promise<StartSessionResponse> {
@@ -56,6 +57,9 @@ export async function startSession(args: StartSessionArgs): Promise<StartSession
   if (args.apiKey) body.api_key = args.apiKey;
   if (args.model) body.model = args.model;
   if (args.language) body.language = args.language;
+  if (args.contextVars && Object.keys(args.contextVars).length > 0) {
+    body.context_vars = args.contextVars;
+  }
   return postJson<StartSessionResponse>(args.baseUrl, "/api/chat/session", body);
 }
 

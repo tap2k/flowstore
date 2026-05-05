@@ -30,6 +30,8 @@ interface SimulateState {
   events: RuntimeEvent[];
   currentFlowId: string | null;
   variables: Record<string, unknown>;
+  contextVars: Record<string, unknown>;
+  contextVarsAgentId: string | null;
   error: string | null;
 
   start: (
@@ -42,6 +44,40 @@ interface SimulateState {
   send: (userText: string) => Promise<void>;
   reset: () => Promise<void>;
   close: () => Promise<void>;
+  hydrateContextVars: (agentId: string) => void;
+  setContextVar: (name: string, value: unknown) => void;
+  setContextVars: (values: Record<string, unknown>) => void;
+  clearContextVars: () => void;
+}
+
+const CV_PREFIX = "uxflows:simulate:vars:";
+
+function loadVars(agentId: string): Record<string, unknown> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(CV_PREFIX + agentId);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
+function saveVars(agentId: string, values: Record<string, unknown>): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (Object.keys(values).length === 0) {
+      window.localStorage.removeItem(CV_PREFIX + agentId);
+    } else {
+      window.localStorage.setItem(CV_PREFIX + agentId, JSON.stringify(values));
+    }
+  } catch {
+    // ignore
+  }
 }
 
 function reduceEvents(
@@ -69,9 +105,44 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   events: [],
   currentFlowId: null,
   variables: {},
+  contextVars: {},
+  contextVarsAgentId: null,
   error: null,
 
+  hydrateContextVars: (agentId) => {
+    const current = get();
+    if (current.contextVarsAgentId === agentId) return;
+    set({ contextVars: loadVars(agentId), contextVarsAgentId: agentId });
+  },
+
+  setContextVar: (name, value) => {
+    const { contextVars, contextVarsAgentId } = get();
+    const next = { ...contextVars };
+    if (value === undefined || value === null || value === "") delete next[name];
+    else next[name] = value;
+    set({ contextVars: next });
+    if (contextVarsAgentId) saveVars(contextVarsAgentId, next);
+  },
+
+  setContextVars: (values) => {
+    const { contextVarsAgentId } = get();
+    const cleaned: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(values)) {
+      if (v === undefined || v === null || v === "") continue;
+      cleaned[k] = v;
+    }
+    set({ contextVars: cleaned });
+    if (contextVarsAgentId) saveVars(contextVarsAgentId, cleaned);
+  },
+
+  clearContextVars: () => {
+    const { contextVarsAgentId } = get();
+    set({ contextVars: {} });
+    if (contextVarsAgentId) saveVars(contextVarsAgentId, {});
+  },
+
   start: async (baseUrl, spec, apiKey, model, language) => {
+    const { contextVars } = get();
     set({
       status: "starting",
       transcript: [],
@@ -89,6 +160,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         apiKey: apiKey || undefined,
         model: model || undefined,
         language,
+        contextVars,
       });
       const reduced = reduceEvents(
         { currentFlowId: null, variables: {}, status: "ready" },
@@ -166,6 +238,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
 
   reset: async () => {
     // Caller passes the spec/key on restart via SimulatePanel; we just tear down.
+    // contextVars persist across reset so designers don't lose their test setup.
     const { sessionId, baseUrl } = get();
     if (sessionId && baseUrl) {
       await apiEndSession(baseUrl, sessionId);

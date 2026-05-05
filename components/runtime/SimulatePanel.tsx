@@ -4,6 +4,7 @@ import { useSettingsStore } from "@/lib/store/settings";
 import { useSimulateStore, type TranscriptTurn } from "@/lib/store/simulate";
 import { formatErrors, validateSpec } from "@/lib/validation/ajv";
 import type { RuntimeEvent } from "@/lib/runtime/eventTypes";
+import { VariablesForm } from "./VariablesForm";
 
 interface SimulatePanelProps {
   open: boolean;
@@ -23,19 +24,25 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const start = useSimulateStore((s) => s.start);
   const send = useSimulateStore((s) => s.send);
   const reset = useSimulateStore((s) => s.reset);
+  const hydrateContextVars = useSimulateStore((s) => s.hydrateContextVars);
 
   const [input, setInput] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[] | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const spec = useSpecStore((s) => s.spec);
 
   useEffect(() => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [transcript, status]);
 
+  useEffect(() => {
+    if (open && spec) hydrateContextVars(spec.agent.id);
+  }, [open, spec, hydrateContextVars]);
+
   if (!open) return null;
 
-  const spec = useSpecStore.getState().spec;
   const agentName = spec?.agent.meta.name ?? "—";
   const busy = status === "thinking" || status === "starting";
   const ended = status === "ended";
@@ -114,6 +121,8 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           </button>
         </div>
       </div>
+
+      {spec && <VariablesForm spec={spec} disabled={busy || hasSession} />}
 
       <div ref={scrollRef} className="flex-1 overflow-auto p-3 space-y-3 text-sm">
         {!hasSession && status !== "starting" && (
@@ -198,12 +207,12 @@ function EmptyState({
     );
   }
   return (
-    <div className="text-xs text-zinc-500 space-y-3">
+    <div className="text-xs text-zinc-500 space-y-4">
       <p>Talk to your spec using the XXX runtime.</p>
       <p>
         Paste an{" "}
         <button onClick={onOpenSettings} className="underline hover:text-zinc-900">
-          AI Studio key in Settings
+          API key in Settings
         </button>{" "}
         to use your own quota.
       </p>
