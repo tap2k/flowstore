@@ -1,5 +1,6 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { FlowType } from "@/lib/schema/v0";
+import { useSimulateStore } from "@/lib/store/simulate";
 
 export interface FlowNodeData {
   name: string;
@@ -16,10 +17,11 @@ const typeStyles: Record<FlowType, { border: string; badge: string; label: strin
   interrupt: { border: "border-violet-400",  badge: "bg-violet-100 text-violet-800",   label: "interrupt" },
 };
 
-export function FlowNode({ data, selected }: NodeProps & { data: FlowNodeData }) {
+export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeData }) {
   const style = typeStyles[data.flowType];
   const hasIssues = (data.issues?.length ?? 0) > 0;
   const issueTitle = hasIssues ? data.issues!.join("\n") : undefined;
+  const isActive = useSimulateStore((s) => s.currentFlowId === id);
 
   return (
     <div
@@ -29,6 +31,8 @@ export function FlowNode({ data, selected }: NodeProps & { data: FlowNodeData })
       } bg-white px-3.5 py-2.5 min-w-[200px] max-w-[260px] text-left ${
         selected
           ? "ring-2 ring-zinc-900 ring-offset-1 shadow-md"
+          : isActive
+          ? "ring-2 ring-sky-500 ring-offset-1 shadow-md"
           : hasIssues
           ? "ring-1 ring-red-300 shadow-sm"
           : "shadow-sm"

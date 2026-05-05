@@ -15,7 +15,19 @@ import { FlowNode, type FlowNodeData } from "./FlowNode";
 import { autoLayout } from "./layout";
 import { loadPositions, savePositions, type Positions } from "./positions";
 import { useSpecStore } from "@/lib/store/spec";
+import { useSimulateStore } from "@/lib/store/simulate";
 import { validateGraph, groupIssuesByFlow, groupIssuesByEdge } from "@/lib/validation/graphRules";
+
+const ACTIVE_EDGE_STROKE = "#0ea5e9";
+
+function withActive(edge: Edge): Edge {
+  return {
+    ...edge,
+    style: { ...edge.style, stroke: ACTIVE_EDGE_STROKE, strokeWidth: 2.5 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: ACTIVE_EDGE_STROKE, width: 18, height: 18 },
+    animated: true,
+  };
+}
 
 const nodeTypes = { flow: FlowNode };
 
@@ -115,11 +127,17 @@ function CanvasInner({ spec }: { spec: Spec }) {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
+  const lastExitEdgeId = useSimulateStore((s) => s.lastExitEdgeId);
 
   useEffect(() => {
     setNodes(initial.nodes);
-    setEdges(initial.edges);
-  }, [initial, setNodes, setEdges]);
+  }, [initial, setNodes]);
+
+  useEffect(() => {
+    setEdges(
+      initial.edges.map((e) => (e.id === lastExitEdgeId ? withActive(e) : e)),
+    );
+  }, [initial, lastExitEdgeId, setEdges]);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {

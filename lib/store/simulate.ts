@@ -29,6 +29,7 @@ interface SimulateState {
   transcript: TranscriptTurn[];
   events: RuntimeEvent[];
   currentFlowId: string | null;
+  lastExitEdgeId: string | null;
   variables: Record<string, unknown>;
   contextVars: Record<string, unknown>;
   contextVarsAgentId: string | null;
@@ -81,20 +82,22 @@ function saveVars(agentId: string, values: Record<string, unknown>): void {
 }
 
 function reduceEvents(
-  state: Pick<SimulateState, "currentFlowId" | "variables" | "status">,
+  state: Pick<SimulateState, "currentFlowId" | "lastExitEdgeId" | "variables" | "status">,
   events: RuntimeEvent[],
-): Pick<SimulateState, "currentFlowId" | "variables" | "status"> {
-  let { currentFlowId, variables, status } = state;
+): Pick<SimulateState, "currentFlowId" | "lastExitEdgeId" | "variables" | "status"> {
+  let { currentFlowId, lastExitEdgeId, variables, status } = state;
   for (const ev of events) {
     if (ev.type === "flow_entered") {
       currentFlowId = ev.flow_id;
+    } else if (ev.type === "exit_path_taken") {
+      lastExitEdgeId = `${ev.from_flow_id}__${ev.exit_path_id}`;
     } else if (ev.type === "variable_set") {
       variables = { ...variables, [ev.variable_name]: ev.value };
     } else if (ev.type === "session_ended") {
       status = "ended";
     }
   }
-  return { currentFlowId, variables, status };
+  return { currentFlowId, lastExitEdgeId, variables, status };
 }
 
 export const useSimulateStore = create<SimulateState>((set, get) => ({
@@ -104,6 +107,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   transcript: [],
   events: [],
   currentFlowId: null,
+  lastExitEdgeId: null,
   variables: {},
   contextVars: {},
   contextVarsAgentId: null,
@@ -148,6 +152,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       transcript: [],
       events: [],
       currentFlowId: null,
+      lastExitEdgeId: null,
       variables: {},
       error: null,
       sessionId: null,
@@ -163,7 +168,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         contextVars,
       });
       const reduced = reduceEvents(
-        { currentFlowId: null, variables: {}, status: "ready" },
+        { currentFlowId: null, lastExitEdgeId: null, variables: {}, status: "ready" },
         res.events,
       );
       const transcript: TranscriptTurn[] = [];
@@ -181,6 +186,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         transcript,
         events: res.events,
         currentFlowId: reduced.currentFlowId,
+        lastExitEdgeId: reduced.lastExitEdgeId,
         variables: reduced.variables,
         error: null,
       });
@@ -193,7 +199,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   },
 
   send: async (userText) => {
-    const { sessionId, baseUrl, status, transcript, events, currentFlowId, variables } = get();
+    const { sessionId, baseUrl, status, transcript, events, currentFlowId, lastExitEdgeId, variables } = get();
     if (!sessionId || !baseUrl) return;
     if (status === "thinking" || status === "starting" || status === "ended") return;
     const trimmed = userText.trim();
@@ -212,7 +218,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     try {
       const res = await apiSendTurn({ baseUrl, sessionId, userText: trimmed });
       const reduced = reduceEvents(
-        { currentFlowId, variables, status: "ready" },
+        { currentFlowId, lastExitEdgeId, variables, status: "ready" },
         res.events,
       );
       const agentTurn: TranscriptTurn = {
@@ -225,6 +231,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         transcript: [...get().transcript, agentTurn],
         events: [...events, ...res.events],
         currentFlowId: reduced.currentFlowId,
+        lastExitEdgeId: reduced.lastExitEdgeId,
         variables: reduced.variables,
         status: res.ended ? "ended" : reduced.status,
       });
@@ -250,6 +257,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       transcript: [],
       events: [],
       currentFlowId: null,
+      lastExitEdgeId: null,
       variables: {},
       error: null,
     });
@@ -267,6 +275,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       transcript: [],
       events: [],
       currentFlowId: null,
+      lastExitEdgeId: null,
       variables: {},
       error: null,
     });

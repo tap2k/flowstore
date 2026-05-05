@@ -115,19 +115,19 @@ export default function Home() {
           </div>
           <FlowInspector />
           <EdgeInspector />
-          <ChatPanel
-            open={chatOpen}
-            onClose={() => setChatOpen(false)}
-            onOpenSettings={() => {
-              setChatOpen(false);
-              setSettingsOpen(true);
-            }}
-          />
           <SimulatePanel
             open={simulateOpen}
             onClose={() => setSimulateOpen(false)}
             onOpenSettings={() => {
               setSimulateOpen(false);
+              setSettingsOpen(true);
+            }}
+          />
+          <ChatPanel
+            open={chatOpen}
+            onClose={() => setChatOpen(false)}
+            onOpenSettings={() => {
+              setChatOpen(false);
               setSettingsOpen(true);
             }}
           />
