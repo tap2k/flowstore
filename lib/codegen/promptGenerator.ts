@@ -10,12 +10,12 @@ import type {
 export function generateSystemPrompt(spec: Spec): string {
   const sections = [
     renderRole(spec),
-    renderVariables(spec),
+    // renderVariables(spec),     // disabled: variables are substituted before paste
     renderGuardrails(spec),
     renderFlows(spec),
     renderInterrupts(spec),
     renderKnowledge(spec),
-    renderCapabilities(spec),
+    // renderCapabilities(spec),  // disabled: naked prompt has no tools to call
   ].filter(Boolean);
 
   return sections.join("\n\n---\n\n").trim() + "\n";
@@ -63,9 +63,13 @@ function renderFlows(spec: Spec): string {
   if (!conversational.length) return "";
 
   const ordered = orderFlows(conversational, entry);
+  const flowNames = new Map(ordered.map((f) => [f.id, f.name || f.id]));
   const lines = ["FLOW OF CALL:"];
+  if (entry && flowNames.has(entry)) {
+    lines.push(`Begin with: ${flowNames.get(entry)}.`);
+  }
   ordered.forEach((flow, i) => {
-    lines.push(`\n${i + 1}. ${flow.name || flow.id} [${flow.type}${flow.id === entry ? ", entry" : ""}]`);
+    lines.push(`\n${i + 1}. ${flow.name || flow.id}${flow.id === entry ? " (entry)" : ""}`);
     if (flow.description) lines.push(`   ${flow.description}`);
     if (flow.instructions?.trim()) {
       lines.push(`   ${flow.instructions.trim().split("\n").join("\n   ")}`);
@@ -74,13 +78,48 @@ function renderFlows(spec: Spec): string {
     if (scripts) lines.push(scripts);
     const guardrails = renderFlowGuardrails(flow);
     if (guardrails) lines.push(guardrails);
-    const routing = renderFlowRouting(flow);
+    const routing = renderFlowRoutingInline(flow, flowNames);
     if (routing) lines.push(routing);
+    /* disabled: arrow form replaced by inline prose
+    const routingArrows = renderFlowRouting(flow);
+    if (routingArrows) lines.push(routingArrows);
+    */
+    /* disabled: runner-enforced budget, not model behavior
     if (flow.max_turns != null) {
       lines.push(`   Retry budget: at most ${flow.max_turns} turns.`);
     }
+    */
   });
   return lines.join("\n");
+}
+
+function renderFlowRoutingInline(flow: Flow, flowNames: Map<string, string>): string {
+  const exits = flow.routing?.exit_paths ?? [];
+  if (!exits.length) return "";
+  const lines: string[] = [];
+  for (const ep of exits) {
+    const target = renderInlineTarget(ep, flowNames);
+    if (ep.condition) {
+      lines.push(`   - If ${renderConditionPlain(ep.condition)}, ${target}.`);
+    } else {
+      lines.push(`   - Otherwise, ${target}.`);
+    }
+  }
+  return lines.join("\n");
+}
+
+function renderInlineTarget(ep: ExitPath, flowNames: Map<string, string>): string {
+  if (ep.type === "exit") return "end the conversation";
+  if (ep.type === "return_to_caller") return "return to the calling flow";
+  if (ep.next_flow_id) {
+    const name = flowNames.get(ep.next_flow_id) ?? ep.next_flow_id;
+    return `go to ${name}`;
+  }
+  return "continue";
+}
+
+function renderConditionPlain(c: Condition): string {
+  return c.expression;
 }
 
 function orderFlows(flows: Flow[], entryId: string | undefined): Flow[] {
@@ -184,21 +223,26 @@ function renderActions(actions: ExitPath["actions"]): string {
 function renderInterrupts(spec: Spec): string {
   const interrupts = spec.flows.filter((f) => f.type === "interrupt");
   if (!interrupts.length) return "";
+  const flowNames = new Map(spec.flows.map((f) => [f.id, f.name || f.id]));
   const lines = ["INTERRUPTS (fire at any point unless scope says otherwise):"];
   interrupts.forEach((flow, i) => {
     const scope = flow.scope?.length ? flow.scope.join(", ") : "global";
     lines.push(`\n${i + 1}. ${flow.name || flow.id} [scope: ${scope}]`);
     const trigger = flow.routing?.entry_condition;
     if (trigger) {
-      lines.push(`   Trigger: ${renderCondition(trigger)}`);
+      lines.push(`   Trigger: ${renderConditionPlain(trigger)}`);
     }
     if (flow.instructions?.trim()) {
       lines.push(`   ${flow.instructions.trim().split("\n").join("\n   ")}`);
     }
     const scripts = renderFlowScripts(flow);
     if (scripts) lines.push(scripts);
-    const routing = renderFlowRouting(flow);
+    const routing = renderFlowRoutingInline(flow, flowNames);
     if (routing) lines.push(routing);
+    /* disabled: arrow form replaced by inline prose
+    const routingArrows = renderFlowRouting(flow);
+    if (routingArrows) lines.push(routingArrows);
+    */
   });
   return lines.join("\n");
 }
@@ -222,6 +266,7 @@ function renderKnowledge(spec: Spec): string {
     blocks.push(lines.join("\n"));
   }
 
+  /* Tables: disabled in naked prompt — tables belong behind a retrieval capability.
   if (k.tables?.length) {
     const lines = ["TABLES:"];
     for (const t of k.tables) {
@@ -236,6 +281,7 @@ function renderKnowledge(spec: Spec): string {
     }
     blocks.push(lines.join("\n"));
   }
+  */
 
   return blocks.join("\n\n");
 }
