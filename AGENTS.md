@@ -44,6 +44,8 @@ The canvas is the canonical editing surface. Text views are entry and export onl
 - **Imperative text import** — paste free-form source: an analyst's script, a process doc, a system prompt, supporting docs. An LLM converts it directly to v0 JSON in one shot, schema-constrained.
 - **Export as JSON** — the exported file is the same shape the declarative import accepts; round-trip preserves the spec.
 - **Export as system prompt** — deterministic codegen ([lib/codegen/promptGenerator.ts](./lib/codegen/promptGenerator.ts)) that flattens the spec into a single monolithic system prompt. For copy-paste into non-runner runtimes (OpenAI, Claude, Voiceflow, etc.); the runner consumes the JSON directly.
+- **Simulate panel** — text chat against [`../uxflows-runner/`](../uxflows-runner/), BYOK Gemini, against the spec currently being edited. Canvas highlights the active flow and last-traversed edge live during the run.
+- **Eval-on-canvas (post-MVP).** Findings from whatsupp2 simulation runs overlay onto the same node and edge IDs the spec defines — guardrail-fail rates pinned to guardrail nodes, scenario coverage on flow nodes. The canvas is the eval view; there is no separate findings tab.
 
 ## Tech Stack
 
@@ -104,6 +106,7 @@ From the product design doc. The ones that most affect editor decisions:
 - **Optional by default.** Valid schema with minimal fields. Depth added incrementally.
 - **Decomposition is the substrate.** Monolithic prompts hit an instruction-following ceiling in regulated behavior spaces; modular flows are how agents stay reliable at scale.
 - **Decomposition is progressive.** Start coarse, split when there's a real seam. The principle above applies *at scale*; for small specs the right move is *less* decomposition. Node count is a result of behavioral seams, not a target.
+- **Conversation-shape, not workflow-shape.** UX4 primitives are flows, exit paths, guardrails, captures, three methods. Workflow primitives (if/else nodes, while-loops, transform/map nodes, set-state nodes) are the wrong altitude — that's general-purpose orchestration, not regulated conversational behavior. When extending the schema, push toward the conversation-design vocabulary the buyer already speaks.
 
 ## Spec Authoring Granularity
 

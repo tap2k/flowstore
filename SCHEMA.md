@@ -96,6 +96,8 @@ payment_received == None
 
 LLM conditions remain plain-language strings and are never emitted into generated code.
 
+Python-like syntax is the deliberate choice. CEL and JsonLogic were considered; both add a parser dependency for a grammar that is mostly comparison plus boolean ops, and neither matches LangGraph's state-expression shape — so adopting either would mean *more* translation work, not less. The runner's `expressions.py` is the canonical reference implementation.
+
 The `calculation` method has an optional `pattern` field (regex string) for pattern-matching subtypes. When `pattern` is set, the runtime evaluates the named variable against the regex rather than the `expression`. Available wherever a `calculation`-method node appears: `exit_path.condition`, `routing.entry_condition`, `assigns[var]`, and v1 captures.
 
 ---
