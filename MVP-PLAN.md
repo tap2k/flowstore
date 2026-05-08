@@ -2,9 +2,9 @@
 
 Operational plan for the uxflows MVP, derived from discussion on 2026-04-23 and 2026-04-26. High-level principles live in [AGENTS.md](./AGENTS.md); schema contract in [SCHEMA.md](./SCHEMA.md).
 
-## Status (2026-04-29)
+## Status (2026-05-08)
 
-All nine chunks shipped. Editor is functionally complete for v0:
+All eleven chunks shipped. MVP is complete:
 
 - ✅ 1. Drag nodes + persist positions
 - ✅ 2. Spec state management
@@ -15,10 +15,12 @@ All nine chunks shipped. Editor is functionally complete for v0:
 - ✅ 7. Agent surfaces (split into toolbar modals, not a single sidebar — see drift note in chunk 7)
 - ✅ 8. Add / delete flows + drag-to-connect
 - ✅ 9. Basic graph validation
+- ✅ 10. Interactive LLM chat (BYOK Google) — shipped 2026-05-02
+- ✅ 11. Simulate panel (text chat against the runner) — shipped 2026-05-04
 
-Beyond plan, also shipped: Variables editor (was post-MVP), Tables CRUD (was post-MVP), `entry_flow_id` picker in Agent sheet, delete buttons in inspectors, schema-doc sync, AGENT-SPEC-PROMPT.txt rewritten for one-shot v0 JSON output.
+Beyond plan, also shipped: Variables editor (was post-MVP), Tables CRUD (was post-MVP), `entry_flow_id` picker in Agent sheet, delete buttons in inspectors, schema-doc sync, AGENT-SPEC-PROMPT.txt rewritten for one-shot v0 JSON output, Simulate variables form with LLM-powered value generation, system-prompt codegen ([lib/codegen/promptGenerator.ts](./lib/codegen/promptGenerator.ts)), canvas highlight of active flow + last-traversed edge during simulate.
 
-Real remaining gap: in-app LLM authoring as an **interactive chat** (BYOK). Same plumbing the originally-planned Parse modal would have needed — Settings sheet, provider dispatch — but the surface is a chat panel that mutates the spec via tool calls (1:1 with existing store mutators) instead of a one-shot JSON parse. This subsumes both the previously-deferred imperative text import ("import this script: …") and the deferred generate-example-transcript button ("generate an example for flow_greet"). External LLM path still works as a fallback — paste source through any frontier LLM with [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt), paste resulting JSON into Import. See [chunk 10](#10-interactive-llm-chat-byok).
+Next up is the post-MVP list below. Top candidates by leverage: deep graph validation (unreachable calculation exits + knowledge-coverage gaps), v1 steps editor, and eval-on-canvas overlay from whatsupp2 findings.
 
 ## Goal
 
@@ -198,7 +200,7 @@ Originally specced as a persistent left sidebar with tabs. Implementation split 
 
 **Files:** new `lib/validation/graphRules.ts`; [components/canvas/FlowNode.tsx](./components/canvas/FlowNode.tsx) reads validation status from data.
 
-### 10. Interactive LLM chat (BYOK)
+### 10. Interactive LLM chat (BYOK) ✅ shipped 2026-05-02
 
 Editor-resident chat that authors and edits specs via tool calls. Replaces the previously-deferred one-shot imperative parse.
 
@@ -226,7 +228,9 @@ Why chat over a parse modal: chat tool-calls mutate the same zustand store the i
 - **Context strategy.** Full spec each turn is fine at MVP scale. Switch to selective context when specs get big enough to matter.
 - **Richer clarification UI.** Chat may eventually want structured prompts (multi-select pickers, inline diff confirmations) rather than free-text turn-taking. Defer.
 
-**Files (planned):** `lib/llm/{dispatch,tools,prompts}.ts`, `components/sheets/SettingsSheet.tsx`, `components/chat/ChatPanel.tsx`, `lib/store/chat.ts`.
+**Files:** [`lib/llm/{dispatch,tools,prompts,types}.ts`](./lib/llm/), [`lib/llm/providers/google.ts`](./lib/llm/providers/google.ts), [`components/sheets/SettingsSheet.tsx`](./components/sheets/SettingsSheet.tsx), [`components/chat/ChatPanel.tsx`](./components/chat/ChatPanel.tsx).
+
+**Drift:** chat conversation state lives in [`ChatPanel.tsx`](./components/chat/ChatPanel.tsx) component state rather than the planned `lib/store/chat.ts` — single consumer, no cross-component subscribers, so a store didn't earn its keep.
 
 ### 11. Simulate panel (text chat against the runner) ✅ shipped 2026-05-04
 

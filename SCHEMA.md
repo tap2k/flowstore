@@ -2,7 +2,7 @@
 
 Canonical behavioral spec schema for conversational agents authored in UX4. The UX4 editor (this repo, `uxflows`) is the primary producer. UX4 simulation, evaluation, and client-facing document rendering (sibling repo `../whatsupp2/`) are the primary consumers.
 
-**This document is the authoritative schema.** Both repos defer to it. Schema-as-code (TypeBox) mirrors this document at `lib/schema/` (not yet built).
+**This document is the authoritative schema.** Both repos defer to it. Schema-as-code (TypeBox) mirrors this document at [`lib/schema/v0.ts`](./lib/schema/v0.ts).
 
 ## Data Model
 
@@ -474,6 +474,6 @@ Forward-looking concepts surfaced by mapping the schema against runtimes. Not de
 This is the contract between `uxflows` and `whatsupp2`. Non-additive changes must be discussed before merging. When this document changes:
 
 1. Bump `$schema` version if structural.
-2. Update `lib/schema/` (TypeBox definitions) to match.
-3. Update example specs in `lib/examples/`.
-4. Note the change in `../whatsupp2/AGENT-TESTING.md` if it affects consumers.
+2. Update [`lib/schema/v0.ts`](./lib/schema/v0.ts) (TypeBox definitions) to match.
+3. Update the example spec at [`public/coffee.json`](./public/coffee.json).
+4. Note the change in [`../whatsupp2/AGENT-TESTING.md`](../whatsupp2/AGENT-TESTING.md) if it affects consumers.

@@ -1,6 +1,6 @@
 # Runtime Translation Tables
 
-Mappings from the UX4 behavioral spec to each supported runtime. These document how the v1 schema maps to each runtime so that Phase 2 export work can be scoped accurately. **None of them ship in the MVP.** They inform the codegen pipeline (`lib/codegen/`, not yet built).
+Mappings from the UX4 behavioral spec to each supported runtime. These document how the v1 schema maps to each runtime so that Phase 2 export work can be scoped accurately. **None of them ship in the MVP.** Today's only export target is the system-prompt codegen at [`lib/codegen/promptGenerator.ts`](./lib/codegen/promptGenerator.ts) (a monolithic prompt for non-runner runtimes); the tables below inform future targets in the same `lib/codegen/` pipeline.
 
 For the schema these reference, see [SCHEMA.md](./SCHEMA.md).
 
