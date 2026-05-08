@@ -58,6 +58,14 @@ V0 SCHEMA
     "guardrails": [
       { "id": "g_<snake_case>", "statement": "one-sentence rule" }
     ],
+    "business_goals": [
+      {
+        "id": "goal_<snake_case>",
+        "name": "Human-readable label",
+        "expression": "rubric (llm) or expression (calculation) or literal (direct)",
+        "method": "llm | calculation | direct"
+      }
+    ],
     "capabilities": [
       {
         "id": "cap_<snake_case>",
@@ -288,6 +296,16 @@ language rather than splitting into fields. If the rule is executable
 routing (trigger → specific flow), model it as an interrupt flow,
 not a guardrail.
 
+BUSINESS GOALS
+
+`agent.business_goals` are end-to-end *outcomes* the agent is judged
+against — what success looks like at the conversation level. Distinct
+from guardrails: a guardrail is "what the agent must (not) do" turn
+by turn; a goal is "did the conversation accomplish X." If you find
+yourself writing a goal that describes agent *behavior* ("agent
+recapped the order before placing", "stayed on menu"), that's a
+guardrail in disguise — emit it under `guardrails` instead.
+
 EXAMPLE TRANSCRIPT
 
 `flow.example`: extract verbatim when the source contains an example
@@ -342,7 +360,13 @@ the source warrants it.
   editor-side handle for cross-references inside this spec. The
   two can match.
 - guardrails: emit only guardrails the source actually states or
-  strongly implies. 
+  strongly implies.
+- business_goals: emit only when the source explicitly describes
+  what success looks like for the conversation (an outcome, KPI, or
+  acceptance criterion). Don't synthesize plausible goals from the
+  agent's stated purpose — leave the array empty if no source
+  language frames success in outcome terms. If the candidate "goal"
+  is really a behavioral rule, route it to `guardrails`.
 - knowledge.faq / knowledge.glossary: do not invent entries, but
   do transcribe every entry the source provides — verbatim, not
   paraphrased or sampled. If the source has 49 FAQ entries, the

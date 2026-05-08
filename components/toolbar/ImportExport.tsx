@@ -6,6 +6,7 @@ import { generateSystemPrompt } from "@/lib/codegen/promptGenerator";
 import { AgentSheet } from "@/components/sheets/AgentSheet";
 import { VariablesSheet } from "@/components/sheets/VariablesSheet";
 import { GuardrailsSheet } from "@/components/sheets/GuardrailsSheet";
+import { BusinessGoalsSheet } from "@/components/sheets/BusinessGoalsSheet";
 import { CapabilitiesSheet } from "@/components/sheets/CapabilitiesSheet";
 import { KnowledgeSheet } from "@/components/sheets/KnowledgeSheet";
 
@@ -69,7 +70,7 @@ export function ImportExportToolbar({
   const spec = useSpecStore((s) => s.spec);
   const setSpec = useSpecStore((s) => s.setSpec);
   const [importOpen, setImportOpen] = useState(false);
-  const [openSheet, setOpenSheet] = useState<null | "agent" | "variables" | "guardrails" | "capabilities" | "knowledge">(null);
+  const [openSheet, setOpenSheet] = useState<null | "agent" | "variables" | "guardrails" | "business_goals" | "capabilities" | "knowledge">(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -136,6 +137,9 @@ export function ImportExportToolbar({
         </button>
         <button onClick={() => setOpenSheet("guardrails")} disabled={!spec} className={buttonClass}>
           Guardrails
+        </button>
+        <button onClick={() => setOpenSheet("business_goals")} disabled={!spec} className={buttonClass}>
+          Goals
         </button>
         <button onClick={() => setOpenSheet("capabilities")} disabled={!spec} className={buttonClass}>
           Capabilities
@@ -213,6 +217,7 @@ export function ImportExportToolbar({
       {openSheet === "agent" && <AgentSheet onClose={() => setOpenSheet(null)} />}
       {openSheet === "variables" && <VariablesSheet onClose={() => setOpenSheet(null)} />}
       {openSheet === "guardrails" && <GuardrailsSheet onClose={() => setOpenSheet(null)} />}
+      {openSheet === "business_goals" && <BusinessGoalsSheet onClose={() => setOpenSheet(null)} />}
       {openSheet === "capabilities" && <CapabilitiesSheet onClose={() => setOpenSheet(null)} />}
       {openSheet === "knowledge" && <KnowledgeSheet onClose={() => setOpenSheet(null)} />}
     </>

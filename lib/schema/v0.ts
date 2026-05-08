@@ -53,6 +53,16 @@ const GuardrailSchema = Type.Object(
   strict
 );
 
+const BusinessGoalSchema = Type.Object(
+  {
+    id: Type.String(),
+    name: Type.String(),
+    expression: Type.String(),
+    method: Method,
+  },
+  strict
+);
+
 const FaqEntrySchema = Type.Object(
   {
     question: Type.String(),
@@ -296,6 +306,7 @@ export const AgentSchema = Type.Object(
     chatbot_initiates: Type.Optional(Type.Boolean()),
     variables: Type.Optional(Type.Record(Type.String(), VariableDeclSchema)),
     guardrails: Type.Optional(Type.Array(GuardrailSchema)),
+    business_goals: Type.Optional(Type.Array(BusinessGoalSchema)),
     capabilities: Type.Optional(Type.Array(CapabilitySchema)),
     knowledge: Type.Optional(KnowledgeSchema),
     entry_flow_id: Type.String(),
@@ -319,6 +330,7 @@ export type CapabilityKind = Static<typeof CapabilityKind>;
 export type Mode = Static<typeof Mode>;
 export type VariableDecl = Static<typeof VariableDeclSchema>;
 export type Guardrail = Static<typeof GuardrailSchema>;
+export type BusinessGoal = Static<typeof BusinessGoalSchema>;
 export type FaqEntry = Static<typeof FaqEntrySchema>;
 export type GlossaryEntry = Static<typeof GlossaryEntrySchema>;
 export type TableField = Static<typeof TableFieldSchema>;

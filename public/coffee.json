@@ -93,6 +93,20 @@
         "statement": "Only quote prices from the menu table. If asked about pricing for an item not on the table, say you'll have to check with a human barista."
       }
     ],
+    "business_goals": [
+      {
+        "id": "goal_order_placed",
+        "name": "Order placed",
+        "expression": "order_status == \"confirmed\"",
+        "method": "calculation"
+      },
+      {
+        "id": "goal_order_matches_intent",
+        "name": "Placed order matches patron intent",
+        "expression": "The drink that was placed (style, size, milk, customizations) matches what the patron actually asked for — no silent substitutions, defaults applied without consent, or mis-orders.",
+        "method": "llm"
+      }
+    ],
     "capabilities": [
       {
         "id": "cap_place_order",
