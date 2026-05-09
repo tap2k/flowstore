@@ -14,7 +14,7 @@ export function BusinessGoalsSheet({ onClose }: { onClose: () => void }) {
   return (
     <SheetShell
       title="Business goals"
-      subtitle="End-to-end outcomes the agent is judged against. Distinct from guardrails — describe what success looks like at the conversation level."
+      subtitle="End-to-end outcomes the agent is judged against."
       onClose={onClose}
       maxWidth="max-w-2xl"
     >
