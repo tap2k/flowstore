@@ -43,6 +43,11 @@ const GuardrailItemSchema: JSONSchema = {
   properties: {
     id: { type: "string" },
     statement: { type: "string" },
+    modality: {
+      type: "string",
+      enum: ["must", "should"],
+      description: "must = invariant, violation fails the run; should = preference that yields to explicit user context or to a conflicting must.",
+    },
   },
   required: ["id", "statement"],
 };

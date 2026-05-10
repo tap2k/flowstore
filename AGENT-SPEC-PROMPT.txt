@@ -59,7 +59,7 @@ V0 SCHEMA
       }
     },
     "guardrails": [
-      { "id": "g_<snake_case>", "statement": "one-sentence rule" }
+      { "id": "g_<snake_case>", "statement": "one-sentence rule", "modality": "must | should (optional)" }
     ],
     "business_goals": [
       {
@@ -112,7 +112,7 @@ V0 SCHEMA
         "EN": [{ "id": "s_<snake_case>", "text": "What the agent says" }],
         "es-MX": [{ "id": "s_<snake_case>", "text": "Lo que dice el agente" }]
       },
-      "guardrails": [{ "id": "g_<snake_case>", "statement": "flow-scoped rule" }],
+      "guardrails": [{ "id": "g_<snake_case>", "statement": "flow-scoped rule", "modality": "must | should (optional)" }],
       "max_turns": 5,
       "example": "Agent: ...\nUser: ...\nAgent: ...",
       "knowledge": { "faq": [...] },
@@ -298,6 +298,22 @@ has a condition ("when X happens, do Y"), keep it inline as natural
 language rather than splitting into fields. If the rule is executable
 routing (trigger → specific flow), model it as an interrupt flow,
 not a guardrail.
+
+Each guardrail may carry an optional `modality`: `"must"` or
+`"should"`. Emit `"should"` explicitly when the source uses preference language ("should",
+"try to", "prefer", "usually", "keep responses brief") or frames
+the rule as style / tone / pacing / length — the rule yields to
+explicit user context (e.g., "be brief" yields when the user asks
+for detail) and is not violated when overridden by a `must`. Emit
+`"must"` when the source
+uses absolute language ("never", "always", "must (not)", "do not",
+"under no circumstances") or frames the rule as compliance /
+safety / factual accuracy / hard policy.
+
+When the source language is genuinely ambiguous, prefer emitting
+`"should"` explicitly rather than letting it default to `must` —
+calling a preference `must` produces false eval failures, which is
+the more expensive mistake.
 
 BUSINESS GOALS
 
