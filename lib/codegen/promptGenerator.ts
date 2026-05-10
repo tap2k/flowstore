@@ -53,13 +53,8 @@ function renderGuardrails(spec: Spec): string {
   const items = spec.agent.guardrails ?? [];
   if (!items.length) return "";
   const lines = ["GUARDRAILS (apply at all times):"];
-  items.forEach((g, i) => lines.push(`${i + 1}. ${formatGuardrailLine(g)}`));
+  items.forEach((g, i) => lines.push(`${i + 1}. ${g.statement}`));
   return lines.join("\n");
-}
-
-function formatGuardrailLine(g: { statement: string; modality?: "must" | "should" }): string {
-  const prefix = g.modality === "should" ? "Prefer: " : "";
-  return `${prefix}${g.statement}`;
 }
 
 function renderFlows(spec: Spec): string {
@@ -169,7 +164,7 @@ function renderFlowGuardrails(flow: Flow): string {
   const items = flow.guardrails ?? [];
   if (!items.length) return "";
   const lines = ["   Flow guardrails:"];
-  for (const g of items) lines.push(`     - ${formatGuardrailLine(g)}`);
+  for (const g of items) lines.push(`     - ${g.statement}`);
   return lines.join("\n");
 }
 

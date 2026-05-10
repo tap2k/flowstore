@@ -45,16 +45,10 @@ const VariableDeclSchema = Type.Object(
   strict
 );
 
-const GuardrailModality = Type.Union([
-  Type.Literal("must"),
-  Type.Literal("should"),
-]);
-
 const GuardrailSchema = Type.Object(
   {
     id: Type.String(),
     statement: Type.String(),
-    modality: Type.Optional(GuardrailModality),
   },
   strict
 );
@@ -335,7 +329,6 @@ export type ExitType = Static<typeof ExitType>;
 export type CapabilityKind = Static<typeof CapabilityKind>;
 export type Mode = Static<typeof Mode>;
 export type VariableDecl = Static<typeof VariableDeclSchema>;
-export type GuardrailModality = Static<typeof GuardrailModality>;
 export type Guardrail = Static<typeof GuardrailSchema>;
 export type BusinessGoal = Static<typeof BusinessGoalSchema>;
 export type FaqEntry = Static<typeof FaqEntrySchema>;

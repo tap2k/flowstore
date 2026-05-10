@@ -83,13 +83,14 @@ Directional, not prescriptive. Most of this is not built yet.
   /store/           zustand stores
   /validation/      Ajv validators + graph rules
   /codegen/         export targets (system prompt today; later Pipecat, LiveKit, etc.)
+                    /__fixtures__/ paired spec.json + expected.txt for snapshot iteration
   /examples/        sample specs for development and "Load Example"
 /scripts/           dev-only CLIs (preview-prompt.ts renders a spec to stdout)
 /styles/            globals.css, Tailwind
-/public/            includes coffee.json — a real spec used as the dev/iteration target
+/public/
 ```
 
-To iterate on a codegen target: edit the generator, re-run `npx tsx scripts/preview-prompt.ts public/coffee.json` (or any other spec path), and inspect the rendered prompt. No checked-in expected-output snapshot — diff against your previous run if you need a baseline.
+To iterate on a codegen target: edit the generator, re-run `npx tsx scripts/preview-prompt.ts <fixture-or-other-spec>.json`, diff against the saved fixture output.
 
 ## Design Principles
 

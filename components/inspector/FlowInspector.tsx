@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
-import type { Flow, FlowType, Guardrail, GuardrailModality, FaqEntry, Condition } from "@/lib/schema/v0";
+import type { Flow, FlowType, Guardrail, FaqEntry, Condition } from "@/lib/schema/v0";
 import { genId } from "@/lib/ids";
 import { ListEditor } from "./ListEditor";
 import { FlowPicker } from "./FlowPicker";
@@ -148,29 +148,15 @@ export function FlowInspector() {
           />
         </Field>
 
-        <Field label={(() => {
-          const items = flow.guardrails ?? [];
-          if (!items.length) return "Guardrails";
-          const must = items.filter((g) => (g.modality ?? "must") === "must").length;
-          return `Guardrails (${must} must · ${items.length - must} should)`;
-        })()}>
+        <Field label="Guardrails">
           <ListEditor<Guardrail>
             items={flow.guardrails ?? []}
             onChange={(g) => patch({ guardrails: g.length ? g : undefined })}
-            newItem={() => ({ id: genId("g"), statement: "", modality: "must" })}
+            newItem={() => ({ id: genId("g"), statement: "" })}
             addLabel="add guardrail"
             emptyLabel="(none)"
             renderItem={(g, update, remove) => (
               <div className="flex items-start gap-2">
-                <select
-                  className="rounded border border-zinc-300 px-2 py-1 text-xs bg-white mt-0.5"
-                  value={g.modality ?? "must"}
-                  onChange={(e) => update({ ...g, modality: e.target.value as GuardrailModality })}
-                  title="must = invariant; should = preference, yields to user context"
-                >
-                  <option value="must">must</option>
-                  <option value="should">should</option>
-                </select>
                 <textarea
                   className={`${inputClass} resize-y min-h-[40px]`}
                   value={g.statement}
