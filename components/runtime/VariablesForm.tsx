@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import type { Spec } from "@/lib/schema/v0";
+import type { Spec, VariableDecl } from "@/lib/schema/v0";
 import { useSimulateStore } from "@/lib/store/simulate";
+import { useSpecStore } from "@/lib/store/spec";
 import {
   coerceValue,
   collectDeclaredVariables,
@@ -22,6 +23,7 @@ export function VariablesForm({ spec, disabled }: VariablesFormProps) {
   const setContextVars = useSimulateStore((s) => s.setContextVars);
   const apiKey = useSettingsStore((s) => s.googleApiKey);
   const model = useSettingsStore((s) => s.googleModel);
+  const updateAgent = useSpecStore((s) => s.updateAgent);
 
   const [open, setOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -34,6 +36,16 @@ export function VariablesForm({ spec, disabled }: VariablesFormProps) {
   const undeclaredPlaceholders = unfilledPlaceholders(spec, contextVars).filter(
     (k) => !declaredLower.has(k.toLowerCase()),
   );
+
+  function onDeclareUndeclared() {
+    if (undeclaredPlaceholders.length === 0) return;
+    const next: Record<string, VariableDecl> = { ...(spec.agent.variables ?? {}) };
+    for (const name of undeclaredPlaceholders) {
+      if (!next[name]) next[name] = { type: "string" };
+    }
+    updateAgent({ variables: next });
+    setOpen(true);
+  }
 
   async function onGenerate() {
     if (!apiKey) return;
@@ -102,15 +114,25 @@ export function VariablesForm({ spec, disabled }: VariablesFormProps) {
           </div>
 
           {undeclaredPlaceholders.length > 0 && (
-            <p className="text-[11px] text-amber-700">
-              Prompt references {"{"}
-              {undeclaredPlaceholders.slice(0, 4).join("}, {")}
-              {"}"}
-              {undeclaredPlaceholders.length > 4
-                ? `, +${undeclaredPlaceholders.length - 4} more`
-                : ""}{" "}
-              but they aren&rsquo;t declared as variables — the agent will emit them as literals.
-            </p>
+            <div className="space-y-1 rounded border border-amber-200 bg-amber-50 px-2 py-1.5">
+              <p className="text-[11px] text-amber-800">
+                Prompt references {"{"}
+                {undeclaredPlaceholders.slice(0, 4).join("}, {")}
+                {"}"}
+                {undeclaredPlaceholders.length > 4
+                  ? `, +${undeclaredPlaceholders.length - 4} more`
+                  : ""}{" "}
+                but they aren&rsquo;t declared as variables — the agent will emit them as literals.
+              </p>
+              <button
+                type="button"
+                onClick={onDeclareUndeclared}
+                className="rounded border border-amber-300 bg-white px-2 py-0.5 text-[11px] text-amber-800 hover:bg-amber-100"
+                title="Add these placeholders to agent.variables (type: string) so they travel with the spec."
+              >
+                Declare as variables
+              </button>
+            </div>
           )}
         </div>
       )}

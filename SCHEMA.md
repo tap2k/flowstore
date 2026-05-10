@@ -94,7 +94,7 @@ status == "overdue"
 payment_received == None
 ```
 
-LLM conditions remain plain-language strings and are never emitted into generated code.
+LLM conditions remain plain-language strings and are never emitted into generated code. They may embed `{session_variable}` references that the runtime substitutes with the live value before the expression is shown to the LLM at decision time — same `{key}` mechanism that runs over scripts and instructions. Useful when a gate compares against a concrete runtime value (e.g. `"customer's committed date is on or before {extended_loan_due_date}"`). Unfilled placeholders are left literal.
 
 Python-like syntax is the deliberate choice. CEL and JsonLogic were considered; both add a parser dependency for a grammar that is mostly comparison plus boolean ops, and neither matches LangGraph's state-expression shape — so adopting either would mean *more* translation work, not less. The runner's `expressions.py` is the canonical reference implementation.
 

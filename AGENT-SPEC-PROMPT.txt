@@ -186,10 +186,14 @@ Condition expressions:
 - Keep them short and unambiguous. The runtime LLM evaluates them
   against the full conversation context — verbose phrasings don't
   improve accuracy. Aim for 6–10 words.
-- For `method: "llm"`, don't embed {variable} placeholders. The
-  runtime treats the expression as plain text and will not
-  substitute. Refer to variables by name in prose ("customer is
-  verified", not "customer says they are {customer_name}").
+- For `method: "llm"`, you MAY embed `{session_variable}` references
+  (e.g. `{extended_loan_due_date}`, `{loan_amount}`) and the runtime
+  will substitute the live value before the expression is shown to
+  the LLM at routing-decision time. Useful when the gate compares
+  against a concrete runtime value ("customer's committed date is
+  on or before {extended_loan_due_date}"). Style: prefer prose for
+  state assertions ("customer is verified") over parroting names
+  ("`{verified}` is true").
 - For `method: "calculation"`, variables appear bare in expressions
   (`verified == True`, `loan_amount > 50000`).
 
@@ -274,11 +278,18 @@ Phrases like "during the call", "at any point", "at any time", or
 Only set `scope` on interrupt flows. Omit it on happy / sad / off /
 utility flows — it's meaningless there.
 
-If the source has an FAQ block, populate `agent.knowledge.faq` AND
-add a global interrupt that fires when the user asks a FAQ question. 
-The interrupt's `instructions` should be one
-sentence ("answer using `agent.knowledge.faq`, then return to the
-caller").
+If the source has an FAQ block, populate `agent.knowledge.faq` and
+stop there — do NOT model FAQ answering as a separate interrupt.
+The runner already injects `agent.knowledge.faq` into every flow's
+system prompt; the agent answers inline. An FAQ answer is a
+knowledge lookup, not a stateful detour, and wrapping it in an
+interrupt creates routing misfires and no-match hallucinations.
+
+Reserve interrupts for genuinely stateful situations — "stop
+calling" (ends the call), "call me back later" (captures a time
+and ends), "the app shows a different due date" (ends the call).
+These deserve their own dedicated interrupts with narrow entry
+conditions, even when the source lists them inside the FAQ block.
 
 Keep interrupts caller-agnostic. The interrupt's `instructions`
 describe what *it* does, not how each possible caller should resume
@@ -341,7 +352,13 @@ the source warrants it.
   the caller, plus the closing utterance in that caller's scripts.
   Source-document section labels (STEP 1, STEP 2, "INTRODUCTION_GREETING")
   are author scaffolding, not flow boundaries — collapse them unless
-  a seam above actually applies.
+  a seam above actually applies. Exception: if two sequential steps
+  inside one section have distinct exit conditions — what marks
+  "step 1 done" differs from what marks "step 2 done" — keep them
+  as separate flows. The routing engine evaluates exits per turn
+  with no notion of sub-state, so a bundled flow's later-step exits
+  will misfire on earlier-step replies (e.g. an "identity confirmed"
+  exit firing on a "how are you?" greeting reply).
 - max_turns: set only when the source describes a retry or loop
   budget. Don't pick numbers; don't add "default" budgets. When
   set, the flow needs an unconditional sad exit path (omit the

@@ -19,6 +19,9 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const sessionId = useSimulateStore((s) => s.sessionId);
   const status = useSimulateStore((s) => s.status);
   const transcript = useSimulateStore((s) => s.transcript);
+  const events = useSimulateStore((s) => s.events);
+  const variables = useSimulateStore((s) => s.variables);
+  const contextVars = useSimulateStore((s) => s.contextVars);
   const currentFlowId = useSimulateStore((s) => s.currentFlowId);
   const error = useSimulateStore((s) => s.error);
   const start = useSimulateStore((s) => s.start);
@@ -64,7 +67,30 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     await reset();
     setInput("");
     setValidationErrors(null);
-    await startSession();
+  }
+
+  function onDownload() {
+    const current = useSpecStore.getState().spec;
+    const payload = {
+      exported_at: new Date().toISOString(),
+      spec: current,
+      session: { id: sessionId, status, current_flow_id: currentFlowId },
+      transcript,
+      events,
+      variables,
+      context_vars: contextVars,
+    };
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const agentId = current?.agent.id ?? "unknown";
+    const shortId = sessionId ? sessionId.slice(0, 8) : "nosess";
+    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `uxflows-trace-${agentId}-${shortId}-${ts}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function onSend() {
@@ -104,14 +130,23 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         </div>
         <div className="flex items-center gap-1">
           {hasSession && (
-            <button
-              onClick={onReset}
-              disabled={busy}
-              title="End the current session and start fresh against the same spec — even if the agent didn't end it."
-              className="rounded px-2 py-1 text-[11px] text-zinc-600 hover:bg-zinc-100 disabled:opacity-40"
-            >
-              reset
-            </button>
+            <>
+              <button
+                onClick={onDownload}
+                title="Download the full trace (spec snapshot, transcript, events, variables) as JSON."
+                className="rounded px-2 py-1 text-[11px] text-zinc-600 hover:bg-zinc-100"
+              >
+                download
+              </button>
+              <button
+                onClick={onReset}
+                disabled={busy}
+                title="End the current session and start fresh against the same spec — even if the agent didn't end it."
+                className="rounded px-2 py-1 text-[11px] text-zinc-600 hover:bg-zinc-100 disabled:opacity-40"
+              >
+                reset
+              </button>
+            </>
           )}
           <button
             onClick={onClose}
@@ -122,7 +157,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         </div>
       </div>
 
-      {spec && <VariablesForm spec={spec} disabled={busy || hasSession} />}
+      {spec && <VariablesForm spec={spec} disabled={busy || ready} />}
 
       <div ref={scrollRef} className="flex-1 overflow-auto p-3 space-y-3 text-sm">
         {!hasSession && status !== "starting" && (
