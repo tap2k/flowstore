@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSettingsStore } from "@/lib/store/settings";
-import { useSimulateStore, type TranscriptTurn } from "@/lib/store/simulate";
+import {
+  useSimulateStore,
+  type SimulateMode,
+  type TranscriptTurn,
+} from "@/lib/store/simulate";
 import { formatErrors, validateSpec } from "@/lib/validation/ajv";
+import { generateSystemPrompt } from "@/lib/codegen/promptGenerator";
 import type { RuntimeEvent } from "@/lib/runtime/eventTypes";
 import { VariablesForm } from "./VariablesForm";
 
@@ -16,6 +21,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const apiKey = useSettingsStore((s) => s.googleApiKey);
   const model = useSettingsStore((s) => s.googleModel);
   const runnerUrl = useSettingsStore((s) => s.runnerUrl);
+  const mode = useSimulateStore((s) => s.mode);
   const sessionId = useSimulateStore((s) => s.sessionId);
   const status = useSimulateStore((s) => s.status);
   const transcript = useSimulateStore((s) => s.transcript);
@@ -23,7 +29,11 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const variables = useSimulateStore((s) => s.variables);
   const contextVars = useSimulateStore((s) => s.contextVars);
   const currentFlowId = useSimulateStore((s) => s.currentFlowId);
+  const systemPrompt = useSimulateStore((s) => s.systemPrompt);
+  const specSnapshot = useSimulateStore((s) => s.specSnapshot);
+  const lastUsage = useSimulateStore((s) => s.lastUsage);
   const error = useSimulateStore((s) => s.error);
+  const setMode = useSimulateStore((s) => s.setMode);
   const start = useSimulateStore((s) => s.start);
   const send = useSimulateStore((s) => s.send);
   const reset = useSimulateStore((s) => s.reset);
@@ -31,6 +41,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
 
   const [input, setInput] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[] | null>(null);
+  const [promptOpen, setPromptOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const spec = useSpecStore((s) => s.spec);
@@ -60,7 +71,14 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       return;
     }
     setValidationErrors(null);
-    await start(runnerUrl, current, apiKey, model, current.agent.meta.languages?.[0]);
+    await start({
+      mode,
+      spec: current,
+      apiKey,
+      model,
+      baseUrl: mode === "runner" ? runnerUrl : undefined,
+      language: current.agent.meta.languages?.[0],
+    });
   }
 
   async function onReset() {
@@ -75,6 +93,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       exported_at: new Date().toISOString(),
       spec: current,
       session: { id: sessionId, status, current_flow_id: currentFlowId },
+      system_prompt: systemPrompt,
       transcript,
       events,
       variables,
@@ -108,6 +127,11 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   }
 
   const hasSession = sessionId !== null;
+  const specChanged = specSnapshot !== null && spec !== null && spec !== specSnapshot;
+  const previewPrompt =
+    mode === "prompt"
+      ? (systemPrompt ?? (spec ? generateSystemPrompt(spec, contextVars) : null))
+      : null;
   const subtitle = (() => {
     if (status === "starting") return "starting…";
     if (status === "thinking") return "thinking…";
@@ -125,7 +149,11 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             Simulate
           </div>
           <div className="text-[11px] text-zinc-500 truncate">
-            {currentFlowId ? `${subtitle} · ${currentFlowId}` : subtitle}
+            {mode === "prompt" && lastUsage
+              ? `${subtitle} · ${lastUsage.inputTokens.toLocaleString()} in / ${lastUsage.outputTokens.toLocaleString()} out`
+              : currentFlowId
+                ? `${subtitle} · ${currentFlowId}`
+                : subtitle}
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -157,11 +185,71 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         </div>
       </div>
 
+      <div className="flex items-center gap-2 border-b border-zinc-200 px-4 py-1.5 text-[11px]">
+        <span className="text-zinc-500">Mode</span>
+        <div className="flex overflow-hidden rounded border border-zinc-200">
+          <ModeButton current={mode} value="prompt" disabled={hasSession} onClick={setMode}>
+            Prompt
+          </ModeButton>
+          {runnerUrl && (
+            <ModeButton current={mode} value="runner" disabled={hasSession} onClick={setMode}>
+              Runner
+            </ModeButton>
+          )}
+        </div>
+        {mode === "prompt" && (
+          <span className="truncate text-zinc-500">{model}</span>
+        )}
+        {mode === "runner" && (
+          <span className="truncate text-zinc-500">{runnerUrl}</span>
+        )}
+      </div>
+
       {spec && <VariablesForm spec={spec} disabled={busy || ready} />}
+
+      {hasSession && mode === "prompt" && specChanged && (
+        <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+          Spec changed since session start. Reset to re-render the system prompt.
+        </div>
+      )}
+
+      {previewPrompt && (
+        <div className="border-b border-zinc-200 bg-zinc-50/50">
+          <div className="flex items-center justify-between px-4 py-2 text-[11px] text-zinc-600">
+            <button
+              type="button"
+              onClick={() => setPromptOpen((o) => !o)}
+              className="flex flex-1 items-center text-left hover:text-zinc-900"
+            >
+              <span className="mr-1 text-zinc-400">{promptOpen ? "▾" : "▸"}</span>
+              System prompt
+              <span className="ml-1 text-zinc-400">
+                ({previewPrompt.length.toLocaleString()} chars)
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard.writeText(previewPrompt)}
+              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50"
+              title="Copy the rendered system prompt to clipboard."
+            >
+              Copy
+            </button>
+          </div>
+          {promptOpen && (
+            <div className="px-4 pb-3">
+              <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded border border-zinc-200 bg-white p-2 font-mono text-[10px] leading-snug text-zinc-700">
+                {previewPrompt}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
 
       <div ref={scrollRef} className="flex-1 overflow-auto p-3 space-y-3 text-sm">
         {!hasSession && status !== "starting" && (
           <EmptyState
+            mode={mode}
             apiKey={apiKey}
             specLoaded={!!spec}
             validationErrors={validationErrors}
@@ -221,13 +309,44 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   );
 }
 
+function ModeButton({
+  current,
+  value,
+  disabled,
+  onClick,
+  children,
+}: {
+  current: SimulateMode;
+  value: SimulateMode;
+  disabled: boolean;
+  onClick: (m: SimulateMode) => void;
+  children: React.ReactNode;
+}) {
+  const active = current === value;
+  return (
+    <button
+      onClick={() => onClick(value)}
+      disabled={disabled}
+      className={`px-2 py-0.5 text-[11px] ${
+        active
+          ? "bg-zinc-900 text-white"
+          : "bg-white text-zinc-600 hover:bg-zinc-50"
+      } disabled:cursor-not-allowed disabled:opacity-50`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function EmptyState({
+  mode,
   apiKey,
   specLoaded,
   validationErrors,
   onStart,
   onOpenSettings,
 }: {
+  mode: SimulateMode;
   apiKey: string;
   specLoaded: boolean;
   validationErrors: string[] | null;
@@ -243,14 +362,13 @@ function EmptyState({
   }
   return (
     <div className="text-xs text-zinc-500 space-y-4">
-      <p>Talk to your spec using the XXX runtime.</p>
-      <p>
-        Paste an{" "}
-        <button onClick={onOpenSettings} className="underline hover:text-zinc-900">
-          API key in Settings
-        </button>{" "}
-        to use your own quota.
-      </p>
+      {mode === "prompt" && !apiKey && (
+        <p>
+          <button onClick={onOpenSettings} className="underline hover:text-zinc-900">
+            Requires a Google API key in Settings.
+          </button>
+        </p>
+      )}
       {validationErrors && validationErrors.length > 0 && (
         <div className="rounded border border-red-200 bg-red-50 p-2 text-red-800">
           <div className="font-medium mb-1">Spec has validation errors:</div>
@@ -263,10 +381,13 @@ function EmptyState({
       )}
       <button
         onClick={onStart}
-        className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
+        disabled={mode === "prompt" && !apiKey}
+        className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
       >
         Start session
-        {!apiKey && <span className="ml-1 opacity-70">(runner credentials)</span>}
+        {mode === "runner" && !apiKey && (
+          <span className="ml-1 opacity-70">(runner credentials)</span>
+        )}
       </button>
     </div>
   );

@@ -55,7 +55,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           </button>
         </div>
         <p className="text-[11px] text-zinc-500">
-          Only for chat functions. Stored in this browser&apos;s localStorage. Anyone with access to this browser can read it. Do not use a shared machine.
+          Only for chat / simulate. Stored in this browser&apos;s localStorage. Anyone with access to this browser can read it. 
           Get a key at{" "}
           <a
             href="https://aistudio.google.com/app/apikey"
@@ -92,16 +92,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
             placeholder={DEFAULT_RUNNER_URL}
             className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400"
           />
-          <button
-            onClick={() => setRunnerUrlInput(DEFAULT_RUNNER_URL)}
-            className="rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100"
-          >
-            reset
-          </button>
         </div>
-        <p className="text-[11px] text-zinc-500">
-          Required for Simulate. Default is local.
-        </p>
       </div>
       <div className="flex items-center justify-end gap-2 pt-2">
         <button

@@ -7,7 +7,10 @@ import type {
   FaqEntry,
 } from "@/lib/schema/v0";
 
-export function generateSystemPrompt(spec: Spec): string {
+export function generateSystemPrompt(
+  spec: Spec,
+  vars?: Record<string, unknown>,
+): string {
   const sections = [
     renderRole(spec),
     // renderVariables(spec),     // disabled: variables are substituted before paste
@@ -18,7 +21,20 @@ export function generateSystemPrompt(spec: Spec): string {
     // renderCapabilities(spec),  // disabled: naked prompt has no tools to call
   ].filter(Boolean);
 
-  return sections.join("\n\n---\n\n").trim() + "\n";
+  const rendered = sections.join("\n\n---\n\n").trim() + "\n";
+  return vars ? substituteVars(rendered, vars) : rendered;
+}
+
+// Replaces `{name}` placeholders with values from `vars`. Unknown placeholders
+// are left as-is; null/undefined values leave the placeholder so the author
+// can spot a missing var instead of getting silent ""s in the prompt.
+export function substituteVars(text: string, vars: Record<string, unknown>): string {
+  let out = text;
+  for (const [name, value] of Object.entries(vars)) {
+    if (value === null || value === undefined) continue;
+    out = out.split(`{${name}}`).join(String(value));
+  }
+  return out;
 }
 
 function renderRole(spec: Spec): string {

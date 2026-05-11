@@ -6,6 +6,10 @@ import {
   sendTurn as apiSendTurn,
   startSession as apiStartSession,
 } from "@/lib/runtime/textClient";
+import { sendPromptTurn } from "@/lib/runtime/promptClient";
+import { generateSystemPrompt } from "@/lib/codegen/promptGenerator";
+import { useSettingsStore } from "@/lib/store/settings";
+import type { ChatUsage } from "@/lib/llm/types";
 
 export type SimulateStatus =
   | "idle"
@@ -15,6 +19,13 @@ export type SimulateStatus =
   | "ended"
   | "error";
 
+export type SimulateMode = "runner" | "prompt";
+
+// Synthetic user turn that elicits the agent's opener when chatbot_initiates
+// is true in prompt mode. The Gemini API requires at least one user content;
+// the system prompt is what shapes the actual greeting.
+const PROMPT_MODE_BEGIN = "[begin]";
+
 export interface TranscriptTurn {
   role: "agent" | "user";
   text: string;
@@ -22,7 +33,17 @@ export interface TranscriptTurn {
   events: RuntimeEvent[];
 }
 
+export interface StartArgs {
+  mode: SimulateMode;
+  spec: Spec;
+  apiKey: string;
+  model: string;
+  baseUrl?: string;
+  language?: string;
+}
+
 interface SimulateState {
+  mode: SimulateMode;
   sessionId: string | null;
   baseUrl: string | null;
   status: SimulateStatus;
@@ -34,14 +55,13 @@ interface SimulateState {
   contextVars: Record<string, unknown>;
   contextVarsAgentId: string | null;
   error: string | null;
+  // Prompt-mode state. Frozen at session start; reset clears.
+  systemPrompt: string | null;
+  specSnapshot: Spec | null;
+  lastUsage: ChatUsage | null;
 
-  start: (
-    baseUrl: string,
-    spec: Spec,
-    apiKey: string,
-    model: string,
-    language?: string,
-  ) => Promise<void>;
+  setMode: (mode: SimulateMode) => void;
+  start: (args: StartArgs) => Promise<void>;
   send: (userText: string) => Promise<void>;
   reset: () => Promise<void>;
   close: () => Promise<void>;
@@ -101,6 +121,7 @@ function reduceEvents(
 }
 
 export const useSimulateStore = create<SimulateState>((set, get) => ({
+  mode: "prompt",
   sessionId: null,
   baseUrl: null,
   status: "idle",
@@ -112,6 +133,14 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   contextVars: {},
   contextVarsAgentId: null,
   error: null,
+  systemPrompt: null,
+  specSnapshot: null,
+  lastUsage: null,
+
+  setMode: (mode) => {
+    if (get().sessionId) return; // mode is frozen during an active session
+    set({ mode });
+  },
 
   hydrateContextVars: (agentId) => {
     const current = get();
@@ -145,9 +174,11 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     if (contextVarsAgentId) saveVars(contextVarsAgentId, {});
   },
 
-  start: async (baseUrl, spec, apiKey, model, language) => {
+  start: async (args) => {
+    const { mode, spec, apiKey, model, baseUrl, language } = args;
     const { contextVars } = get();
     set({
+      mode,
       status: "starting",
       transcript: [],
       events: [],
@@ -156,8 +187,60 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       variables: {},
       error: null,
       sessionId: null,
-      baseUrl,
+      baseUrl: baseUrl ?? null,
+      systemPrompt: null,
+      specSnapshot: null,
+      lastUsage: null,
     });
+
+    if (mode === "prompt") {
+      try {
+        const systemPrompt = generateSystemPrompt(spec, contextVars);
+        const sessionId = `prompt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        set({ sessionId, systemPrompt, specSnapshot: spec });
+
+        if (spec.agent.chatbot_initiates) {
+          const openerTurn: TranscriptTurn = {
+            role: "user",
+            text: PROMPT_MODE_BEGIN,
+            ts: Date.now(),
+            events: [],
+          };
+          set({ transcript: [openerTurn] });
+          const res = await sendPromptTurn({
+            systemPrompt,
+            history: [],
+            userText: PROMPT_MODE_BEGIN,
+            apiKey,
+            model,
+          });
+          const agentTurn: TranscriptTurn = {
+            role: "agent",
+            text: res.text,
+            ts: Date.now(),
+            events: [],
+          };
+          set({
+            transcript: [openerTurn, agentTurn],
+            lastUsage: res.usage ?? null,
+            status: "ready",
+          });
+        } else {
+          set({ status: "ready" });
+        }
+      } catch (e) {
+        set({
+          status: "error",
+          error: e instanceof Error ? e.message : "Failed to start prompt session.",
+        });
+      }
+      return;
+    }
+
+    if (!baseUrl) {
+      set({ status: "error", error: "Runner URL is required for runner mode." });
+      return;
+    }
     try {
       const res = await apiStartSession({
         baseUrl,
@@ -199,8 +282,19 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   },
 
   send: async (userText) => {
-    const { sessionId, baseUrl, status, transcript, events, currentFlowId, lastExitEdgeId, variables } = get();
-    if (!sessionId || !baseUrl) return;
+    const {
+      mode,
+      sessionId,
+      baseUrl,
+      status,
+      transcript,
+      events,
+      currentFlowId,
+      lastExitEdgeId,
+      variables,
+      systemPrompt,
+    } = get();
+    if (!sessionId) return;
     if (status === "thinking" || status === "starting" || status === "ended") return;
     const trimmed = userText.trim();
     if (!trimmed) return;
@@ -210,11 +304,48 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       ts: Date.now(),
       events: [],
     };
+    const nextTranscript = [...transcript, userTurn];
     set({
       status: "thinking",
-      transcript: [...transcript, userTurn],
+      transcript: nextTranscript,
       error: null,
     });
+
+    if (mode === "prompt") {
+      if (!systemPrompt) {
+        set({ status: "error", error: "Prompt session has no system prompt." });
+        return;
+      }
+      try {
+        const { apiKey, model } = readLlmCreds();
+        const res = await sendPromptTurn({
+          systemPrompt,
+          history: transcript,
+          userText: trimmed,
+          apiKey,
+          model,
+        });
+        const agentTurn: TranscriptTurn = {
+          role: "agent",
+          text: res.text,
+          ts: Date.now(),
+          events: [],
+        };
+        set({
+          transcript: [...get().transcript, agentTurn],
+          lastUsage: res.usage ?? null,
+          status: "ready",
+        });
+      } catch (e) {
+        set({
+          status: "error",
+          error: e instanceof Error ? e.message : "Turn failed.",
+        });
+      }
+      return;
+    }
+
+    if (!baseUrl) return;
     try {
       const res = await apiSendTurn({ baseUrl, sessionId, userText: trimmed });
       const reduced = reduceEvents(
@@ -246,8 +377,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   reset: async () => {
     // Caller passes the spec/key on restart via SimulatePanel; we just tear down.
     // contextVars persist across reset so designers don't lose their test setup.
-    const { sessionId, baseUrl } = get();
-    if (sessionId && baseUrl) {
+    const { mode, sessionId, baseUrl } = get();
+    if (mode === "runner" && sessionId && baseUrl) {
       await apiEndSession(baseUrl, sessionId);
     }
     set({
@@ -260,12 +391,15 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       lastExitEdgeId: null,
       variables: {},
       error: null,
+      systemPrompt: null,
+      specSnapshot: null,
+      lastUsage: null,
     });
   },
 
   close: async () => {
-    const { sessionId, baseUrl } = get();
-    if (sessionId && baseUrl) {
+    const { mode, sessionId, baseUrl } = get();
+    if (mode === "runner" && sessionId && baseUrl) {
       await apiEndSession(baseUrl, sessionId);
     }
     set({
@@ -278,6 +412,16 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       lastExitEdgeId: null,
       variables: {},
       error: null,
+      systemPrompt: null,
+      specSnapshot: null,
+      lastUsage: null,
     });
   },
 }));
+
+function readLlmCreds(): { apiKey: string; model: string } {
+  // Read fresh from settings on each prompt-mode turn so key/model changes
+  // mid-session apply without forcing a reset.
+  const s = useSettingsStore.getState();
+  return { apiKey: s.googleApiKey, model: s.googleModel };
+}

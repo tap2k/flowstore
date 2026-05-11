@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { parse as parseYaml } from "yaml";
 import { useSpecStore } from "@/lib/store/spec";
 import { validateSpec, formatErrors } from "@/lib/validation/ajv";
-import { generateSystemPrompt } from "@/lib/codegen/promptGenerator";
 import { AgentSheet } from "@/components/sheets/AgentSheet";
 import { VariablesSheet } from "@/components/sheets/VariablesSheet";
 import { GuardrailsSheet } from "@/components/sheets/GuardrailsSheet";
@@ -71,21 +70,7 @@ export function ImportExportToolbar({
   const setSpec = useSpecStore((s) => s.setSpec);
   const [importOpen, setImportOpen] = useState(false);
   const [openSheet, setOpenSheet] = useState<null | "agent" | "variables" | "guardrails" | "business_goals" | "capabilities" | "knowledge">(null);
-  const [exportMenuOpen, setExportMenuOpen] = useState(false);
-  const exportMenuRef = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!exportMenuOpen) return;
-    function onDoc(e: MouseEvent) {
-      if (!exportMenuRef.current) return;
-      if (!exportMenuRef.current.contains(e.target as Node)) {
-        setExportMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [exportMenuOpen]);
 
   function downloadFile(filename: string, content: string, mime: string) {
     const blob = new Blob([content], { type: mime });
@@ -102,13 +87,6 @@ export function ImportExportToolbar({
   function exportSpecJson() {
     if (!spec) return;
     downloadFile(`${spec.agent.id || "spec"}.json`, JSON.stringify(spec, null, 2), "application/json");
-    setExportMenuOpen(false);
-  }
-
-  function exportSystemPrompt() {
-    if (!spec) return;
-    downloadFile(`${spec.agent.id || "spec"}.prompt.txt`, generateSystemPrompt(spec), "text/plain");
-    setExportMenuOpen(false);
   }
 
   function commitImport(parsed: unknown) {
@@ -156,40 +134,15 @@ export function ImportExportToolbar({
         >
           <ImportIcon />
         </button>
-        <div ref={exportMenuRef} className="relative">
-          <button
-            onClick={() => setExportMenuOpen((v) => !v)}
-            disabled={!spec}
-            className={iconButtonClass}
-            title="Export"
-            aria-label="Export"
-            aria-haspopup="menu"
-            aria-expanded={exportMenuOpen}
-          >
-            <ExportIcon />
-          </button>
-          {exportMenuOpen && (
-            <div
-              role="menu"
-              className="absolute right-0 top-full mt-1 z-50 min-w-[180px] rounded-md border border-zinc-200 bg-white shadow-lg py-1 text-xs"
-            >
-              <button
-                role="menuitem"
-                onClick={exportSpecJson}
-                className="block w-full text-left px-3 py-1.5 text-zinc-700 hover:bg-zinc-100"
-              >
-                Export spec as JSON
-              </button>
-              <button
-                role="menuitem"
-                onClick={exportSystemPrompt}
-                className="block w-full text-left px-3 py-1.5 text-zinc-700 hover:bg-zinc-100"
-              >
-                Export as system prompt
-              </button>
-            </div>
-          )}
-        </div>
+        <button
+          onClick={exportSpecJson}
+          disabled={!spec}
+          className={iconButtonClass}
+          title="Export spec as JSON"
+          aria-label="Export spec as JSON"
+        >
+          <ExportIcon />
+        </button>
         <span className="w-px h-5 bg-zinc-200" />
         <button
           onClick={onOpenSettings}
