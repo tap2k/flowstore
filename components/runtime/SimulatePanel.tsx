@@ -442,12 +442,12 @@ function EventLine({ ev }: { ev: RuntimeEvent }) {
   const line = formatEvent(ev);
   if (!line) return null;
   return (
-    <details className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-[11px] font-mono text-zinc-700">
+    <details className="px-1 text-[10px] font-mono text-zinc-400 hover:text-zinc-600">
       <summary className="cursor-pointer list-none">
-        <span className="text-zinc-500">→ </span>
+        <span className="text-zinc-300">→ </span>
         {line}
       </summary>
-      <pre className="mt-1 overflow-auto whitespace-pre-wrap text-[10px] text-zinc-500">
+      <pre className="mt-1 overflow-auto whitespace-pre-wrap rounded bg-zinc-50 p-2 text-[10px] text-zinc-500">
         {JSON.stringify(ev, null, 2)}
       </pre>
     </details>
