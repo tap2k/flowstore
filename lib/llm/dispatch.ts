@@ -3,7 +3,7 @@ import type { ChatRequest, ChatResponse, ProviderId } from "./types";
 
 // Hardcoded for MVP. Selector lands when a second provider arrives.
 export const DEFAULT_PROVIDER: ProviderId = "google";
-export const DEFAULT_MODEL = "gemini-2.5-flash";
+export const DEFAULT_MODEL = process.env.NEXT_PUBLIC_DEFAULT_MODEL ?? "gemini-2.5-flash";
 
 export const GOOGLE_MODELS: { id: string; label: string }[] = [
   { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (preview)" },
