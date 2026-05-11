@@ -59,6 +59,14 @@ The schema skeleton is valid with minimal required fields. Depth is added increm
 
 Schema defines behavior. UI defines rendering. Node position on the canvas, color coding, panel state are UI concerns and must not appear in exported spec JSON.
 
+### Notes (Authoring Annotations)
+
+Flows and exit paths — the canvas nodes and edges — may each carry an optional `notes` string. `notes` is authoring annotation: *why* the flow or routing decision exists, who asked for it, what tradeoff was made. It is **not behavior** — runtimes and codegen ignore it, and simulators and evaluators must not assert against it. It rides along with the spec so commentary survives export/import for collaboration, the same way code comments travel with source.
+
+Distinct from `description`, which describes *what* a flow does or *when* it applies and is consumed by codegen and prompt assembly. Use `description` for runtime-facing prose; use `notes` for human-facing rationale.
+
+Notes are scoped to flows and exit paths only. Comments on guardrails, capabilities, or other list items live in the parent flow's notes — granular per-entity annotation is not in scope.
+
 ### Execution Separate From Spec
 
 Endpoint, headers, and runtime model live in a separate `execution` object outside the spec. Sharing or exporting a spec must not leak credentials or deployment details.
@@ -249,6 +257,8 @@ This wrapper is the on-disk and on-the-wire format. Producers (the editor, impor
 
   "max_turns": "number (optional)",
 
+  "notes": "string (optional; authoring annotation, runtimes ignore)",
+
   "example": "string (plain-text transcript; free-form format)",
 
   "knowledge": {
@@ -278,6 +288,7 @@ This wrapper is the on-disk and on-the-wire format. Producers (the editor, impor
       {
         "id": "string",
         "type": "happy | sad | off | exit | return_to_caller",
+        "notes": "string (optional; authoring annotation, runtimes ignore)",
         "condition": {
           "expression": "string",
           "method": "llm | calculation | direct",
@@ -308,12 +319,14 @@ This wrapper is the on-disk and on-the-wire format. Producers (the editor, impor
 - **`scripts`** — per-language utterances for this flow. Keys are language codes from `agent.meta.languages`. Each entry is an ordered list of utterances the agent may say, with stable IDs for reference and translation management. The translation table view across all flows is derived from these.
 - **`guardrails`** — flow-scoped behavioral invariants. Same structure as agent-level guardrails but apply only within this flow. 
 - **`max_turns`** — optional integer. On exhaustion, the flow follows its unconditional sad exit path. Interrupts don't count toward the turn limit. Convention over configuration — no paired exit_path_id field.
+- **`notes`** — optional authoring annotation. See [Notes (Authoring Annotations)](#notes-authoring-annotations). Runtimes and codegen ignore it.
 - **`example`** — optional plain-text transcript illustrating intended behavior. Annotation-only: runtimes ignore it. Simulation may use it as a seeding hint but does not assert against it.
 - **`knowledge.faq`** — flow-scoped FAQ entries. Same shape as agent-level `knowledge.faq`. Travels with the flow when reused across agents.
 - **`variables`** — optional flow-scoped variable declarations. Same shape as agent-level `variables`; use the flow level for variables produced or consumed only inside this flow, the agent level for variables shared across flows. Declarations enrich an already-existing variable with `type` and `description` — they do not create variables.
 - **`routing.entry_condition`** — when this flow should be active. For interrupt flows: a trigger phrase or intent. For sequential flows: rarely needed; entry follows the incoming edge. Single condition by design — combine multiple checks inline using `and`/`or` in a calculation expression, or describe them together in an llm condition.
 - **`routing.exit_paths`** — how the flow ends. `return_to_caller` is the special exit for interrupt flows, resuming the interrupted flow. `assigns` produces variables available to the next flow.
 - **`routing.exit_paths[].condition`** — required for routable exits, optional on `type: "return_to_caller"`: when present, articulates *when* the LLM should hand back (surfaced as the per-exit hint on the `take_exit_path` tool); when absent, the runtime falls back to a generic "side conversation complete" cue. A `condition` may also be omitted when the exit is unconditional in normal flow — for example, the sad exit a flow falls back to when `max_turns` exhausts. The runtime treats a missing condition as always-takeable.
+- **`routing.exit_paths[].notes`** — optional authoring annotation. See [Notes (Authoring Annotations)](#notes-authoring-annotations). Runtimes and codegen ignore it.
 - **`routing.exit_paths[].actions`** — non-conversational side effects fired when this exit is taken (e.g., write a record to a CRM, send a confirmation SMS). Each entry references an `agent.capabilities[]` catalog entry by `capability_id`. Inputs are resolved implicitly: the runtime reads the capability's `inputs` list and pulls those variable names from conversation scope at the moment the exit fires — no explicit binding syntax. Any `outputs` declared on the referenced capability are not bound — exit-path actions have no output binding syntax. The runtime fires actions in declaration order; in v0 ordering is best-effort and idempotency is the runtime's responsibility. Distinct from v1 `tool` steps, which dispatch the same capabilities *during* the conversation and bind outputs into variable scope.
 
 ---

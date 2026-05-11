@@ -125,6 +125,15 @@ export function EdgeInspector() {
           )}
         </Field>
 
+        <Field label="Notes">
+          <textarea
+            className={`${inputClass} resize-y min-h-[60px]`}
+            value={exitPath.notes ?? ""}
+            onChange={(e) => patch({ notes: e.target.value || undefined })}
+            placeholder="Notes, comments, etc."
+          />
+        </Field>
+
         <Field label="Assigns">
           <ListEditor<AssignRow>
             items={assignRows}

@@ -162,6 +162,7 @@ const ExitPathSchema = Type.Object(
   {
     id: Type.String(),
     type: ExitType,
+    notes: Type.Optional(Type.String()),
     condition: Type.Optional(ConditionSchema),
     next_flow_id: Type.Union([Type.String(), Type.Null()]),
     assigns: Type.Optional(Type.Record(Type.String(), AssignValueSchema)),
@@ -287,6 +288,7 @@ export const FlowSchema = Type.Object(
     steps: Type.Optional(Type.Array(StepSchema)),
     guardrails: Type.Optional(Type.Array(GuardrailSchema)),
     max_turns: Type.Optional(Type.Number()),
+    notes: Type.Optional(Type.String()),
     example: Type.Optional(Type.String()),
     knowledge: Type.Optional(FlowKnowledgeSchema),
     variables: Type.Optional(Type.Record(Type.String(), VariableDeclSchema)),

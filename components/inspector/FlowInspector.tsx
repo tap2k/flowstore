@@ -66,6 +66,15 @@ export function FlowInspector() {
           />
         </Field>
 
+        <Field label="Notes">
+          <textarea
+            className={`${inputClass} resize-y min-h-[60px]`}
+            value={flow.notes ?? ""}
+            onChange={(e) => patch({ notes: e.target.value || undefined })}
+            placeholder="Notes, comments, etc."
+          />
+        </Field>
+
         <Field label="Type">
           <select
             className={inputClass}
