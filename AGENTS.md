@@ -45,7 +45,7 @@ The canvas is the canonical editing surface. Text views are entry and export onl
 - **Export as JSON** — the exported file is the same shape the declarative import accepts; round-trip preserves the spec.
 - **Export as system prompt** — deterministic codegen ([lib/codegen/promptGenerator.ts](./lib/codegen/promptGenerator.ts)) that flattens the spec into a single monolithic system prompt. For copy-paste into non-runner runtimes (OpenAI, Claude, Voiceflow, etc.); the runner consumes the JSON directly.
 - **Simulate panel** — text chat against [`../uxflows-runner/`](../uxflows-runner/), BYOK Gemini, against the spec currently being edited. Canvas highlights the active flow and last-traversed edge live during the run.
-- **Eval-on-canvas (post-MVP).** Findings from whatsupp2 simulation runs overlay onto the same node and edge IDs the spec defines — guardrail-fail rates pinned to guardrail nodes, scenario coverage on flow nodes. The canvas is the eval view; there is no separate findings tab.
+- **Eval-on-canvas (post-MVP).** Findings from the evaluation consumer (currently whatsupp2) overlay onto the same node and edge IDs the spec defines — guardrail-fail rates pinned to guardrail nodes, scenario coverage on flow nodes. The canvas is the eval view; there is no separate findings tab.
 
 ## Tech Stack
 
@@ -136,8 +136,8 @@ From AGENT-TESTING.md — the five-step loop uxflows supports end-to-end:
 1. **Ingest** — paste a system prompt and attach supporting docs (PDFs, spreadsheets, Word, Figma exports, plain text).
 2. **Parse** — a behavioral parser (LLM-assisted) converts inputs to a structured v0 spec. Today this is [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt). The designer pastes source material in, gets v0 JSON, and pastes it into the editor's Import. An in-app "Parse with AI" using a user-provided API key is planned to skip the round-trip.
 3. **Review and configure** — user reviews the parsed spec on the canvas, edits inline.
-4. **Simulate** — run personas against the agent endpoint. Evaluator scores each conversation against guardrails and per-scenario `should_happen` / `should_not_happen`. (in whatsupp2)
-5. **Share** — internal findings report + client-facing shareable document. (in whatsupp2)
+4. **Simulate** — run personas against the agent endpoint. Evaluator scores each conversation against guardrails and per-scenario `should_happen` / `should_not_happen`. (in the evaluation consumer, currently whatsupp2)
+5. **Share** — internal findings report + client-facing shareable document. (in the evaluation consumer, currently whatsupp2)
 
 ## Related Docs in This Repo
 
@@ -160,5 +160,5 @@ Opens at http://localhost:3000.
 - Only add comments when the *why* is non-obvious. Never docstring-style multi-paragraph comments.
 - Prefer editing existing files over creating new ones.
 - Don't add backwards-compat shims. It's early — break freely.
-- Match conventions in whatsupp2 where reasonable. Specs authored here eventually flow there.
+- Match conventions in sibling UX4 repos where reasonable. The spec is the contract; the runner is the canonical native consumer.
 - Keep the spec schema evolution discussions in SCHEMA.md. The product vision lives in AGENT-TESTING.md.

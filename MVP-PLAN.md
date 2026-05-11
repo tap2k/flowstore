@@ -20,11 +20,11 @@ All eleven chunks shipped. MVP is complete:
 
 Beyond plan, also shipped: Variables editor (was post-MVP), Tables CRUD (was post-MVP), `entry_flow_id` picker in Agent sheet, delete buttons in inspectors, schema-doc sync, AGENT-SPEC-PROMPT.txt rewritten for one-shot v0 JSON output, Simulate variables form with LLM-powered value generation, system-prompt codegen ([lib/codegen/promptGenerator.ts](./lib/codegen/promptGenerator.ts)), canvas highlight of active flow + last-traversed edge during simulate.
 
-Next up is the post-MVP list below. Top candidates by leverage: deep graph validation (unreachable calculation exits + knowledge-coverage gaps), v1 steps editor, and eval-on-canvas overlay from whatsupp2 findings.
+Next up is the post-MVP list below. Top candidates by leverage: ingestion-parser quality (system prompts / transcripts / markdown), deep graph validation (unreachable calculation exits + knowledge-coverage gaps), and v1 steps editor.
 
 ## Goal
 
-Ship an editor that authors a full real-world MVP-scale spec from scratch and exports JSON that [../whatsupp2/](../whatsupp2/) consumes as simulation/evaluation input.
+Ship an editor that authors a full real-world MVP-scale spec from scratch and exports JSON.
 
 Canvas-first, local-first, single-user.
 
@@ -35,7 +35,7 @@ Canvas-first, local-first, single-user.
 - Can add a new flow from the toolbar, draw an edge to it, edit its content.
 - Can open a flow's scripts sheet and author agent utterances in EN and ES side-by-side.
 - Can edit all agent-level collections (Meta, Guardrails, FAQ, Glossary, Tables) via the sidebar.
-- Can export a `.json` file that imports cleanly into whatsupp2 and survives roundtrip through this editor.
+- Can export a `.json` file that validates against the schema and survives roundtrip through this editor.
 - Broken references are caught inline during authoring and at import.
 
 ---
@@ -53,11 +53,11 @@ Canvas-first, local-first, single-user.
 
 - **v0 flows use `instructions` + `scripts`**, not structured steps. `instructions` is behavioral prose that compiles into a system prompt fragment. `scripts` is a per-language list of utterances for this flow.
 - **Steps moved to v1.** Turn-level sequencing, per-turn captures, and utterance variations are v1 depth. MVP authoring via `instructions` + scripts sheet covers the dominant case.
-- **Variables are implicit, optionally enriched.** A variable exists because it is referenced; no upfront declaration required. v0 carries an optional `variables` dictionary at agent and flow level for `type` / `description` — kept tight to match what whatsupp2 actually consumes. Scope is determined by runtime value-bucket location, not by a spec field; example values are generated at value-entry time. The schema ships with `variables` in MVP so import/export preserve type info.
+- **Variables are implicit, optionally enriched.** A variable exists because it is referenced; no upfront declaration required. v0 carries an optional `variables` dictionary at agent and flow level for `type` / `description` — kept tight to what consumers actually need (type info for evaluation and codegen). Scope is determined by runtime value-bucket location, not by a spec field; example values are generated at value-entry time. The schema ships with `variables` in MVP so import/export preserve type info.
 - **`flow.example`** — plain-text transcript, annotation-only. Runtimes ignore it; simulation uses it as a seeding hint.
-- **`personas` removed from schema.** Persona definitions live downstream in whatsupp2.
+- **`personas` removed from schema.** Persona definitions are out of scope for the spec; they live in the evaluation/simulation consumer (currently whatsupp2).
 - **`meta.languages`** — list of language codes. Drives translation table columns on each flow's scripts sheet.
-- **User segments removed from spec.** Population context lives at project level in the consuming repo (whatsupp2's `project.stakeholders`), not in the spec — same scope as personas and execution config.
+- **User segments removed from spec.** Population context is out of scope for the spec — it lives at project level in the evaluation consumer (currently whatsupp2's `project.stakeholders`), same scope as personas and execution config.
 - **Channels** (phone numbers, URLs, emails) are plan-level variables, not capability entries.
 - **Interrupt return-bridging** stays as a guardrail. No new typed schema field.
 - **v1 `annotations` namespace** planned for node positions, colors, comments. Runtimes MUST ignore. Two export modes (authoring = includes annotations; runtime = strips them).
@@ -253,7 +253,6 @@ Runner-side contract documented in [`../uxflows-runner/RUNNER-PLAN.md` §"Phase 
 - **v1 schema additions** — `tool` step (mid-conversation capability dispatch), `call` step (sub-flow invocation), `pipecat` hints. Canvas and inspector adapt when the schema lands; expect a capability picker on tool steps. Capability catalog (`agent.capabilities[]`) and post-exit dispatch (`exit_path.actions[]`) are already in v0.
 - **Export as declarative text** — on-demand stringification of the spec for skim and stakeholder share. Read-only output; not a live mirror.
 - **Id rename with cascade update.** Routing-plumbing ids (`flow.id`, `exit_path.id`, `script_line.id`, `guardrail.id`, `business_goal.id`, `capability.id`-as-editor-handle, etc.) are immutable in MVP; delete-and-recreate to change. The runner walks them deterministically and the LLM never sees them — so the cosmetic value of renaming is low until eval data starts pinning to them. LLM-facing identifiers (`capability.name`, variable names, glossary `term`, FAQ `question`, guardrail `statement`) are already author-controlled and freely editable today.
-- **Eval annotations on the canvas.** Whatsupp2 simulator findings overlay onto the same node and edge IDs the spec defines (guardrail-fail rates on guardrail nodes, scenario coverage on flow nodes). Reuses the runner's UX4-id-keyed event stream; no separate findings UI.
 - **Vertical templates.** Banking collections, healthcare intake, insurance claims, etc. Templates are regular specs — the cold-start UX is "load template → edit," same plumbing as the existing example loader. No template-specific schema fields.
 - **Skip dagre re-layout when topology hasn't changed.** Today every spec mutation (including each keystroke in any inspector field) re-runs `buildGraph` + `dagre.layout` + `setNodes`/`setEdges` in [Canvas.tsx](./components/canvas/Canvas.tsx). Fine at MVP scale; will lag at 100+ flows. Surgical fix: re-layout only when flow ids or edge connectivity changes; for pure data updates (name, instructions, condition text), update node `data` in place, keep positions. Preserves live-preview while killing the hot-path cost.
 

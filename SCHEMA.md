@@ -1,8 +1,8 @@
 # UX4 Flows Schema
 
-Canonical behavioral spec schema for conversational agents authored in UX4. The UX4 editor (this repo, `uxflows`) is the primary producer. UX4 simulation, evaluation, and client-facing document rendering (sibling repo `../whatsupp2/`) are the primary consumers.
+Canonical behavioral spec schema for conversational agents authored in UX4. The UX4 editor (this repo, `uxflows`) is the primary producer. Consumers include the runner (native execution), evaluation/simulation tooling, and client-facing document rendering — currently sibling repos [`../uxflows-runner/`](../uxflows-runner/) and `../whatsupp2/`.
 
-**This document is the authoritative schema.** Both repos defer to it. Schema-as-code (TypeBox) mirrors this document at [`lib/schema/v0.ts`](./lib/schema/v0.ts).
+**This document is the authoritative schema.** All producers and consumers defer to it. Schema-as-code (TypeBox) mirrors this document at [`lib/schema/v0.ts`](./lib/schema/v0.ts).
 
 ## Data Model
 
@@ -218,7 +218,7 @@ This wrapper is the on-disk and on-the-wire format. Producers (the editor, impor
 - **`system_prompt`** — the agent's behavioral instructions as authored. Present when flows are not yet defined or when the prompt carries behavioral intent not yet decomposed into flows. Flows compile into prompt fragments that extend or replace this.
 - **`chatbot_initiates`** — whether the agent sends the first message or waits for the user.
 - **`guardrails`** — cross-cutting behavioral invariants evaluated against the full transcript. Each is a stable `id` and a single `statement` sentence. Conditional rules written inline as natural language ("If X, always Y"). Executable conditional routing belongs in interrupt flows, not guardrails.
-- **`business_goals`** — end-to-end outcome criteria the agent is judged against. Each entry is a stable `id`, a human-readable `name` (shown in evaluation reports), and a checkable criterion using the standard three methods: `llm` evaluates a rubric over the full transcript, `calculation` evaluates an expression over captured variables, `direct` is a literal. Distinct from `guardrails` (turn-by-turn invariants describing what the agent must *not* do); business goals describe what success looks like at the conversation level. Agent-level only — there is no flow-level analogue; flow-level success is already encoded by `type` and the structure of `exit_paths`. Consumed by whatsupp2 evaluation; ignored by the runner.
+- **`business_goals`** — end-to-end outcome criteria the agent is judged against. Each entry is a stable `id`, a human-readable `name` (shown in evaluation reports), and a checkable criterion using the standard three methods: `llm` evaluates a rubric over the full transcript, `calculation` evaluates an expression over captured variables, `direct` is a literal. Distinct from `guardrails` (turn-by-turn invariants describing what the agent must *not* do); business goals describe what success looks like at the conversation level. Agent-level only — there is no flow-level analogue; flow-level success is already encoded by `type` and the structure of `exit_paths`. Conversation-level field intended for evaluation consumers; runtime executors ignore it.
 - **`capabilities`** — declared catalog of external integrations the agent uses or can dispatch. Each entry has an `id` (editor-generated, spec-internal), a `name` (author-controlled, snake_case, the runtime dispatch identifier; stable across spec versions even when ids differ), a `description` (when/why this is used), a `kind` (`retrieval` = query-shaped, returns passages or records; `function` = typed-args call returning structured data or fire-and-forget side effect), optional `inputs` (canonical variable names it consumes), and optional `outputs` (canonical variable names it produces; omit for fire-and-forget). Endpoints, headers, and credentials live in the execution layer, not the spec. Catalog entries are referenced by `capability_id` at dispatch use sites: `exit_path.actions[]` for post-exit fire-and-forget (v0), and `tool` steps for mid-conversation invocation with output binding (v1).
 - **`knowledge.faq`** — high-confidence answers authored with the client. Optional per-language scripts capture the actual phrasing in each supported language.
 - **`knowledge.glossary`** — domain terms ensuring consistent terminology.
@@ -494,9 +494,9 @@ Forward-looking concepts surfaced by mapping the schema against runtimes. Not de
 
 ## Changes to This Document
 
-This is the contract between `uxflows` and `whatsupp2`. Non-additive changes must be discussed before merging. When this document changes:
+This is the contract across all UX4 producers and consumers. Non-additive changes must be discussed before merging. When this document changes:
 
 1. Bump `$schema` version if structural.
 2. Update [`lib/schema/v0.ts`](./lib/schema/v0.ts) (TypeBox definitions) to match.
 3. Update the example spec at [`public/coffee.json`](./public/coffee.json).
-4. Note the change in [`../whatsupp2/AGENT-TESTING.md`](../whatsupp2/AGENT-TESTING.md) if it affects consumers.
+4. Notify affected consumers (currently [`../uxflows-runner/`](../uxflows-runner/) and `../whatsupp2/`) when the change affects them.
