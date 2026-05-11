@@ -19,6 +19,10 @@ type GeminiContent = {
   parts: GeminiPart[];
 };
 
+type ThinkingConfig =
+  | { thinkingBudget: number }
+  | { thinkingLevel: "LOW" | "MEDIUM" | "HIGH" };
+
 type GeminiRequestBody = {
   systemInstruction?: { parts: { text: string }[] };
   contents: GeminiContent[];
@@ -30,7 +34,31 @@ type GeminiRequestBody = {
     }>;
   }[];
   toolConfig?: { functionCallingConfig: { mode: "AUTO" | "ANY" | "NONE" } };
+  generationConfig?: {
+    maxOutputTokens?: number;
+    thinkingConfig?: ThinkingConfig;
+  };
 };
+
+// Defaults chosen so Gemini doesn't burn the whole output budget on thinking
+// and return a candidate with no `parts`. 2.5 Pro can't disable thinking
+// (min 128); 3.x uses thinkingLevel instead of a numeric budget.
+function generationConfigFor(model: string): GeminiRequestBody["generationConfig"] {
+  const is3 = /(^|[^0-9])3(\.|-|$)/.test(model);
+  const is25 = model.includes("2.5");
+  if (!is3 && !is25) return undefined;
+
+  const isPro = model.includes("pro");
+  const cfg: NonNullable<GeminiRequestBody["generationConfig"]> = {
+    maxOutputTokens: 65536,
+  };
+  if (is3) {
+    cfg.thinkingConfig = { thinkingLevel: isPro ? "MEDIUM" : "LOW" };
+  } else {
+    cfg.thinkingConfig = { thinkingBudget: isPro ? 8192 : 1024 };
+  }
+  return cfg;
+}
 
 type GeminiResponseBody = {
   candidates?: Array<{
@@ -71,6 +99,7 @@ export async function callGoogle(
       req.tools.length > 0
         ? { functionCallingConfig: { mode: "AUTO" } }
         : undefined,
+    generationConfig: generationConfigFor(model),
   };
 
   const url = `${ENDPOINT}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
@@ -156,9 +185,18 @@ function parseCandidate(
   candidate: NonNullable<GeminiResponseBody["candidates"]>[number],
   usage: GeminiResponseBody["usageMetadata"],
 ): ChatResponse {
+  const parts = candidate.content?.parts;
+  if (!parts || parts.length === 0) {
+    const reason = candidate.finishReason ?? "no parts";
+    const hint =
+      reason === "MAX_TOKENS"
+        ? " — model used its entire output budget on thinking; try a smaller thinking budget or a different model"
+        : "";
+    throw new Error(`Gemini returned empty content (finishReason: ${reason})${hint}`);
+  }
   let text = "";
   const toolCalls: ToolCall[] = [];
-  for (const part of candidate.content.parts) {
+  for (const part of parts) {
     if ("text" in part && part.text) {
       text += part.text;
     } else if ("functionCall" in part) {

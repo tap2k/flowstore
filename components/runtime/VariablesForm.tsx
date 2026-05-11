@@ -21,6 +21,7 @@ export function VariablesForm({ spec, disabled }: VariablesFormProps) {
   const contextVars = useSimulateStore((s) => s.contextVars);
   const setContextVar = useSimulateStore((s) => s.setContextVar);
   const setContextVars = useSimulateStore((s) => s.setContextVars);
+  const clearContextVars = useSimulateStore((s) => s.clearContextVars);
   const apiKey = useSettingsStore((s) => s.googleApiKey);
   const model = useSettingsStore((s) => s.googleModel);
   const updateAgent = useSpecStore((s) => s.updateAgent);
@@ -80,17 +81,30 @@ export function VariablesForm({ spec, disabled }: VariablesFormProps) {
             ({filledCount} filled / {declared.length} declared)
           </span>
         </button>
-        {apiKey && (
-          <button
-            type="button"
-            onClick={onGenerate}
-            disabled={disabled || generating}
-            className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-            title="Use the LLM to fill realistic, coherent values for all declared variables."
-          >
-            {generating ? "Generating…" : "✨ Generate"}
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          {filledCount > 0 && (
+            <button
+              type="button"
+              onClick={clearContextVars}
+              disabled={disabled || generating}
+              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+              title="Clear all filled variable values."
+            >
+              Clear
+            </button>
+          )}
+          {apiKey && (
+            <button
+              type="button"
+              onClick={onGenerate}
+              disabled={disabled || generating}
+              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+              title="Use the LLM to fill realistic, coherent values for all declared variables."
+            >
+              {generating ? "Generating…" : "✨ Generate"}
+            </button>
+          )}
+        </div>
       </div>
 
       {open && (

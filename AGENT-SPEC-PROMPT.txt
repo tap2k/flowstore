@@ -127,7 +127,7 @@ V0 SCHEMA
             "id": "xp_<snake_case>",
             "type": "happy | sad | off | exit | return_to_caller",
             "condition": {
-              "expression": "string (omit the whole condition object for unconditional exits)",
+              "expression": "string (for an always-fires exit use { method: \"direct\", expression: \"true\" }; omit condition entirely only for a max_turns sad fallback)",
               "method": "llm | calculation | direct"
             },
             "next_flow_id": "<id> | null",
@@ -197,8 +197,14 @@ Condition expressions:
 - For `method: "calculation"`, variables appear bare in expressions
   (`verified == True`, `loan_amount > 50000`).
 
-Conditions are exactly two fields: `expression` and `method`. To
-make an exit path unconditional, omit the entire `condition` object.
+Conditions are exactly two fields: `expression` and `method`. For
+an exit that should fire after every turn (e.g. "after the user
+responds, always move on"), use `{ "method": "direct", "expression":
+"true" }` — NOT an omitted condition. Omit the entire `condition`
+object ONLY for a `max_turns` sad fallback (see the `max_turns`
+note below); the runtime treats a missing condition as "the caller
+decides when to fire this," and the only caller that fires it is
+the max_turns timeout.
 
 Assigns: `assigns[var]` is exactly two fields, `method` and `value`.
 `value` is required, interpreted by `method`:

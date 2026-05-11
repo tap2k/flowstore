@@ -108,9 +108,6 @@ export function EdgeInspector() {
             onChange={(c) => patch({ condition: c })}
             placeholder="When this exit is taken"
           />
-          <p className="mt-1 text-[10px] text-zinc-400">
-            Leave blank for an unconditional exit.
-          </p>
         </Field>
 
         <Field label="Next flow">

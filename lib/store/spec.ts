@@ -2,6 +2,20 @@ import { create } from "zustand";
 import type { Agent, ExitPath, Flow, Spec } from "@/lib/schema/v0";
 import { genId } from "@/lib/ids";
 
+// One-level deep merge: nested plain objects merge, arrays/primitives replace.
+// Keeps partial patches like `{ meta: { name } }` from wiping sibling fields like `meta.modes`.
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+function mergePatch<T extends object>(base: T, patch: Partial<T>): T {
+  const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
+  for (const [k, v] of Object.entries(patch)) {
+    const prev = (base as Record<string, unknown>)[k];
+    out[k] = isPlainObject(prev) && isPlainObject(v) ? { ...prev, ...v } : v;
+  }
+  return out as T;
+}
+
 export type Selection =
   | { kind: "flow"; id: string }
   | { kind: "edge"; flowId: string; exitPathId: string }
@@ -53,14 +67,14 @@ export const useSpecStore = create<SpecState>((set) => ({
       return {
         spec: {
           ...state.spec,
-          flows: state.spec.flows.map((f) => (f.id === id ? { ...f, ...patch } : f)),
+          flows: state.spec.flows.map((f) => (f.id === id ? mergePatch(f, patch) : f)),
         },
       };
     }),
   updateAgent: (patch) =>
     set((state) => {
       if (!state.spec) return {};
-      return { spec: { ...state.spec, agent: { ...state.spec.agent, ...patch } } };
+      return { spec: { ...state.spec, agent: mergePatch(state.spec.agent, patch) } };
     }),
   updateExitPath: (flowId, exitPathId, patch) =>
     set((state) => {
