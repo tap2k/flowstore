@@ -395,40 +395,62 @@ function EmptyState({
 
 function TurnView({ turn }: { turn: TranscriptTurn }) {
   const { role, text, events } = turn;
-  return (
-    <div className="space-y-1">
-      {role === "user" ? (
+
+  if (role === "user") {
+    return (
+      <div className="space-y-1">
         <div className="flex justify-end">
           <div className="max-w-[85%] rounded-lg bg-zinc-900 px-3 py-2 text-sm text-white whitespace-pre-wrap">
             {text}
           </div>
         </div>
-      ) : (
-        text && (
-          <div className="rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-900 whitespace-pre-wrap">
-            {text}
-          </div>
-        )
+        {events.map((ev, i) => (
+          <EventLine key={i} ev={ev} />
+        ))}
+      </div>
+    );
+  }
+
+  // The runner emits exit_path_taken / flow_exited after the agent's utterance,
+  // when routing for the next turn is decided. Use the first one as the boundary:
+  // events before it set up the utterance, events from it on describe routing.
+  let splitIdx = events.findIndex(
+    (ev) => ev.type === "exit_path_taken" || ev.type === "flow_exited",
+  );
+  if (splitIdx < 0) splitIdx = events.length;
+  const preEvents = events.slice(0, splitIdx);
+  const postEvents = events.slice(splitIdx);
+
+  return (
+    <div className="space-y-1">
+      {preEvents.map((ev, i) => (
+        <EventLine key={`pre-${i}`} ev={ev} />
+      ))}
+      {text && (
+        <div className="rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-900 whitespace-pre-wrap">
+          {text}
+        </div>
       )}
-      {events.map((ev, i) => {
-        const line = formatEvent(ev);
-        if (!line) return null;
-        return (
-          <details
-            key={i}
-            className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-[11px] font-mono text-zinc-700"
-          >
-            <summary className="cursor-pointer list-none">
-              <span className="text-zinc-500">→ </span>
-              {line}
-            </summary>
-            <pre className="mt-1 overflow-auto whitespace-pre-wrap text-[10px] text-zinc-500">
-              {JSON.stringify(ev, null, 2)}
-            </pre>
-          </details>
-        );
-      })}
+      {postEvents.map((ev, i) => (
+        <EventLine key={`post-${i}`} ev={ev} />
+      ))}
     </div>
+  );
+}
+
+function EventLine({ ev }: { ev: RuntimeEvent }) {
+  const line = formatEvent(ev);
+  if (!line) return null;
+  return (
+    <details className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-[11px] font-mono text-zinc-700">
+      <summary className="cursor-pointer list-none">
+        <span className="text-zinc-500">→ </span>
+        {line}
+      </summary>
+      <pre className="mt-1 overflow-auto whitespace-pre-wrap text-[10px] text-zinc-500">
+        {JSON.stringify(ev, null, 2)}
+      </pre>
+    </details>
   );
 }
 
