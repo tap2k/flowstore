@@ -250,16 +250,14 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
         <div className="flex-1 overflow-auto">
           <table className="w-full text-xs border-collapse table-fixed">
             <colgroup>
-              <col style={{ width: 96 }} />
+              <col style={{ width: 28 }} />
               {languages.map((lang) => (
                 <col key={lang} />
               ))}
             </colgroup>
             <thead className="sticky top-0 z-10 bg-zinc-50">
               <tr>
-                <th className="border-b border-r border-zinc-200 px-2 py-2 text-left text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-                  id
-                </th>
+                <th className="border-b border-r border-zinc-200" />
                 {languages.map((lang) => (
                   <th
                     key={lang}
@@ -291,15 +289,12 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
               {rows.map((row) => (
                 <tr key={row.id} className="group/row">
                   <td
-                    className="border-b border-r border-zinc-200 align-top relative pr-5"
+                    className="border-b border-r border-zinc-200 align-top relative"
                     title={row.id}
                   >
-                    <span className="block px-2 py-1.5 font-mono text-[10px] text-zinc-400 truncate">
-                      {row.id}
-                    </span>
                     <button
                       onClick={() => removeRow(row.id)}
-                      className="absolute top-1 right-1 opacity-0 group-hover/row:opacity-100 text-zinc-400 hover:text-red-600 text-sm leading-none px-1"
+                      className="absolute inset-0 opacity-0 group-hover/row:opacity-100 flex items-center justify-center text-zinc-400 hover:text-red-600"
                       title="remove row"
                     >
                       ×
