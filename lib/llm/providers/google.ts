@@ -52,6 +52,7 @@ function generationConfigFor(model: string): GeminiRequestBody["generationConfig
   const cfg: NonNullable<GeminiRequestBody["generationConfig"]> = {
     maxOutputTokens: 65536,
   };
+  // TODO: Set modest thinking budget to leave room for result
   if (is3) {
     cfg.thinkingConfig = { thinkingLevel: isPro ? "MEDIUM" : "LOW" };
   } else {
