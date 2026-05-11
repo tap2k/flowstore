@@ -244,10 +244,10 @@ This wrapper is the on-disk and on-the-wire format. Producers (the editor, impor
 
   "scripts": {
     "EN": [
-      { "id": "string", "text": "string" }
+      { "id": "string", "text": "string", "variations": ["string"] }
     ],
     "ES": [
-      { "id": "string", "text": "string" }
+      { "id": "string", "text": "string", "variations": ["string"] }
     ]
   },
 
@@ -316,7 +316,7 @@ This wrapper is the on-disk and on-the-wire format. Producers (the editor, impor
 - **`type`** — labels the flow for canvas display and evaluation. `happy` = success path. `sad` = failure path. `off` = off-topic. `utility` = shared infrastructure (verification, disclosure). `interrupt` = fires outside normal sequence in response to triggers. This is a property of the flow itself, not the edge that leads to it.
 - **`scope`** — meaningful for `interrupt` flows only. `["global"]` allows the interrupt to fire from any flow. A list of flow IDs scopes it to specific flows. Omitted for non-interrupt flows.
 - **`instructions`** — behavioral prose directing the LLM: what to do, how to behave, what to ask. Compiles into a system prompt fragment for this flow. Free-form.
-- **`scripts`** — per-language utterances for this flow. Keys are language codes from `agent.meta.languages`. Each entry is an ordered list of utterances the agent may say, with stable IDs for reference and translation management. The translation table view across all flows is derived from these.
+- **`scripts`** — per-language utterances for this flow. Keys are language codes from `agent.meta.languages`. Each entry is an ordered list of utterances the agent may say, with stable IDs for reference and translation management. The translation table view across all flows is derived from these. Optional `variations` on each entry holds alternative paraphrases of the same line in the same language — surface-form variety to make voice output sound natural; runtimes may sample across `text` and `variations`.
 - **`guardrails`** — flow-scoped behavioral invariants. Same structure as agent-level guardrails but apply only within this flow. 
 - **`max_turns`** — optional integer. On exhaustion, the flow follows its unconditional sad exit path. Interrupts don't count toward the turn limit. Convention over configuration — no paired exit_path_id field.
 - **`notes`** — optional authoring annotation. See [Notes (Authoring Annotations)](#notes-authoring-annotations). Runtimes and codegen ignore it.

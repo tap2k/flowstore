@@ -183,6 +183,7 @@ const ScriptLineSchema = Type.Object(
   {
     id: Type.String(),
     text: Type.String(),
+    variations: Type.Optional(Type.Array(Type.String())),
   },
   strict
 );

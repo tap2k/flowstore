@@ -171,6 +171,9 @@ function renderFlowScripts(flow: Flow): string {
     lines.push(`     ${lang}:`);
     for (const s of lines_) {
       lines.push(`       - [${s.id}] "${escapeQuotes(s.text)}"`);
+      for (const v of (s.variations ?? []).filter(Boolean)) {
+        lines.push(`         | "${escapeQuotes(v)}"`);
+      }
     }
   }
   return lines.join("\n");

@@ -109,7 +109,7 @@ V0 SCHEMA
       "scope": ["global"],
       "instructions": "Behavioral prose: what to do, how to behave, what to ask.",
       "scripts": {
-        "EN": [{ "id": "s_<snake_case>", "text": "What the agent says" }],
+        "EN": [{ "id": "s_<snake_case>", "text": "What the agent says", "variations": ["alt phrasing (optional)"] }],
         "es-MX": [{ "id": "s_<snake_case>", "text": "Lo que dice el agente" }]
       },
       "guardrails": [{ "id": "g_<snake_case>", "statement": "flow-scoped rule" }],
@@ -267,6 +267,14 @@ stage directions, or English summaries into a non-English scripts
 slot. That's what `instructions` is for. When the source doesn't
 provide actual utterances, omit the `scripts` field entirely (don't
 emit an empty per-language array, don't fill it with paraphrases).
+
+When the source provides multiple equivalent phrasings of the same
+line in the same language (common in translator spreadsheets —
+stacked alternates in one cell, or "Variation 1 / Variation 2"
+columns), fold them into a single ScriptLine: the canonical phrasing
+in `text` and the alternates in `variations`. Don't emit them as
+separate ScriptLine entries with different ids — variations are
+surface-form alternates for runtime sampling, not distinct lines.
 
 INTERRUPTS
 
