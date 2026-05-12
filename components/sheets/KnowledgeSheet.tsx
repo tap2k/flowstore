@@ -1,12 +1,22 @@
+import { useRef, type ChangeEvent } from "react";
 import { useSpecStore } from "@/lib/store/spec";
 import { genId } from "@/lib/ids";
 import type { FaqEntry, GlossaryEntry, Knowledge, TableEntry, TableField } from "@/lib/schema/v0";
 import { ListEditor } from "@/components/inspector/ListEditor";
 import { Field, Section, inputClass } from "@/components/inspector/primitives";
 import { SheetShell } from "./SheetShell";
+import {
+  faqToCsv,
+  glossaryToCsv,
+  parseFaqCsv,
+  parseGlossaryCsv,
+  parseTableRowsCsv,
+  tableToCsv,
+} from "@/lib/codegen/knowledgeCsv";
 
 export function KnowledgeSheet({ onClose }: { onClose: () => void }) {
   const knowledge = useSpecStore((s) => s.spec?.agent.knowledge ?? null);
+  const languages = useSpecStore((s) => s.spec?.agent.meta.languages ?? ["EN"]);
   const updateAgent = useSpecStore((s) => s.updateAgent);
 
   function patchKnowledge(p: Partial<Knowledge>) {
@@ -18,9 +28,25 @@ export function KnowledgeSheet({ onClose }: { onClose: () => void }) {
     updateAgent({ knowledge: empty ? undefined : merged });
   }
 
+  const faqEntries = knowledge?.faq ?? [];
+  const glossaryEntries = knowledge?.glossary ?? [];
+
   return (
     <SheetShell title="Knowledge" onClose={onClose}>
-      <Section title="FAQ">
+      <Section
+        title="FAQ"
+        action={
+          <CsvButtons
+            filename="faq.csv"
+            disableExport={faqEntries.length === 0}
+            onExport={() => faqToCsv(faqEntries, languages)}
+            onImport={(text) => {
+              const next = parseFaqCsv(text);
+              patchKnowledge({ faq: next.length ? next : undefined });
+            }}
+          />
+        }
+      >
         <ListEditor<FaqEntry>
           items={knowledge?.faq ?? []}
           onChange={(faq) => patchKnowledge({ faq: faq.length ? faq : undefined })}
@@ -53,7 +79,20 @@ export function KnowledgeSheet({ onClose }: { onClose: () => void }) {
         />
       </Section>
 
-      <Section title="Glossary">
+      <Section
+        title="Glossary"
+        action={
+          <CsvButtons
+            filename="glossary.csv"
+            disableExport={glossaryEntries.length === 0}
+            onExport={() => glossaryToCsv(glossaryEntries)}
+            onImport={(text) => {
+              const next = parseGlossaryCsv(text);
+              patchKnowledge({ glossary: next.length ? next : undefined });
+            }}
+          />
+        }
+      >
         <ListEditor<GlossaryEntry>
           items={knowledge?.glossary ?? []}
           onChange={(glossary) =>
@@ -106,7 +145,7 @@ function TablesView({
   function addTable() {
     onChange([
       ...tables,
-      { id: genId("tbl"), name: "", purpose: "", structure: [], rows: [] },
+      { id: genId("tbl"), name: "", structure: [], rows: [] },
     ]);
   }
   function removeTable(i: number) {
@@ -159,6 +198,15 @@ function TableEditor({
           placeholder="table name"
         />
         <span className="text-[10px] text-zinc-400 font-mono whitespace-nowrap">{table.id}</span>
+        <CsvButtons
+          filename={`${(table.name || "table").replace(/[^a-z0-9-_]+/gi, "-")}-rows.csv`}
+          disableExport={table.structure.length === 0 && table.rows.length === 0}
+          onExport={() => tableToCsv(table)}
+          onImport={(text) => {
+            const rows = parseTableRowsCsv(text, table);
+            onChange({ ...table, rows });
+          }}
+        />
         <button
           onClick={onRemove}
           className="text-xs text-zinc-400 hover:text-red-600"
@@ -170,16 +218,18 @@ function TableEditor({
       <Field label="Purpose">
         <textarea
           className={`${inputClass} resize-y min-h-[40px]`}
-          value={table.purpose}
-          onChange={(e) => onChange({ ...table, purpose: e.target.value })}
-          placeholder="What this table is for"
+          value={table.purpose ?? ""}
+          onChange={(e) =>
+            onChange({ ...table, purpose: e.target.value || undefined })
+          }
+          placeholder="(optional) what this table is for"
         />
       </Field>
       <Field label="Fields">
         <ListEditor<TableField>
           items={table.structure}
           onChange={(structure) => onChange({ ...table, structure })}
-          newItem={() => ({ field: "", description: "", type: "string" })}
+          newItem={() => ({ field: "" })}
           addLabel="add field"
           renderItem={(f, update, remove) => (
             <div className="flex gap-2">
@@ -191,15 +241,19 @@ function TableEditor({
               />
               <input
                 className={`${inputClass} max-w-[100px]`}
-                value={f.type}
-                onChange={(e) => update({ ...f, type: e.target.value })}
-                placeholder="type"
+                value={f.type ?? ""}
+                onChange={(e) =>
+                  update({ ...f, type: e.target.value || undefined })
+                }
+                placeholder="type (optional)"
               />
               <input
                 className={inputClass}
-                value={f.description}
-                onChange={(e) => update({ ...f, description: e.target.value })}
-                placeholder="description"
+                value={f.description ?? ""}
+                onChange={(e) =>
+                  update({ ...f, description: e.target.value || undefined })
+                }
+                placeholder="description (optional)"
               />
               <button
                 onClick={remove}
@@ -241,5 +295,73 @@ function TableEditor({
         />
       </details>
     </div>
+  );
+}
+
+function CsvButtons({
+  filename,
+  disableExport,
+  onExport,
+  onImport,
+}: {
+  filename: string;
+  disableExport?: boolean;
+  onExport: () => string;
+  onImport: (text: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function doExport() {
+    const csv = onExport();
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const text = await file.text();
+      onImport(text);
+    } catch (err) {
+      alert(`Import failed: ${(err as Error).message}`);
+    }
+  }
+
+  return (
+    <span className="flex items-center gap-2 shrink-0">
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="text-xs text-zinc-500 hover:text-zinc-900"
+        title="Import from CSV (replaces current entries)"
+      >
+        import
+      </button>
+      <button
+        type="button"
+        onClick={doExport}
+        disabled={disableExport}
+        className="text-xs text-zinc-500 hover:text-zinc-900 disabled:text-zinc-300 disabled:hover:text-zinc-300"
+        title="Download as CSV"
+      >
+        export
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".csv,text/csv"
+        className="hidden"
+        onChange={handleFile}
+      />
+    </span>
   );
 }

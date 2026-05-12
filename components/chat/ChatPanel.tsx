@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSettingsStore } from "@/lib/store/settings";
+import { useSimulateStore, type TranscriptTurn } from "@/lib/store/simulate";
 import { chat, DEFAULT_PROVIDER } from "@/lib/llm/dispatch";
 import { findTool, toolDefinitions } from "@/lib/llm/tools";
 import { systemPrompt } from "@/lib/llm/prompts";
 import { formatErrors, validateSpec } from "@/lib/validation/ajv";
 import type { ChatMessage } from "@/lib/llm/types";
 import type { Spec } from "@/lib/schema/v0";
+import type { RuntimeEvent } from "@/lib/runtime/eventTypes";
 
 interface ChatPanelProps {
   open: boolean;
@@ -43,9 +45,10 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
     setInput("");
 
     const initialSpec = useSpecStore.getState().spec;
+    const sim = useSimulateStore.getState();
     let history: ChatMessage[] = [
       ...messages,
-      { role: "user", content: buildUserContent(text, initialSpec) },
+      { role: "user", content: buildUserContent(text, initialSpec, sim) },
     ];
     setMessages(history);
     setBusy(true);
@@ -281,16 +284,111 @@ function MessageView({ m }: { m: ChatMessage }) {
   );
 }
 
-function buildUserContent(userText: string, spec: Spec | null): string {
-  if (!spec) return `<spec>(empty — no spec loaded yet)</spec>\n\n${userText}`;
-  return `<spec>\n${JSON.stringify(spec, null, 2)}\n</spec>\n\n${userText}`;
+interface SimContext {
+  sessionId: string | null;
+  mode: "prompt" | "runner";
+  status: string;
+  currentFlowId: string | null;
+  variables: Record<string, unknown>;
+  transcript: TranscriptTurn[];
+  events: RuntimeEvent[];
+}
+
+function buildUserContent(
+  userText: string,
+  spec: Spec | null,
+  sim: SimContext,
+): string {
+  const specBlock = spec
+    ? `<spec>\n${JSON.stringify(spec, null, 2)}\n</spec>`
+    : `<spec>(empty — no spec loaded yet)</spec>`;
+  const simBlock = sim.sessionId ? `\n\n${renderSimBlock(sim)}` : "";
+  return `${specBlock}${simBlock}\n\n${userText}`;
 }
 
 function stripSpec(content: string): string {
-  // Hide the spec snapshot from the user view so the bubble shows just their words.
-  const idx = content.indexOf("</spec>");
+  // Hide injected context blocks from the user view so the bubble shows just their words.
+  const markers = ["</simulation>", "</spec>"];
+  let idx = -1;
+  let markerLen = 0;
+  for (const m of markers) {
+    const i = content.lastIndexOf(m);
+    if (i > idx) {
+      idx = i;
+      markerLen = m.length;
+    }
+  }
   if (idx === -1) return content;
-  return content.slice(idx + "</spec>".length).trim();
+  return content.slice(idx + markerLen).trim();
+}
+
+function renderSimBlock(sim: SimContext): string {
+  const header = [
+    `mode: ${sim.mode}`,
+    `status: ${sim.status}`,
+    sim.currentFlowId ? `current_flow_id: ${sim.currentFlowId}` : null,
+    Object.keys(sim.variables).length > 0
+      ? `variables: ${JSON.stringify(sim.variables)}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const lines: string[] = [];
+  for (const turn of sim.transcript) {
+    if (turn.role === "user") {
+      lines.push(`user: ${turn.text}`);
+      for (const ev of turn.events) {
+        const fmt = formatSimEvent(ev);
+        if (fmt) lines.push(`  → ${fmt}`);
+      }
+    } else {
+      const pre: string[] = [];
+      const post: string[] = [];
+      let crossed = false;
+      for (const ev of turn.events) {
+        const isRouting = ev.type === "exit_path_taken" || ev.type === "flow_exited";
+        if (isRouting) crossed = true;
+        const fmt = formatSimEvent(ev);
+        if (!fmt) continue;
+        (crossed ? post : pre).push(`  → ${fmt}`);
+      }
+      lines.push(...pre);
+      if (turn.text) lines.push(`agent: ${turn.text}`);
+      lines.push(...post);
+    }
+  }
+  const body = lines.length > 0 ? `\n\n${lines.join("\n")}` : "";
+  return `<simulation>\n${header}${body}\n</simulation>`;
+}
+
+function formatSimEvent(ev: RuntimeEvent): string | null {
+  switch (ev.type) {
+    case "session_started":
+      return `session_started(${ev.lang})`;
+    case "session_ended":
+      return `session_ended(${ev.reason})`;
+    case "flow_entered":
+      return `flow_entered(${ev.flow_id}${ev.via !== "transition" ? `, via=${ev.via}` : ""})`;
+    case "flow_exited":
+      return null;
+    case "exit_path_taken":
+      return `exit_path_taken(${ev.from_flow_id} → ${ev.to_flow_id ?? "∅"}, ${ev.method})`;
+    case "interrupt_triggered":
+      return `interrupt_triggered(${ev.from_flow_id} → ${ev.interrupt_flow_id})`;
+    case "turn_started":
+    case "turn_completed":
+      return null;
+    case "variable_set":
+      return `variable_set(${ev.variable_name} = ${JSON.stringify(ev.value)}, ${ev.method})`;
+    case "capability_invoked":
+      return `capability_invoked(${ev.capability_name})`;
+    case "capability_returned":
+      return ev.error
+        ? `capability_returned(${ev.capability_name}, error=${ev.error})`
+        : `capability_returned(${ev.capability_name})`;
+    case "error":
+      return `error(${ev.code}: ${ev.message})`;
+  }
 }
 
 function summarizeArgs(args: unknown): string {

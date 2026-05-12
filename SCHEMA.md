@@ -187,9 +187,13 @@ This wrapper is the on-disk and on-the-wire format. Producers (the editor, impor
       {
         "id": "string",
         "name": "string",
-        "purpose": "string",
+        "purpose": "string (optional)",
         "structure": [
-          { "field": "string", "description": "string", "type": "string" }
+          {
+            "field": "string",
+            "description": "string (optional)",
+            "type": "string (optional)"
+          }
         ],
         "rows": [
           { "field_name": "value" }
@@ -222,7 +226,7 @@ This wrapper is the on-disk and on-the-wire format. Producers (the editor, impor
 - **`capabilities`** — declared catalog of external integrations the agent uses or can dispatch. Each entry has an `id` (editor-generated, spec-internal), a `name` (author-controlled, snake_case, the runtime dispatch identifier; stable across spec versions even when ids differ), a `description` (when/why this is used), a `kind` (`retrieval` = query-shaped, returns passages or records; `function` = typed-args call returning structured data or fire-and-forget side effect), optional `inputs` (canonical variable names it consumes), and optional `outputs` (canonical variable names it produces; omit for fire-and-forget). Endpoints, headers, and credentials live in the execution layer, not the spec. Catalog entries are referenced by `capability_id` at dispatch use sites: `exit_path.actions[]` for post-exit fire-and-forget (v0), and `tool` steps for mid-conversation invocation with output binding (v1).
 - **`knowledge.faq`** — high-confidence answers authored with the client. Optional per-language scripts capture the actual phrasing in each supported language.
 - **`knowledge.glossary`** — domain terms ensuring consistent terminology.
-- **`knowledge.tables`** — structured lookup data (promo plans, fee schedules, branch hours). Each has a `purpose`, a `structure`, sample `rows`, and an optional `scaling_rule`.
+- **`knowledge.tables`** — structured lookup data (promo plans, fee schedules, branch hours). Each has a `name`, sample `rows`, and a `structure` describing the columns. The descriptive fields (`purpose`, `structure[].description`, `structure[].type`, `scaling_rule`) are all optional — annotate when the name and column names aren't enough context for the LLM, leave them off otherwise.
 - **`variables`** — optional dictionary of variable declarations that enrich already-existing variables with `type`, `description`, and (for `type: "enum"`) `values`. Declaration does not create a variable; only reference does. Every field is optional — declare what you know, leave the rest off. See [Variables](#variables) for why declarations are optional and what consumers do with them.
 - **`entry_flow_id`** — the flow the conversation enters first.
 

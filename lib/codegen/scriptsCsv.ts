@@ -1,16 +1,12 @@
 import type { Flow, ScriptLine } from "@/lib/schema/v0";
 import { genId } from "@/lib/ids";
+import { csvSerialize, parseCsv } from "./csv";
 
 // CSV round-trip for a single flow's scripts. Schema:
 //   id,EN,ES,...
 // One row per script id, one column per language. Variations are intentionally
 // not emitted — they remain in the spec and are preserved on import (merge keeps
 // existing `variations` on each ScriptLine).
-
-function csvEscape(val: string): string {
-  if (!/[",\r\n]/.test(val)) return val;
-  return `"${val.replace(/"/g, '""')}"`;
-}
 
 export function flowToScriptsCsv(flow: Flow, languages: string[]): string {
   const orderedIds: string[] = [];
@@ -33,69 +29,7 @@ export function flowToScriptsCsv(flow: Flow, languages: string[]): string {
     }
     rows.push(row);
   }
-  return rows.map((r) => r.map(csvEscape).join(",")).join("\r\n");
-}
-
-function parseCsv(text: string): string[][] {
-  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = "";
-  let inQuotes = false;
-  let i = 0;
-  while (i < text.length) {
-    const ch = text[i];
-    if (inQuotes) {
-      if (ch === '"') {
-        if (text[i + 1] === '"') {
-          field += '"';
-          i += 2;
-          continue;
-        }
-        inQuotes = false;
-        i++;
-        continue;
-      }
-      field += ch;
-      i++;
-      continue;
-    }
-    if (ch === '"') {
-      inQuotes = true;
-      i++;
-      continue;
-    }
-    if (ch === ",") {
-      row.push(field);
-      field = "";
-      i++;
-      continue;
-    }
-    if (ch === "\r") {
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = "";
-      i++;
-      if (text[i] === "\n") i++;
-      continue;
-    }
-    if (ch === "\n") {
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = "";
-      i++;
-      continue;
-    }
-    field += ch;
-    i++;
-  }
-  if (field !== "" || row.length > 0) {
-    row.push(field);
-    rows.push(row);
-  }
-  return rows;
+  return csvSerialize(rows);
 }
 
 // Merge CSV text into existing flow.scripts. Updates `text` per (id, lang);

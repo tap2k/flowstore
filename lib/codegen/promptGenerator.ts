@@ -98,7 +98,7 @@ function renderFlowRoutingInline(flow: Flow, flowNames: Map<string, string>): st
   for (const ep of exits) {
     const target = renderInlineTarget(ep, flowNames);
     if (ep.condition) {
-      lines.push(`   - If ${renderConditionPlain(ep.condition)}, ${target}.`);
+      lines.push(`   - ${renderConditionClause(ep.condition)}, ${target}.`);
     } else {
       lines.push(`   - Otherwise, ${target}.`);
     }
@@ -116,6 +116,16 @@ function renderInlineTarget(ep: ExitPath, flowNames: Map<string, string>): strin
   return "continue";
 }
 
+// Routing clause: prefixes the expression with a frame so deterministic
+// methods read as conditions rather than free-floating prose. The verbatim
+// expression is preserved (no translation drift) — modern LLMs read the
+// Python-like grammar fine.
+function renderConditionClause(c: Condition): string {
+  if (c.method === "llm") return `If ${c.expression}`;
+  return `When \`${c.expression}\` holds`;
+}
+
+// Interrupt triggers are author-natural-language regardless of method label.
 function renderConditionPlain(c: Condition): string {
   return c.expression;
 }

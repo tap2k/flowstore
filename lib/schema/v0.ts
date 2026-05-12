@@ -83,8 +83,8 @@ const GlossaryEntrySchema = Type.Object(
 const TableFieldSchema = Type.Object(
   {
     field: Type.String(),
-    description: Type.String(),
-    type: Type.String(),
+    description: Type.Optional(Type.String()),
+    type: Type.Optional(Type.String()),
   },
   strict
 );
@@ -93,7 +93,7 @@ const TableEntrySchema = Type.Object(
   {
     id: Type.String(),
     name: Type.String(),
-    purpose: Type.String(),
+    purpose: Type.Optional(Type.String()),
     structure: Type.Array(TableFieldSchema),
     rows: Type.Array(Type.Record(Type.String(), Type.Unknown())),
     scaling_rule: Type.Optional(Type.String()),

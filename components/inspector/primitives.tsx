@@ -14,12 +14,23 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-export function Section({ title, children }: { title: string; children: ReactNode }) {
+export function Section({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <section className="space-y-3">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 border-b border-zinc-100 pb-1">
-        {title}
-      </h3>
+      <div className="flex items-baseline justify-between border-b border-zinc-100 pb-1">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          {title}
+        </h3>
+        {action && <div className="flex items-center gap-3">{action}</div>}
+      </div>
       <div className="space-y-3">{children}</div>
     </section>
   );
