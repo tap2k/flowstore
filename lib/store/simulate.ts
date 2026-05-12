@@ -195,7 +195,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
 
     if (mode === "prompt") {
       try {
-        const systemPrompt = generateSystemPrompt(spec, contextVars);
+        const systemPrompt = generateSystemPrompt(spec, contextVars, { language });
         const sessionId = `prompt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         set({ sessionId, systemPrompt, specSnapshot: spec });
 

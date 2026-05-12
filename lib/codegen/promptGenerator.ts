@@ -3,22 +3,24 @@ import type {
   Flow,
   ExitPath,
   Condition,
-  AssignValue,
   FaqEntry,
 } from "@/lib/schema/v0";
 
+// Capabilities are intentionally not rendered here. The naked prompt has no
+// tools to call; when tool-use is wired in, capabilities should be passed as a
+// structured tool schema to the model API, not described in prose.
 export function generateSystemPrompt(
   spec: Spec,
   vars?: Record<string, unknown>,
+  opts?: { language?: string },
 ): string {
+  const lang = opts?.language;
   const sections = [
     renderRole(spec),
-    // renderVariables(spec),     // disabled: variables are substituted before paste
     renderGuardrails(spec),
-    renderFlows(spec),
-    renderInterrupts(spec),
-    renderKnowledge(spec),
-    // renderCapabilities(spec),  // disabled: naked prompt has no tools to call
+    renderFlows(spec, lang),
+    renderInterrupts(spec, lang),
+    renderKnowledge(spec, lang),
   ].filter(Boolean);
 
   const rendered = sections.join("\n\n---\n\n").trim() + "\n";
@@ -52,19 +54,6 @@ function renderRole(spec: Spec): string {
   return lines.join(" ");
 }
 
-function renderVariables(spec: Spec): string {
-  const vars = spec.agent.variables ?? {};
-  const names = Object.keys(vars);
-  if (!names.length) return "";
-  const lines = ["VARIABLES (the runtime substitutes these at speak time):"];
-  for (const name of names) {
-    const decl = vars[name];
-    const desc = decl?.description ? ` — ${decl.description}` : "";
-    lines.push(`- {${name}}${desc}`);
-  }
-  return lines.join("\n");
-}
-
 function renderGuardrails(spec: Spec): string {
   const items = spec.agent.guardrails ?? [];
   if (!items.length) return "";
@@ -73,7 +62,7 @@ function renderGuardrails(spec: Spec): string {
   return lines.join("\n");
 }
 
-function renderFlows(spec: Spec): string {
+function renderFlows(spec: Spec, lang?: string): string {
   const entry = spec.agent.entry_flow_id;
   const conversational = spec.flows.filter((f) => f.type !== "interrupt" && f.type !== "utility");
   if (!conversational.length) return "";
@@ -90,21 +79,14 @@ function renderFlows(spec: Spec): string {
     if (flow.instructions?.trim()) {
       lines.push(`   ${flow.instructions.trim().split("\n").join("\n   ")}`);
     }
-    const scripts = renderFlowScripts(flow);
+    const scripts = renderFlowScripts(flow, lang);
     if (scripts) lines.push(scripts);
     const guardrails = renderFlowGuardrails(flow);
     if (guardrails) lines.push(guardrails);
+    const knowledge = renderFlowKnowledge(flow, lang);
+    if (knowledge) lines.push(knowledge);
     const routing = renderFlowRoutingInline(flow, flowNames);
     if (routing) lines.push(routing);
-    /* disabled: arrow form replaced by inline prose
-    const routingArrows = renderFlowRouting(flow);
-    if (routingArrows) lines.push(routingArrows);
-    */
-    /* disabled: runner-enforced budget, not model behavior
-    if (flow.max_turns != null) {
-      lines.push(`   Retry budget: at most ${flow.max_turns} turns.`);
-    }
-    */
   });
   return lines.join("\n");
 }
@@ -160,15 +142,15 @@ function orderFlows(flows: Flow[], entryId: string | undefined): Flow[] {
   return ordered;
 }
 
-function renderFlowScripts(flow: Flow): string {
+function renderFlowScripts(flow: Flow, lang?: string): string {
   const buckets = flow.scripts ?? {};
-  const langs = Object.keys(buckets);
+  const langs = lang ? (buckets[lang] ? [lang] : []) : Object.keys(buckets);
   if (!langs.length) return "";
   const lines: string[] = ["   Scripts:"];
-  for (const lang of langs) {
-    const lines_ = buckets[lang] ?? [];
+  for (const code of langs) {
+    const lines_ = buckets[code] ?? [];
     if (!lines_.length) continue;
-    lines.push(`     ${lang}:`);
+    lines.push(`     ${code}:`);
     for (const s of lines_) {
       lines.push(`       - [${s.id}] "${escapeQuotes(s.text)}"`);
       for (const v of (s.variations ?? []).filter(Boolean)) {
@@ -187,59 +169,15 @@ function renderFlowGuardrails(flow: Flow): string {
   return lines.join("\n");
 }
 
-function renderFlowRouting(flow: Flow): string {
-  const exits = flow.routing?.exit_paths ?? [];
-  if (!exits.length) return "";
-  const lines = ["   Routing:"];
-  for (const ep of exits) {
-    lines.push(`     - ${renderExitPath(ep)}`);
-  }
+function renderFlowKnowledge(flow: Flow, lang?: string): string {
+  const faq = flow.knowledge?.faq ?? [];
+  if (!faq.length) return "";
+  const lines = ["   FAQ:"];
+  for (const entry of faq) lines.push(formatFaqEntry(entry, "     ", lang));
   return lines.join("\n");
 }
 
-function renderExitPath(ep: ExitPath): string {
-  const trigger = ep.condition ? `when ${renderCondition(ep.condition)}` : "always";
-  const target = renderTarget(ep);
-  const assigns = renderAssigns(ep.assigns);
-  const actions = renderActions(ep.actions);
-  const tail = [target, assigns, actions].filter(Boolean).join("; ");
-  return `${trigger} → ${tail}`;
-}
-
-function renderCondition(c: Condition): string {
-  if (c.method === "calculation") return `\`${c.expression}\``;
-  if (c.method === "direct") return `(direct: ${c.expression})`;
-  return c.expression;
-}
-
-function renderTarget(ep: ExitPath): string {
-  if (ep.type === "exit") return "end the conversation";
-  if (ep.type === "return_to_caller") return "return to the calling flow";
-  if (ep.next_flow_id) return `go to "${ep.next_flow_id}" (${ep.type})`;
-  return `(${ep.type})`;
-}
-
-function renderAssigns(assigns: Record<string, AssignValue> | undefined): string {
-  if (!assigns) return "";
-  const parts: string[] = [];
-  for (const [name, av] of Object.entries(assigns)) {
-    if (av.method === "direct") {
-      parts.push(`set ${name} = ${JSON.stringify(av.value)}`);
-    } else if (av.method === "calculation") {
-      parts.push(`set ${name} = \`${av.value}\``);
-    } else {
-      parts.push(`capture ${name} (${av.value})`);
-    }
-  }
-  return parts.length ? parts.join(", ") : "";
-}
-
-function renderActions(actions: ExitPath["actions"]): string {
-  if (!actions || !actions.length) return "";
-  return `call ${actions.map((a) => a.capability_id).join(", ")}`;
-}
-
-function renderInterrupts(spec: Spec): string {
+function renderInterrupts(spec: Spec, lang?: string): string {
   const interrupts = spec.flows.filter((f) => f.type === "interrupt");
   if (!interrupts.length) return "";
   const flowNames = new Map(spec.flows.map((f) => [f.id, f.name || f.id]));
@@ -254,19 +192,17 @@ function renderInterrupts(spec: Spec): string {
     if (flow.instructions?.trim()) {
       lines.push(`   ${flow.instructions.trim().split("\n").join("\n   ")}`);
     }
-    const scripts = renderFlowScripts(flow);
+    const scripts = renderFlowScripts(flow, lang);
     if (scripts) lines.push(scripts);
+    const knowledge = renderFlowKnowledge(flow, lang);
+    if (knowledge) lines.push(knowledge);
     const routing = renderFlowRoutingInline(flow, flowNames);
     if (routing) lines.push(routing);
-    /* disabled: arrow form replaced by inline prose
-    const routingArrows = renderFlowRouting(flow);
-    if (routingArrows) lines.push(routingArrows);
-    */
   });
   return lines.join("\n");
 }
 
-function renderKnowledge(spec: Spec): string {
+function renderKnowledge(spec: Spec, lang?: string): string {
   const k = spec.agent.knowledge;
   if (!k) return "";
   const blocks: string[] = [];
@@ -274,7 +210,7 @@ function renderKnowledge(spec: Spec): string {
   if (k.faq?.length) {
     const lines = ["FAQ:"];
     for (const entry of k.faq) {
-      lines.push(formatFaqEntry(entry));
+      lines.push(formatFaqEntry(entry, "", lang));
     }
     blocks.push(lines.join("\n"));
   }
@@ -285,45 +221,20 @@ function renderKnowledge(spec: Spec): string {
     blocks.push(lines.join("\n"));
   }
 
-  /* Tables: disabled in naked prompt — tables belong behind a retrieval capability.
-  if (k.tables?.length) {
-    const lines = ["TABLES:"];
-    for (const t of k.tables) {
-      lines.push(`\n${t.name} (${t.id}) — ${t.purpose}`);
-      const fields = t.structure.map((f) => f.field).join(" | ");
-      lines.push(`  ${fields}`);
-      for (const row of t.rows) {
-        const vals = t.structure.map((f) => String(row[f.field] ?? "")).join(" | ");
-        lines.push(`  ${vals}`);
-      }
-      if (t.scaling_rule) lines.push(`  scaling: ${t.scaling_rule}`);
-    }
-    blocks.push(lines.join("\n"));
-  }
-  */
+  // Tables are intentionally not inlined — they belong behind a retrieval
+  // capability. Inlining bloats the prompt and the row format would likely
+  // need re-authoring if revived.
 
   return blocks.join("\n\n");
 }
 
-function formatFaqEntry(entry: FaqEntry): string {
-  const lines = [`- Q: ${entry.question}`];
-  lines.push(`  A: ${entry.answer}`);
+function formatFaqEntry(entry: FaqEntry, indent = "", lang?: string): string {
+  const lines = [`${indent}- Q: ${entry.question}`];
+  lines.push(`${indent}  A: ${entry.answer}`);
   const scripts = entry.scripts ?? {};
-  for (const [lang, text] of Object.entries(scripts)) {
-    lines.push(`  Say (${lang}): "${escapeQuotes(text)}"`);
-  }
-  return lines.join("\n");
-}
-
-function renderCapabilities(spec: Spec): string {
-  const items = spec.agent.capabilities ?? [];
-  if (!items.length) return "";
-  const lines = ["CAPABILITIES (external integrations available):"];
-  for (const c of items) {
-    const ins = c.inputs?.length ? ` ← ${c.inputs.join(", ")}` : "";
-    const outs = c.outputs?.length ? ` → ${c.outputs.join(", ")}` : "";
-    lines.push(`- ${c.name} [${c.kind}]${ins}${outs}`);
-    lines.push(`  ${c.description}`);
+  const codes = lang ? (scripts[lang] ? [lang] : []) : Object.keys(scripts);
+  for (const code of codes) {
+    lines.push(`${indent}  Say (${code}): "${escapeQuotes(scripts[code])}"`);
   }
   return lines.join("\n");
 }

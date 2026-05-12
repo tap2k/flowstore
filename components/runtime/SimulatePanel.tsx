@@ -45,6 +45,25 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const spec = useSpecStore((s) => s.spec);
+  const availableLanguages = spec?.agent.meta.languages ?? [];
+  const [language, setLanguage] = useState<string | undefined>(undefined);
+  const prevAgentIdRef = useRef<string | undefined>(spec?.agent.id);
+
+  useEffect(() => {
+    // Default is "all" (undefined) — emit every language bucket. Reset to
+    // "all" when the active agent changes, or when the current selection is
+    // no longer in the new agent's language list.
+    const agentId = spec?.agent.id;
+    const langs = spec?.agent.meta.languages ?? [];
+    if (prevAgentIdRef.current !== agentId) {
+      prevAgentIdRef.current = agentId;
+      setLanguage(undefined);
+      return;
+    }
+    if (language !== undefined && !langs.includes(language)) {
+      setLanguage(undefined);
+    }
+  }, [spec?.agent.id, spec?.agent.meta.languages, language]);
 
   useEffect(() => {
     if (!scrollRef.current) return;
@@ -77,7 +96,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       apiKey,
       model,
       baseUrl: mode === "runner" ? runnerUrl : undefined,
-      language: current.agent.meta.languages?.[0],
+      language,
     });
   }
 
@@ -130,7 +149,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const specChanged = specSnapshot !== null && spec !== null && spec !== specSnapshot;
   const previewPrompt =
     mode === "prompt"
-      ? (systemPrompt ?? (spec ? generateSystemPrompt(spec, contextVars) : null))
+      ? (systemPrompt ?? (spec ? generateSystemPrompt(spec, contextVars, { language }) : null))
       : null;
   const subtitle = (() => {
     if (status === "starting") return "starting…";
@@ -186,7 +205,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       </div>
 
       <div className="flex items-center gap-2 border-b border-zinc-200 px-4 py-1.5 text-[11px]">
-        <span className="text-zinc-500">Mode</span>
         <div className="flex overflow-hidden rounded border border-zinc-200">
           <ModeButton current={mode} value="prompt" disabled={hasSession} onClick={setMode}>
             Prompt
@@ -203,6 +221,22 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         {mode === "runner" && (
           <span className="truncate text-zinc-500">{runnerUrl}</span>
         )}
+        {availableLanguages.length > 1 && (
+          <select
+            value={language ?? ""}
+            onChange={(e) => setLanguage(e.target.value || undefined)}
+            disabled={hasSession}
+            title="Scope scripts and FAQ to a single language, or emit all. Locked once a session is running."
+            className="ml-auto rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+          >
+            <option value="">all</option>
+            {availableLanguages.map((code) => (
+              <option key={code} value={code}>
+                {code}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {spec && <VariablesForm spec={spec} disabled={busy || ready} />}
@@ -215,7 +249,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
 
       {previewPrompt && (
         <div className="border-b border-zinc-200 bg-zinc-50/50">
-          <div className="flex items-center justify-between px-4 py-2 text-[11px] text-zinc-600">
+          <div className="flex items-center justify-between gap-2 px-4 py-2 text-[11px] text-zinc-600">
             <button
               type="button"
               onClick={() => setPromptOpen((o) => !o)}
