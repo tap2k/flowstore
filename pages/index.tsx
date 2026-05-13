@@ -79,11 +79,6 @@ export default function Home() {
             <h1 className="text-lg font-semibold text-zinc-900">
               {spec ? spec.agent.meta.name : "uxflows"}
             </h1>
-            {spec && (
-              <span className="text-xs text-zinc-500">
-                {spec.agent.meta.client} · {(spec.agent.meta.languages ?? []).join(", ")} · v{spec.agent.version}
-              </span>
-            )}
           </div>
           <div className="ml-auto flex items-center gap-4">
             <ImportExportToolbar onOpenSettings={() => setSettingsOpen(true)} />

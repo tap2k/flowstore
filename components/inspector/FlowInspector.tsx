@@ -184,7 +184,7 @@ export function FlowInspector() {
           />
         </Field>
 
-        <Field label="Knowledge — FAQ">
+        <Field label="FAQ">
           <ListEditor<FaqEntry>
             items={flow.knowledge?.faq ?? []}
             onChange={(faq) =>
