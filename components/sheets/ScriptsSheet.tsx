@@ -312,6 +312,7 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
                           value={row.textsByLang[lang] ?? ""}
                           onChange={(e) => editCell(row.id, lang, e.target.value)}
                           rows={1}
+                          title={row.id}
                         />
                         {variations.map((v, i) => (
                           <div
