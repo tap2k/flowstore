@@ -1,9 +1,13 @@
 import { useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
 import type { Flow, FlowType, Guardrail, FaqEntry, Condition } from "@/lib/schema/v0";
+import {
+  defaultLanguage,
+  resolveLocalized,
+  setLanguage,
+} from "@/lib/schema/v0";
 import { genId } from "@/lib/ids";
 import { ListEditor } from "./ListEditor";
-import { FlowPicker } from "./FlowPicker";
 import { VariablesEditor } from "./VariablesEditor";
 import { ConditionEditor } from "./ConditionEditor";
 import { ScriptsSheet } from "@/components/sheets/ScriptsSheet";
@@ -21,6 +25,7 @@ export function FlowInspector() {
   const flow = useSpecStore((s) =>
     selection?.kind === "flow" ? s.spec?.flows.find((f) => f.id === selection.id) ?? null : null
   );
+  const languages = useSpecStore((s) => s.spec?.agent.meta.languages);
   const updateFlow = useSpecStore((s) => s.updateFlow);
   const removeFlow = useSpecStore((s) => s.removeFlow);
   const setSelection = useSpecStore((s) => s.setSelection);
@@ -28,14 +33,14 @@ export function FlowInspector() {
 
   if (!flow) return null;
 
+  const defaultLang = defaultLanguage(languages);
+
   function patch(p: Partial<Flow>) {
     if (!flow) return;
     updateFlow(flow.id, p);
   }
 
   const isInterrupt = flow.type === "interrupt";
-  const scope = flow.scope ?? [];
-  const isGlobal = scope.length === 1 && scope[0] === "global";
 
   return (
     <aside className="w-[380px] shrink-0 border-l border-zinc-200 bg-white overflow-y-auto">
@@ -63,10 +68,7 @@ export function FlowInspector() {
           <select
             className={inputClass}
             value={flow.type}
-            onChange={(e) => {
-              const next = e.target.value as FlowType;
-              patch({ type: next, scope: next === "interrupt" ? flow.scope ?? ["global"] : undefined });
-            }}
+            onChange={(e) => patch({ type: e.target.value as FlowType })}
           >
             {FLOW_TYPES.map((t) => (
               <option key={t} value={t}>
@@ -76,43 +78,11 @@ export function FlowInspector() {
           </select>
         </Field>
 
-        {DEV && isInterrupt && (
-          <Field label="Scope">
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-xs">
-                <input
-                  type="radio"
-                  checked={isGlobal}
-                  onChange={() => patch({ scope: ["global"] })}
-                />
-                Global
-              </label>
-              <label className="flex items-center gap-2 text-xs">
-                <input
-                  type="radio"
-                  checked={!isGlobal}
-                  onChange={() => patch({ scope: [] })}
-                />
-                Scoped to specific flows
-              </label>
-              {!isGlobal && (
-                <FlowPicker
-                  selected={scope}
-                  onChange={(next) => patch({ scope: next })}
-                  excludeId={flow.id}
-                />
-              )}
-            </div>
-          </Field>
-        )}
-
         {isInterrupt && (
           <Field label="Entry condition">
             <ConditionEditor
-              condition={flow.routing.entry_condition}
-              onChange={(c: Condition | undefined) =>
-                patch({ routing: { ...flow.routing, entry_condition: c } })
-              }
+              condition={flow.entry_condition}
+              onChange={(c: Condition | undefined) => patch({ entry_condition: c })}
               placeholder="Trigger phrase or intent that fires this interrupt"
             />
           </Field>
@@ -126,32 +96,6 @@ export function FlowInspector() {
             placeholder="Behavioral prose: what to do, how to behave, what to ask."
           />
         </Field>
-
-        {DEV && (
-          <Field label="Max turns">
-            <input
-              type="number"
-              min={0}
-              className={inputClass}
-              value={flow.max_turns ?? ""}
-              onChange={(e) => {
-                const v = e.target.value;
-                patch({ max_turns: v === "" ? undefined : Number(v) });
-              }}
-              placeholder="(optional)"
-            />
-          </Field>
-        )}
-
-        {DEV && (
-          <Field label="Description">
-            <textarea
-              className={`${inputClass} resize-y min-h-[60px]`}
-              value={flow.description ?? ""}
-              onChange={(e) => patch({ description: e.target.value || undefined })}
-            />
-          </Field>
-        )}
 
         <Field label="Notes">
           <textarea
@@ -195,7 +139,7 @@ export function FlowInspector() {
             onChange={(faq) =>
               patch({ knowledge: faq.length ? { faq } : undefined })
             }
-            newItem={() => ({ question: "", answer: "" })}
+            newItem={() => ({ id: genId("faq"), question: "", answer: "" })}
             addLabel="add FAQ entry"
             emptyLabel="(none)"
             renderItem={(entry, update, remove) => (
@@ -217,8 +161,14 @@ export function FlowInspector() {
                 </div>
                 <textarea
                   className={`${inputClass} resize-y min-h-[50px]`}
-                  value={entry.answer}
-                  onChange={(e) => update({ ...entry, answer: e.target.value })}
+                  value={resolveLocalized(entry.answer, defaultLang, defaultLang)}
+                  onChange={(e) =>
+                    update({
+                      ...entry,
+                      answer:
+                        setLanguage(entry.answer, defaultLang, e.target.value, defaultLang) ?? "",
+                    })
+                  }
                   placeholder="Answer"
                 />
               </div>

@@ -11,6 +11,7 @@ import {
   type Node,
 } from "@xyflow/react";
 import type { Spec } from "@/lib/schema/v0";
+import { isFlowGoto } from "@/lib/schema/v0";
 import { FlowNode, type FlowNodeData } from "./FlowNode";
 import { autoLayout } from "./layout";
 import { loadPositions, savePositions, type Positions } from "./positions";
@@ -37,8 +38,19 @@ function truncate(s: string, n: number) {
   return s.length <= n ? s : s.slice(0, n - 1) + "…";
 }
 
+// Edge color follows the destination flow's type. Matches the FlowNode
+// border palette so an edge visually inherits the node it points at.
+const EDGE_STROKE_BY_TYPE: Record<string, string> = {
+  happy:     "#34d399", // emerald-400
+  sad:       "#fbbf24", // amber-400
+  off:       "#a1a1aa", // zinc-400
+  utility:   "#38bdf8", // sky-400
+  interrupt: "#a78bfa", // violet-400
+};
+
 function buildGraph(spec: Spec): { nodes: Node[]; edges: Edge[] } {
   const flowIds = new Set(spec.flows.map((f) => f.id));
+  const flowsById = new Map(spec.flows.map((f) => [f.id, f]));
   const entryId = spec.agent.entry_flow_id;
   const issues = validateGraph(spec);
   const issuesByFlow = groupIssuesByFlow(issues);
@@ -58,22 +70,21 @@ function buildGraph(spec: Spec): { nodes: Node[]; edges: Edge[] } {
 
   const edges: Edge[] = [];
   for (const f of spec.flows) {
-    for (const xp of f.routing.exit_paths) {
-      if (!xp.next_flow_id || !flowIds.has(xp.next_flow_id)) continue;
+    for (const xp of f.exit_paths) {
+      if (!isFlowGoto(xp.goto) || !flowIds.has(xp.goto)) continue;
       const edgeId = `${f.id}__${xp.id}`;
       const edgeIssues = issuesByEdge.get(edgeId);
+      const targetType = flowsById.get(xp.goto)?.type;
       const stroke = edgeIssues
         ? "#ef4444"
-        : xp.type === "happy"
-        ? "#34d399"
-        : "#fbbf24";
+        : EDGE_STROKE_BY_TYPE[targetType ?? ""] ?? "#a1a1aa";
       const label = xp.condition?.expression
         ? truncate(xp.condition.expression, 32)
         : undefined;
       edges.push({
         id: edgeId,
         source: f.id,
-        target: xp.next_flow_id,
+        target: xp.goto,
         label,
         labelStyle: { fontSize: 11, fill: "#52525b" },
         labelBgStyle: { fill: "#fafafa" },

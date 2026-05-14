@@ -17,7 +17,7 @@ Then open http://localhost:3000.
 
 ## Docs
 
-- [SCHEMA.md](./SCHEMA.md) — authoritative v0 + v1 spec schema (the contract across all UX4 producers and consumers).
+- [SCHEMA.md](./SCHEMA.md) — authoritative spec schema (the contract across all UX4 producers and consumers).
 - [MVP-PLAN.md](./MVP-PLAN.md) — chunked work history, design decisions, and post-MVP roadmap.
 - [TRANSLATIONS.md](./TRANSLATIONS.md) — runtime translation tables (Pipecat, LiveKit, LangGraph, OpenAI Agents SDK; import sources: Voiceflow, Botpress).
 - [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) — LLM prompt for parsing source material into v0 spec JSON, ready to paste into the editor's Import.

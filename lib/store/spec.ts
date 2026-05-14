@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { Agent, ExitPath, Flow, Spec } from "@/lib/schema/v0";
+import { GOTO_END } from "@/lib/schema/v0";
 import { genId } from "@/lib/ids";
 
 // One-level deep merge: nested plain objects merge, arrays/primitives replace.
@@ -44,7 +45,7 @@ function blankFlow(id: string): Flow {
     id,
     name: "New flow",
     type: "happy",
-    routing: { exit_paths: [] },
+    exit_paths: [],
   };
 }
 
@@ -86,12 +87,9 @@ export const useSpecStore = create<SpecState>((set) => ({
             if (f.id !== flowId) return f;
             return {
               ...f,
-              routing: {
-                ...f.routing,
-                exit_paths: f.routing.exit_paths.map((xp) =>
-                  xp.id === exitPathId ? { ...xp, ...patch } : xp
-                ),
-              },
+              exit_paths: f.exit_paths.map((xp) =>
+                xp.id === exitPathId ? { ...xp, ...patch } : xp
+              ),
             };
           }),
         },
@@ -119,15 +117,12 @@ export const useSpecStore = create<SpecState>((set) => ({
     set((state) => {
       if (!state.spec) return {};
       const remaining = state.spec.flows.filter((f) => f.id !== id);
+      // When a flow is deleted, exit paths that pointed to it become END.
       const cleaned = remaining.map((f) => ({
         ...f,
-        scope: f.scope?.filter((s) => s !== id),
-        routing: {
-          ...f.routing,
-          exit_paths: f.routing.exit_paths.map((xp) =>
-            xp.next_flow_id === id ? { ...xp, next_flow_id: null } : xp
-          ),
-        },
+        exit_paths: f.exit_paths.map((xp) =>
+          xp.goto === id ? { ...xp, goto: GOTO_END } : xp
+        ),
       }));
       const entry =
         state.spec.agent.entry_flow_id === id
@@ -156,13 +151,9 @@ export const useSpecStore = create<SpecState>((set) => ({
             if (f.id !== sourceFlowId) return f;
             const newXp: ExitPath = {
               id: xpId,
-              type: "happy",
-              next_flow_id: targetFlowId,
+              goto: targetFlowId ?? GOTO_END,
             };
-            return {
-              ...f,
-              routing: { ...f.routing, exit_paths: [...f.routing.exit_paths, newXp] },
-            };
+            return { ...f, exit_paths: [...f.exit_paths, newXp] };
           }),
         },
         selection: select
@@ -181,13 +172,7 @@ export const useSpecStore = create<SpecState>((set) => ({
           flows: state.spec.flows.map((f) =>
             f.id !== flowId
               ? f
-              : {
-                  ...f,
-                  routing: {
-                    ...f.routing,
-                    exit_paths: f.routing.exit_paths.filter((xp) => xp.id !== exitPathId),
-                  },
-                }
+              : { ...f, exit_paths: f.exit_paths.filter((xp) => xp.id !== exitPathId) }
           ),
         },
         selection: null,

@@ -2,6 +2,14 @@ import { Type, type Static } from "@sinclair/typebox";
 
 const strict = { additionalProperties: false } as const;
 
+// A translatable string. Either a plain string (monolingual; the value is in
+// the agent's default language), or a Record keyed by language code (multi-
+// lingual). Codegen/runtime resolves to a single language via `resolveLocalized`.
+const LocalizedString = Type.Union([
+  Type.String(),
+  Type.Record(Type.String(), Type.String()),
+]);
+
 const Method = Type.Union([
   Type.Literal("llm"),
   Type.Literal("calculation"),
@@ -21,14 +29,6 @@ const FlowType = Type.Union([
   Type.Literal("off"),
   Type.Literal("utility"),
   Type.Literal("interrupt"),
-]);
-
-const ExitType = Type.Union([
-  Type.Literal("happy"),
-  Type.Literal("sad"),
-  Type.Literal("off"),
-  Type.Literal("exit"),
-  Type.Literal("return_to_caller"),
 ]);
 
 const CapabilityKind = Type.Union([
@@ -65,15 +65,16 @@ const BusinessGoalSchema = Type.Object(
 
 const FaqEntrySchema = Type.Object(
   {
+    id: Type.String(),
     question: Type.String(),
-    answer: Type.String(),
-    scripts: Type.Optional(Type.Record(Type.String(), Type.String())),
+    answer: LocalizedString,
   },
   strict
 );
 
 const GlossaryEntrySchema = Type.Object(
   {
+    id: Type.String(),
     term: Type.String(),
     definition: Type.String(),
   },
@@ -139,6 +140,7 @@ const ConditionSchema = Type.Object(
   {
     expression: Type.String(),
     method: Method,
+    pattern: Type.Optional(Type.String()),
   },
   strict
 );
@@ -147,6 +149,7 @@ const AssignValueSchema = Type.Object(
   {
     method: Method,
     value: Type.Unknown(),
+    pattern: Type.Optional(Type.String()),
   },
   strict
 );
@@ -158,32 +161,29 @@ const ExitPathActionSchema = Type.Object(
   strict
 );
 
+// `goto` is either a flow id (string) or one of the reserved keywords
+// "END" / "RETURN". Validated structurally as a string; runtime/validator
+// enforces that flow-id references resolve and that the keywords are not
+// shadowed by an actual flow id.
 const ExitPathSchema = Type.Object(
   {
     id: Type.String(),
-    type: ExitType,
-    notes: Type.Optional(Type.String()),
+    goto: Type.String({ minLength: 1 }),
     condition: Type.Optional(ConditionSchema),
-    next_flow_id: Type.Union([Type.String(), Type.Null()]),
+    notes: Type.Optional(Type.String()),
     assigns: Type.Optional(Type.Record(Type.String(), AssignValueSchema)),
     actions: Type.Optional(Type.Array(ExitPathActionSchema)),
   },
   strict
 );
 
-const RoutingSchema = Type.Object(
-  {
-    entry_condition: Type.Optional(ConditionSchema),
-    exit_paths: Type.Array(ExitPathSchema),
-  },
-  strict
-);
-
+// Script lines now carry their text per language inline; variations are also
+// per language (each language can have its own set of alternative phrasings).
 const ScriptLineSchema = Type.Object(
   {
     id: Type.String(),
-    text: Type.String(),
-    variations: Type.Optional(Type.Array(Type.String())),
+    text: LocalizedString,
+    variations: Type.Optional(Type.Record(Type.String(), Type.Array(Type.String()))),
   },
   strict
 );
@@ -195,106 +195,22 @@ const FlowKnowledgeSchema = Type.Object(
   strict
 );
 
-// v1 step schemas — admitted as optional on Flow so v1 specs validate.
-const CaptureSchema = Type.Object(
-  {
-    id: Type.String(),
-    variable: Type.String(),
-    method: Method,
-    pattern: Type.Optional(Type.String()),
-    value: Type.Optional(Type.Unknown()),
-  },
-  strict
-);
-
-const UtteranceVariationSchema = Type.Object(
-  {
-    id: Type.String(),
-    text: Type.String(),
-  },
-  strict
-);
-
-const UtteranceSchema = Type.Object(
-  {
-    id: Type.String(),
-    language: Type.String(),
-    variations: Type.Array(UtteranceVariationSchema),
-  },
-  strict
-);
-
-const TurnStepSchema = Type.Object(
-  {
-    id: Type.String(),
-    type: Type.Literal("turn"),
-    role: Type.Union([Type.Literal("agent"), Type.Literal("user")]),
-    label: Type.Optional(Type.String()),
-    content: Type.Optional(Type.String()),
-    variables_used: Type.Optional(Type.Array(Type.String())),
-    condition: Type.Optional(ConditionSchema),
-    captures: Type.Optional(Type.Array(CaptureSchema)),
-    utterances: Type.Optional(Type.Array(UtteranceSchema)),
-  },
-  strict
-);
-
-const ToolStepSchema = Type.Object(
-  {
-    id: Type.String(),
-    type: Type.Literal("tool"),
-    capability_id: Type.String(),
-  },
-  strict
-);
-
-const CallStepSchema = Type.Object(
-  {
-    id: Type.String(),
-    type: Type.Literal("call"),
-    description: Type.Optional(Type.String()),
-    target_flow_id: Type.String(),
-    target_flow_version: Type.Optional(Type.String()),
-    input_mapping: Type.Optional(Type.Record(Type.String(), Type.String())),
-    output_mapping: Type.Optional(Type.Record(Type.String(), Type.String())),
-  },
-  strict
-);
-
-const StepSchema = Type.Union([TurnStepSchema, ToolStepSchema, CallStepSchema]);
-
-const PipecatHintsSchema = Type.Object(
-  {
-    context_strategy: Type.Optional(
-      Type.Union([Type.Literal("APPEND"), Type.Literal("RESET")])
-    ),
-    respond_immediately: Type.Optional(Type.Boolean()),
-    pre_actions: Type.Optional(Type.Array(Type.Unknown())),
-    post_actions: Type.Optional(Type.Array(Type.Unknown())),
-  },
-  strict
-);
-
 export const FlowSchema = Type.Object(
   {
     $schema: Type.Optional(Type.String()),
     id: Type.String(),
     version: Type.Optional(Type.String()),
     name: Type.String(),
-    description: Type.Optional(Type.String()),
     type: FlowType,
-    scope: Type.Optional(Type.Array(Type.String())),
     instructions: Type.Optional(Type.String()),
-    scripts: Type.Optional(Type.Record(Type.String(), Type.Array(ScriptLineSchema))),
-    steps: Type.Optional(Type.Array(StepSchema)),
+    entry_condition: Type.Optional(ConditionSchema),
+    exit_paths: Type.Array(ExitPathSchema),
+    scripts: Type.Optional(Type.Array(ScriptLineSchema)),
     guardrails: Type.Optional(Type.Array(GuardrailSchema)),
-    max_turns: Type.Optional(Type.Number()),
     notes: Type.Optional(Type.String()),
     example: Type.Optional(Type.String()),
     knowledge: Type.Optional(FlowKnowledgeSchema),
     variables: Type.Optional(Type.Record(Type.String(), VariableDeclSchema)),
-    routing: RoutingSchema,
-    pipecat: Type.Optional(PipecatHintsSchema),
   },
   strict
 );
@@ -325,10 +241,118 @@ export const SpecSchema = Type.Object(
   strict
 );
 
+export const GOTO_END = "END" as const;
+export const GOTO_RETURN = "RETURN" as const;
+export type GotoKeyword = typeof GOTO_END | typeof GOTO_RETURN;
+
+export function isEndGoto(goto: string): boolean {
+  return goto === GOTO_END;
+}
+export function isReturnGoto(goto: string): boolean {
+  return goto === GOTO_RETURN;
+}
+export function isFlowGoto(goto: string): boolean {
+  return goto !== GOTO_END && goto !== GOTO_RETURN;
+}
+
+// === LocalizedString helpers =================================================
+
+export type LocalizedString = string | Record<string, string>;
+
+// First entry in agent.meta.languages is the default. Fall back to "EN" if
+// languages is missing (legacy / pre-multilingual specs).
+export function defaultLanguage(languages: string[] | undefined): string {
+  return languages?.[0] ?? "EN";
+}
+
+// Resolve a LocalizedString to a single string for the active language.
+// Falls back: requested lang → default lang → any value present → "".
+export function resolveLocalized(
+  value: LocalizedString | undefined,
+  lang: string,
+  defaultLang: string,
+): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (lang in value) return value[lang];
+  if (defaultLang in value) return value[defaultLang];
+  const anyKey = Object.keys(value)[0];
+  return anyKey ? value[anyKey] : "";
+}
+
+// Read the value stored for a specific language (no fallback). Useful when
+// the editor needs to show "this language is missing" vs "this language has
+// content."
+export function getLanguage(
+  value: LocalizedString | undefined,
+  lang: string,
+  defaultLang: string,
+): string | undefined {
+  if (value == null) return undefined;
+  if (typeof value === "string") {
+    return lang === defaultLang ? value : undefined;
+  }
+  return value[lang];
+}
+
+// Write a translation for a specific language. If `value` is currently a
+// plain string and `lang` differs from the default, morph it into a Record
+// with the existing string under defaultLang and the new text under lang.
+export function setLanguage(
+  value: LocalizedString | undefined,
+  lang: string,
+  text: string,
+  defaultLang: string,
+): LocalizedString | undefined {
+  // Empty incoming text means "clear this language" — fall through to delete.
+  if (text === "") {
+    if (value == null || typeof value === "string") return value;
+    const { [lang]: _drop, ...rest } = value;
+    void _drop;
+    const remaining = Object.keys(rest);
+    if (remaining.length === 0) return undefined;
+    if (remaining.length === 1 && remaining[0] === defaultLang) return rest[defaultLang];
+    return rest;
+  }
+
+  if (value == null) {
+    return lang === defaultLang ? text : { [lang]: text };
+  }
+  if (typeof value === "string") {
+    if (lang === defaultLang) return text;
+    return { [defaultLang]: value, [lang]: text };
+  }
+  return { ...value, [lang]: text };
+}
+
+// Build a LocalizedString from a (lang → text) map, collapsing to a plain
+// string when only the default language is present. Returns undefined when
+// the map is empty so callers can decide whether to drop the field or
+// substitute "".
+export function buildLocalized(
+  byLang: Record<string, string>,
+  defaultLang: string,
+): LocalizedString | undefined {
+  const keys = Object.keys(byLang);
+  if (keys.length === 0) return undefined;
+  if (keys.length === 1 && keys[0] === defaultLang) return byLang[defaultLang];
+  return byLang;
+}
+
+// Languages this LocalizedString carries content for. A plain string counts
+// as carrying content for the default language.
+export function languagesPresent(
+  value: LocalizedString | undefined,
+  defaultLang: string,
+): string[] {
+  if (value == null) return [];
+  if (typeof value === "string") return [defaultLang];
+  return Object.keys(value);
+}
+
 export type Method = Static<typeof Method>;
 export type VariableType = Static<typeof VariableType>;
 export type FlowType = Static<typeof FlowType>;
-export type ExitType = Static<typeof ExitType>;
 export type CapabilityKind = Static<typeof CapabilityKind>;
 export type Mode = Static<typeof Mode>;
 export type VariableDecl = Static<typeof VariableDeclSchema>;
@@ -345,17 +369,8 @@ export type Condition = Static<typeof ConditionSchema>;
 export type AssignValue = Static<typeof AssignValueSchema>;
 export type ExitPathAction = Static<typeof ExitPathActionSchema>;
 export type ExitPath = Static<typeof ExitPathSchema>;
-export type Routing = Static<typeof RoutingSchema>;
 export type ScriptLine = Static<typeof ScriptLineSchema>;
 export type FlowKnowledge = Static<typeof FlowKnowledgeSchema>;
-export type Capture = Static<typeof CaptureSchema>;
-export type UtteranceVariation = Static<typeof UtteranceVariationSchema>;
-export type Utterance = Static<typeof UtteranceSchema>;
-export type TurnStep = Static<typeof TurnStepSchema>;
-export type ToolStep = Static<typeof ToolStepSchema>;
-export type CallStep = Static<typeof CallStepSchema>;
-export type Step = Static<typeof StepSchema>;
-export type PipecatHints = Static<typeof PipecatHintsSchema>;
 export type Flow = Static<typeof FlowSchema>;
 export type Agent = Static<typeof AgentSchema>;
 export type Spec = Static<typeof SpecSchema>;

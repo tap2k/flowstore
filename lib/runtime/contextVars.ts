@@ -42,19 +42,25 @@ export function coerceValue(decl: VariableDecl, raw: string | boolean): unknown 
 
 const PLACEHOLDER_RE = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
 
+function collectLocalizedStrings(value: unknown, out: string[]): void {
+  if (typeof value === "string") {
+    out.push(value);
+  } else if (value && typeof value === "object") {
+    for (const v of Object.values(value)) {
+      if (typeof v === "string") out.push(v);
+    }
+  }
+}
+
 export function findPromptPlaceholders(spec: Spec | null): string[] {
   if (!spec) return [];
   const out = new Set<string>();
   const sources: string[] = [];
-  if (spec.agent.system_prompt) sources.push(spec.agent.system_prompt);
+  collectLocalizedStrings(spec.agent.system_prompt, sources);
   for (const flow of spec.flows ?? []) {
-    if (flow.instructions) sources.push(flow.instructions);
-    for (const lines of Object.values(flow.scripts ?? {})) {
-      for (const line of lines) {
-        if (line && typeof line === "object" && "text" in line && typeof line.text === "string") {
-          sources.push(line.text);
-        }
-      }
+    collectLocalizedStrings(flow.instructions, sources);
+    for (const line of flow.scripts ?? []) {
+      collectLocalizedStrings(line.text, sources);
     }
   }
   for (const text of sources) {

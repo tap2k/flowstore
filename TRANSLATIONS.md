@@ -1,6 +1,6 @@
 # Runtime Translation Tables
 
-Mappings from the UX4 behavioral spec to each supported runtime. These document how the v1 schema maps to each runtime so that Phase 2 export work can be scoped accurately. **None of them ship in the MVP.** Today's only export target is the system-prompt codegen at [`lib/codegen/promptGenerator.ts`](./lib/codegen/promptGenerator.ts) (a monolithic prompt for non-runner runtimes); the tables below inform future targets in the same `lib/codegen/` pipeline.
+Mappings from the UX4 behavioral spec to each supported runtime. These document how the schema maps to each runtime so that Phase 2 export work can be scoped accurately. **None of them ship in the MVP.** Today's only export target is the system-prompt codegen at [`lib/codegen/promptGenerator.ts`](./lib/codegen/promptGenerator.ts) (a monolithic prompt for non-runner runtimes); the tables below inform future targets in the same `lib/codegen/` pipeline.
 
 For the schema these reference, see [SCHEMA.md](./SCHEMA.md).
 
@@ -31,7 +31,7 @@ Pipecat uses a node-graph architecture. Each UX4 flow maps to a Pipecat node. Ex
 | exit path (`calculation`) | Function routing with decision block |
 | exit path (`llm`) | LLM-evaluated routing condition |
 
-Behavioral spec fields (guardrails, personas) do not appear in Pipecat output — they are evaluation metadata that lives in UX4. The `pipecat` hints field on a flow (v1 only) passes directly to the generated node configuration. `context_strategy`, `respond_immediately`, and `pre_actions` have no behavioral-spec equivalent and live in the hints field specifically to keep them out of the spec layer. Post-node side effects are expressed as `exit_path.actions` referencing capabilities, not as a Pipecat-specific hint.
+Behavioral spec fields (guardrails, personas) do not appear in Pipecat output — they are evaluation metadata that lives in UX4. Pipecat-specific runtime knobs (`context_strategy`, `respond_immediately`, pre/post actions) have no behavioral-spec equivalent and are kept out of the spec layer per the "execution separate from spec" principle. When Pipecat export is built, those hints will live in an export-time sidecar keyed by flow id rather than inside the spec. Post-node side effects are expressed as `exit_path.actions` referencing capabilities, which *is* in the spec.
 
 The export process validates the flow graph before generating Pipecat JSON. Calculation conditions must use the defined expression syntax. Variable references must resolve. Variable names must be lowercase with underscores.
 
@@ -104,10 +104,11 @@ Variable type declarations are especially important for LangGraph. Untyped varia
 | exit-path action (references capability) | `FunctionTool` invoked before terminating or handing off |
 | exit_path (`llm`) | Routing guidance in instructions |
 | exit_path (`calculation`) | `FunctionTool` returning routing decision |
-| exit_path with `type: "exit"`, `next_flow_id: null` | `Runner` returns final result |
-| interrupt flow with `scope: ["global"]` | Separate `Agent` reached via handoff (returns via `return_to_caller`) |
-| call step (v1) | Agent handoff to sub-agent; sub-agent terminal exit returns control |
-| variables | Tool parameters and shared context (v1 typed `variables` → typed context fields) |
+| exit_path with `goto: "END"` | `Runner` returns final result |
+| exit_path with `goto: "RETURN"` | Sub-agent's terminal exit returning control to caller |
+| interrupt flow (`type: "interrupt"`) | Separate `Agent` reached via handoff (returns via `goto: "RETURN"`) |
+| call step | Agent handoff to sub-agent; sub-agent terminal exit returns control |
+| variables | Tool parameters and shared context (typed `variables` → typed context fields) |
 | knowledge.faq | Instructions FAQ section |
 
 ## Import Sources

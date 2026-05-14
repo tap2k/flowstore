@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
 import type { Agent, Mode } from "@/lib/schema/v0";
+import { defaultLanguage, resolveLocalized, setLanguage } from "@/lib/schema/v0";
 import { Field, inputClass } from "@/components/inspector/primitives";
 import { SingleFlowPicker } from "@/components/inspector/FlowPicker";
 import { SheetShell } from "./SheetShell";
@@ -10,6 +11,8 @@ export function AgentSheet({ onClose }: { onClose: () => void }) {
   const updateAgent = useSpecStore((s) => s.updateAgent);
 
   if (!agent) return null;
+
+  const defaultLang = defaultLanguage(agent.meta.languages);
 
   function patch(p: Partial<Agent>) {
     updateAgent(p);

@@ -23,7 +23,7 @@ export interface SessionEnded extends EventBase {
 export interface FlowEntered extends EventBase {
   type: "flow_entered";
   flow_id: string;
-  via: "transition" | "interrupt" | "return_to_caller" | "entry";
+  via: "transition" | "interrupt" | "return" | "entry";
   caller_flow_id: string | null;
 }
 
@@ -31,7 +31,7 @@ export interface FlowExited extends EventBase {
   type: "flow_exited";
   flow_id: string;
   exit_path_id: string | null;
-  reason: "transition" | "terminal" | "interrupted" | "returned_to_caller";
+  reason: "transition" | "terminal" | "interrupted" | "returned";
 }
 
 export interface ExitPathTaken extends EventBase {

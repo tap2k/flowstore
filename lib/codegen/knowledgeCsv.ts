@@ -1,23 +1,28 @@
 import type { FaqEntry, GlossaryEntry, TableEntry } from "@/lib/schema/v0";
+import { buildLocalized, defaultLanguage, resolveLocalized } from "@/lib/schema/v0";
+import { genId } from "@/lib/ids";
 import { csvSerialize, parseCsv } from "./csv";
 
 // CSV round-trips for the three Knowledge shapes.
 //
-//   Glossary: term, definition
-//   FAQ:      question, answer, EN, ES, ...   (language cols = scripts[<lang>])
+//   Glossary: id, term, EN-definition, es-MX-definition, ...
+//   FAQ:      id, question, EN-answer, es-MX-answer, ...
 //   Table:    <field_1>, <field_2>, ...        (one CSV per table, columns from
 //                                                that table's `structure[]`)
 //
 // All three use replace-on-import semantics: the imported CSV is the authoritative
 // list. Authors edit in a spreadsheet, then re-import — no row-level merge logic
-// to reason about. Scripts is the odd one out (stable ids across languages); the
-// rest are flat tabular data where merge would surprise more than help.
+// to reason about. Tables coerce values; glossary/FAQ rebuild LocalizedString
+// from per-language columns.
 
 // ─── Glossary ──────────────────────────────────────────────────────────
+// Glossary is LLM-facing reference material (the agent doesn't recite definitions
+// verbatim to users), so it stays single-language. CSV columns are just
+// `id, term, definition`.
 
 export function glossaryToCsv(entries: GlossaryEntry[]): string {
-  const rows: string[][] = [["term", "definition"]];
-  for (const e of entries) rows.push([e.term, e.definition]);
+  const rows: string[][] = [["id", "term", "definition"]];
+  for (const e of entries) rows.push([e.id, e.term, e.definition]);
   return csvSerialize(rows);
 }
 
@@ -25,6 +30,7 @@ export function parseGlossaryCsv(csvText: string): GlossaryEntry[] {
   const rows = parseCsv(csvText);
   if (rows.length < 1) return [];
   const header = rows[0].map((h) => h.trim().toLowerCase());
+  const idIdx = header.indexOf("id");
   const termIdx = header.indexOf("term");
   const defIdx = header.indexOf("definition");
   if (termIdx === -1 || defIdx === -1) {
@@ -36,7 +42,8 @@ export function parseGlossaryCsv(csvText: string): GlossaryEntry[] {
     const term = (row[termIdx] ?? "").trim();
     const definition = row[defIdx] ?? "";
     if (!term && !definition) continue;
-    out.push({ term, definition });
+    const id = idIdx >= 0 ? (row[idIdx] ?? "").trim() : "";
+    out.push({ id: id || genId("gloss"), term, definition });
   }
   return out;
 }
@@ -44,48 +51,68 @@ export function parseGlossaryCsv(csvText: string): GlossaryEntry[] {
 // ─── FAQ ───────────────────────────────────────────────────────────────
 
 export function faqToCsv(entries: FaqEntry[], languages: string[]): string {
-  const header = ["question", "answer", ...languages];
+  const defaultLang = defaultLanguage(languages);
+  const langs = languages.length ? languages : [defaultLang];
+  const header = ["id", "question", ...langs];
   const rows: string[][] = [header];
   for (const e of entries) {
-    const row = [e.question, e.answer];
-    for (const lang of languages) row.push(e.scripts?.[lang] ?? "");
+    const row = [e.id, e.question];
+    for (const lang of langs) {
+      const v = typeof e.answer === "string"
+        ? lang === defaultLang ? e.answer : ""
+        : e.answer[lang] ?? "";
+      row.push(v);
+    }
     rows.push(row);
   }
   return csvSerialize(rows);
 }
 
-export function parseFaqCsv(csvText: string): FaqEntry[] {
+export function parseFaqCsv(csvText: string, languages: string[]): FaqEntry[] {
   const rows = parseCsv(csvText);
   if (rows.length < 1) return [];
   const header = rows[0].map((h) => h.trim());
   const headerLower = header.map((h) => h.toLowerCase());
+  const idIdx = headerLower.indexOf("id");
   const qIdx = headerLower.indexOf("question");
-  const aIdx = headerLower.indexOf("answer");
-  if (qIdx === -1 || aIdx === -1) {
-    throw new Error('FAQ CSV needs "question" and "answer" columns');
+  if (qIdx === -1) {
+    throw new Error('FAQ CSV needs a "question" column');
   }
+  const defaultLang = defaultLanguage(languages);
   const langCols: Array<{ lang: string; idx: number }> = [];
   for (let i = 0; i < header.length; i++) {
-    if (i === qIdx || i === aIdx) continue;
+    if (i === idIdx || i === qIdx) continue;
     const lang = header[i].trim();
-    if (lang) langCols.push({ lang, idx: i });
+    if (lang.toLowerCase() === "answer") {
+      // Legacy single-column "answer" maps to default language.
+      langCols.push({ lang: defaultLang, idx: i });
+    } else if (lang) {
+      langCols.push({ lang, idx: i });
+    }
   }
   const out: FaqEntry[] = [];
   for (let r = 1; r < rows.length; r++) {
     const row = rows[r];
     const question = row[qIdx] ?? "";
-    const answer = row[aIdx] ?? "";
-    if (!question && !answer && langCols.every(({ idx }) => !(row[idx] ?? ""))) continue;
-    const scripts: Record<string, string> = {};
+    const byLang: Record<string, string> = {};
     for (const { lang, idx } of langCols) {
       const v = row[idx] ?? "";
-      if (v !== "") scripts[lang] = v;
+      if (v !== "") byLang[lang] = v;
     }
-    const entry: FaqEntry = { question, answer };
-    if (Object.keys(scripts).length > 0) entry.scripts = scripts;
-    out.push(entry);
+    if (!question && Object.keys(byLang).length === 0) continue;
+    const id = idIdx >= 0 ? (row[idIdx] ?? "").trim() : "";
+    out.push({
+      id: id || genId("faq"),
+      question,
+      answer: buildLocalized(byLang, defaultLang) ?? "",
+    });
   }
   return out;
+}
+
+// Unused helper kept exported so future call sites can reuse it.
+export function _faqAnswerInLang(entry: FaqEntry, lang: string, defaultLang: string): string {
+  return resolveLocalized(entry.answer, lang, defaultLang);
 }
 
 // ─── Tables (per-table) ────────────────────────────────────────────────

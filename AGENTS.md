@@ -101,7 +101,7 @@ From the product design doc. The ones that most affect editor decisions:
 - **Three methods everywhere.** `llm` / `calculation` / `direct` apply uniformly in captures, conditions, assigns, entry conditions.
 - **Symmetric turns.** Agent and user turns share the same structure. Role determines interpretation.
 - **The flow is the atom.** Everything is a flow. Authored flows and simulated conversation flows share the same schema.
-- **Flows are modular and reusable across agents.** A flow authored for one agent should be droppable into another. Flow-specific data (including translatable scripts) lives inside the flow, not at the agent level. Prefer flow-level schema fields for anything that should travel with a reused flow; agent-level is for things genuinely shared across the whole deployment (plan-level variables, guardrails, glossary). When flows need to interoperate with different callers, use variable mapping (v1 call-step `input_mapping` / `output_mapping`) rather than hard-coded variable names or agent-specific enum values in flow routing.
+- **Flows are modular and reusable across agents.** A flow authored for one agent should be droppable into another. Flow-specific data (including translatable scripts) lives inside the flow, not at the agent level. Prefer flow-level schema fields for anything that should travel with a reused flow; agent-level is for things genuinely shared across the whole deployment (plan-level variables, guardrails, glossary). When flows need to interoperate with different callers, use variable mapping (`call`-step `input_mapping` / `output_mapping`) rather than hard-coded variable names or agent-specific enum values in flow routing.
 - **Anything referenceable has a stable `id`.** Editor-generated, never authored.
 - **Optional by default.** Valid schema with minimal fields. Depth added incrementally.
 - **Decomposition is the substrate.** Monolithic prompts hit an instruction-following ceiling in regulated behavior spaces; modular flows are how agents stay reliable at scale.
@@ -116,7 +116,7 @@ A spec at the right level of detail uses the coarsest level that still captures 
 - **Level 1** — One free-form flow, whole script in `instructions`, no `scripts`. Single coherent conversation, no branching observability needed.
 - **Level 2** — A few flows split where routing actually branches.
 - **Level 3** — One flow per agent turn; distinct guardrails or captures per turn.
-- **Level 4 (v1)** — One flow with ordered `steps` and per-turn `condition` / `captures`.
+- **Level 4 (steps)** — One flow with ordered `steps` and per-turn `condition` / `captures`.
 
 A new flow boundary earns its keep when at least one is true:
 
@@ -124,7 +124,6 @@ A new flow boundary earns its keep when at least one is true:
 - **Observability** — simulation/evaluation needs to assert "did we reach this stage?"
 - **Reuse** — the segment is droppable into other agents.
 - **Different guardrails** apply than to the surrounding flow.
-- **`max_turns` scope** — retry budgets attach to flow boundaries.
 - **Distinct `type`** — happy / sad / off / utility / interrupt classification differs.
 
 If none of these apply, decomposing is busywork. The canvas makes nodes feel like the "correct" granularity; resist the reflex.
@@ -134,17 +133,17 @@ If none of these apply, decomposing is busywork. The canvas makes nodes feel lik
 From AGENT-TESTING.md — the five-step loop uxflows supports end-to-end:
 
 1. **Ingest** — paste a system prompt and attach supporting docs (PDFs, spreadsheets, Word, Figma exports, plain text).
-2. **Parse** — a behavioral parser (LLM-assisted) converts inputs to a structured v0 spec. Today this is [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt). The designer pastes source material in, gets v0 JSON, and pastes it into the editor's Import. An in-app "Parse with AI" using a user-provided API key is planned to skip the round-trip.
+2. **Parse** — a behavioral parser (LLM-assisted) converts inputs to a structured spec. Today this is [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt). The designer pastes source material in, gets the JSON, and pastes it into the editor's Import. An in-app "Parse with AI" using a user-provided API key is planned to skip the round-trip.
 3. **Review and configure** — user reviews the parsed spec on the canvas, edits inline.
 4. **Simulate** — run personas against the agent endpoint. Evaluator scores each conversation against guardrails and per-scenario `should_happen` / `should_not_happen`. (in the evaluation consumer, currently whatsupp2)
 5. **Share** — internal findings report + client-facing shareable document. (in the evaluation consumer, currently whatsupp2)
 
 ## Related Docs in This Repo
 
-- [SCHEMA.md](./SCHEMA.md) — authoritative v0 + v1 spec schema
+- [SCHEMA.md](./SCHEMA.md) — authoritative spec schema
 - [MVP-PLAN.md](./MVP-PLAN.md) — ordered work plan to reach MVP, with design decisions and deferred items
 - [TRANSLATIONS.md](./TRANSLATIONS.md) — runtime translation tables (Pipecat, LiveKit, LangGraph, OpenAI Agents SDK; import: Voiceflow, Botpress)
-- [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) — LLM prompt for converting source material into v0 spec JSON (any frontier LLM)
+- [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) — LLM prompt for converting source material into spec JSON (any frontier LLM)
 
 ## Running
 

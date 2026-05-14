@@ -1,136 +1,99 @@
-import { useRef, useState, type ChangeEvent } from "react";
+import { useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
 import { genId } from "@/lib/ids";
 import type { Flow, ScriptLine } from "@/lib/schema/v0";
+import { defaultLanguage, getLanguage, setLanguage } from "@/lib/schema/v0";
 import { flowToScriptsCsv, mergeScriptsCsv } from "@/lib/codegen/scriptsCsv";
+import { downloadCsv, sanitizeFilename, useCsvFileInput } from "./csvIO";
 
 interface ScriptsSheetProps {
   flow: Flow;
   onClose: () => void;
 }
 
-interface Row {
-  id: string;
-  textsByLang: Record<string, string>;
-  variationsByLang: Record<string, string[]>;
-}
-
-// Merge script ids across all languages, preserving each language's order.
-function rowsFromFlow(flow: Flow, languages: string[]): Row[] {
-  const orderedIds: string[] = [];
-  const seen = new Set<string>();
-  for (const lang of languages) {
-    for (const line of flow.scripts?.[lang] ?? []) {
-      if (!seen.has(line.id)) {
-        seen.add(line.id);
-        orderedIds.push(line.id);
-      }
-    }
-  }
-  return orderedIds.map((id) => {
-    const textsByLang: Record<string, string> = {};
-    const variationsByLang: Record<string, string[]> = {};
-    for (const lang of languages) {
-      const line = flow.scripts?.[lang]?.find((l) => l.id === id);
-      textsByLang[lang] = line?.text ?? "";
-      variationsByLang[lang] = line?.variations ?? [];
-    }
-    return { id, textsByLang, variationsByLang };
-  });
-}
-
-function rowsToScripts(rows: Row[], languages: string[]): Record<string, ScriptLine[]> {
-  const out: Record<string, ScriptLine[]> = {};
-  for (const lang of languages) {
-    out[lang] = rows
-      .filter((r) => r.textsByLang[lang] !== undefined && r.textsByLang[lang] !== "")
-      .map((r) => {
-        const vars = r.variationsByLang[lang] ?? [];
-        return vars.length > 0
-          ? { id: r.id, text: r.textsByLang[lang], variations: vars }
-          : { id: r.id, text: r.textsByLang[lang] };
-      });
-  }
-  return out;
-}
-
 export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
   const agentLanguages = useSpecStore((s) => s.spec?.agent.meta.languages) ?? [];
   const updateFlow = useSpecStore((s) => s.updateFlow);
+  const updateAgent = useSpecStore((s) => s.updateAgent);
   const agent = useSpecStore((s) => s.spec?.agent);
   const [newLang, setNewLang] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!agent) return null;
 
-  // Sheet columns are the union of agent-supported languages and any extras
-  // already in this flow's scripts. Per-flow add/delete operates only on
-  // flow.scripts; agent.meta.languages is managed elsewhere.
+  // Column set: agent-declared languages plus any extras already in this
+  // flow's script lines (defensive — usually agentLanguages is authoritative).
+  const fromScripts = new Set<string>();
+  for (const line of flow.scripts ?? []) {
+    if (typeof line.text === "object") {
+      for (const k of Object.keys(line.text)) fromScripts.add(k);
+    }
+    for (const k of Object.keys(line.variations ?? {})) fromScripts.add(k);
+  }
   const merged: string[] = [];
   for (const lang of agentLanguages) if (!merged.includes(lang)) merged.push(lang);
-  for (const lang of Object.keys(flow.scripts ?? {})) {
-    if (!merged.includes(lang)) merged.push(lang);
-  }
+  for (const lang of fromScripts) if (!merged.includes(lang)) merged.push(lang);
   const languages = merged.length > 0 ? merged : ["EN"];
-  const rows = rowsFromFlow(flow, languages);
+  const defaultLang = defaultLanguage(agentLanguages);
 
-  function commit(nextRows: Row[]) {
-    const scripts = rowsToScripts(nextRows, languages);
-    const hasAny = Object.values(scripts).some((arr) => arr.length > 0);
-    updateFlow(flow.id, { scripts: hasAny ? scripts : undefined });
+  const lines = flow.scripts ?? [];
+
+  function commit(nextLines: ScriptLine[]) {
+    updateFlow(flow.id, { scripts: nextLines.length > 0 ? nextLines : undefined });
   }
 
   function addRow() {
-    const id = genId("s");
-    const empty: Record<string, string> = {};
-    const emptyVars: Record<string, string[]> = {};
-    for (const lang of languages) {
-      empty[lang] = "";
-      emptyVars[lang] = [];
-    }
-    commit([...rows, { id, textsByLang: empty, variationsByLang: emptyVars }]);
+    const newLine: ScriptLine = { id: genId("s"), text: "" };
+    commit([...lines, newLine]);
   }
 
-  function removeRow(rowId: string) {
-    commit(rows.filter((r) => r.id !== rowId));
+  function removeRow(id: string) {
+    commit(lines.filter((l) => l.id !== id));
   }
 
-  function editCell(rowId: string, lang: string, text: string) {
+  function editCell(id: string, lang: string, text: string) {
     commit(
-      rows.map((r) =>
-        r.id === rowId ? { ...r, textsByLang: { ...r.textsByLang, [lang]: text } } : r
-      )
+      lines.map((l) => {
+        if (l.id !== id) return l;
+        const nextText = setLanguage(l.text, lang, text, defaultLang) ?? "";
+        return { ...l, text: nextText };
+      }),
     );
   }
 
-  function editVariation(rowId: string, lang: string, idx: number, text: string) {
+  function editVariation(id: string, lang: string, idx: number, text: string) {
     commit(
-      rows.map((r) => {
-        if (r.id !== rowId) return r;
-        const vars = [...(r.variationsByLang[lang] ?? [])];
-        vars[idx] = text;
-        return { ...r, variationsByLang: { ...r.variationsByLang, [lang]: vars } };
-      })
+      lines.map((l) => {
+        if (l.id !== id) return l;
+        const vars = { ...(l.variations ?? {}) };
+        const arr = [...(vars[lang] ?? [])];
+        arr[idx] = text;
+        vars[lang] = arr;
+        return { ...l, variations: vars };
+      }),
     );
   }
 
-  function addVariation(rowId: string, lang: string) {
+  function addVariation(id: string, lang: string) {
     commit(
-      rows.map((r) => {
-        if (r.id !== rowId) return r;
-        const vars = [...(r.variationsByLang[lang] ?? []), ""];
-        return { ...r, variationsByLang: { ...r.variationsByLang, [lang]: vars } };
-      })
+      lines.map((l) => {
+        if (l.id !== id) return l;
+        const vars = { ...(l.variations ?? {}) };
+        vars[lang] = [...(vars[lang] ?? []), ""];
+        return { ...l, variations: vars };
+      }),
     );
   }
 
-  function removeVariation(rowId: string, lang: string, idx: number) {
+  function removeVariation(id: string, lang: string, idx: number) {
     commit(
-      rows.map((r) => {
-        if (r.id !== rowId) return r;
-        const vars = (r.variationsByLang[lang] ?? []).filter((_, i) => i !== idx);
-        return { ...r, variationsByLang: { ...r.variationsByLang, [lang]: vars } };
-      })
+      lines.map((l) => {
+        if (l.id !== id) return l;
+        const vars = { ...(l.variations ?? {}) };
+        const next = (vars[lang] ?? []).filter((_, i) => i !== idx);
+        if (next.length === 0) delete vars[lang];
+        else vars[lang] = next;
+        return { ...l, variations: Object.keys(vars).length > 0 ? vars : undefined };
+      }),
     );
   }
 
@@ -140,57 +103,45 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
       setNewLang("");
       return;
     }
-    const nextScripts = { ...(flow.scripts ?? {}), [code]: [] };
-    updateFlow(flow.id, { scripts: nextScripts });
+    const nextLanguages = [...(agentLanguages ?? []), code];
+    updateAgent({ meta: { ...agent!.meta, languages: nextLanguages } });
     setNewLang("");
   }
 
-  function exportCsv() {
-    const csv = flowToScriptsCsv(flow, languages);
-    const safeName = (flow.name || flow.id || "scripts").replace(/[^a-z0-9_-]+/gi, "_");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${safeName}-scripts.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  function triggerImport() {
-    fileInputRef.current?.click();
-  }
-
-  async function handleImportFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    try {
-      const text = await file.text();
-      const nextScripts = mergeScriptsCsv(text, flow.scripts);
-      updateFlow(flow.id, {
-        scripts: Object.keys(nextScripts).length > 0 ? nextScripts : undefined,
-      });
-    } catch (err) {
-      alert(`Import failed: ${(err as Error).message}`);
-    }
-  }
-
   function removeLanguage(code: string) {
-    if (
-      !confirm(
-        `Remove all ${code} script entries from "${flow.name}"?`
-      )
-    )
-      return;
-    const nextScripts = { ...(flow.scripts ?? {}) };
-    delete nextScripts[code];
-    updateFlow(flow.id, {
-      scripts: Object.keys(nextScripts).length > 0 ? nextScripts : undefined,
+    if (!confirm(`Remove all "${code}" entries from "${flow.name}"?`)) return;
+    const nextLines = lines.map((l) => {
+      let nextText = l.text;
+      if (typeof l.text === "object") {
+        const { [code]: _drop, ...rest } = l.text;
+        void _drop;
+        const remaining = Object.keys(rest);
+        if (remaining.length === 0) nextText = "";
+        else if (remaining.length === 1 && remaining[0] === defaultLang) nextText = rest[defaultLang];
+        else nextText = rest;
+      }
+      const vars = { ...(l.variations ?? {}) };
+      if (code in vars) delete vars[code];
+      return {
+        ...l,
+        text: nextText,
+        variations: Object.keys(vars).length > 0 ? vars : undefined,
+      };
     });
+    commit(nextLines);
   }
+
+  function exportCsv() {
+    const safeName = sanitizeFilename(flow.name || flow.id || "scripts");
+    downloadCsv(`${safeName}-scripts.csv`, flowToScriptsCsv(flow, languages));
+  }
+
+  const csvImport = useCsvFileInput((text) => {
+    const nextScripts = mergeScriptsCsv(text, flow.scripts, languages);
+    updateFlow(flow.id, {
+      scripts: nextScripts.length > 0 ? nextScripts : undefined,
+    });
+  });
 
   const colCount = languages.length + 1;
 
@@ -218,7 +169,7 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
               className="rounded border border-zinc-200 px-2 py-1 text-xs w-48 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400"
             />
             <button
-              onClick={triggerImport}
+              onClick={csvImport.trigger}
               className="text-xs text-zinc-500 hover:text-zinc-900"
               title="Import scripts from a CSV file"
             >
@@ -231,13 +182,7 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
             >
               export
             </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={handleImportFile}
-            />
+            {csvImport.input}
             <button
               onClick={onClose}
               className="text-xs text-zinc-500 hover:text-zinc-900"
@@ -276,7 +221,7 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 && (
+              {lines.length === 0 && (
                 <tr>
                   <td
                     colSpan={colCount}
@@ -286,14 +231,14 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
                   </td>
                 </tr>
               )}
-              {rows.map((row) => (
-                <tr key={row.id} className="group/row">
+              {lines.map((line) => (
+                <tr key={line.id} className="group/row">
                   <td
                     className="border-b border-r border-zinc-200 align-top relative"
-                    title={row.id}
+                    title={line.id}
                   >
                     <button
-                      onClick={() => removeRow(row.id)}
+                      onClick={() => removeRow(line.id)}
                       className="absolute inset-0 opacity-0 group-hover/row:opacity-100 flex items-center justify-center text-zinc-400 hover:text-red-600"
                       title="remove row"
                     >
@@ -301,7 +246,8 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
                     </button>
                   </td>
                   {languages.map((lang) => {
-                    const variations = row.variationsByLang[lang] ?? [];
+                    const variations = line.variations?.[lang] ?? [];
+                    const cellValue = getLanguage(line.text, lang, defaultLang) ?? "";
                     return (
                       <td
                         key={lang}
@@ -309,10 +255,10 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
                       >
                         <textarea
                           className="block w-full bg-transparent px-2 py-1.5 text-xs resize-none focus:outline-none focus:bg-blue-50/40 [field-sizing:content]"
-                          value={row.textsByLang[lang] ?? ""}
-                          onChange={(e) => editCell(row.id, lang, e.target.value)}
+                          value={cellValue}
+                          onChange={(e) => editCell(line.id, lang, e.target.value)}
                           rows={1}
-                          title={row.id}
+                          title={line.id}
                         />
                         {variations.map((v, i) => (
                           <div
@@ -323,13 +269,13 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
                               className="block w-full bg-transparent px-2 py-1 pr-6 text-[11px] text-zinc-600 italic resize-none focus:outline-none focus:bg-blue-50/40 focus:not-italic focus:text-zinc-900 [field-sizing:content]"
                               value={v}
                               onChange={(e) =>
-                                editVariation(row.id, lang, i, e.target.value)
+                                editVariation(line.id, lang, i, e.target.value)
                               }
                               placeholder="alternate phrasing"
                               rows={1}
                             />
                             <button
-                              onClick={() => removeVariation(row.id, lang, i)}
+                              onClick={() => removeVariation(line.id, lang, i)}
                               className="absolute top-0.5 right-0.5 opacity-0 group-hover/var:opacity-100 text-zinc-400 hover:text-red-600 text-sm leading-none p-1"
                               title="remove variation"
                             >
@@ -338,7 +284,7 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
                           </div>
                         ))}
                         <button
-                          onClick={() => addVariation(row.id, lang)}
+                          onClick={() => addVariation(line.id, lang)}
                           className="block w-full px-2 py-1 text-left text-[10px] text-zinc-300 hover:text-zinc-700 hover:bg-zinc-50 border-t border-dashed border-zinc-100"
                         >
                           + alt

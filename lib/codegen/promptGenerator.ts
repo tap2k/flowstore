@@ -5,6 +5,13 @@ import type {
   Condition,
   FaqEntry,
 } from "@/lib/schema/v0";
+import {
+  isEndGoto,
+  isReturnGoto,
+  isFlowGoto,
+  resolveLocalized,
+  defaultLanguage,
+} from "@/lib/schema/v0";
 
 // Capabilities are intentionally not rendered here. The naked prompt has no
 // tools to call; when tool-use is wired in, capabilities should be passed as a
@@ -14,17 +21,28 @@ export function generateSystemPrompt(
   vars?: Record<string, unknown>,
   opts?: { language?: string },
 ): string {
-  const lang = opts?.language;
+  const defaultLang = defaultLanguage(spec.agent.meta.languages);
+  const lang = opts?.language ?? defaultLang;
+  const ctx = { lang, defaultLang };
   const sections = [
-    renderRole(spec),
-    renderGuardrails(spec),
-    renderFlows(spec, lang),
-    renderInterrupts(spec, lang),
-    renderKnowledge(spec, lang),
+    renderRole(spec, ctx),
+    renderGuardrails(spec, ctx),
+    renderFlows(spec, ctx),
+    renderInterrupts(spec, ctx),
+    renderKnowledge(spec, ctx),
   ].filter(Boolean);
 
   const rendered = sections.join("\n\n---\n\n").trim() + "\n";
   return vars ? substituteVars(rendered, vars) : rendered;
+}
+
+interface RenderCtx {
+  lang: string;
+  defaultLang: string;
+}
+
+function loc(value: string | Record<string, string> | undefined, ctx: RenderCtx): string {
+  return resolveLocalized(value, ctx.lang, ctx.defaultLang);
 }
 
 // Replaces `{name}` placeholders with values from `vars`. Unknown placeholders
@@ -39,11 +57,9 @@ export function substituteVars(text: string, vars: Record<string, unknown>): str
   return out;
 }
 
-function renderRole(spec: Spec): string {
+function renderRole(spec: Spec, ctx: RenderCtx): string {
   const { meta, system_prompt } = spec.agent;
-  if (system_prompt && system_prompt.trim()) {
-    return system_prompt.trim();
-  }
+  if (system_prompt && system_prompt.trim()) return system_prompt.trim();
   const lines: string[] = [];
   lines.push(`You are ${meta.name}.`);
   if (meta.purpose) lines.push(meta.purpose);
@@ -54,7 +70,7 @@ function renderRole(spec: Spec): string {
   return lines.join(" ");
 }
 
-function renderGuardrails(spec: Spec): string {
+function renderGuardrails(spec: Spec, ctx: RenderCtx): string {
   const items = spec.agent.guardrails ?? [];
   if (!items.length) return "";
   const lines = ["GUARDRAILS (apply at all times):"];
@@ -62,7 +78,7 @@ function renderGuardrails(spec: Spec): string {
   return lines.join("\n");
 }
 
-function renderFlows(spec: Spec, lang?: string): string {
+function renderFlows(spec: Spec, ctx: RenderCtx): string {
   const entry = spec.agent.entry_flow_id;
   const conversational = spec.flows.filter((f) => f.type !== "interrupt" && f.type !== "utility");
   if (!conversational.length) return "";
@@ -75,15 +91,15 @@ function renderFlows(spec: Spec, lang?: string): string {
   }
   ordered.forEach((flow, i) => {
     lines.push(`\n${i + 1}. ${flow.name || flow.id}${flow.id === entry ? " (entry)" : ""}`);
-    if (flow.description) lines.push(`   ${flow.description}`);
-    if (flow.instructions?.trim()) {
-      lines.push(`   ${flow.instructions.trim().split("\n").join("\n   ")}`);
+    const instructions = flow.instructions ?? "";
+    if (instructions.trim()) {
+      lines.push(`   ${instructions.trim().split("\n").join("\n   ")}`);
     }
-    const scripts = renderFlowScripts(flow, lang);
+    const scripts = renderFlowScripts(flow, ctx);
     if (scripts) lines.push(scripts);
-    const guardrails = renderFlowGuardrails(flow);
+    const guardrails = renderFlowGuardrails(flow, ctx);
     if (guardrails) lines.push(guardrails);
-    const knowledge = renderFlowKnowledge(flow, lang);
+    const knowledge = renderFlowKnowledge(flow, ctx);
     if (knowledge) lines.push(knowledge);
     const routing = renderFlowRoutingInline(flow, flowNames);
     if (routing) lines.push(routing);
@@ -92,7 +108,7 @@ function renderFlows(spec: Spec, lang?: string): string {
 }
 
 function renderFlowRoutingInline(flow: Flow, flowNames: Map<string, string>): string {
-  const exits = flow.routing?.exit_paths ?? [];
+  const exits = flow.exit_paths ?? [];
   if (!exits.length) return "";
   const lines: string[] = [];
   for (const ep of exits) {
@@ -107,13 +123,10 @@ function renderFlowRoutingInline(flow: Flow, flowNames: Map<string, string>): st
 }
 
 function renderInlineTarget(ep: ExitPath, flowNames: Map<string, string>): string {
-  if (ep.type === "exit") return "end the conversation";
-  if (ep.type === "return_to_caller") return "return to the calling flow";
-  if (ep.next_flow_id) {
-    const name = flowNames.get(ep.next_flow_id) ?? ep.next_flow_id;
-    return `go to ${name}`;
-  }
-  return "continue";
+  if (isEndGoto(ep.goto)) return "end the conversation";
+  if (isReturnGoto(ep.goto)) return "return to the calling flow";
+  const name = flowNames.get(ep.goto) ?? ep.goto;
+  return `go to ${name}`;
 }
 
 // Routing clause: prefixes the expression with a frame so deterministic
@@ -142,8 +155,8 @@ function orderFlows(flows: Flow[], entryId: string | undefined): Flow[] {
     if (!flow) return;
     visited.add(id);
     ordered.push(flow);
-    for (const ep of flow.routing?.exit_paths ?? []) {
-      if (ep.next_flow_id) visit(ep.next_flow_id);
+    for (const ep of flow.exit_paths ?? []) {
+      if (isFlowGoto(ep.goto)) visit(ep.goto);
     }
   }
 
@@ -152,26 +165,23 @@ function orderFlows(flows: Flow[], entryId: string | undefined): Flow[] {
   return ordered;
 }
 
-function renderFlowScripts(flow: Flow, lang?: string): string {
-  const buckets = flow.scripts ?? {};
-  const langs = lang ? (buckets[lang] ? [lang] : []) : Object.keys(buckets);
-  if (!langs.length) return "";
+function renderFlowScripts(flow: Flow, ctx: RenderCtx): string {
+  const scripts = flow.scripts ?? [];
+  if (!scripts.length) return "";
   const lines: string[] = ["   Scripts:"];
-  for (const code of langs) {
-    const lines_ = buckets[code] ?? [];
-    if (!lines_.length) continue;
-    lines.push(`     ${code}:`);
-    for (const s of lines_) {
-      lines.push(`       - [${s.id}] "${escapeQuotes(s.text)}"`);
-      for (const v of (s.variations ?? []).filter(Boolean)) {
-        lines.push(`         | "${escapeQuotes(v)}"`);
-      }
+  for (const s of scripts) {
+    const text = loc(s.text, ctx);
+    if (!text) continue;
+    lines.push(`     - [${s.id}] "${escapeQuotes(text)}"`);
+    const variations = s.variations?.[ctx.lang] ?? s.variations?.[ctx.defaultLang] ?? [];
+    for (const v of variations.filter(Boolean)) {
+      lines.push(`       | "${escapeQuotes(v)}"`);
     }
   }
-  return lines.join("\n");
+  return lines.length > 1 ? lines.join("\n") : "";
 }
 
-function renderFlowGuardrails(flow: Flow): string {
+function renderFlowGuardrails(flow: Flow, ctx: RenderCtx): string {
   const items = flow.guardrails ?? [];
   if (!items.length) return "";
   const lines = ["   Flow guardrails:"];
@@ -179,32 +189,32 @@ function renderFlowGuardrails(flow: Flow): string {
   return lines.join("\n");
 }
 
-function renderFlowKnowledge(flow: Flow, lang?: string): string {
+function renderFlowKnowledge(flow: Flow, ctx: RenderCtx): string {
   const faq = flow.knowledge?.faq ?? [];
   if (!faq.length) return "";
   const lines = ["   FAQ:"];
-  for (const entry of faq) lines.push(formatFaqEntry(entry, "     ", lang));
+  for (const entry of faq) lines.push(formatFaqEntry(entry, "     ", ctx));
   return lines.join("\n");
 }
 
-function renderInterrupts(spec: Spec, lang?: string): string {
+function renderInterrupts(spec: Spec, ctx: RenderCtx): string {
   const interrupts = spec.flows.filter((f) => f.type === "interrupt");
   if (!interrupts.length) return "";
   const flowNames = new Map(spec.flows.map((f) => [f.id, f.name || f.id]));
-  const lines = ["INTERRUPTS (fire at any point unless scope says otherwise):"];
+  const lines = ["INTERRUPTS (fire at any point):"];
   interrupts.forEach((flow, i) => {
-    const scope = flow.scope?.length ? flow.scope.join(", ") : "global";
-    lines.push(`\n${i + 1}. ${flow.name || flow.id} [scope: ${scope}]`);
-    const trigger = flow.routing?.entry_condition;
+    lines.push(`\n${i + 1}. ${flow.name || flow.id}`);
+    const trigger = flow.entry_condition;
     if (trigger) {
       lines.push(`   Trigger: ${renderConditionPlain(trigger)}`);
     }
-    if (flow.instructions?.trim()) {
-      lines.push(`   ${flow.instructions.trim().split("\n").join("\n   ")}`);
+    const instructions = flow.instructions ?? "";
+    if (instructions.trim()) {
+      lines.push(`   ${instructions.trim().split("\n").join("\n   ")}`);
     }
-    const scripts = renderFlowScripts(flow, lang);
+    const scripts = renderFlowScripts(flow, ctx);
     if (scripts) lines.push(scripts);
-    const knowledge = renderFlowKnowledge(flow, lang);
+    const knowledge = renderFlowKnowledge(flow, ctx);
     if (knowledge) lines.push(knowledge);
     const routing = renderFlowRoutingInline(flow, flowNames);
     if (routing) lines.push(routing);
@@ -212,7 +222,7 @@ function renderInterrupts(spec: Spec, lang?: string): string {
   return lines.join("\n");
 }
 
-function renderKnowledge(spec: Spec, lang?: string): string {
+function renderKnowledge(spec: Spec, ctx: RenderCtx): string {
   const k = spec.agent.knowledge;
   if (!k) return "";
   const blocks: string[] = [];
@@ -220,7 +230,7 @@ function renderKnowledge(spec: Spec, lang?: string): string {
   if (k.faq?.length) {
     const lines = ["FAQ:"];
     for (const entry of k.faq) {
-      lines.push(formatFaqEntry(entry, "", lang));
+      lines.push(formatFaqEntry(entry, "", ctx));
     }
     blocks.push(lines.join("\n"));
   }
@@ -238,15 +248,8 @@ function renderKnowledge(spec: Spec, lang?: string): string {
   return blocks.join("\n\n");
 }
 
-function formatFaqEntry(entry: FaqEntry, indent = "", lang?: string): string {
-  const lines = [`${indent}- Q: ${entry.question}`];
-  lines.push(`${indent}  A: ${entry.answer}`);
-  const scripts = entry.scripts ?? {};
-  const codes = lang ? (scripts[lang] ? [lang] : []) : Object.keys(scripts);
-  for (const code of codes) {
-    lines.push(`${indent}  Say (${code}): "${escapeQuotes(scripts[code])}"`);
-  }
-  return lines.join("\n");
+function formatFaqEntry(entry: FaqEntry, indent: string, ctx: RenderCtx): string {
+  return `${indent}- Q: ${entry.question}\n${indent}  A: ${loc(entry.answer, ctx)}`;
 }
 
 function escapeQuotes(text: string): string {

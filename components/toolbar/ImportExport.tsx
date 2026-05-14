@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { parse as parseYaml } from "yaml";
 import { useSpecStore } from "@/lib/store/spec";
 import { validateSpec, formatErrors } from "@/lib/validation/ajv";
@@ -8,6 +8,14 @@ import { GuardrailsSheet } from "@/components/sheets/GuardrailsSheet";
 import { BusinessGoalsSheet } from "@/components/sheets/BusinessGoalsSheet";
 import { CapabilitiesSheet } from "@/components/sheets/CapabilitiesSheet";
 import { KnowledgeSheet } from "@/components/sheets/KnowledgeSheet";
+import { generateSystemPrompt } from "@/lib/codegen/promptGenerator";
+import {
+  applyTranslations,
+  previewTranslationsCsv,
+  specToTranslationsCsv,
+  type ImportPreview,
+} from "@/lib/codegen/translationsCsv";
+import { downloadCsv, sanitizeFilename, useCsvFileInput } from "@/components/sheets/csvIO";
 
 interface ImportExportToolbarProps {
   onOpenSettings: () => void;
@@ -20,6 +28,9 @@ const buttonClass =
 
 const iconButtonClass =
   "rounded-md border border-zinc-200 p-1.5 text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 disabled:hover:bg-transparent";
+
+const menuItemClass =
+  "block w-full text-left px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100";
 
 function ImportIcon() {
   return (
@@ -65,32 +76,99 @@ function tryParseSpecText(input: string): { ok: true; data: unknown } | { ok: fa
   }
 }
 
+// Small dropdown helper: tracks open state, closes on outside click + Escape.
+function useDropdown() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  return { open, setOpen, ref };
+}
+
+function downloadBlob(filename: string, content: string, mime: string) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export function ImportExportToolbar({
   onOpenSettings,
 }: ImportExportToolbarProps) {
   const spec = useSpecStore((s) => s.spec);
   const setSpec = useSpecStore((s) => s.setSpec);
+  const addFlow = useSpecStore((s) => s.addFlow);
   const [importOpen, setImportOpen] = useState(false);
   const [openSheet, setOpenSheet] = useState<null | "agent" | "variables" | "guardrails" | "business_goals" | "capabilities" | "knowledge">(null);
   const [error, setError] = useState<string | null>(null);
 
-  function downloadFile(filename: string, content: string, mime: string) {
-    const blob = new Blob([content], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
+  // --- Export dropdown -----------------------------------------------------
+  const exportMenu = useDropdown();
 
   function exportSpecJson() {
     if (!spec) return;
-    downloadFile(`${spec.agent.id || "spec"}.json`, JSON.stringify(spec, null, 2), "application/json");
+    const name = sanitizeFilename(spec.agent.id || "spec");
+    downloadBlob(`${name}.json`, JSON.stringify(spec, null, 2), "application/json");
+    exportMenu.setOpen(false);
   }
 
+  function exportSystemPrompt() {
+    if (!spec) return;
+    const name = sanitizeFilename(spec.agent.id || "spec");
+    downloadBlob(`${name}-system-prompt.txt`, generateSystemPrompt(spec), "text/plain");
+    exportMenu.setOpen(false);
+  }
+
+  // --- Translations dropdown -----------------------------------------------
+  const translationsMenu = useDropdown();
+  const [translationsPreview, setTranslationsPreview] = useState<ImportPreview | null>(null);
+
+  const translationsImport = useCsvFileInput((text) => {
+    if (!spec) return;
+    setTranslationsPreview(previewTranslationsCsv(text, spec));
+  });
+
+  function exportTranslationsCsv() {
+    if (!spec) return;
+    const languages = spec.agent.meta.languages ?? [];
+    const csv = specToTranslationsCsv(spec, languages.length ? languages : ["EN"]);
+    downloadCsv(
+      `${sanitizeFilename(spec.agent.id || "spec")}-translations.csv`,
+      csv,
+    );
+    translationsMenu.setOpen(false);
+  }
+
+  function startTranslationsImport() {
+    translationsImport.trigger();
+    translationsMenu.setOpen(false);
+  }
+
+  function applyTranslationsPreview() {
+    if (!translationsPreview || !spec) return;
+    setSpec(applyTranslations(spec, translationsPreview.rows));
+    setTranslationsPreview(null);
+  }
+
+  // --- Spec import ---------------------------------------------------------
   function commitImport(parsed: unknown) {
     const result = validateSpec(parsed);
     if (!result.valid) return formatErrors(result.errors);
@@ -99,8 +177,6 @@ export function ImportExportToolbar({
     setImportOpen(false);
     return null;
   }
-
-  const addFlow = useSpecStore((s) => s.addFlow);
 
   return (
     <>
@@ -129,6 +205,29 @@ export function ImportExportToolbar({
         <button onClick={() => setOpenSheet("knowledge")} disabled={!spec} className={buttonClass}>
           Knowledge
         </button>
+
+        {/* Translations dropdown — CSV round-trip for translatable strings. */}
+        <div ref={translationsMenu.ref} className="relative">
+          <button
+            onClick={() => translationsMenu.setOpen((o) => !o)}
+            disabled={!spec}
+            className={buttonClass}
+          >
+            Translations
+          </button>
+          {translationsMenu.open && (
+            <div className="absolute left-0 top-full mt-1 z-20 min-w-[12rem] rounded-md border border-zinc-200 bg-white shadow-md py-1">
+              <button onClick={startTranslationsImport} className={menuItemClass}>
+                Import CSV…
+              </button>
+              <button onClick={exportTranslationsCsv} className={menuItemClass}>
+                Export CSV
+              </button>
+            </div>
+          )}
+          {translationsImport.input}
+        </div>
+
         <span className="w-px h-5 bg-zinc-200" />
         <button
           onClick={() => { setError(null); setImportOpen(true); }}
@@ -138,15 +237,30 @@ export function ImportExportToolbar({
         >
           <ImportIcon />
         </button>
-        <button
-          onClick={exportSpecJson}
-          disabled={!spec}
-          className={iconButtonClass}
-          title="Export spec as JSON"
-          aria-label="Export spec as JSON"
-        >
-          <ExportIcon />
-        </button>
+
+        {/* Export dropdown — spec JSON + compiled system prompt. */}
+        <div ref={exportMenu.ref} className="relative">
+          <button
+            onClick={() => exportMenu.setOpen((o) => !o)}
+            disabled={!spec}
+            className={iconButtonClass}
+            title="Export"
+            aria-label="Export"
+          >
+            <ExportIcon />
+          </button>
+          {exportMenu.open && (
+            <div className="absolute right-0 top-full mt-1 z-20 min-w-[14rem] rounded-md border border-zinc-200 bg-white shadow-md py-1">
+              <button onClick={exportSpecJson} className={menuItemClass}>
+                Export JSON
+              </button>
+              <button onClick={exportSystemPrompt} className={menuItemClass}>
+                Export System Prompt
+              </button>
+            </div>
+          )}
+        </div>
+
         <span className="w-px h-5 bg-zinc-200" />
         <button
           onClick={onOpenSettings}
@@ -169,6 +283,14 @@ export function ImportExportToolbar({
         <ImportModal
           onClose={() => setImportOpen(false)}
           onCommit={commitImport}
+        />
+      )}
+      {translationsPreview && spec && (
+        <TranslationsImportPreviewModal
+          preview={translationsPreview}
+          declared={spec.agent.meta.languages ?? []}
+          onCancel={() => setTranslationsPreview(null)}
+          onApply={applyTranslationsPreview}
         />
       )}
       {openSheet === "agent" && <AgentSheet onClose={() => setOpenSheet(null)} />}
@@ -300,6 +422,91 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
             </ul>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+interface TranslationsImportPreviewModalProps {
+  preview: ImportPreview;
+  declared: string[];
+  onCancel: () => void;
+  onApply: () => void;
+}
+
+function TranslationsImportPreviewModal({
+  preview,
+  declared,
+  onCancel,
+  onApply,
+}: TranslationsImportPreviewModalProps) {
+  const undeclared = preview.csvLanguages.filter((l) => !declared.includes(l));
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4"
+      onClick={onCancel}
+    >
+      <div
+        className="bg-white rounded-lg shadow-xl w-full max-w-lg p-5 space-y-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-base font-semibold">Import translations</h3>
+
+        <dl className="text-xs space-y-1">
+          <div>
+            <dt className="inline font-medium text-zinc-700">CSV languages:</dt>{" "}
+            <dd className="inline text-zinc-600">
+              {preview.csvLanguages.join(", ") || "(none)"}
+            </dd>
+          </div>
+          <div>
+            <dt className="inline font-medium text-zinc-700">Declared on agent:</dt>{" "}
+            <dd className="inline text-zinc-600">{declared.join(", ") || "(none)"}</dd>
+          </div>
+          <div>
+            <dt className="inline font-medium text-zinc-700">Translations to apply:</dt>{" "}
+            <dd className="inline text-zinc-600">{preview.matched}</dd>
+          </div>
+          {preview.unmatched.length > 0 && (
+            <div>
+              <dt className="font-medium text-zinc-700">
+                Translations skipped (key not in spec):
+              </dt>
+              <dd className="mt-1 text-zinc-600 font-mono text-[11px] max-h-32 overflow-auto rounded bg-zinc-50 border border-zinc-200 p-2">
+                {preview.unmatched.map((k) => (
+                  <div key={k}>{k}</div>
+                ))}
+              </dd>
+            </div>
+          )}
+        </dl>
+
+        {undeclared.length > 0 && (
+          <div className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+            <strong>Heads up:</strong> CSV has languages not yet declared on this
+            agent: <code>{undeclared.join(", ")}</code>. Translations will apply,
+            but the agent&apos;s declared-languages list isn&apos;t modified by
+            import. Add them in the Agent sheet if you want them honored across
+            the editor and at runtime.
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            onClick={onCancel}
+            className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onApply}
+            disabled={preview.matched === 0}
+            className="rounded-md border border-zinc-200 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+          >
+            Apply
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import type { Spec } from "@/lib/schema/v0";
+import { isFlowGoto } from "@/lib/schema/v0";
 
 export type IssueLocation =
   | { kind: "flow"; flowId: string }
@@ -36,11 +37,17 @@ export function validateGraph(spec: Spec): GraphIssue[] {
   const capabilityIds = new Set((spec.agent.capabilities ?? []).map((c) => c.id));
 
   for (const f of spec.flows) {
-    for (const xp of f.routing.exit_paths) {
-      if (xp.next_flow_id && !flowIds.has(xp.next_flow_id)) {
+    if (f.type === "interrupt" && !f.entry_condition) {
+      issues.push({
+        at: { kind: "flow", flowId: f.id },
+        message: "Interrupt flow is missing entry_condition",
+      });
+    }
+    for (const xp of f.exit_paths) {
+      if (isFlowGoto(xp.goto) && !flowIds.has(xp.goto)) {
         issues.push({
           at: { kind: "edge", flowId: f.id, exitPathId: xp.id },
-          message: `next_flow_id "${xp.next_flow_id}" does not match any flow`,
+          message: `goto "${xp.goto}" does not match any flow`,
         });
       }
       for (const action of xp.actions ?? []) {

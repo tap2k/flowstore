@@ -1,10 +1,11 @@
-import { useRef, type ChangeEvent } from "react";
 import { useSpecStore } from "@/lib/store/spec";
 import { genId } from "@/lib/ids";
 import type { FaqEntry, GlossaryEntry, Knowledge, TableEntry, TableField } from "@/lib/schema/v0";
+import { defaultLanguage, resolveLocalized, setLanguage } from "@/lib/schema/v0";
 import { ListEditor } from "@/components/inspector/ListEditor";
 import { Field, Section, inputClass } from "@/components/inspector/primitives";
 import { SheetShell } from "./SheetShell";
+import { downloadCsv, useCsvFileInput } from "./csvIO";
 import {
   faqToCsv,
   glossaryToCsv,
@@ -18,6 +19,7 @@ export function KnowledgeSheet({ onClose }: { onClose: () => void }) {
   const knowledge = useSpecStore((s) => s.spec?.agent.knowledge ?? null);
   const languages = useSpecStore((s) => s.spec?.agent.meta.languages ?? ["EN"]);
   const updateAgent = useSpecStore((s) => s.updateAgent);
+  const defaultLang = defaultLanguage(languages);
 
   function patchKnowledge(p: Partial<Knowledge>) {
     const merged = { ...(knowledge ?? {}), ...p };
@@ -41,7 +43,7 @@ export function KnowledgeSheet({ onClose }: { onClose: () => void }) {
             disableExport={faqEntries.length === 0}
             onExport={() => faqToCsv(faqEntries, languages)}
             onImport={(text) => {
-              const next = parseFaqCsv(text);
+              const next = parseFaqCsv(text, languages);
               patchKnowledge({ faq: next.length ? next : undefined });
             }}
           />
@@ -50,7 +52,7 @@ export function KnowledgeSheet({ onClose }: { onClose: () => void }) {
         <ListEditor<FaqEntry>
           items={knowledge?.faq ?? []}
           onChange={(faq) => patchKnowledge({ faq: faq.length ? faq : undefined })}
-          newItem={() => ({ question: "", answer: "" })}
+          newItem={() => ({ id: genId("faq"), question: "", answer: "" })}
           addLabel="add FAQ entry"
           renderItem={(entry, update, remove) => (
             <div className="rounded border border-zinc-200 p-2 space-y-1.5">
@@ -70,8 +72,14 @@ export function KnowledgeSheet({ onClose }: { onClose: () => void }) {
               </div>
               <textarea
                 className={`${inputClass} resize-y min-h-[50px]`}
-                value={entry.answer}
-                onChange={(e) => update({ ...entry, answer: e.target.value })}
+                value={resolveLocalized(entry.answer, defaultLang, defaultLang)}
+                onChange={(e) =>
+                  update({
+                    ...entry,
+                    answer:
+                      setLanguage(entry.answer, defaultLang, e.target.value, defaultLang) ?? "",
+                  })
+                }
                 placeholder="Answer"
               />
             </div>
@@ -98,7 +106,7 @@ export function KnowledgeSheet({ onClose }: { onClose: () => void }) {
           onChange={(glossary) =>
             patchKnowledge({ glossary: glossary.length ? glossary : undefined })
           }
-          newItem={() => ({ term: "", definition: "" })}
+          newItem={() => ({ id: genId("gloss"), term: "", definition: "" })}
           addLabel="add term"
           renderItem={(entry, update, remove) => (
             <div className="flex items-start gap-2">
@@ -309,38 +317,13 @@ function CsvButtons({
   onExport: () => string;
   onImport: (text: string) => void;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  function doExport() {
-    const csv = onExport();
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  async function handleFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    try {
-      const text = await file.text();
-      onImport(text);
-    } catch (err) {
-      alert(`Import failed: ${(err as Error).message}`);
-    }
-  }
+  const { trigger, input } = useCsvFileInput(onImport);
 
   return (
     <span className="flex items-center gap-2 shrink-0">
       <button
         type="button"
-        onClick={() => inputRef.current?.click()}
+        onClick={trigger}
         className="text-xs text-zinc-500 hover:text-zinc-900"
         title="Import from CSV (replaces current entries)"
       >
@@ -348,20 +331,14 @@ function CsvButtons({
       </button>
       <button
         type="button"
-        onClick={doExport}
+        onClick={() => downloadCsv(filename, onExport())}
         disabled={disableExport}
         className="text-xs text-zinc-500 hover:text-zinc-900 disabled:text-zinc-300 disabled:hover:text-zinc-300"
         title="Download as CSV"
       >
         export
       </button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".csv,text/csv"
-        className="hidden"
-        onChange={handleFile}
-      />
+      {input}
     </span>
   );
 }

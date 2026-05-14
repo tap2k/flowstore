@@ -1,10 +1,9 @@
 import { useSpecStore } from "@/lib/store/spec";
-import type { ExitPath, ExitType, AssignValue, Method } from "@/lib/schema/v0";
+import type { ExitPath, AssignValue, Method } from "@/lib/schema/v0";
+import { GOTO_END, GOTO_RETURN, isReturnGoto } from "@/lib/schema/v0";
 import { ListEditor } from "./ListEditor";
 import { ConditionEditor } from "./ConditionEditor";
-import { SingleFlowPicker } from "./FlowPicker";
 
-const EXIT_TYPES: ExitType[] = ["happy", "sad", "off", "exit", "return_to_caller"];
 const METHODS: Method[] = ["llm", "calculation", "direct"];
 
 const labelClass = "block text-xs font-medium text-zinc-600 mb-1";
@@ -54,8 +53,9 @@ export function EdgeInspector() {
   const exitPath = useSpecStore((s) => {
     if (selection?.kind !== "edge" || !s.spec) return null;
     const f = s.spec.flows.find((f) => f.id === selection.flowId);
-    return f?.routing.exit_paths.find((xp) => xp.id === selection.exitPathId) ?? null;
+    return f?.exit_paths.find((xp) => xp.id === selection.exitPathId) ?? null;
   });
+  const flows = useSpecStore((s) => s.spec?.flows) ?? [];
   const capabilities = useSpecStore((s) => s.spec?.agent.capabilities) ?? [];
   const updateExitPath = useSpecStore((s) => s.updateExitPath);
   const removeExitPath = useSpecStore((s) => s.removeExitPath);
@@ -88,20 +88,6 @@ export function EdgeInspector() {
           From <span className="font-medium text-zinc-700">{flow.name}</span>
         </div>
 
-        <Field label="Type">
-          <select
-            className={inputClass}
-            value={exitPath.type}
-            onChange={(e) => patch({ type: e.target.value as ExitType })}
-          >
-            {EXIT_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </Field>
-
         <Field label="Condition">
           <ConditionEditor
             condition={exitPath.condition}
@@ -110,18 +96,25 @@ export function EdgeInspector() {
           />
         </Field>
 
-        <Field label="Next flow">
-          {exitPath.type === "return_to_caller" ? (
-            <p className="text-[11px] text-zinc-500 italic">
-              Resumes the interrupted flow at runtime; no explicit next_flow_id.
+        <Field label="Destination">
+          <select
+            className={inputClass}
+            value={exitPath.goto}
+            onChange={(e) => patch({ goto: e.target.value })}
+          >
+            {flows.filter((f) => f.id !== flow.id).map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+            <option disabled>──────────</option>
+            <option value={GOTO_END}>End conversation (END)</option>
+            <option value={GOTO_RETURN}>Return to caller (RETURN)</option>
+          </select>
+          {isReturnGoto(exitPath.goto) && (
+            <p className="mt-1 text-[11px] text-zinc-500 italic">
+              Resumes whichever flow called this one.
             </p>
-          ) : (
-            <SingleFlowPicker
-              selected={exitPath.next_flow_id}
-              onChange={(id) => patch({ next_flow_id: id })}
-              excludeId={flow.id}
-              allowNull
-            />
           )}
         </Field>
 
@@ -130,7 +123,7 @@ export function EdgeInspector() {
             className={`${inputClass} resize-y min-h-[60px]`}
             value={exitPath.notes ?? ""}
             onChange={(e) => patch({ notes: e.target.value || undefined })}
-            placeholder="Notes, comments, etc."
+            placeholder="Why this branch exists — audit rationale, stakeholder ask, tradeoff."
           />
         </Field>
 

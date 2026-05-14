@@ -1,5 +1,6 @@
 import { useSpecStore } from "@/lib/store/spec";
 import type { Agent, ExitPath, Flow } from "@/lib/schema/v0";
+import { GOTO_END, GOTO_RETURN, isEndGoto, isReturnGoto } from "@/lib/schema/v0";
 import type { JSONSchema, ToolDefinition } from "./types";
 
 export type ToolResult =
@@ -18,9 +19,10 @@ const FlowTypeSchema: JSONSchema = {
   enum: ["happy", "sad", "off", "utility", "interrupt"],
 };
 
-const ExitTypeSchema: JSONSchema = {
+const GotoSchema: JSONSchema = {
   type: "string",
-  enum: ["happy", "sad", "off", "exit", "return_to_caller"],
+  description:
+    "Destination of the exit path: another flow's id, or the reserved keyword 'END' (terminate) or 'RETURN' (return to caller).",
 };
 
 const MethodSchema: JSONSchema = {
@@ -56,28 +58,27 @@ const VARIABLE_DECL_DESC =
 const FaqItemSchema: JSONSchema = {
   type: "object",
   properties: {
+    id: { type: "string", description: "Stable id, e.g. 'faq_decaf'. Required." },
     question: { type: "string" },
-    answer: { type: "string" },
+    answer: {
+      type: "string",
+      description:
+        "Default-language answer. Plain string for monolingual specs. Translations are added later via the Translations sheet.",
+    },
   },
-  required: ["question", "answer"],
+  required: ["id", "question", "answer"],
 };
 
 const FlowPatchSchema: JSONSchema = {
   type: "object",
   description:
-    "Fields to overwrite on the flow. Only included fields change. Routing is managed by add_exit_path/update_exit_path/delete_exit_path; scripts and steps are not chat-editable.",
+    "Fields to overwrite on the flow. Only included fields change. Routing is managed by add_exit_path/update_exit_path/delete_exit_path; scripts are not chat-editable.",
   properties: {
     name: { type: "string" },
-    description: { type: "string" },
     type: FlowTypeSchema,
-    scope: {
-      type: "array",
-      items: { type: "string" },
-      description: "Interrupt-flow scope: flow ids this interrupt applies to. Omit for global.",
-    },
     instructions: { type: "string" },
-    max_turns: { type: "number" },
     example: { type: "string" },
+    notes: { type: "string" },
     guardrails: { type: "array", items: GuardrailItemSchema },
     variables: {
       type: "object",
@@ -140,10 +141,11 @@ const AgentPatchSchema: JSONSchema = {
           items: {
             type: "object",
             properties: {
+              id: { type: "string", description: "Stable id, e.g. 'gloss_drip'. Required." },
               term: { type: "string" },
               definition: { type: "string" },
             },
-            required: ["term", "definition"],
+            required: ["id", "term", "definition"],
           },
         },
       },
@@ -155,13 +157,9 @@ const ExitPathPatchSchema: JSONSchema = {
   type: "object",
   description: "Fields to overwrite on the exit path. Only included fields change.",
   properties: {
-    type: ExitTypeSchema,
-    next_flow_id: {
-      type: "string",
-      nullable: true,
-      description: "Target flow id, or null for a terminal exit.",
-    },
+    goto: GotoSchema,
     condition: ConditionSchema,
+    notes: { type: "string" },
     assigns: {
       type: "object",
       description:
@@ -196,7 +194,6 @@ const createFlowTool: Tool = {
       properties: {
         name: { type: "string" },
         type: FlowTypeSchema,
-        description: { type: "string" },
         instructions: { type: "string" },
       },
       required: ["name"],
@@ -206,14 +203,12 @@ const createFlowTool: Tool = {
     const a = args as {
       name: string;
       type?: Flow["type"];
-      description?: string;
       instructions?: string;
     };
     const s = store();
     const id = s.addFlow();
     const patch: Partial<Flow> = { name: a.name };
     if (a.type) patch.type = a.type;
-    if (a.description !== undefined) patch.description = a.description;
     if (a.instructions !== undefined) patch.instructions = a.instructions;
     s.updateFlow(id, patch);
     return { ok: true, data: { flow_id: id } };
@@ -263,40 +258,37 @@ const addExitPathTool: Tool = {
   definition: {
     name: "add_exit_path",
     description:
-      "Create an exit path from one flow to another (or terminal). Returns the new exit_path_id.",
+      "Create an exit path from a flow. The `goto` field is the destination: another flow's id, 'END' to terminate, or 'RETURN' to return to the calling flow. Returns the new exit_path_id.",
     parameters: {
       type: "object",
       properties: {
         source_flow_id: { type: "string" },
-        target_flow_id: {
-          type: "string",
-          nullable: true,
-          description: "Destination flow id, or null for a terminal exit.",
-        },
-        type: ExitTypeSchema,
+        goto: GotoSchema,
         condition: ConditionSchema,
       },
-      required: ["source_flow_id", "target_flow_id"],
+      required: ["source_flow_id", "goto"],
     },
   },
   impl: (args) => {
     const a = args as {
       source_flow_id: string;
-      target_flow_id: string | null;
-      type?: ExitPath["type"];
+      goto: string;
       condition?: ExitPath["condition"];
     };
     if (!flowExists(a.source_flow_id)) {
       return { ok: false, error: `source flow not found: ${a.source_flow_id}` };
     }
-    if (a.target_flow_id !== null && !flowExists(a.target_flow_id)) {
-      return { ok: false, error: `target flow not found: ${a.target_flow_id}` };
+    const isKeyword = isEndGoto(a.goto) || isReturnGoto(a.goto);
+    if (!isKeyword && !flowExists(a.goto)) {
+      return { ok: false, error: `goto flow not found: ${a.goto}` };
     }
     const s = store();
-    const xpId = s.addExitPath(a.source_flow_id, a.target_flow_id);
+    const target = isKeyword ? null : a.goto;
+    const xpId = s.addExitPath(a.source_flow_id, target);
     if (!xpId) return { ok: false, error: "failed to create exit path" };
     const patch: Partial<ExitPath> = {};
-    if (a.type) patch.type = a.type;
+    if (isReturnGoto(a.goto)) patch.goto = GOTO_RETURN;
+    else if (isEndGoto(a.goto)) patch.goto = GOTO_END;
     if (a.condition) patch.condition = a.condition;
     if (Object.keys(patch).length > 0) {
       s.updateExitPath(a.source_flow_id, xpId, patch);

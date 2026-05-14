@@ -18,9 +18,9 @@ All eleven chunks shipped. MVP is complete:
 - ✅ 10. Interactive LLM chat (BYOK Google) — shipped 2026-05-02
 - ✅ 11. Simulate panel (text chat against the runner) — shipped 2026-05-04
 
-Beyond plan, also shipped: Variables editor (was post-MVP), Tables CRUD (was post-MVP), `entry_flow_id` picker in Agent sheet, delete buttons in inspectors, schema-doc sync, AGENT-SPEC-PROMPT.txt rewritten for one-shot v0 JSON output, Simulate variables form with LLM-powered value generation, system-prompt codegen ([lib/codegen/promptGenerator.ts](./lib/codegen/promptGenerator.ts)), canvas highlight of active flow + last-traversed edge during simulate.
+Beyond plan, also shipped: Variables editor (was post-MVP), Tables CRUD (was post-MVP), `entry_flow_id` picker in Agent sheet, delete buttons in inspectors, schema-doc sync, AGENT-SPEC-PROMPT.txt rewritten for one-shot JSON output, Simulate variables form with LLM-powered value generation, system-prompt codegen ([lib/codegen/promptGenerator.ts](./lib/codegen/promptGenerator.ts)), canvas highlight of active flow + last-traversed edge during simulate.
 
-Next up is the post-MVP list below. Top candidates by leverage: ingestion-parser quality (system prompts / transcripts / markdown), deep graph validation (unreachable calculation exits + knowledge-coverage gaps), and v1 steps editor.
+Next up is the post-MVP list below. Top candidates by leverage: ingestion-parser quality (system prompts / transcripts / markdown), deep graph validation (unreachable calculation exits + knowledge-coverage gaps), and the steps editor.
 
 ## Goal
 
@@ -51,16 +51,16 @@ Canvas-first, local-first, single-user.
 
 ### Schema decisions
 
-- **v0 flows use `instructions` + `scripts`**, not structured steps. `instructions` is behavioral prose that compiles into a system prompt fragment. `scripts` is a per-language list of utterances for this flow.
-- **Steps moved to v1.** Turn-level sequencing, per-turn captures, and utterance variations are v1 depth. MVP authoring via `instructions` + scripts sheet covers the dominant case.
-- **Variables are implicit, optionally enriched.** A variable exists because it is referenced; no upfront declaration required. v0 carries an optional `variables` dictionary at agent and flow level for `type` / `description` — kept tight to what consumers actually need (type info for evaluation and codegen). Scope is determined by runtime value-bucket location, not by a spec field; example values are generated at value-entry time. The schema ships with `variables` in MVP so import/export preserve type info.
+- **MVP flows use `instructions` + `scripts`**, not structured steps. `instructions` is behavioral prose that compiles into a system prompt fragment. `scripts` is a per-language list of utterances for this flow.
+- **Steps are post-MVP.** Turn-level sequencing, per-turn captures, and utterance variations are deferred. MVP authoring via `instructions` + scripts sheet covers the dominant case. The schema does not reserve a placeholder field — when `steps` ships, it enters as a `$schema` version bump.
+- **Variables are implicit, optionally enriched.** A variable exists because it is referenced; no upfront declaration required. The schema carries an optional `variables` dictionary at agent and flow level for `type` / `description` — kept tight to what consumers actually need (type info for evaluation and codegen). Scope is determined by runtime value-bucket location, not by a spec field; example values are generated at value-entry time. The schema ships with `variables` in MVP so import/export preserve type info.
 - **`flow.example`** — plain-text transcript, annotation-only. Runtimes ignore it; simulation uses it as a seeding hint.
 - **`personas` removed from schema.** Persona definitions are out of scope for the spec; they live in the evaluation/simulation consumer (currently whatsupp2).
 - **`meta.languages`** — list of language codes. Drives translation table columns on each flow's scripts sheet.
 - **User segments removed from spec.** Population context is out of scope for the spec — it lives at project level in the evaluation consumer (currently whatsupp2's `project.stakeholders`), same scope as personas and execution config.
 - **Channels** (phone numbers, URLs, emails) are plan-level variables, not capability entries.
 - **Interrupt return-bridging** stays as a guardrail. No new typed schema field.
-- **v1 `annotations` namespace** planned for node positions, colors, comments. Runtimes MUST ignore. Two export modes (authoring = includes annotations; runtime = strips them).
+- **`annotations` namespace** planned (post-MVP) for node positions, colors, comments. Runtimes MUST ignore. Two export modes (authoring = includes annotations; runtime = strips them).
 
 ### Principles applied (from AGENTS.md)
 
@@ -126,7 +126,6 @@ Fields:
   - When Scoped: multi-select flow picker (chips or checkbox list). Filter out self.
 - `instructions` — textarea (behavioral prose)
 - `guardrails[]` — list of `{id, statement}` via reusable `ListEditor`
-- `max_turns` — optional integer input
 - `example` — textarea (plain-text transcript, free-form)
 - `knowledge.faq[]` — flow-scoped FAQ entries; same editor as agent-level FAQ. 
 - Button: "Open scripts sheet"
@@ -246,12 +245,12 @@ Runner-side contract documented in [`../uxflows-runner/RUNNER-PLAN.md` §"Phase 
 
 - **Positions migration to `annotations.ui.position`.** Needed for round-trip through export; not blocking single-user editing.
 - **`annotations.comments[]` + async comment UI.** Asynchronous collab only.
-- **v1 steps editor** — structured turn sequencing, captures, per-turn conditions, utterance variations. `instructions` + scripts sheet is the MVP authoring surface.
-- **Deep graph validation** — variable-reference integrity, `interrupt.scope` members exist, `exit_path.assigns` target validity. UX target: surface failures inline at edit time on the offending edge or inspector field, not just at import. Two concrete checks surfaced by runner live-testing 2026-04-30:
+- **Steps editor** — structured turn sequencing, captures, per-turn conditions, utterance variations. `instructions` + scripts sheet is the MVP authoring surface.
+- **Deep graph validation** — variable-reference integrity, `exit_path.assigns` target validity, interrupt-flow `entry_condition` presence. UX target: surface failures inline at edit time on the offending edge or inspector field, not just at import. Two concrete checks surfaced by runner live-testing 2026-04-30:
   - **Unreachable calculation exits.** If an `exit_path.condition` is `method: "calculation"` and reads variable `X`, but no `exit_path.assigns` on any flow reachable from `entry_flow_id` ever produces `X`, the path is dead. Found a real instance in `examples/coffee.json` where `flow_greet`'s coffee/tea exits gated on `drink_type` but nothing set `drink_type` — the conversation deadlocked in flow_greet. Fix is usually changing the exit to `method: "llm"` with a `direct` assign that sets the variable.
   - **Knowledge-coverage gaps that invite confabulation.** When `agent.system_prompt` (or `flow.instructions`) mentions a concept that has no entry in `agent.knowledge.glossary`, no row in `agent.knowledge.tables`, and no capability matching the term, the LLM will invent details at runtime. Coffee.json mentioned "pastries" with no pastry table → LLM cheerfully invented "croissants, muffins, and danishes." Hard to catch perfectly (free text vs. structured knowledge), but a heuristic surfacing nouns in prompts not present in any structured knowledge would catch the obvious cases.
-- **v1 schema additions** — `tool` step (mid-conversation capability dispatch), `call` step (sub-flow invocation), `pipecat` hints. Canvas and inspector adapt when the schema lands; expect a capability picker on tool steps. Capability catalog (`agent.capabilities[]`) and post-exit dispatch (`exit_path.actions[]`) are already in v0.
-- **Export as declarative text** — on-demand stringification of the spec for skim and stakeholder share. Read-only output; not a live mirror.
+- **Schema additions** — `tool` step (mid-conversation capability dispatch), `call` step (sub-flow invocation), runtime hints. Not in the schema today; arrive as a `$schema` version bump when implementation is ready. Open Questions in [SCHEMA.md](./SCHEMA.md) tracks the design surface. Capability catalog (`agent.capabilities[]`) and post-exit dispatch (`exit_path.actions[]`) are already supported end-to-end.
+- **Export as text — multiple formats.** On-demand stringification of the spec for skim, stakeholder share, and code-comfortable authors. Three viable formats as siblings: **declarative YAML** (data-shaped, matches the current import format), **imperative pseudocode** (program-shaped — `flow greet (happy)` / `say` / `capture` / `on ... goto ...`, reads as source code; pairs cleanly with the "spec is a program" framing in [`../whatsupp2/STRATEGY.md`](../whatsupp2/STRATEGY.md)), and **markdown narrative** (prose-shaped, for embedding in Google Docs / stakeholder review). Read-only by default; if any becomes bidirectional, it replaces canvas state on re-import — never merge ([AGENTS.md](./AGENTS.md) explicitly avoids the round-trip-fragility trap). Cheap one-way; bidirectional earns its keep only if a customer wants imperative as their primary authoring surface.
 - **Id rename with cascade update.** Routing-plumbing ids (`flow.id`, `exit_path.id`, `script_line.id`, `guardrail.id`, `business_goal.id`, `capability.id`-as-editor-handle, etc.) are immutable in MVP; delete-and-recreate to change. The runner walks them deterministically and the LLM never sees them — so the cosmetic value of renaming is low until eval data starts pinning to them. LLM-facing identifiers (`capability.name`, variable names, glossary `term`, FAQ `question`, guardrail `statement`) are already author-controlled and freely editable today.
 - **Vertical templates.** Banking collections, healthcare intake, insurance claims, etc. Templates are regular specs — the cold-start UX is "load template → edit," same plumbing as the existing example loader. No template-specific schema fields.
 - **Skip dagre re-layout when topology hasn't changed.** Today every spec mutation (including each keystroke in any inspector field) re-runs `buildGraph` + `dagre.layout` + `setNodes`/`setEdges` in [Canvas.tsx](./components/canvas/Canvas.tsx). Fine at MVP scale; will lag at 100+ flows. Surgical fix: re-layout only when flow ids or edge connectivity changes; for pure data updates (name, instructions, condition text), update node `data` in place, keep positions. Preserves live-preview while killing the hot-path cost.

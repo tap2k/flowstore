@@ -81,10 +81,10 @@ V0 SCHEMA
     ],
     "knowledge": {
       "faq": [
-        { "question": "string", "answer": "string", "scripts": { "EN": "string" } }
+        { "id": "faq_<snake_case>", "question": "string", "answer": "string" }
       ],
       "glossary": [
-        { "term": "string", "definition": "string" }
+        { "id": "gloss_<snake_case>", "term": "string", "definition": "string" }
       ],
       "tables": [
         {
@@ -104,43 +104,36 @@ V0 SCHEMA
       "$schema": "UX4://flow/v0",
       "id": "<snake_case>",
       "name": "Human-readable",
-      "description": "optional",
       "type": "happy | sad | off | utility | interrupt",
-      "scope": ["global"],
       "instructions": "Behavioral prose: what to do, how to behave, what to ask.",
-      "scripts": {
-        "EN": [{ "id": "s_<snake_case>", "text": "What the agent says", "variations": ["alt phrasing (optional)"] }],
-        "es-MX": [{ "id": "s_<snake_case>", "text": "Lo que dice el agente" }]
+      "entry_condition": {
+        "expression": "trigger phrase or intent (interrupt flows only)",
+        "method": "llm | calculation | direct"
       },
+      "exit_paths": [
+        {
+          "id": "xp_<snake_case>",
+          "goto": "<flow_id> | END | RETURN",
+          "condition": {
+            "expression": "string (for an always-fires exit use { method: \"direct\", expression: \"true\" })",
+            "method": "llm | calculation | direct"
+          },
+          "assigns": {
+            "<variable_name>": {
+              "method": "llm | calculation | direct",
+              "value": "any (required; literal for direct, expression string for calculation, description for llm)"
+            }
+          },
+          "actions": [{ "capability_id": "cap_<id>" }]
+        }
+      ],
+      "scripts": [
+        { "id": "s_<snake_case>", "text": "What the agent says", "variations": { "EN": ["alt phrasing (optional)"] } }
+      ],
       "guardrails": [{ "id": "g_<snake_case>", "statement": "flow-scoped rule" }],
-      "max_turns": 5,
       "example": "Agent: ...\nUser: ...\nAgent: ...",
       "knowledge": { "faq": [...] },
-      "variables": { "<name>": { "type": "...", "description": "..." } },
-      "routing": {
-        "entry_condition": {
-          "expression": "trigger phrase or intent (interrupt flows only)",
-          "method": "llm | calculation | direct"
-        },
-        "exit_paths": [
-          {
-            "id": "xp_<snake_case>",
-            "type": "happy | sad | off | exit | return_to_caller",
-            "condition": {
-              "expression": "string (for an always-fires exit use { method: \"direct\", expression: \"true\" }; omit condition entirely only for a max_turns sad fallback)",
-              "method": "llm | calculation | direct"
-            },
-            "next_flow_id": "<id> | null",
-            "assigns": {
-              "<variable_name>": {
-                "method": "llm | calculation | direct",
-                "value": "any (required; literal for direct, expression string for calculation, description for llm)"
-              }
-            },
-            "actions": [{ "capability_id": "cap_<id>" }]
-          }
-        ]
-      }
+      "variables": { "<name>": { "type": "...", "description": "..." } }
     }
   ]
 }
@@ -200,11 +193,9 @@ Condition expressions:
 Conditions are exactly two fields: `expression` and `method`. For
 an exit that should fire after every turn (e.g. "after the user
 responds, always move on"), use `{ "method": "direct", "expression":
-"true" }` — NOT an omitted condition. Omit the entire `condition`
-object ONLY for a `max_turns` sad fallback (see the `max_turns`
-note below); the runtime treats a missing condition as "the caller
-decides when to fire this," and the only caller that fires it is
-the max_turns timeout.
+"true" }` — NOT an omitted condition. An omitted `condition` marks
+the exit as an unconditional fallback: it fires only when no other
+exit's condition matches.
 
 Assigns: `assigns[var]` is exactly two fields, `method` and `value`.
 `value` is required, interpreted by `method`:
@@ -216,24 +207,20 @@ Assigns: `assigns[var]` is exactly two fields, `method` and `value`.
 Don't default to `direct` when the value comes from the conversation —
 that's `llm`. `direct` does not interpolate `{placeholders}`.
 
-exit_path.type semantics:
-- "happy" — successful continuation along the intended path.
-- "sad" — failure path (verification failed, retry exhausted, error).
-- "off" — off-topic or off-script (customer asks unrelated question,
-  pivots to a different request, refuses to proceed). Use this for
-  legitimate-but-not-on-script transitions; "sad" is for failures.
-- "exit" — conversation ends here; `next_flow_id` must be null.
-- "return_to_caller" — interrupt only; resumes the interrupted flow.
-  `next_flow_id` must be null.
+exit_path.goto semantics:
+- a flow id — transition into that flow.
+- "END" — terminate the conversation here.
+- "RETURN" — pop the call stack and resume whoever called this flow.
+  Used by callable flows (utilities, interrupts) to return.
 
-`next_flow_id` is required on every exit_path. For terminal or
-return paths, set it explicitly to `null` — don't omit it.
+A terminal flow (one that always ends the call) is still a `happy` /
+`sad` / `off` flow; the actual ending happens on its `exit_path` with
+`goto: "END"`. Every flow needs an `exit_paths` array, even terminal
+ones — the runtime has no way to end without `goto: "END"`.
 
-A terminal flow (one that always ends the
-call) is still a `happy` / `sad` / `off` flow; the actual ending
-happens on its `exit_path` with `type: "exit"`. Every flow needs a
-`routing.exit_paths` array, even terminal ones — the runtime has no
-way to end without an exit_path of `type: "exit"`.
+A flow is "callable" (entering it pushes a call frame) iff it has at
+least one exit path with `goto: "RETURN"`. The runtime infers this
+from structure — no explicit flag needed.
 
 flow.type semantics (which kind of flow this is):
 - "happy" — primary path of the conversation (greeting, asking for
@@ -241,56 +228,96 @@ flow.type semantics (which kind of flow this is):
 - "sad" — failure / dead-end path (verification failed, escalate to
   human, customer can't proceed).
 - "off" — legitimate off-script (customer is unavailable, third
-  party answered, customer says they already paid). 
+  party answered, customer says they already paid).
 - "utility" — silent reusable helper called by multiple flows (date
-  math, lookup, formatting). No `scripts`. If it speaks to the user
-  or terminates the call, it isn't a utility — that's a happy/sad/off
-  flow, or just exit_paths on the caller. Rarely needed.
-- "interrupt" — fires from another flow on a trigger (FAQ asked,
-  voicemail detected, user wants to end). See INTERRUPTS section.
+  math, lookup, formatting). Typically has a `goto: "RETURN"` exit.
+  If it speaks to the user or terminates the call, it isn't a utility
+  — that's a happy/sad/off flow, or just exit_paths on the caller.
+- "interrupt" — globally callable; fires at any turn when its
+  `entry_condition` matches. Required to declare an `entry_condition`.
+  See INTERRUPTS section.
+
+Of the five types, only "interrupt" carries structural meaning —
+the runtime checks each interrupt's entry_condition at every turn.
+The other four are visual/organizational labels on the canvas.
 
 The runtime ends the conversation only when an exit_path with
-`type: "exit"` is taken (or any non-return path with
-`next_flow_id: null`). Saying "and end the call" in `instructions`
-has no effect on its own — it must be backed by an `exit_path` with
-`type: "exit"`. An interrupt that should terminate the call uses
-`type: "exit"`, not `type: "return_to_caller"`.
+`goto: "END"` is taken. Saying "and end the call" in `instructions`
+has no effect on its own — it must be backed by `goto: "END"`. An
+interrupt that should terminate the call uses `goto: "END"`, not
+`goto: "RETURN"`.
 
 ---
 
 SCRIPTS
 
-Scripts are utterances the agent literally says, in the language
-indicated by the key. Don't invent utterances in a language not
-present in the source — and don't substitute behavioral prose,
-stage directions, or English summaries into a non-English scripts
-slot. That's what `instructions` is for. When the source doesn't
-provide actual utterances, omit the `scripts` field entirely (don't
-emit an empty per-language array, don't fill it with paraphrases).
+`flow.scripts` is a flat list of ScriptLine entries. Each entry has a
+stable `id` (snake_case slug, e.g. `s_greeting`), a `text` field, and
+optional `variations`.
+
+For monolingual source material, `text` is a plain string and
+`variations` (if present) is `{ "<source-lang>": ["alt phrasing", ...] }`.
+
+For multilingual source material, `text` is an object keyed by
+language code:
+  { "EN": "Welcome to Bluebird!", "es-MX": "¡Bienvenido a Bluebird!" }
+and `variations` mirrors the same per-language shape:
+  { "EN": ["Hey there!"], "es-MX": ["¡Hola!"] }
+
+Don't invent utterances in a language the source doesn't provide —
+and don't substitute behavioral prose, stage directions, or English
+summaries into a non-default language slot. That's what `instructions`
+is for. When the source doesn't provide actual utterances, omit the
+`scripts` field entirely (don't emit empty entries, don't fill it
+with paraphrases).
 
 When the source provides multiple equivalent phrasings of the same
 line in the same language (common in translator spreadsheets —
 stacked alternates in one cell, or "Variation 1 / Variation 2"
 columns), fold them into a single ScriptLine: the canonical phrasing
-in `text` and the alternates in `variations`. Don't emit them as
-separate ScriptLine entries with different ids — variations are
-surface-form alternates for runtime sampling, not distinct lines.
+in `text` and the alternates in `variations` under that language.
+Don't emit them as separate ScriptLine entries with different ids —
+variations are surface-form alternates for runtime sampling, not
+distinct lines.
+
+MULTILINGUAL FIELDS
+
+Only strings the agent SAYS to the user are translatable. These fields
+accept either a plain string (monolingual; value is in the agent's
+default language — first entry of `agent.meta.languages`) or an object
+keyed by language code:
+  - `flow.scripts[].text` (and per-language `variations`)
+  - `agent.knowledge.faq[].answer`
+  - `flow.knowledge.faq[].answer`
+
+When the source is monolingual, emit plain strings — simpler. When the
+source provides parallel text in multiple languages, emit an object:
+  "answer": { "EN": "Yes, we have decaf.", "es-MX": "Sí, tenemos descafeinado." }
+
+NOT translatable (the LLM is fully multilingual; English source works
+across all output languages): `agent.system_prompt`, `flow.instructions`,
+all `guardrail.statement` fields, `glossary.definition` fields.
+`faq.question` and `glossary.term` are also single canonical strings
+(the LLM matches user utterances and terminology semantically).
+
+STABLE IDS
+
+`FaqEntry` and `GlossaryEntry` now require a stable `id` field. Use a
+short snake_case slug (e.g. `faq_decaf`, `gloss_drip`). These ids
+survive the translation CSV round-trip; mis-ordering or renaming
+breaks translation continuity for those entries.
 
 INTERRUPTS
 
-Model interrupts as flows with `type: "interrupt"`. Set `scope` to
-`["global"]` if the interrupt may fire from any flow; otherwise list
-the specific flow ids where it's active. Express the trigger via
-`routing.entry_condition` (typically `method: "llm"`, expression in
-plain language). Resume the interrupted flow with an exit path of
-`type: "return_to_caller"` and `next_flow_id: null`.
+Model interrupts as flows with `type: "interrupt"`. Interrupts are
+implicitly globally callable — the runtime checks them at every turn.
+Express the trigger via the flow's `entry_condition` (typically
+`method: "llm"`, expression in plain language). Resume the interrupted
+flow with an exit path of `goto: "RETURN"`.
 
 Phrases like "during the call", "at any point", "at any time", or
-"whenever the customer ..." indicate a global interrupt
-(`scope: ["global"]`), not a flow-specific exit path.
-
-Only set `scope` on interrupt flows. Omit it on happy / sad / off /
-utility flows — it's meaningless there.
+"whenever the customer ..." indicate an interrupt, not a flow-specific
+exit path.
 
 If the source has an FAQ block, populate `agent.knowledge.faq` and
 stop there — do NOT model FAQ answering as a separate interrupt.
@@ -307,7 +334,7 @@ conditions, even when the source lists them inside the FAQ block.
 
 Keep interrupts caller-agnostic. The interrupt's `instructions`
 describe what *it* does, not how each possible caller should resume
-afterward. `return_to_caller` hands control back; the caller flow's
+afterward. `goto: "RETURN"` hands control back; the caller flow's
 own `instructions` and `scripts` decide how it picks up. Don't
 branch on "if the prior step was X, ask Y" inside the interrupt —
 that logic belongs in the caller. Per-caller resumption phrasing
@@ -362,7 +389,7 @@ the source warrants it.
   If none apply, fold the behavior into the caller's instructions.
 
   A single-utterance terminal close ("wrong number, end call") with
-  one caller is not a flow — it's an exit_path with type: "exit" on
+  one caller is not a flow — it's an exit_path with goto: "END" on
   the caller, plus the closing utterance in that caller's scripts.
   Source-document section labels (STEP 1, STEP 2, "INTRODUCTION_GREETING")
   are author scaffolding, not flow boundaries — collapse them unless
@@ -373,10 +400,6 @@ the source warrants it.
   with no notion of sub-state, so a bundled flow's later-step exits
   will misfire on earlier-step replies (e.g. an "identity confirmed"
   exit firing on a "how are you?" greeting reply).
-- max_turns: set only when the source describes a retry or loop
-  budget. Don't pick numbers; don't add "default" budgets. When
-  set, the flow needs an unconditional sad exit path (omit the
-  `condition`) for the runtime to follow on exhaustion.
 - assigns: emit only when the value is actually consumed by a
   downstream condition or action. Status flags nothing reads are
   noise.
@@ -395,7 +418,7 @@ the source warrants it.
   ALL CAPS words in source pseudocode (e.g., "RESCHEDULE",
   "CALLBACK", "WELCOME") are typically flow-name references — the
   same syntactic register as named section headers. Treat them as
-  targets for `next_flow_id`, not as capabilities to dispatch.
+  targets for `goto` (transitions), not as capabilities to dispatch.
   `description` is required (one short sentence on when/why it's
   used). `inputs` and `outputs` are optional — omit `outputs` for
   fire-and-forget side effects (a CRM write that returns nothing
