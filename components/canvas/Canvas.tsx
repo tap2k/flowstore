@@ -191,7 +191,7 @@ function CanvasInner({ spec }: { spec: Spec }) {
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={20} size={1} color="#e4e4e7" />
-        <Controls position="bottom-right" />
+        <Controls position="bottom-left" />
         <MiniMap pannable zoomable />
       </ReactFlow>
     </div>
