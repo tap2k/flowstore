@@ -9,6 +9,7 @@ import { ConditionEditor } from "./ConditionEditor";
 import { ScriptsSheet } from "@/components/sheets/ScriptsSheet";
 
 const FLOW_TYPES: FlowType[] = ["happy", "sad", "off", "utility", "interrupt"];
+const DEV = process.env.NEXT_PUBLIC_DEV === "1";
 
 const labelClass = "block text-xs font-medium text-zinc-600 mb-1";
 const inputClass =
@@ -58,23 +59,6 @@ export function FlowInspector() {
           />
         </Field>
 
-        <Field label="Description">
-          <textarea
-            className={`${inputClass} resize-y min-h-[60px]`}
-            value={flow.description ?? ""}
-            onChange={(e) => patch({ description: e.target.value || undefined })}
-          />
-        </Field>
-
-        <Field label="Notes">
-          <textarea
-            className={`${inputClass} resize-y min-h-[60px]`}
-            value={flow.notes ?? ""}
-            onChange={(e) => patch({ notes: e.target.value || undefined })}
-            placeholder="Notes, comments, etc."
-          />
-        </Field>
-
         <Field label="Type">
           <select
             className={inputClass}
@@ -92,7 +76,7 @@ export function FlowInspector() {
           </select>
         </Field>
 
-        {isInterrupt && (
+        {DEV && isInterrupt && (
           <Field label="Scope">
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-xs">
@@ -143,17 +127,38 @@ export function FlowInspector() {
           />
         </Field>
 
-        <Field label="Max turns">
-          <input
-            type="number"
-            min={0}
-            className={inputClass}
-            value={flow.max_turns ?? ""}
-            onChange={(e) => {
-              const v = e.target.value;
-              patch({ max_turns: v === "" ? undefined : Number(v) });
-            }}
-            placeholder="(optional)"
+        {DEV && (
+          <Field label="Max turns">
+            <input
+              type="number"
+              min={0}
+              className={inputClass}
+              value={flow.max_turns ?? ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                patch({ max_turns: v === "" ? undefined : Number(v) });
+              }}
+              placeholder="(optional)"
+            />
+          </Field>
+        )}
+
+        {DEV && (
+          <Field label="Description">
+            <textarea
+              className={`${inputClass} resize-y min-h-[60px]`}
+              value={flow.description ?? ""}
+              onChange={(e) => patch({ description: e.target.value || undefined })}
+            />
+          </Field>
+        )}
+
+        <Field label="Notes">
+          <textarea
+            className={`${inputClass} resize-y min-h-[60px]`}
+            value={flow.notes ?? ""}
+            onChange={(e) => patch({ notes: e.target.value || undefined })}
+            placeholder="Notes, comments, etc."
           />
         </Field>
 
@@ -221,13 +226,15 @@ export function FlowInspector() {
           />
         </Field>
 
-        <Field label="Variables">
-          <VariablesEditor
-            key={flow.id}
-            variables={flow.variables}
-            onChange={(v) => patch({ variables: v })}
-          />
-        </Field>
+        {DEV && (
+          <Field label="Variables">
+            <VariablesEditor
+              key={flow.id}
+              variables={flow.variables}
+              onChange={(v) => patch({ variables: v })}
+            />
+          </Field>
+        )}
 
         <Field label="Example transcript">
           <textarea
