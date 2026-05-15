@@ -7,6 +7,7 @@ import {
   startSession as apiStartSession,
 } from "@/lib/runtime/textClient";
 import { sendPromptTurn } from "@/lib/runtime/promptClient";
+import { generatePersonaTurn } from "@/lib/runtime/personaClient";
 import { generateSystemPrompt } from "@/lib/codegen/promptGenerator";
 import { useSettingsStore } from "@/lib/store/settings";
 import type { ChatUsage } from "@/lib/llm/types";
@@ -59,6 +60,18 @@ interface SimulateState {
   systemPrompt: string | null;
   specSnapshot: Spec | null;
   lastUsage: ChatUsage | null;
+  // Persona auto-play state. Only personaPrompt persists per agent (in
+  // localStorage); everything else is per-session intent. autoStepping is the
+  // in-flight guard that prevents the panel effect from re-firing.
+  personaPrompt: string;
+  autoRun: boolean;
+  personaAgentId: string | null;
+  autoStepping: boolean;
+  // personaTurnLimit is the input value: how many turns the next Start grants.
+  // personaTurnsLeft is the live countdown for the current run; reaches 0 → loop stops.
+  // Both in-memory; each Start refills.
+  personaTurnLimit: number;
+  personaTurnsLeft: number;
 
   setMode: (mode: SimulateMode) => void;
   start: (args: StartArgs) => Promise<void>;
@@ -69,9 +82,46 @@ interface SimulateState {
   setContextVar: (name: string, value: unknown) => void;
   setContextVars: (values: Record<string, unknown>) => void;
   clearContextVars: () => void;
+  hydratePersona: (agentId: string) => void;
+  setPersonaPrompt: (prompt: string) => void;
+  setAutoRun: (on: boolean) => void;
+  setPersonaTurnLimit: (n: number) => void;
+  autoStep: () => Promise<void>;
 }
 
 const CV_PREFIX = "uxflows:simulate:vars:";
+const PERSONA_PREFIX = "uxflows:simulate:persona:";
+
+// Only the persona prompt persists across page loads. Turn limit, countdown,
+// and autoRun are per-run intent — they shouldn't survive a reload.
+function loadPersonaPrompt(agentId: string): string {
+  if (typeof window === "undefined") return "";
+  try {
+    const raw = window.localStorage.getItem(PERSONA_PREFIX + agentId);
+    if (!raw) return "";
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const p = parsed as { prompt?: unknown };
+      return typeof p.prompt === "string" ? p.prompt : "";
+    }
+  } catch {
+    // ignore
+  }
+  return "";
+}
+
+function savePersonaPrompt(agentId: string, prompt: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (!prompt) {
+      window.localStorage.removeItem(PERSONA_PREFIX + agentId);
+    } else {
+      window.localStorage.setItem(PERSONA_PREFIX + agentId, JSON.stringify({ prompt }));
+    }
+  } catch {
+    // ignore
+  }
+}
 
 function loadVars(agentId: string): Record<string, unknown> {
   if (typeof window === "undefined") return {};
@@ -136,6 +186,13 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   systemPrompt: null,
   specSnapshot: null,
   lastUsage: null,
+  personaPrompt: "",
+  autoRun: false,
+  personaAgentId: null,
+  autoStepping: false,
+  lastPersonaUsage: null,
+  personaTurnLimit: 10,
+  personaTurnsLeft: 0,
 
   setMode: (mode) => {
     if (get().sessionId) return; // mode is frozen during an active session
@@ -172,6 +229,99 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     const { contextVarsAgentId } = get();
     set({ contextVars: {} });
     if (contextVarsAgentId) saveVars(contextVarsAgentId, {});
+  },
+
+  hydratePersona: (agentId) => {
+    const current = get();
+    if (current.personaAgentId === agentId) return;
+    set({
+      personaPrompt: loadPersonaPrompt(agentId),
+      personaTurnLimit: 10,
+      personaTurnsLeft: 0,
+      autoRun: false,
+      personaAgentId: agentId,
+    });
+  },
+
+  setPersonaPrompt: (prompt) => {
+    const { personaAgentId } = get();
+    set({ personaPrompt: prompt });
+    if (personaAgentId) savePersonaPrompt(personaAgentId, prompt);
+  },
+
+  setAutoRun: (on) => {
+    if (on) {
+      // Start: refill the countdown and clear any prior "ended" so the loop
+      // can push forward in the same session.
+      const { personaTurnLimit, status } = get();
+      set({
+        autoRun: true,
+        personaTurnsLeft: personaTurnLimit,
+        status: status === "ended" ? "ready" : status,
+      });
+    } else {
+      set({ autoRun: false });
+    }
+  },
+
+  setPersonaTurnLimit: (n) => {
+    const clamped = Math.max(1, Math.floor(Number.isFinite(n) ? n : 10));
+    set({ personaTurnLimit: clamped });
+  },
+
+  autoStep: async () => {
+    const {
+      personaPrompt,
+      personaTurnsLeft,
+      transcript,
+      status,
+      sessionId,
+      autoStepping,
+    } = get();
+    if (autoStepping) return;
+    if (!sessionId) return;
+    if (status !== "ready") return;
+    if (!personaPrompt.trim()) return;
+    if (personaTurnsLeft <= 0) {
+      set({ autoRun: false });
+      return;
+    }
+    const { apiKey, model } = readLlmCreds();
+    if (!apiKey) {
+      set({
+        autoRun: false,
+        error: "Persona auto-run needs a Google API key in Settings.",
+      });
+      return;
+    }
+    set({ autoStepping: true, error: null });
+    try {
+      const res = await generatePersonaTurn({
+        personaPrompt,
+        history: transcript,
+        apiKey,
+        model,
+      });
+      // If the user hit Stop while the LLM was thinking, drop the result.
+      if (!get().autoRun) return;
+      const { text: cleaned, done } = stripDoneMarker(res.text);
+      if (cleaned) {
+        // Delegate to send() so the user turn goes through the same path
+        // (handles prompt vs runner, transcript bookkeeping, error state).
+        await get().send(cleaned);
+        set({ personaTurnsLeft: get().personaTurnsLeft - 1 });
+      }
+      if (done) {
+        set({ autoRun: false, status: "ended" });
+      }
+    } catch (e) {
+      set({
+        autoRun: false,
+        error: e instanceof Error ? e.message : "Persona auto-step failed.",
+      });
+    } finally {
+      set({ autoStepping: false });
+    }
   },
 
   start: async (args) => {
@@ -263,15 +413,17 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           events: res.events,
         });
       }
+      const ended = res.ended || reduced.status === "ended";
       set({
         sessionId: res.session_id,
-        status: res.ended ? "ended" : reduced.status,
+        status: ended ? "ended" : reduced.status,
         transcript,
         events: res.events,
         currentFlowId: reduced.currentFlowId,
         lastExitEdgeId: reduced.lastExitEdgeId,
         variables: reduced.variables,
         error: null,
+        ...(ended ? { autoRun: false } : {}),
       });
     } catch (e) {
       set({
@@ -358,13 +510,17 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         ts: Date.now(),
         events: res.events,
       };
+      const ended = res.ended || reduced.status === "ended";
       set({
         transcript: [...get().transcript, agentTurn],
         events: [...events, ...res.events],
         currentFlowId: reduced.currentFlowId,
         lastExitEdgeId: reduced.lastExitEdgeId,
         variables: reduced.variables,
-        status: res.ended ? "ended" : reduced.status,
+        status: ended ? "ended" : reduced.status,
+        // Runner declared the session over — stop the persona loop so the
+        // Start/Stop button flips back from "Stop" to "Start".
+        ...(ended ? { autoRun: false } : {}),
       });
     } catch (e) {
       set({
@@ -394,6 +550,9 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       systemPrompt: null,
       specSnapshot: null,
       lastUsage: null,
+      autoStepping: false,
+      autoRun: false,
+      personaTurnsLeft: 0,
     });
   },
 
@@ -418,6 +577,15 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     });
   },
 }));
+
+// Detect the [DONE] sentinel the persona generator instructs the model to emit
+// when the user side wants to end the conversation. Match case-insensitively
+// since the model sometimes lowercases or surrounds it with stray punctuation.
+function stripDoneMarker(text: string): { text: string; done: boolean } {
+  const re = /\[done\]/i;
+  if (!re.test(text)) return { text: text.trim(), done: false };
+  return { text: text.replace(re, "").trim(), done: true };
+}
 
 function readLlmCreds(): { apiKey: string; model: string } {
   // Read fresh from settings on each prompt-mode turn so key/model changes

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSettingsStore } from "@/lib/store/settings";
 import {
@@ -10,6 +10,7 @@ import { formatErrors, validateSpec } from "@/lib/validation/ajv";
 import { generateSystemPrompt } from "@/lib/codegen/promptGenerator";
 import type { RuntimeEvent } from "@/lib/runtime/eventTypes";
 import { VariablesForm } from "./VariablesForm";
+import { PersonaForm } from "./PersonaForm";
 
 interface SimulatePanelProps {
   open: boolean;
@@ -38,6 +39,10 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const send = useSimulateStore((s) => s.send);
   const reset = useSimulateStore((s) => s.reset);
   const hydrateContextVars = useSimulateStore((s) => s.hydrateContextVars);
+  const hydratePersona = useSimulateStore((s) => s.hydratePersona);
+  const autoRun = useSimulateStore((s) => s.autoRun);
+  const autoStepping = useSimulateStore((s) => s.autoStepping);
+  const autoStep = useSimulateStore((s) => s.autoStep);
 
   const [input, setInput] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[] | null>(null);
@@ -65,14 +70,45 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     }
   }, [spec?.agent.id, spec?.agent.meta.languages, language]);
 
+  // Capture "was at bottom" before the new turn renders (layout effect runs
+  // before paint; a plain effect would see the already-grown scrollHeight and
+  // think the user had scrolled up). Only auto-scroll if they were pinned to
+  // the bottom; otherwise let them stay where they were reading.
+  const wasAtBottomRef = useRef(true);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    wasAtBottomRef.current = distanceFromBottom < 32;
+  });
   useEffect(() => {
-    if (!scrollRef.current) return;
-    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (!el) return;
+    if (!wasAtBottomRef.current) return;
+    el.scrollTop = el.scrollHeight;
   }, [transcript, status]);
 
   useEffect(() => {
-    if (open && spec) hydrateContextVars(spec.agent.id);
-  }, [open, spec, hydrateContextVars]);
+    if (open && spec) {
+      hydrateContextVars(spec.agent.id);
+      hydratePersona(spec.agent.id);
+    }
+  }, [open, spec, hydrateContextVars, hydratePersona]);
+
+  useEffect(() => {
+    if (!autoRun) return;
+    // No session yet — bootstrap one. The "ready" branch below picks up after start() resolves.
+    if (!sessionId && status === "idle") {
+      startSession();
+      return;
+    }
+    if (status !== "ready") return;
+    if (autoStepping) return;
+    if (!sessionId) return;
+    autoStep();
+    // startSession is defined below in the component closure and reads from refs/state at call time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRun, status, autoStepping, sessionId, transcript.length, autoStep]);
 
   if (!open) return null;
 
@@ -240,6 +276,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       </div>
 
       {spec && <VariablesForm spec={spec} disabled={busy || ready} />}
+      {spec && <PersonaForm disabled={false} />}
 
       {hasSession && mode === "prompt" && specChanged && (
         <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
