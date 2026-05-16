@@ -490,6 +490,17 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           apiKey,
           model,
         });
+        // Empty text means Gemini returned STOP with no parts — the model is
+        // signaling the conversation is over. Skip the empty agent bubble and
+        // end the session.
+        if (!res.text) {
+          set({
+            lastUsage: res.usage ?? null,
+            status: "ended",
+            autoRun: false,
+          });
+          return;
+        }
         const agentTurn: TranscriptTurn = {
           role: "agent",
           text: res.text,

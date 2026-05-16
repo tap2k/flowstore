@@ -189,6 +189,24 @@ function parseCandidate(
   const parts = candidate.content?.parts;
   if (!parts || parts.length === 0) {
     const reason = candidate.finishReason ?? "no parts";
+    // STOP + no parts is Gemini's way of saying "the conversation is over and
+    // I have nothing to add" — common in prompt mode after a goodbye turn.
+    // Surface it as a clean end_turn so the caller can flip to ended instead
+    // of showing a red error.
+    if (reason === "STOP") {
+      return {
+        text: "",
+        toolCalls: [],
+        stopReason: "end_turn",
+        usage: usage
+          ? {
+              inputTokens: usage.promptTokenCount ?? 0,
+              outputTokens: usage.candidatesTokenCount ?? 0,
+              cachedInputTokens: usage.cachedContentTokenCount,
+            }
+          : undefined,
+      };
+    }
     const hint =
       reason === "MAX_TOKENS"
         ? " — model used its entire output budget on thinking; try a smaller thinking budget or a different model"
