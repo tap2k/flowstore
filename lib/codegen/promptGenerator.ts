@@ -58,8 +58,7 @@ export function substituteVars(text: string, vars: Record<string, unknown>): str
 }
 
 function renderRole(spec: Spec, ctx: RenderCtx): string {
-  const { meta, system_prompt } = spec.agent;
-  if (system_prompt && system_prompt.trim()) return system_prompt.trim();
+  const { meta } = spec.agent;
   const lines: string[] = [];
   lines.push(`You are ${meta.name}.`);
   if (meta.purpose) lines.push(meta.purpose);
@@ -67,6 +66,7 @@ function renderRole(spec: Spec, ctx: RenderCtx): string {
   if (meta.modes?.length) {
     lines.push(`Channel: ${meta.modes.join(", ")}.`);
   }
+  if (meta.tone) lines.push(`Tone: ${meta.tone}`);
   return lines.join(" ");
 }
 

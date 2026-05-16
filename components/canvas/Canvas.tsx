@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   ReactFlow,
   Background,
   Controls,
+  ControlButton,
   MiniMap,
   MarkerType,
   useNodesState,
@@ -31,6 +32,26 @@ function withActive(edge: Edge): Edge {
 }
 
 const nodeTypes = { flow: FlowNode };
+
+function RelayoutIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+      <path d="M3 21v-5h5" />
+    </svg>
+  );
+}
 
 const SAVE_DEBOUNCE_MS = 300;
 
@@ -139,6 +160,13 @@ function CanvasInner({ spec }: { spec: Spec }) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
   const lastExitEdgeId = useSimulateStore((s) => s.lastExitEdgeId);
+  const skipSaveRef = useRef(false);
+
+  const relayout = useCallback(() => {
+    skipSaveRef.current = true;
+    savePositions(specId, {});
+    setNodes((current) => autoLayout(current, edges));
+  }, [edges, setNodes, specId]);
 
   useEffect(() => {
     setNodes(initial.nodes);
@@ -152,6 +180,10 @@ function CanvasInner({ spec }: { spec: Spec }) {
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
+    if (skipSaveRef.current) {
+      skipSaveRef.current = false;
+      return;
+    }
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       const positions: Positions = Object.fromEntries(
@@ -191,7 +223,11 @@ function CanvasInner({ spec }: { spec: Spec }) {
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={20} size={1} color="#e4e4e7" />
-        <Controls position="bottom-left" />
+        <Controls position="bottom-left" showInteractive={false}>
+          <ControlButton onClick={relayout} title="Re-run auto layout">
+            <RelayoutIcon />
+          </ControlButton>
+        </Controls>
         <MiniMap pannable zoomable />
       </ReactFlow>
     </div>

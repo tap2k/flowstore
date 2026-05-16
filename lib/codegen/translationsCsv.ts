@@ -11,7 +11,6 @@ import { csvSerialize, parseCsv } from "./csv";
 // entity ids. Plus a single header row. Plus one column per declared language.
 //
 // Keys:
-//   agent.system_prompt
 //   agent.guardrails.<gid>.statement
 //   agent.faq.<faq_id>.answer
 //   agent.glossary.<gloss_id>.definition
@@ -70,9 +69,9 @@ function collectRows(
   }
 
   // Agent-level. Translatable = strings the agent SAYS to the user. Excludes
-  // LLM-facing prose (system_prompt, guardrails, glossary definitions, flow
-  // instructions) — those stay single-language since the LLM handles them
-  // multilingually regardless.
+  // LLM-facing prose (guardrails, glossary definitions, flow instructions) —
+  // those stay single-language since the LLM handles them multilingually
+  // regardless.
   for (const f of spec.agent.knowledge?.faq ?? []) {
     emit(`agent.faq.${f.id}.answer`, f.answer);
   }

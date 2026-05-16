@@ -35,7 +35,7 @@ Nodes = flows
 - Type label (`happy` / `sad` / `off` / `utility` / `interrupt`)
 - Instructions (behavioral prose)
 - Scripts (per-language utterances)
-- Example transcript, guardrails, max turns
+- Example transcript, guardrails
 - Entry condition (required iff type is `interrupt`)
 - Exit paths
 
@@ -79,7 +79,7 @@ Notes are scoped to flows and exit paths only. Comments on guardrails, capabilit
 
 Endpoint, headers, and runtime model live in a separate `execution` object outside the spec. Sharing or exporting a spec must not leak credentials or deployment details.
 
-`system_prompt` and `chatbot_initiates` live *inside* the spec because they describe agent behavior, not hosting.
+`chatbot_initiates` lives *inside* the spec because it describes agent behavior, not hosting.
 
 ---
 
@@ -149,11 +149,11 @@ The agent envelope appears once at the `agent` key; all flows live in the `flows
     "name": "string",
     "purpose": "string",
     "client": "string",
+    "tone": "string",
     "languages": ["EN", "ES"],
     "modes": ["voice", "text"]
   },
 
-  "system_prompt": "string",
   "chatbot_initiates": "boolean",
 
   "guardrails": [
@@ -173,7 +173,7 @@ The agent envelope appears once at the `agent` key; all flows live in the `flows
     {
       "id": "string",
       "name": "string",
-      "description": "string (optional)",
+      "description": "string",
       "kind": "retrieval | function",
       "inputs": ["variable_name"],
       "outputs": ["variable_name"]
@@ -183,13 +183,13 @@ The agent envelope appears once at the `agent` key; all flows live in the `flows
   "knowledge": {
     "faq": [
       {
+        "id": "string",
         "question": "string",
-        "answer": "string",
-        "scripts": { "<lang>": "string" }
+        "answer": "string | { <lang>: string }"
       }
     ],
     "glossary": [
-      { "term": "string", "definition": "string" }
+      { "id": "string", "term": "string", "definition": "string" }
     ],
     "tables": [
       {
@@ -225,14 +225,14 @@ The agent envelope appears once at the `agent` key; all flows live in the `flows
 
 ### Field Notes
 
+- **`meta.tone`** — optional one-phrase voice/register descriptor (e.g. "warm and conversational, like a real barista"). Appended to the synthesized role line. Voice only — behavioral rules go in `guardrails`.
 - **`meta.languages`** — language codes supported by this agent. Drives translation columns.
 - **`meta.modes`** — channels (`voice` and/or `text`). Required, at least one. Drives the runner's I/O adapter.
-- **`system_prompt`** — agent-level behavioral instructions. Present when flows are not yet defined or when the prompt carries intent not yet decomposed into flows.
 - **`chatbot_initiates`** — whether the agent sends the first message.
 - **`guardrails`** — cross-cutting behavioral invariants. Each is a stable `id` and a single `statement`. Conditional rules written inline as natural language; executable conditional routing belongs in interrupt flows, not guardrails.
 - **`business_goals`** — end-to-end outcome criteria for evaluation. Each entry has a stable `id`, a `name`, and a checkable criterion using the standard three methods. Distinct from `guardrails` (turn-by-turn invariants).
 - **`capabilities`** — declared catalog of external integrations. Each entry has an `id` (editor-generated), a `name` (snake_case, runtime dispatch identifier), a `description` (when/why), a `kind` (`retrieval` or `function`), optional `inputs`, and optional `outputs`. Endpoints, headers, and credentials live in the execution layer, not the spec.
-- **`knowledge`** — FAQ, glossary, tables. Optional per-language scripts on FAQ entries capture phrasing per language.
+- **`knowledge`** — FAQ, glossary, tables. FAQ `answer` is a `LocalizedString` (plain string for monolingual specs, or a `{ <lang>: string }` map for multilingual).
 - **`variables`** — optional declarations enriching variables with `type`, `description`, and (for `enum`) `values`. Declaration does not create a variable.
 - **`entry_flow_id`** — the flow the conversation enters first.
 
@@ -278,11 +278,13 @@ The agent envelope appears once at the `agent` key; all flows live in the `flows
     }
   ],
 
-  "scripts": {
-    "EN": [
-      { "id": "string", "text": "string", "variations": ["string"] }
-    ]
-  },
+  "scripts": [
+    {
+      "id": "string",
+      "text": "string | { <lang>: string }",
+      "variations": { "<lang>": ["string"] }
+    }
+  ],
 
   "guardrails": [
     { "id": "string", "statement": "string" }
@@ -294,9 +296,9 @@ The agent envelope appears once at the `agent` key; all flows live in the `flows
   "knowledge": {
     "faq": [
       {
+        "id": "string",
         "question": "string",
-        "answer": "string",
-        "scripts": { "<lang>": "string" }
+        "answer": "string | { <lang>: string }"
       }
     ]
   },
@@ -324,7 +326,7 @@ The agent envelope appears once at the `agent` key; all flows live in the `flows
 - **`exit_paths[].condition`** — optional. When present, articulates *when* the LLM should take this exit. When absent, the exit is unconditional — the runner falls through to it when no other condition matches.
 - **`exit_paths[].notes`** — authoring annotation for the routing decision. Runtimes ignore. See [Notes (Authoring Annotations)](#notes-authoring-annotations).
 - **`exit_paths[].actions`** — non-conversational side effects fired when this exit is taken. Each entry references an `agent.capabilities[]` entry by `capability_id`. Inputs are resolved implicitly from variable scope. Outputs are not bound (exit-path actions have no output binding). Distinct from a future mid-conversation `tool` step (see Open Questions), which would dispatch capabilities mid-conversation and bind outputs.
-- **`scripts`** — per-language utterances for this flow. Keys are language codes from `agent.meta.languages`. Each entry has a stable id and optional `variations` (alternative paraphrases of the same line for surface-form variety).
+- **`scripts`** — flat array of utterances for this flow. Each entry has a stable `id`, a `text` that is either a plain string (monolingual) or a `LocalizedString` keyed by language code, and optional `variations` (alternative paraphrases for surface-form variety) as a per-language record of arrays keyed by codes from `agent.meta.languages`.
 - **`guardrails`** — flow-scoped behavioral invariants. Same shape as agent-level.
 - **`notes`** — authoring annotation. Runtimes ignore.
 - **`example`** — optional plain-text transcript illustrating intended behavior. Annotation-only.

@@ -56,7 +56,6 @@ export function findPromptPlaceholders(spec: Spec | null): string[] {
   if (!spec) return [];
   const out = new Set<string>();
   const sources: string[] = [];
-  collectLocalizedStrings(spec.agent.system_prompt, sources);
   for (const flow of spec.flows ?? []) {
     collectLocalizedStrings(flow.instructions, sources);
     for (const line of flow.scripts ?? []) {

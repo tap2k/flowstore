@@ -46,10 +46,10 @@ V0 SCHEMA
       "name": "string",
       "purpose": "one-sentence description",
       "client": "string (optional)",
+      "tone": "one short phrase describing voice/register (optional)",
       "languages": ["EN", "es-MX", "..."] /* optional */,
       "modes": ["voice", "text"]
     },
-    "system_prompt": "string (optional, verbatim if source provides one)",
     "chatbot_initiates": true,
     "variables": {
       "<variable_name>": {
@@ -197,6 +197,17 @@ responds, always move on"), use `{ "method": "direct", "expression":
 the exit as an unconditional fallback: it fires only when no other
 exit's condition matches.
 
+Place an always-fires (`{ "method": "direct", "expression": "true" }`)
+exit only when the flow has no other conditional exits, and list it
+last. A `true` exit ordered before conditional siblings shadows them
+permanently — they can never fire. When a flow's move-on is "advance
+unless a more specific case applies" (the common shape — e.g. proceed
+to the next flow unless this turn is voicemail or out-of-service),
+that move-on path is the omitted-condition fallback and the specific
+cases are the conditional exits listed before it; it is NOT a
+`{ "method": "direct", "expression": "true" }` exit. Reserve
+`{direct, true}` for the genuinely sibling-less case.
+
 Assigns: `assigns[var]` is exactly two fields, `method` and `value`.
 `value` is required, interpreted by `method`:
 - `direct`: literal value ({ method: "direct", value: 5 })
@@ -240,6 +251,16 @@ flow.type semantics (which kind of flow this is):
 Of the five types, only "interrupt" carries structural meaning —
 the runtime checks each interrupt's entry_condition at every turn.
 The other four are visual/organizational labels on the canvas.
+
+`entry_condition` is valid only on `type: "interrupt"` and must be
+omitted on every other type. Non-interrupt flows are never entered by
+a globally checked condition — they are reached solely through a
+caller's `exit_paths[].condition` + `goto`. An `entry_condition` on a
+happy/sad/off/utility flow is dead metadata the runtime ignores and a
+duplicate of the caller's exit condition; never emit one. If a
+behavior needs to be reachable from anywhere, that is the definition
+of an interrupt — type it `interrupt`; otherwise route into it with a
+conditional exit on the caller.
 
 The runtime ends the conversation only when an exit_path with
 `goto: "END"` is taken. Saying "and end the call" in `instructions`
@@ -295,8 +316,8 @@ source provides parallel text in multiple languages, emit an object:
   "answer": { "EN": "Yes, we have decaf.", "es-MX": "Sí, tenemos descafeinado." }
 
 NOT translatable (the LLM is fully multilingual; English source works
-across all output languages): `agent.system_prompt`, `flow.instructions`,
-all `guardrail.statement` fields, `glossary.definition` fields.
+across all output languages): `flow.instructions`, all
+`guardrail.statement` fields, `glossary.definition` fields.
 `faq.question` and `glossary.term` are also single canonical strings
 (the LLM matches user utterances and terminology semantically).
 
@@ -400,6 +421,20 @@ the source warrants it.
   with no notion of sub-state, so a bundled flow's later-step exits
   will misfire on earlier-step replies (e.g. an "identity confirmed"
   exit firing on a "how are you?" greeting reply).
+- source prompt content: decompose everything into structured fields.
+  Agent identity and scope → `meta.name`, `meta.purpose`, `meta.client`.
+  Voice/register descriptors ("warm and friendly", "crisp and
+  professional", "the way a real barista talks") → `meta.tone`, one
+  short phrase. Cross-cutting behavioral rules ("always confirm before
+  placing the order", "one or two sentences") → `guardrails`.
+  Per-stage behavior → flow `instructions`. Facts → `knowledge`
+  (FAQ, glossary, tables). Tools → `capabilities`. There is no
+  agent-level free-text prompt field — the runner synthesizes the
+  role line from `meta`, and the rendered prompt is built from the
+  structured fields. The test for tone vs. guardrail: is the clause
+  describing how the agent *sounds* (tone), or what the agent must
+  (not) *do* turn by turn (guardrail)? If in doubt, it's a guardrail —
+  `meta.tone` is for voice only, not behavior.
 - assigns: emit only when the value is actually consumed by a
   downstream condition or action. Status flags nothing reads are
   noise.
@@ -539,9 +574,6 @@ Common failure modes to avoid:
   source actually says the agent does.
 - Adding glossary entries for domain jargon you recognize from
   training data when the source doesn't define them.
-- Filling `system_prompt` with a synthesized prompt — only emit
-  this field when the source provides verbatim system-prompt text.
-
 When source language is ambiguous or partial, omit the field
 rather than guessing. Underspecified is always better than
 fabricated.

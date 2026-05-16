@@ -305,14 +305,27 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       // If the user hit Stop while the LLM was thinking, drop the result.
       if (!get().autoRun) return;
       const { text: cleaned, done } = stripDoneMarker(res.text);
+      if (done) {
+        // Show the persona's [DONE] turn verbatim so it's obvious why the loop
+        // stopped, then end without dispatching to the agent.
+        const userTurn: TranscriptTurn = {
+          role: "user",
+          text: res.text.trim(),
+          ts: Date.now(),
+          events: [],
+        };
+        set({
+          transcript: [...get().transcript, userTurn],
+          status: "ended",
+          autoRun: false,
+        });
+        return;
+      }
       if (cleaned) {
         // Delegate to send() so the user turn goes through the same path
         // (handles prompt vs runner, transcript bookkeeping, error state).
         await get().send(cleaned);
         set({ personaTurnsLeft: get().personaTurnsLeft - 1 });
-      }
-      if (done) {
-        set({ autoRun: false, status: "ended" });
       }
     } catch (e) {
       set({

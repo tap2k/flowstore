@@ -109,7 +109,6 @@ const AgentPatchSchema: JSONSchema = {
         },
       },
     },
-    system_prompt: { type: "string" },
     chatbot_initiates: { type: "boolean" },
     entry_flow_id: { type: "string" },
     guardrails: { type: "array", items: GuardrailItemSchema },
@@ -351,7 +350,7 @@ const updateAgentTool: Tool = {
   definition: {
     name: "update_agent",
     description:
-      "Patch agent-level fields (meta, system_prompt, chatbot_initiates, entry_flow_id, guardrails, variables, capabilities, knowledge).",
+      "Patch agent-level fields (meta, chatbot_initiates, entry_flow_id, guardrails, variables, capabilities, knowledge).",
     parameters: {
       type: "object",
       properties: { patch: AgentPatchSchema },

@@ -97,7 +97,7 @@ To iterate on a codegen target: edit the generator, re-run `npx tsx scripts/prev
 From the product design doc. The ones that most affect editor decisions:
 
 - **Schema defines behavior. UI defines rendering.** Node positions, color coding, panel state are UI concerns — not in exported spec JSON.
-- **Execution is separate from spec.** Endpoint, headers, model live in a separate `execution` object outside the spec so sharing never leaks credentials. `system_prompt` and `chatbot_initiates` live *inside* the spec because they describe behavior.
+- **Execution is separate from spec.** Endpoint, headers, model live in a separate `execution` object outside the spec so sharing never leaks credentials. `chatbot_initiates` lives *inside* the spec because it describes behavior.
 - **Three methods everywhere.** `llm` / `calculation` / `direct` apply uniformly in captures, conditions, assigns, entry conditions.
 - **Symmetric turns.** Agent and user turns share the same structure. Role determines interpretation.
 - **The flow is the atom.** Everything is a flow. Authored flows and simulated conversation flows share the same schema.
@@ -112,8 +112,7 @@ From the product design doc. The ones that most affect editor decisions:
 
 A spec at the right level of detail uses the coarsest level that still captures the seams that matter. Levels:
 
-- **Level 0** — `agent.system_prompt` only, no flows. Pre-decomposition; a prompt you haven't structured yet.
-- **Level 1** — One free-form flow, whole script in `instructions`, no `scripts`. Single coherent conversation, no branching observability needed.
+- **Level 1** — One free-form flow, whole script in `instructions`, no `scripts`. Single coherent conversation, no branching observability needed. The floor: a pasted monolithic prompt enters the spec as this flow's `instructions`, not as an agent-level field.
 - **Level 2** — A few flows split where routing actually branches.
 - **Level 3** — One flow per agent turn; distinct guardrails or captures per turn.
 - **Level 4 (steps)** — One flow with ordered `steps` and per-turn `condition` / `captures`.

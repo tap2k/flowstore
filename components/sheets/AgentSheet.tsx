@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
 import type { Agent, Mode } from "@/lib/schema/v0";
-import { defaultLanguage, resolveLocalized, setLanguage } from "@/lib/schema/v0";
 import { Field, inputClass } from "@/components/inspector/primitives";
 import { SingleFlowPicker } from "@/components/inspector/FlowPicker";
 import { SheetShell } from "./SheetShell";
@@ -11,8 +10,6 @@ export function AgentSheet({ onClose }: { onClose: () => void }) {
   const updateAgent = useSpecStore((s) => s.updateAgent);
 
   if (!agent) return null;
-
-  const defaultLang = defaultLanguage(agent.meta.languages);
 
   function patch(p: Partial<Agent>) {
     updateAgent(p);
@@ -41,6 +38,14 @@ export function AgentSheet({ onClose }: { onClose: () => void }) {
           onChange={(e) => patch({ meta: { ...agent.meta, client: e.target.value || undefined } })}
         />
       </Field>
+      <Field label="Tone">
+        <input
+          className={inputClass}
+          value={agent.meta.tone ?? ""}
+          onChange={(e) => patch({ meta: { ...agent.meta, tone: e.target.value || undefined } })}
+          placeholder="e.g. warm and conversational, like a real barista"
+        />
+      </Field>
       <Field label="Languages">
         <LanguagesEditor
           languages={agent.meta.languages ?? []}
@@ -61,14 +66,6 @@ export function AgentSheet({ onClose }: { onClose: () => void }) {
         <SingleFlowPicker
           selected={agent.entry_flow_id || null}
           onChange={(id) => patch({ entry_flow_id: id ?? "" })}
-        />
-      </Field>
-      <Field label="System prompt">
-        <textarea
-          className={`${inputClass} font-mono resize-y min-h-[120px]`}
-          value={agent.system_prompt ?? ""}
-          onChange={(e) => patch({ system_prompt: e.target.value || undefined })}
-          placeholder="Behavioral instructions as authored."
         />
       </Field>
       <label className="flex items-center gap-2 text-xs text-zinc-700">
