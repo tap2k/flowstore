@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useSpecStore } from "@/lib/store/spec";
+import { useSpecStore, type Selection } from "@/lib/store/spec";
+import type { Spec } from "@/lib/schema/v0";
 import { useSettingsStore } from "@/lib/store/settings";
 import {
   useSimulateStore,
@@ -329,7 +330,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           />
         )}
         {transcript.map((t, i) => (
-          <TurnView key={i} turn={t} />
+          <TurnView key={i} turn={t} spec={spec} />
         ))}
         {busy && hasSession && (
           <div className="text-xs text-zinc-500 italic">thinking…</div>
@@ -464,7 +465,7 @@ function EmptyState({
   );
 }
 
-function TurnView({ turn }: { turn: TranscriptTurn }) {
+function TurnView({ turn, spec }: { turn: TranscriptTurn; spec: Spec | null }) {
   const { role, text, events } = turn;
 
   if (role === "user") {
@@ -476,7 +477,7 @@ function TurnView({ turn }: { turn: TranscriptTurn }) {
           </div>
         </div>
         {events.map((ev, i) => (
-          <EventLine key={i} ev={ev} />
+          <EventLine key={i} ev={ev} spec={spec} />
         ))}
       </div>
     );
@@ -495,7 +496,7 @@ function TurnView({ turn }: { turn: TranscriptTurn }) {
   return (
     <div className="space-y-1">
       {preEvents.map((ev, i) => (
-        <EventLine key={`pre-${i}`} ev={ev} />
+        <EventLine key={`pre-${i}`} ev={ev} spec={spec} />
       ))}
       {text && (
         <div className="rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-900 whitespace-pre-wrap">
@@ -503,20 +504,75 @@ function TurnView({ turn }: { turn: TranscriptTurn }) {
         </div>
       )}
       {postEvents.map((ev, i) => (
-        <EventLine key={`post-${i}`} ev={ev} />
+        <EventLine key={`post-${i}`} ev={ev} spec={spec} />
       ))}
     </div>
   );
 }
 
-function EventLine({ ev }: { ev: RuntimeEvent }) {
+// Routing events map to a node or edge on the canvas. Other events have no
+// canvas target — render them as the plain-text disclosure they were before.
+function selectionForEvent(ev: RuntimeEvent, spec: Spec | null): Selection {
+  if (!spec) return null;
+  const flowExists = (id: string) => spec.flows.some((f) => f.id === id);
+  const edgeExists = (flowId: string, exitPathId: string) =>
+    spec.flows
+      .find((f) => f.id === flowId)
+      ?.exit_paths.some((xp) => xp.id === exitPathId) ?? false;
+
+  switch (ev.type) {
+    case "flow_entered":
+      return flowExists(ev.flow_id) ? { kind: "flow", id: ev.flow_id } : null;
+    case "flow_exited":
+      // flow_exited is hidden in the rendered list (formatEvent returns null),
+      // but include it for completeness if that ever changes.
+      if (ev.exit_path_id && edgeExists(ev.flow_id, ev.exit_path_id)) {
+        return { kind: "edge", flowId: ev.flow_id, exitPathId: ev.exit_path_id };
+      }
+      return flowExists(ev.flow_id) ? { kind: "flow", id: ev.flow_id } : null;
+    case "exit_path_taken":
+      if (edgeExists(ev.from_flow_id, ev.exit_path_id)) {
+        return { kind: "edge", flowId: ev.from_flow_id, exitPathId: ev.exit_path_id };
+      }
+      // Spec was edited mid-session and the exit path is gone — fall back to
+      // the source flow so the click still lands somewhere meaningful.
+      return flowExists(ev.from_flow_id) ? { kind: "flow", id: ev.from_flow_id } : null;
+    case "interrupt_triggered":
+      return flowExists(ev.interrupt_flow_id)
+        ? { kind: "flow", id: ev.interrupt_flow_id }
+        : null;
+    default:
+      return null;
+  }
+}
+
+function EventLine({ ev, spec }: { ev: RuntimeEvent; spec: Spec | null }) {
+  const setSelection = useSpecStore((s) => s.setSelection);
   const line = formatEvent(ev);
   if (!line) return null;
+  const target = selectionForEvent(ev, spec);
+
   return (
     <details className="px-1 text-[10px] font-mono text-zinc-400 hover:text-zinc-600">
       <summary className="cursor-pointer list-none">
         <span className="text-zinc-300">→ </span>
-        {line}
+        {target ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              // Don't toggle the disclosure when the user is jumping to canvas.
+              e.preventDefault();
+              e.stopPropagation();
+              setSelection(target);
+            }}
+            className="text-zinc-500 underline decoration-dotted underline-offset-2 hover:text-zinc-900"
+            title="Select on canvas"
+          >
+            {line}
+          </button>
+        ) : (
+          line
+        )}
       </summary>
       <pre className="mt-1 overflow-auto whitespace-pre-wrap rounded bg-zinc-50 p-2 text-[10px] text-zinc-500">
         {JSON.stringify(ev, null, 2)}
