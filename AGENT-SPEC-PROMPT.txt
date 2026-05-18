@@ -124,7 +124,8 @@ V0 SCHEMA
               "value": "any (required; literal for direct, expression string for calculation, description for llm)"
             }
           },
-          "actions": [{ "capability_id": "cap_<id>" }]
+          "actions": [{ "capability_id": "cap_<id>" }],
+          "notes": "Authoring annotation (optional; runtime-invisible)"
         }
       ],
       "scripts": [
@@ -133,7 +134,8 @@ V0 SCHEMA
       "guardrails": [{ "id": "g_<snake_case>", "statement": "flow-scoped rule" }],
       "example": "Agent: ...\nUser: ...\nAgent: ...",
       "knowledge": { "faq": [...] },
-      "variables": { "<name>": { "type": "...", "description": "..." } }
+      "variables": { "<name>": { "type": "...", "description": "..." } },
+      "notes": "Authoring annotation (optional; runtime-invisible)"
     }
   ]
 }
@@ -244,6 +246,22 @@ flow.type semantics (which kind of flow this is):
   math, lookup, formatting). Typically has a `goto: "RETURN"` exit.
   If it speaks to the user or terminates the call, it isn't a utility
   — that's a happy/sad/off flow, or just exit_paths on the caller.
+  Utility flows are also the canonical shape for the
+  "calc-route-after-action junction": when a flow fires a capability
+  whose declared `outputs` should drive routing, insert a scriptless
+  utility flow downstream with calculation-routed exits over those
+  outputs. Do NOT put calc conditions referencing capability outputs
+  on the same flow that fires the capability — those conditions
+  evaluate before the action fires, so the output isn't bound yet.
+  The utility flow exists purely to route on values that landed
+  during the previous transition. See SCHEMA.md → Common Flow
+  Compositions → "Calc-route-after-action junction."
+  Junction flows must leave `instructions` empty. The prompt
+  builder emits every flow's `instructions` into the agent's
+  system prompt, so router-internal commentary there would confuse
+  the LLM about its persona. Put any rationale for the junction
+  in `notes` instead (the runtime and the prompt builder both
+  ignore `notes`).
 - "interrupt" — globally callable; fires at any turn when its
   `entry_condition` matches. Required to declare an `entry_condition`.
   See INTERRUPTS section.
@@ -274,7 +292,11 @@ SCRIPTS
 
 `flow.scripts` is a flat list of ScriptLine entries. Each entry has a
 stable `id` (snake_case slug, e.g. `s_greeting`), a `text` field, and
-optional `variations`.
+optional `variations`. The `id` is for editor tooling and authoring
+only — it is not exposed to the runtime LLM. Never address scripts
+by `[id]` inside `instructions`; describe what to say in plain prose
+("greet the caller and confirm safety") and the runtime will pick
+the right phrasing from the listed scripts.
 
 For monolingual source material, `text` is a plain string and
 `variations` (if present) is `{ "<source-lang>": ["alt phrasing", ...] }`.
@@ -390,6 +412,31 @@ are generated on demand in the editor, not during parse. When
 extracted, format each turn as "Agent: ..." or "User: ..." on its
 own line, and use {variable_name} placeholders for any specific
 values that come from variables.
+
+---
+
+NOTES vs INSTRUCTIONS
+
+`instructions` is prose the runtime LLM consumes — behavioral
+guidance for this flow's conversation. It is rendered into the
+agent's system prompt and shapes how the agent speaks and decides.
+
+`notes` is authoring annotation: *why* this flow or exit_path
+exists, who asked for it, what tradeoff was made. The runtime
+and the prompt builder both ignore `notes` — it travels with the
+spec for human readers only.
+
+Common signal: if the text refers to the spec itself ("this flow
+is a router", "we added this branch because legal asked", "kept
+for backward compat with the v0 deployment"), it belongs in
+`notes`, not `instructions`. The LLM has no use for prose about
+the spec's structure or history; emitting it into `instructions`
+just dilutes the agent's persona.
+
+`notes` lives on flows and exit_paths only — not on guardrails,
+capabilities, scripts, or other list items. Granular per-entity
+annotation is not in scope; fold per-item commentary into the
+parent flow's `notes`.
 
 ---
 

@@ -11,6 +11,7 @@ import { formatErrors, validateSpec } from "@/lib/validation/ajv";
 import { generateSystemPrompt } from "@/lib/codegen/promptGenerator";
 import type { RuntimeEvent } from "@/lib/runtime/eventTypes";
 import { VariablesForm } from "./VariablesForm";
+import { CapabilityMocksForm } from "./CapabilityMocksForm";
 import { PersonaForm } from "./PersonaForm";
 
 interface SimulatePanelProps {
@@ -30,16 +31,19 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const events = useSimulateStore((s) => s.events);
   const variables = useSimulateStore((s) => s.variables);
   const contextVars = useSimulateStore((s) => s.contextVars);
+  const mockReturns = useSimulateStore((s) => s.mockReturns);
   const currentFlowId = useSimulateStore((s) => s.currentFlowId);
   const systemPrompt = useSimulateStore((s) => s.systemPrompt);
   const specSnapshot = useSimulateStore((s) => s.specSnapshot);
   const lastUsage = useSimulateStore((s) => s.lastUsage);
   const error = useSimulateStore((s) => s.error);
   const setMode = useSimulateStore((s) => s.setMode);
+  const setSystemPrompt = useSimulateStore((s) => s.setSystemPrompt);
   const start = useSimulateStore((s) => s.start);
   const send = useSimulateStore((s) => s.send);
   const reset = useSimulateStore((s) => s.reset);
   const hydrateContextVars = useSimulateStore((s) => s.hydrateContextVars);
+  const hydrateMockReturns = useSimulateStore((s) => s.hydrateMockReturns);
   const hydratePersona = useSimulateStore((s) => s.hydratePersona);
   const autoRun = useSimulateStore((s) => s.autoRun);
   const autoStepping = useSimulateStore((s) => s.autoStepping);
@@ -92,9 +96,10 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   useEffect(() => {
     if (open && spec) {
       hydrateContextVars(spec.agent.id);
+      hydrateMockReturns(spec.agent.id);
       hydratePersona(spec.agent.id);
     }
-  }, [open, spec, hydrateContextVars, hydratePersona]);
+  }, [open, spec, hydrateContextVars, hydrateMockReturns, hydratePersona]);
 
   useEffect(() => {
     if (!autoRun) return;
@@ -154,6 +159,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       events,
       variables,
       context_vars: contextVars,
+      mock_returns: mockReturns,
     };
     const json = JSON.stringify(payload, null, 2);
     const blob = new Blob([json], { type: "application/json" });
@@ -184,10 +190,21 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
 
   const hasSession = sessionId !== null;
   const specChanged = specSnapshot !== null && spec !== null && spec !== specSnapshot;
-  const previewPrompt =
-    mode === "prompt"
-      ? (systemPrompt ?? (spec ? generateSystemPrompt(spec, contextVars, { language }) : null))
+  const generatedPrompt =
+    mode === "prompt" && spec
+      ? generateSystemPrompt(spec, contextVars, { language })
       : null;
+  const previewPrompt =
+    mode === "prompt" ? (systemPrompt ?? generatedPrompt) : null;
+  const promptEdited =
+    mode === "prompt" &&
+    previewPrompt !== null &&
+    generatedPrompt !== null &&
+    previewPrompt !== generatedPrompt;
+
+  function onRegeneratePrompt() {
+    setSystemPrompt(hasSession ? generatedPrompt : null);
+  }
   const subtitle = (() => {
     if (status === "starting") return "starting…";
     if (status === "thinking") return "thinking…";
@@ -277,7 +294,9 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       </div>
 
       {spec && <VariablesForm spec={spec} disabled={busy || ready} />}
-      {spec && <PersonaForm disabled={false} />}
+      {spec && mode === "runner" && (
+        <CapabilityMocksForm spec={spec} disabled={busy || ready} />
+      )}
 
       {hasSession && mode === "prompt" && specChanged && (
         <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
@@ -295,9 +314,21 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             >
               <span className="mr-1 text-zinc-400">{promptOpen ? "▾" : "▸"}</span>
               System prompt
-              <span className="ml-1 text-zinc-400">
-                ({previewPrompt.length.toLocaleString()} chars)
+              <span
+                className={`ml-1 ${promptEdited ? "text-amber-700" : "text-zinc-400"}`}
+              >
+                {promptEdited ? "edited · " : ""}
+                {previewPrompt.length.toLocaleString()} chars
               </span>
+            </button>
+            <button
+              type="button"
+              onClick={onRegeneratePrompt}
+              disabled={!promptEdited}
+              title="Discard edits and regenerate the prompt from the current spec."
+              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+            >
+              Regenerate
             </button>
             <button
               type="button"
@@ -310,13 +341,19 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           </div>
           {promptOpen && (
             <div className="px-4 pb-3">
-              <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded border border-zinc-200 bg-white p-2 font-mono text-[10px] leading-snug text-zinc-700">
-                {previewPrompt}
-              </pre>
+              <textarea
+                value={previewPrompt}
+                onChange={(e) => setSystemPrompt(e.target.value)}
+                rows={12}
+                spellCheck={false}
+                className="block max-h-64 w-full resize-y overflow-auto whitespace-pre-wrap rounded border border-zinc-200 bg-white p-2 font-mono text-[10px] leading-snug text-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              />
             </div>
           )}
         </div>
       )}
+
+      {spec && <PersonaForm disabled={false} />}
 
       <div ref={scrollRef} className="flex-1 overflow-auto p-3 space-y-3 text-sm">
         {!hasSession && status !== "starting" && (

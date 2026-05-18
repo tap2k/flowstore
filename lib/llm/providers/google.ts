@@ -80,7 +80,7 @@ export async function callGoogle(
   req: ChatRequest,
 ): Promise<ChatResponse> {
   const body: GeminiRequestBody = {
-    systemInstruction: req.systemPrompt
+    systemInstruction: req.systemPrompt.trim()
       ? { parts: [{ text: req.systemPrompt }] }
       : undefined,
     contents: serializeMessages(req.messages),

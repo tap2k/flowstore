@@ -50,6 +50,7 @@ export interface StartSessionArgs {
   model?: string;
   language?: string;
   contextVars?: Record<string, unknown>;
+  mockReturns?: Record<string, Record<string, unknown>>;
 }
 
 export async function startSession(args: StartSessionArgs): Promise<StartSessionResponse> {
@@ -59,6 +60,9 @@ export async function startSession(args: StartSessionArgs): Promise<StartSession
   if (args.language) body.language = args.language;
   if (args.contextVars && Object.keys(args.contextVars).length > 0) {
     body.context_vars = args.contextVars;
+  }
+  if (args.mockReturns && Object.keys(args.mockReturns).length > 0) {
+    body.mock_returns = args.mockReturns;
   }
   return postJson<StartSessionResponse>(args.baseUrl, "/api/chat/session", body);
 }

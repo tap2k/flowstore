@@ -9,6 +9,7 @@ import {
 import { sendPromptTurn } from "@/lib/runtime/promptClient";
 import { generatePersonaTurn } from "@/lib/runtime/personaClient";
 import { generateSystemPrompt } from "@/lib/codegen/promptGenerator";
+import { cleanMockReturns } from "@/lib/runtime/capabilityMocks";
 import { useSettingsStore } from "@/lib/store/settings";
 import type { ChatUsage } from "@/lib/llm/types";
 
@@ -55,6 +56,8 @@ interface SimulateState {
   variables: Record<string, unknown>;
   contextVars: Record<string, unknown>;
   contextVarsAgentId: string | null;
+  mockReturns: Record<string, Record<string, unknown>>;
+  mockReturnsAgentId: string | null;
   error: string | null;
   // Prompt-mode state. Frozen at session start; reset clears.
   systemPrompt: string | null;
@@ -74,6 +77,7 @@ interface SimulateState {
   personaTurnsLeft: number;
 
   setMode: (mode: SimulateMode) => void;
+  setSystemPrompt: (prompt: string | null) => void;
   start: (args: StartArgs) => Promise<void>;
   send: (userText: string) => Promise<void>;
   reset: () => Promise<void>;
@@ -82,6 +86,15 @@ interface SimulateState {
   setContextVar: (name: string, value: unknown) => void;
   setContextVars: (values: Record<string, unknown>) => void;
   clearContextVars: () => void;
+  hydrateMockReturns: (agentId: string) => void;
+  setMockOutput: (capabilityName: string, outputName: string, value: unknown) => void;
+  setMockReturnsForCapability: (
+    capabilityName: string,
+    values: Record<string, unknown>,
+  ) => void;
+  setMockReturns: (values: Record<string, Record<string, unknown>>) => void;
+  clearMockReturnsForCapability: (capabilityName: string) => void;
+  clearMockReturns: () => void;
   hydratePersona: (agentId: string) => void;
   setPersonaPrompt: (prompt: string) => void;
   setAutoRun: (on: boolean) => void;
@@ -90,6 +103,7 @@ interface SimulateState {
 }
 
 const CV_PREFIX = "uxflows:simulate:vars:";
+const MOCKS_PREFIX = "uxflows:simulate:mocks:";
 const PERSONA_PREFIX = "uxflows:simulate:persona:";
 
 // Only the persona prompt persists across page loads. Turn limit, countdown,
@@ -151,6 +165,37 @@ function saveVars(agentId: string, values: Record<string, unknown>): void {
   }
 }
 
+function loadMocks(agentId: string): Record<string, Record<string, unknown>> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(MOCKS_PREFIX + agentId);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, Record<string, unknown>>;
+    }
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
+function saveMocks(
+  agentId: string,
+  values: Record<string, Record<string, unknown>>,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (Object.keys(values).length === 0) {
+      window.localStorage.removeItem(MOCKS_PREFIX + agentId);
+    } else {
+      window.localStorage.setItem(MOCKS_PREFIX + agentId, JSON.stringify(values));
+    }
+  } catch {
+    // ignore
+  }
+}
+
 function reduceEvents(
   state: Pick<SimulateState, "currentFlowId" | "lastExitEdgeId" | "variables" | "status">,
   events: RuntimeEvent[],
@@ -182,6 +227,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   variables: {},
   contextVars: {},
   contextVarsAgentId: null,
+  mockReturns: {},
+  mockReturnsAgentId: null,
   error: null,
   systemPrompt: null,
   specSnapshot: null,
@@ -198,6 +245,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     if (get().sessionId) return; // mode is frozen during an active session
     set({ mode });
   },
+
+  setSystemPrompt: (prompt) => set({ systemPrompt: prompt }),
 
   hydrateContextVars: (agentId) => {
     const current = get();
@@ -229,6 +278,79 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     const { contextVarsAgentId } = get();
     set({ contextVars: {} });
     if (contextVarsAgentId) saveVars(contextVarsAgentId, {});
+  },
+
+  hydrateMockReturns: (agentId) => {
+    const current = get();
+    if (current.mockReturnsAgentId === agentId) return;
+    set({ mockReturns: loadMocks(agentId), mockReturnsAgentId: agentId });
+  },
+
+  setMockOutput: (capabilityName, outputName, value) => {
+    const { mockReturns, mockReturnsAgentId } = get();
+    const existing = mockReturns[capabilityName] ?? {};
+    const nextOutputs = { ...existing };
+    if (value === undefined || value === null || value === "") {
+      delete nextOutputs[outputName];
+    } else {
+      nextOutputs[outputName] = value;
+    }
+    const next = { ...mockReturns };
+    if (Object.keys(nextOutputs).length === 0) {
+      delete next[capabilityName];
+    } else {
+      next[capabilityName] = nextOutputs;
+    }
+    set({ mockReturns: next });
+    if (mockReturnsAgentId) saveMocks(mockReturnsAgentId, next);
+  },
+
+  setMockReturnsForCapability: (capabilityName, values) => {
+    const { mockReturns, mockReturnsAgentId } = get();
+    const cleaned: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(values)) {
+      if (v === undefined || v === null || v === "") continue;
+      cleaned[k] = v;
+    }
+    const next = { ...mockReturns };
+    if (Object.keys(cleaned).length === 0) {
+      delete next[capabilityName];
+    } else {
+      next[capabilityName] = cleaned;
+    }
+    set({ mockReturns: next });
+    if (mockReturnsAgentId) saveMocks(mockReturnsAgentId, next);
+  },
+
+  setMockReturns: (values) => {
+    const { mockReturnsAgentId } = get();
+    const cleaned: Record<string, Record<string, unknown>> = {};
+    for (const [capName, outputs] of Object.entries(values)) {
+      if (!outputs || typeof outputs !== "object") continue;
+      const inner: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(outputs)) {
+        if (v === undefined || v === null || v === "") continue;
+        inner[k] = v;
+      }
+      if (Object.keys(inner).length > 0) cleaned[capName] = inner;
+    }
+    set({ mockReturns: cleaned });
+    if (mockReturnsAgentId) saveMocks(mockReturnsAgentId, cleaned);
+  },
+
+  clearMockReturnsForCapability: (capabilityName) => {
+    const { mockReturns, mockReturnsAgentId } = get();
+    if (!(capabilityName in mockReturns)) return;
+    const next = { ...mockReturns };
+    delete next[capabilityName];
+    set({ mockReturns: next });
+    if (mockReturnsAgentId) saveMocks(mockReturnsAgentId, next);
+  },
+
+  clearMockReturns: () => {
+    const { mockReturnsAgentId } = get();
+    set({ mockReturns: {} });
+    if (mockReturnsAgentId) saveMocks(mockReturnsAgentId, {});
   },
 
   hydratePersona: (agentId) => {
@@ -339,7 +461,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
 
   start: async (args) => {
     const { mode, spec, apiKey, model, baseUrl, language } = args;
-    const { contextVars } = get();
+    const { contextVars, mockReturns, systemPrompt: existingOverride } = get();
+    const cleanedMocks = cleanMockReturns(mockReturns, spec);
     set({
       mode,
       status: "starting",
@@ -358,7 +481,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
 
     if (mode === "prompt") {
       try {
-        const systemPrompt = generateSystemPrompt(spec, contextVars, { language });
+        const systemPrompt =
+          existingOverride ?? generateSystemPrompt(spec, contextVars, { language });
         const sessionId = `prompt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         set({ sessionId, systemPrompt, specSnapshot: spec });
 
@@ -412,6 +536,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         model: model || undefined,
         language,
         contextVars,
+        mockReturns: cleanedMocks,
       });
       const reduced = reduceEvents(
         { currentFlowId: null, lastExitEdgeId: null, variables: {}, status: "ready" },
@@ -477,14 +602,10 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     });
 
     if (mode === "prompt") {
-      if (!systemPrompt) {
-        set({ status: "error", error: "Prompt session has no system prompt." });
-        return;
-      }
       try {
         const { apiKey, model } = readLlmCreds();
         const res = await sendPromptTurn({
-          systemPrompt,
+          systemPrompt: systemPrompt ?? "",
           history: transcript,
           userText: trimmed,
           apiKey,

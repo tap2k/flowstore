@@ -6,6 +6,7 @@ import {
   resolveLocalized,
   setLanguage,
 } from "@/lib/schema/v0";
+import { isCalcRouteJunction } from "@/lib/schema/flowJunction";
 import { genId } from "@/lib/ids";
 import { ListEditor } from "./ListEditor";
 import { VariablesEditor } from "./VariablesEditor";
@@ -41,6 +42,7 @@ export function FlowInspector() {
   }
 
   const isInterrupt = flow.type === "interrupt";
+  const isJunction = isCalcRouteJunction(flow);
 
   return (
     <aside className="w-[380px] shrink-0 border-l border-zinc-200 bg-white overflow-y-auto">

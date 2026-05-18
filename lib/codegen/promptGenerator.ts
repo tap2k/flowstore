@@ -172,7 +172,7 @@ function renderFlowScripts(flow: Flow, ctx: RenderCtx): string {
   for (const s of scripts) {
     const text = loc(s.text, ctx);
     if (!text) continue;
-    lines.push(`     - [${s.id}] "${escapeQuotes(text)}"`);
+    lines.push(`     - "${escapeQuotes(text)}"`);
     const variations = s.variations?.[ctx.lang] ?? s.variations?.[ctx.defaultLang] ?? [];
     for (const v of variations.filter(Boolean)) {
       lines.push(`       | "${escapeQuotes(v)}"`);

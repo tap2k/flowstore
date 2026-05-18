@@ -14,6 +14,7 @@ import {
 import type { Spec } from "@/lib/schema/v0";
 import { isFlowGoto } from "@/lib/schema/v0";
 import { FlowNode, type FlowNodeData } from "./FlowNode";
+import { isCalcRouteJunction } from "@/lib/schema/flowJunction";
 import { autoLayout } from "./layout";
 import { loadPositions, savePositions, type Positions } from "./positions";
 import { useSpecStore } from "@/lib/store/spec";
@@ -85,6 +86,7 @@ function buildGraph(spec: Spec): { nodes: Node[]; edges: Edge[] } {
       name: f.name,
       flowType: f.type,
       isEntry: f.id === entryId,
+      isJunction: isCalcRouteJunction(f),
       issues: issuesByFlow.get(f.id)?.map((i) => i.message),
     } satisfies FlowNodeData,
   }));

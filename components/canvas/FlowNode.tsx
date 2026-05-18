@@ -6,6 +6,7 @@ export interface FlowNodeData {
   name: string;
   flowType: FlowType;
   isEntry: boolean;
+  isJunction: boolean;
   issues?: string[];
 }
 
@@ -22,6 +23,19 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
   const hasIssues = (data.issues?.length ?? 0) > 0;
   const issueTitle = hasIssues ? data.issues!.join("\n") : undefined;
   const isActive = useSimulateStore((s) => s.currentFlowId === id);
+
+  if (data.isJunction) {
+    return (
+      <JunctionNode
+        id={id}
+        name={data.name}
+        hasIssues={hasIssues}
+        issueTitle={issueTitle}
+        isActive={isActive}
+        selected={selected}
+      />
+    );
+  }
 
   return (
     <div
@@ -51,6 +65,58 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
       </div>
       <div className="text-sm font-medium text-zinc-900 leading-tight">{data.name}</div>
       <Handle type="source" position={Position.Right} className="!bg-zinc-400" />
+    </div>
+  );
+}
+
+function JunctionNode({
+  name,
+  hasIssues,
+  issueTitle,
+  isActive,
+  selected,
+}: {
+  id: string;
+  name: string;
+  hasIssues: boolean;
+  issueTitle: string | undefined;
+  isActive: boolean;
+  selected: boolean;
+}) {
+  // Rotated square renders as a diamond. The label sits in a counter-rotated
+  // wrapper above so it stays upright. Width/height are equal so the bounding
+  // box is symmetric — the handles attach at the rotated mid-points (which are
+  // the visual side tips of the diamond).
+  const ring = hasIssues
+    ? "ring-1 ring-red-300 shadow-sm"
+    : selected
+      ? "ring-2 ring-zinc-900 ring-offset-1 shadow-md"
+      : isActive
+        ? "ring-2 ring-sky-500 ring-offset-1 shadow-md"
+        : "shadow-sm";
+  const border = hasIssues ? "border-red-500" : "border-sky-400";
+
+  return (
+    <div className="relative" title={issueTitle} style={{ width: 96, height: 96 }}>
+      <div
+        className={`absolute inset-0 rotate-45 border-2 ${border} bg-white ${ring}`}
+        aria-hidden
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!bg-zinc-400"
+        style={{ top: "50%" }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!bg-zinc-400"
+        style={{ top: "50%" }}
+      />
+      <div className="absolute inset-0 flex items-center justify-center px-2 text-center">
+        <span className="text-[10px] font-medium leading-tight text-zinc-700">{name}</span>
+      </div>
     </div>
   );
 }

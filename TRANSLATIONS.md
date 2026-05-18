@@ -6,9 +6,34 @@ For the schema these reference, see [SCHEMA.md](./SCHEMA.md).
 
 ## Export Targets
 
-Targets fall into two structural classes. Graph-native runtimes (Pipecat, LangGraph) translate UX4 flows directly to nodes and exit_paths to edges; the spec's structure is preserved at runtime. Instruction-and-tool runtimes (LiveKit, OpenAI Agents SDK) compose the entire spec into a single agent's instructions; flow boundaries become prose ordering and exit-path conditions become routing guidance. Both work; the choice affects how much of UX4's authored structure survives as enforced runtime structure versus prose hints. Author for behavioral seams; accept that not all targets enforce them equivalently.
+Targets fall into three structural classes. The **generic config bundle** emits a portable artifact (composed system prompt + JSON tool schemas + behavioral sidecar) consumable by any LLM agent platform that accepts prompt + tool definitions; lossy by design but covers a long tail of platforms at near-zero translator cost. **Graph-native runtimes** (Pipecat, LangGraph, Dialogflow CX) translate UX4 flows directly to nodes and exit_paths to edges; the spec's structure is preserved and enforced at runtime. **Instruction-and-tool runtimes** (LiveKit, OpenAI Agents SDK) emit framework-specific code that composes the entire spec into a single agent's instructions; flow boundaries become prose ordering and exit-path conditions become routing guidance. All three work; the choice affects how much of UX4's authored structure survives as enforced runtime structure versus prose hints. Author for behavioral seams; accept that not all targets enforce them equivalently.
 
-A third path is **native consumption** — interpreting the spec directly without translating to a third-party framework. The flow executor is small (flow state machine, three-method dispatcher for conditions/captures, capability dispatcher, interrupt scheduler, guardrail evaluator) and preserves authored intent verbatim: stable IDs, multilingual scripts, eval metadata, and flow-graph structure all flow through to runtime and observability without round-tripping through generated code. The uxflows-runner is the canonical native consumer; whatsupp2 consumes the spec at the evaluation layer (guardrails, scenarios) but does not natively execute it — it wraps whatever endpoint the agent under test runs on. The same native-consumption shape works for production runtimes, especially text-first agents. For voice, the cost calculus shifts — voice infrastructure (barge-in, VAD, telephony) is most of the work, and Pipecat-as-pipeline or LiveKit transport remain reasonable dependencies even when flow logic stays native.
+Outside the translation taxonomy entirely, **native consumption** interprets the spec directly without translating to a third-party framework. The flow executor is small (flow state machine, three-method dispatcher for conditions/captures, capability dispatcher, interrupt scheduler, guardrail evaluator) and preserves authored intent verbatim: stable IDs, multilingual scripts, eval metadata, and flow-graph structure all flow through to runtime and observability without round-tripping through generated code. The uxflows-runner is the canonical native consumer; whatsupp2 consumes the spec at the evaluation layer (guardrails, scenarios) but does not natively execute it — it wraps whatever endpoint the agent under test runs on. The same native-consumption shape works for production runtimes, especially text-first agents. For voice, the cost calculus shifts — voice infrastructure (barge-in, VAD, telephony) is most of the work, and Pipecat-as-pipeline or LiveKit transport remain reasonable dependencies even when flow logic stays native.
+
+### Generic Config Bundle
+
+A minimal, target-agnostic export format that any LLM agent platform can consume: composed system prompt + JSON tool schemas for capabilities + behavioral sidecar (persona, voice/model recommendations, modes, knowledge, eval metadata). No runtime graph; flow boundaries collapse to prose ordering and exit-path conditions to routing guidance in the prompt. Lossy by design — the value is breadth of platform coverage at near-zero translator cost on top of the existing prompt generator.
+
+| UX4 Artifact | Config Bundle Output |
+|---|---|
+| agent meta | Bundle metadata (name, default language, modes, persona summary) |
+| flow descriptions, ordering | System prompt sections ordered by entry flow → follow-on flows |
+| turn (agent), turn (user) | Prompt scaffolding |
+| turn condition / exit_path (any method) | Routing guidance in prose |
+| turn capture (`llm`) | Slot-fill instructions in prompt |
+| turn capture (`calculation`) | JSON tool schema returning typed value |
+| turn capture (`direct`) | Hardcoded value in prompt |
+| capability (`kind: function`) | JSON tool schema with typed parameters |
+| capability (`kind: retrieval`) | JSON tool schema; retrieval semantics described in `description` |
+| variables | Tool parameter / return type schemas |
+| guardrails | Prompt constraints section |
+| persona | Prompt persona section |
+| knowledge.faq | Prompt FAQ section |
+| knowledge.tables | Prompt reference-data section |
+
+Consumers: Vapi Assistant API, Retell Agent, LiveKit Agents (simple shape), OpenAI Assistants, basic OpenAI Agents SDK builds, custom orchestrations — anyone that accepts "prompt + JSON tool defs." The bundle is the floor every spec can produce; higher-fidelity targets below layer their own structural translation on top.
+
+The bundle is a designer-to-deployment handoff artifact, not a turnkey deploy package: composed prompt and behavioral sidecar capture the designer's authorship verbatim, but tool schemas are derived from typed capabilities in the spec — name-only capabilities produce stub schemas that the integration team enriches against the real backend API surface at deploy time.
 
 ### Pipecat
 
@@ -84,6 +109,37 @@ LangGraph uses a graph-based execution model architecturally closest to UX4's fl
 | guardrails | Node-level validation logic |
 
 Variable type declarations are especially important for LangGraph. Untyped variables default to string in the generated state schema.
+
+### Dialogflow CX / Vertex AI Conversational Agents
+
+Dialogflow CX is graph-based: flows contain pages, pages contain parameters and transition routes, transitions are explicit edges. Vertex AI Conversational Agents is the LLM-first surface over the same runtime, adding Playbooks (generative agents), Generators (LLM responses), and Data Stores (retrieval grounding). The translation defaults to the Playbook + Generator path since UX4 is LLM-first. CX ships voice and telephony bridges, so this target covers production voice without a separate transport layer. Note: Google has folded CX under the Vertex AI Agent Builder / Conversational Agents brand; the runtime remains production-supported and underlies substantial enterprise CCAI deployments, but new Google-stack builds are steered toward Playbooks or the Agent Development Kit (ADK) — this target is most relevant for migration and expansion within existing CX customers.
+
+| UX4 Artifact | Dialogflow CX Equivalent |
+|---|---|
+| agent meta | Agent (display name, default language, speech config) |
+| variables | Session parameters with type schema |
+| flow | Flow with start page |
+| turn (agent) | Page entry fulfillment via Generator |
+| turn (user) | Page form parameter prompt |
+| turn condition (`llm`) | Playbook routing instruction |
+| turn condition (`calculation`) | Webhook returning condition outcome |
+| turn capture (`llm`) | Parameter with Generator extraction |
+| turn capture (`calculation`) | Parameter with webhook fulfillment returning typed value |
+| turn capture (`direct`) | Parameter default value |
+| capability (`kind: function`) | Webhook (HTTP) fulfillment |
+| capability (`kind: retrieval`) | Data Store handler / Generator with grounding |
+| tool step (references capability) | Page-level webhook invocation |
+| exit-path action (references capability) | Transition fulfillment webhook |
+| call | Flow transition route |
+| exit path (`calculation`) | Transition route with condition expression |
+| exit path (`llm`) | Intent or Playbook route |
+| exit_path with `goto: "END"` | End-session event handler |
+| interrupt flow | Priority transition route scoped at agent or page level |
+| guardrails | Generator system instructions; agent safety settings |
+| knowledge.faq | Data Store FAQ document |
+| knowledge.tables | Reference data via Data Store or webhook |
+
+Behavioral spec fields (personas, eval metadata) map to Generator/Playbook system instructions. CX-specific runtime knobs (transition priority, retry behavior, page form-filling order) have no behavioral-spec equivalent and ride in an export-time sidecar keyed by flow/page id. The translator validates that `calculation` exits and captures resolve to webhook-backed routes rather than prose-only Playbook instructions — preserving deterministic evaluation across the translation seam.
 
 ### OpenAI Agents SDK
 
