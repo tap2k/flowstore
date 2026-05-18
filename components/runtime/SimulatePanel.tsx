@@ -10,6 +10,7 @@ import {
 import { formatErrors, validateSpec } from "@/lib/validation/ajv";
 import { generateSystemPrompt } from "@/lib/codegen/promptGenerator";
 import type { RuntimeEvent } from "@/lib/runtime/eventTypes";
+import { translateBatchToEnglish } from "@/lib/runtime/translate";
 import { VariablesForm } from "./VariablesForm";
 import { CapabilityMocksForm } from "./CapabilityMocksForm";
 import { PersonaForm } from "./PersonaForm";
@@ -52,28 +53,27 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const [input, setInput] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[] | null>(null);
   const [promptOpen, setPromptOpen] = useState(false);
+  const [translations, setTranslations] = useState<Map<number, string>>(new Map());
+  const [showTranslated, setShowTranslated] = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const [translateError, setTranslateError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const spec = useSpecStore((s) => s.spec);
   const availableLanguages = spec?.agent.meta.languages ?? [];
   const [language, setLanguage] = useState<string | undefined>(undefined);
-  const prevAgentIdRef = useRef<string | undefined>(spec?.agent.id);
 
-  useEffect(() => {
-    // Default is "all" (undefined) — emit every language bucket. Reset to
-    // "all" when the active agent changes, or when the current selection is
-    // no longer in the new agent's language list.
-    const agentId = spec?.agent.id;
-    const langs = spec?.agent.meta.languages ?? [];
-    if (prevAgentIdRef.current !== agentId) {
-      prevAgentIdRef.current = agentId;
-      setLanguage(undefined);
-      return;
-    }
-    if (language !== undefined && !langs.includes(language)) {
-      setLanguage(undefined);
-    }
-  }, [spec?.agent.id, spec?.agent.meta.languages, language]);
+  // Default is "all" (undefined) — emit every language bucket. Reset to "all"
+  // when the active agent changes, or when the current selection is no longer
+  // in the new agent's language list. Done during render to avoid a wasted
+  // commit cycle.
+  const prevAgentIdRef = useRef<string | undefined>(spec?.agent.id);
+  if (prevAgentIdRef.current !== spec?.agent.id) {
+    prevAgentIdRef.current = spec?.agent.id;
+    if (language !== undefined) setLanguage(undefined);
+  } else if (language !== undefined && !availableLanguages.includes(language)) {
+    setLanguage(undefined);
+  }
 
   // Capture "was at bottom" before the new turn renders (layout effect runs
   // before paint; a plain effect would see the already-grown scrollHeight and
@@ -101,6 +101,17 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     }
   }, [open, spec, hydrateContextVars, hydrateMockReturns, hydratePersona]);
 
+  // Clear translation state when sessionId changes. Done during render via the
+  // "adjusting state on prop change" pattern rather than in an effect to avoid
+  // a wasted render cycle.
+  const prevSessionIdRef = useRef(sessionId);
+  if (prevSessionIdRef.current !== sessionId) {
+    prevSessionIdRef.current = sessionId;
+    setTranslations(new Map());
+    setShowTranslated(false);
+    setTranslateError(null);
+  }
+
   useEffect(() => {
     if (!autoRun) return;
     // No session yet — bootstrap one. The "ready" branch below picks up after start() resolves.
@@ -118,7 +129,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
 
   if (!open) return null;
 
-  const agentName = spec?.agent.meta.name ?? "—";
   const busy = status === "thinking" || status === "starting";
   const ended = status === "ended";
   const ready = status === "ready";
@@ -180,6 +190,47 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     setInput("");
     await send(text);
   }
+
+  const uncachedTurns = transcript.filter(
+    (t) => t.text && !translations.has(t.ts),
+  );
+
+  async function onTranslate() {
+    if (uncachedTurns.length === 0 && showTranslated) {
+      setShowTranslated(false);
+      return;
+    }
+    setTranslating(true);
+    setTranslateError(null);
+    try {
+      if (uncachedTurns.length > 0) {
+        const result = await translateBatchToEnglish(
+          uncachedTurns.map((t) => ({ id: String(t.ts), text: t.text })),
+          apiKey,
+          model,
+        );
+        setTranslations((prev) => {
+          const next = new Map(prev);
+          for (const [id, eng] of Object.entries(result)) {
+            next.set(Number(id), eng);
+          }
+          return next;
+        });
+      }
+      setShowTranslated(true);
+    } catch (e) {
+      setTranslateError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTranslating(false);
+    }
+  }
+
+  const translateLabel = translating
+    ? "…"
+    : showTranslated && uncachedTurns.length === 0
+      ? "show original"
+      : "translate";
+  const translateVisible = !!apiKey && transcript.some((t) => t.text);
 
   function onKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -367,7 +418,12 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           />
         )}
         {transcript.map((t, i) => (
-          <TurnView key={i} turn={t} spec={spec} />
+          <TurnView
+            key={i}
+            turn={t}
+            spec={spec}
+            displayText={showTranslated ? translations.get(t.ts) : undefined}
+          />
         ))}
         {busy && hasSession && (
           <div className="text-xs text-zinc-500 italic">thinking…</div>
@@ -377,6 +433,19 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       {error && status === "error" && (
         <div className="border-t border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-800">
           {error}
+        </div>
+      )}
+
+      {translateError && (
+        <div className="flex items-start justify-between gap-2 border-t border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+          <span>Translate failed: {translateError}</span>
+          <button
+            onClick={() => setTranslateError(null)}
+            className="rounded px-1 text-amber-800 hover:bg-amber-100"
+            title="Dismiss"
+          >
+            ✕
+          </button>
         </div>
       )}
 
@@ -391,7 +460,19 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             rows={3}
             className="w-full resize-none rounded border border-zinc-300 p-2 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
           />
-          <div className="mt-1 flex justify-end">
+          <div className="mt-1 flex items-center justify-between">
+            {translateVisible ? (
+              <button
+                onClick={onTranslate}
+                disabled={translating}
+                title="Translate agent and user messages to English using Gemini. Press again to refresh after new turns; press once more to show originals."
+                className="rounded px-2 py-1 text-[11px] text-zinc-600 hover:bg-zinc-100 disabled:opacity-40"
+              >
+                🌐 {translateLabel}
+              </button>
+            ) : (
+              <span />
+            )}
             <button
               onClick={onSend}
               disabled={busy || !ready || !input.trim()}
@@ -404,14 +485,26 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       )}
 
       {ended && (
-        <div className="border-t border-zinc-200 px-3 py-2 flex items-center justify-between text-[11px] text-zinc-600">
+        <div className="border-t border-zinc-200 px-3 py-2 flex items-center justify-between gap-2 text-[11px] text-zinc-600">
           <span>Session ended.</span>
-          <button
-            onClick={onReset}
-            className="rounded bg-zinc-900 px-2 py-1 text-white hover:bg-zinc-700"
-          >
-            Reset
-          </button>
+          <div className="flex items-center gap-2">
+            {translateVisible && (
+              <button
+                onClick={onTranslate}
+                disabled={translating}
+                title="Translate agent and user messages to English using Gemini."
+                className="rounded px-2 py-1 text-zinc-600 hover:bg-zinc-100 disabled:opacity-40"
+              >
+                🌐 {translateLabel}
+              </button>
+            )}
+            <button
+              onClick={onReset}
+              className="rounded bg-zinc-900 px-2 py-1 text-white hover:bg-zinc-700"
+            >
+              Reset
+            </button>
+          </div>
         </div>
       )}
     </aside>
@@ -502,15 +595,24 @@ function EmptyState({
   );
 }
 
-function TurnView({ turn, spec }: { turn: TranscriptTurn; spec: Spec | null }) {
+function TurnView({
+  turn,
+  spec,
+  displayText,
+}: {
+  turn: TranscriptTurn;
+  spec: Spec | null;
+  displayText?: string;
+}) {
   const { role, text, events } = turn;
+  const shown = displayText ?? text;
 
   if (role === "user") {
     return (
       <div className="space-y-1">
         <div className="flex justify-end">
           <div className="max-w-[85%] rounded-lg bg-zinc-900 px-3 py-2 text-sm text-white whitespace-pre-wrap">
-            {text}
+            {shown}
           </div>
         </div>
         {events.map((ev, i) => (
@@ -537,7 +639,7 @@ function TurnView({ turn, spec }: { turn: TranscriptTurn; spec: Spec | null }) {
       ))}
       {text && (
         <div className="rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-900 whitespace-pre-wrap">
-          {text}
+          {shown}
         </div>
       )}
       {postEvents.map((ev, i) => (
