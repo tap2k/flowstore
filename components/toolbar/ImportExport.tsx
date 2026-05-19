@@ -182,6 +182,12 @@ export function ImportExportToolbar({
     return null;
   }
 
+  function clearSpec() {
+    if (!window.confirm("Clear the current spec? This cannot be undone.")) return;
+    setSpec(null);
+    setImportOpen(false);
+  }
+
   return (
     <>
       <div className="flex items-center gap-2">
@@ -287,6 +293,7 @@ export function ImportExportToolbar({
         <ImportModal
           onClose={() => setImportOpen(false)}
           onCommit={commitImport}
+          onClear={spec ? clearSpec : null}
         />
       )}
       {translationsPreview && spec && (
@@ -310,9 +317,10 @@ export function ImportExportToolbar({
 interface ImportModalProps {
   onClose: () => void;
   onCommit: (parsed: unknown) => string[] | null;
+  onClear: (() => void) | null;
 }
 
-function ImportModal({ onClose, onCommit }: ImportModalProps) {
+function ImportModal({ onClose, onCommit, onClear }: ImportModalProps) {
   const [text, setText] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -404,13 +412,23 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
               className="w-full h-56 rounded border border-zinc-300 p-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400"
               placeholder="Paste JSON or YAML…"
             />
-            <button
-              onClick={onPasteCommit}
-              disabled={!text.trim()}
-              className="mt-2 rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
-            >
-              Parse &amp; import
-            </button>
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={onPasteCommit}
+                disabled={!text.trim()}
+                className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+              >
+                Parse &amp; import
+              </button>
+              {onClear && (
+                <button
+                  onClick={onClear}
+                  className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+                >
+                  Clear current spec
+                </button>
+              )}
+            </div>
           </div>
         </div>
         {errors.length > 0 && (
