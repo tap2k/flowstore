@@ -9,7 +9,6 @@ The output is a system prompt addressed to that user-LLM (second person: "You ar
 - Give the user a specific reason they're contacting the agent right now — a concrete situation that probes one of the agent's intended outcomes.
 - Suggest a brief interaction style (terse/verbose, patient/impatient, precise/vague) — pick one that produces useful test friction.
 - Instruct the model to reply ONLY as the user would say it out loud, no narration, no stage directions, no meta-commentary.
-- End with: "Emit [DONE] on its own line when you have what you came for or decide to give up."
 
 Do NOT reference guardrails, evaluation criteria, or test framing — the persona should behave like a real customer, not a tester. Keep the prompt under 200 words.
 
@@ -52,8 +51,10 @@ export async function generatePersonaPrompt(args: {
     tools: [],
   });
 
-  return res.text
+  const personaPrompt = res.text
     .trim()
     .replace(/^```(?:\w+)?\s*/i, "")
     .replace(/\s*```$/i, "");
+
+  return `${personaPrompt}\n\nEmit [DONE] on its own line once the conversation has naturally concluded — after any final confirmations, thanks, or closing exchanges from the agent — or if you decide to give up.`;
 }
