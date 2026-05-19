@@ -1,0 +1,32 @@
+name: Deploy to Digital Ocean
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Rsync out/ to Digital Ocean
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: -avzr --delete
+          path: out/
+          remote_path: /var/www/flows.ux4.me/
+          remote_host: ${{ secrets.DO_HOST }}
+          remote_user: ${{ secrets.DO_USERNAME }}
+          remote_key: ${{ secrets.DO_SSH_KEY }}
+          remote_port: ${{ secrets.DO_PORT || 22 }}
