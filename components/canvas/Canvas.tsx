@@ -23,12 +23,12 @@ import { validateGraph, groupIssuesByFlow, groupIssuesByEdge } from "@/lib/valid
 
 const ACTIVE_EDGE_STROKE = "#0ea5e9";
 
-function withActive(edge: Edge): Edge {
+function withTraversed(edge: Edge, animated: boolean): Edge {
   return {
     ...edge,
     style: { ...edge.style, stroke: ACTIVE_EDGE_STROKE, strokeWidth: 2.5 },
     markerEnd: { type: MarkerType.ArrowClosed, color: ACTIVE_EDGE_STROKE, width: 18, height: 18 },
-    animated: true,
+    animated,
   };
 }
 
@@ -161,7 +161,8 @@ function CanvasInner({ spec }: { spec: Spec }) {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
-  const lastExitEdgeId = useSimulateStore((s) => s.lastExitEdgeId);
+  const traversedEdgeIds = useSimulateStore((s) => s.traversedEdgeIds);
+  const simulateStatus = useSimulateStore((s) => s.status);
   const skipSaveRef = useRef(false);
 
   const relayout = useCallback(() => {
@@ -175,10 +176,15 @@ function CanvasInner({ spec }: { spec: Spec }) {
   }, [initial, setNodes]);
 
   useEffect(() => {
+    const traversed = new Set(traversedEdgeIds);
+    const lastId = traversedEdgeIds[traversedEdgeIds.length - 1] ?? null;
+    const isLive = simulateStatus === "ready" || simulateStatus === "thinking";
     setEdges(
-      initial.edges.map((e) => (e.id === lastExitEdgeId ? withActive(e) : e)),
+      initial.edges.map((e) =>
+        traversed.has(e.id) ? withTraversed(e, e.id === lastId && isLive) : e,
+      ),
     );
-  }, [initial, lastExitEdgeId, setEdges]);
+  }, [initial, traversedEdgeIds, simulateStatus, setEdges]);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {

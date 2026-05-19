@@ -44,6 +44,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const start = useSimulateStore((s) => s.start);
   const send = useSimulateStore((s) => s.send);
   const reset = useSimulateStore((s) => s.reset);
+  const fork = useSimulateStore((s) => s.fork);
   const hydrateContextVars = useSimulateStore((s) => s.hydrateContextVars);
   const hydrateMockReturns = useSimulateStore((s) => s.hydrateMockReturns);
   const hydratePersona = useSimulateStore((s) => s.hydratePersona);
@@ -59,6 +60,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const [translating, setTranslating] = useState(false);
   const [translateError, setTranslateError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const spec = useSpecStore((s) => s.spec);
   const availableLanguages = spec?.agent.meta.languages ?? [];
@@ -190,6 +192,19 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     const text = input;
     setInput("");
     await send(text);
+  }
+
+  function onForkTurn(turnIndex: number, originalText: string) {
+    fork(turnIndex);
+    setInput(originalText);
+    // Defer the focus so the textarea has re-enabled (we just flipped status
+    // out of "ended" → "ready"), and to land after React's commit.
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(originalText.length, originalText.length);
+    });
   }
 
   const uncachedTurns = transcript.filter(
@@ -422,8 +437,10 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           <TurnView
             key={i}
             turn={t}
+            index={i}
             spec={spec}
             displayText={showTranslated ? translations.get(t.ts) : undefined}
+            onFork={mode === "prompt" ? onForkTurn : undefined}
           />
         ))}
         {busy && hasSession && (
@@ -453,6 +470,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       {hasSession && !ended && (
         <div className="border-t border-zinc-200 p-2">
           <textarea
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKey}
@@ -598,20 +616,38 @@ function EmptyState({
 
 function TurnView({
   turn,
+  index,
   spec,
   displayText,
+  onFork,
 }: {
   turn: TranscriptTurn;
+  index: number;
   spec: Spec | null;
   displayText?: string;
+  onFork?: (turnIndex: number, originalText: string) => void;
 }) {
   const { role, text, events } = turn;
   const shown = displayText ?? text;
+  // [begin] is the synthetic opener for chatbot_initiates prompt sessions —
+  // not a real user turn, so it can't be forked.
+  const isOpener = text === "[begin]";
+  const canFork = !!onFork && role === "user" && !isOpener;
 
   if (role === "user") {
     return (
       <div className="space-y-1">
-        <div className="flex justify-end">
+        <div className="group flex justify-end items-start gap-1.5">
+          {canFork && (
+            <button
+              type="button"
+              onClick={() => onFork!(index, text)}
+              title="Fork: rewind to this turn and try a different message"
+              className="mt-1 rounded px-1.5 py-0.5 text-[10px] text-zinc-400 opacity-0 transition-opacity hover:bg-zinc-100 hover:text-zinc-900 group-hover:opacity-100 focus:opacity-100"
+            >
+              ↺ fork
+            </button>
+          )}
           <div className="max-w-[85%] rounded-lg bg-zinc-900 px-3 py-2 text-sm text-white whitespace-pre-wrap">
             {shown}
           </div>
