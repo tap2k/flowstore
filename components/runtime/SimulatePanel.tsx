@@ -10,6 +10,7 @@ import {
 import { formatErrors, validateSpec } from "@/lib/validation/ajv";
 import { generateSystemPrompt } from "@/lib/codegen/promptGenerator";
 import type { RuntimeEvent } from "@/lib/runtime/eventTypes";
+import { formatEvent, formatValueTruncated } from "@/lib/runtime/formatEvent";
 import { translateBatchToEnglish } from "@/lib/runtime/translate";
 import { VariablesForm } from "./VariablesForm";
 import { CapabilityMocksForm } from "./CapabilityMocksForm";
@@ -687,7 +688,7 @@ function selectionForEvent(ev: RuntimeEvent, spec: Spec | null): Selection {
 
 function EventLine({ ev, spec }: { ev: RuntimeEvent; spec: Spec | null }) {
   const setSelection = useSpecStore((s) => s.setSelection);
-  const line = formatEvent(ev);
+  const line = formatEvent(ev, formatValueTruncated);
   if (!line) return null;
   const target = selectionForEvent(ev, spec);
 
@@ -720,41 +721,3 @@ function EventLine({ ev, spec }: { ev: RuntimeEvent; spec: Spec | null }) {
   );
 }
 
-function formatEvent(ev: RuntimeEvent): string | null {
-  switch (ev.type) {
-    case "session_started":
-      return `session_started(${ev.lang})`;
-    case "session_ended":
-      return `session_ended(${ev.reason})`;
-    case "flow_entered":
-      return `flow_entered(${ev.flow_id}${ev.via !== "transition" ? `, via=${ev.via}` : ""})`;
-    case "flow_exited":
-      return null; // redundant with exit_path_taken
-    case "exit_path_taken":
-      return `exit_path_taken(${ev.from_flow_id} → ${ev.to_flow_id ?? "∅"}, ${ev.method})`;
-    case "interrupt_triggered":
-      return `interrupt_triggered(${ev.from_flow_id} → ${ev.interrupt_flow_id})`;
-    case "turn_started":
-    case "turn_completed":
-      return null; // implied by transcript bubbles
-    case "variable_set":
-      return `variable_set(${ev.variable_name} = ${formatValue(ev.value)}, ${ev.method})`;
-    case "capability_invoked":
-      return `capability_invoked(${ev.capability_name})`;
-    case "capability_returned":
-      return ev.error
-        ? `capability_returned(${ev.capability_name}, error=${ev.error})`
-        : `capability_returned(${ev.capability_name})`;
-    case "error":
-      return `error(${ev.code}: ${ev.message})`;
-  }
-}
-
-function formatValue(v: unknown): string {
-  if (typeof v === "string") {
-    const s = v.length > 30 ? `${v.slice(0, 30)}…` : v;
-    return `"${s}"`;
-  }
-  if (v === null || typeof v === "number" || typeof v === "boolean") return String(v);
-  return "…";
-}

@@ -1,5 +1,5 @@
 import type { FaqEntry, GlossaryEntry, TableEntry } from "@/lib/schema/v0";
-import { buildLocalized, defaultLanguage, resolveLocalized } from "@/lib/schema/v0";
+import { buildLocalized, defaultLanguage } from "@/lib/schema/v0";
 import { genId } from "@/lib/ids";
 import { csvSerialize, parseCsv } from "./csv";
 
@@ -108,11 +108,6 @@ export function parseFaqCsv(csvText: string, languages: string[]): FaqEntry[] {
     });
   }
   return out;
-}
-
-// Unused helper kept exported so future call sites can reuse it.
-export function _faqAnswerInLang(entry: FaqEntry, lang: string, defaultLang: string): string {
-  return resolveLocalized(entry.answer, lang, defaultLang);
 }
 
 // ─── Tables (per-table) ────────────────────────────────────────────────

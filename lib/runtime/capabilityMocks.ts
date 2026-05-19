@@ -1,5 +1,4 @@
 import type { Capability, Spec, VariableDecl } from "@/lib/schema/v0";
-import { coerceValue } from "@/lib/runtime/contextVars";
 
 export interface MockableOutput {
   name: string;
@@ -41,12 +40,6 @@ export function collectMockableCapabilities(spec: Spec | null): MockableCapabili
     });
   }
   return out;
-}
-
-export function coerceMockValue(decl: VariableDecl | undefined, raw: string | boolean): unknown {
-  if (decl) return coerceValue(decl, raw);
-  if (typeof raw === "boolean") return raw;
-  return raw.trim() === "" ? undefined : raw.trim();
 }
 
 // Drop empty values and fully-empty capability blocks, AND drop entries that

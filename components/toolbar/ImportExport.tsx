@@ -121,24 +121,28 @@ export function ImportExportToolbar({
   const [error, setError] = useState<string | null>(null);
 
   // --- Export dropdown -----------------------------------------------------
-  const exportMenu = useDropdown();
+  const { open: exportOpen, setOpen: setExportOpen, ref: exportAnchorRef } = useDropdown();
 
   function exportSpecJson() {
     if (!spec) return;
     const name = sanitizeFilename(spec.agent.id || "spec");
     downloadBlob(`${name}.json`, JSON.stringify(spec, null, 2), "application/json");
-    exportMenu.setOpen(false);
+    setExportOpen(false);
   }
 
   function exportSystemPrompt() {
     if (!spec) return;
     const name = sanitizeFilename(spec.agent.id || "spec");
     downloadBlob(`${name}-system-prompt.txt`, generateSystemPrompt(spec), "text/plain");
-    exportMenu.setOpen(false);
+    setExportOpen(false);
   }
 
   // --- Translations dropdown -----------------------------------------------
-  const translationsMenu = useDropdown();
+  const {
+    open: translationsOpen,
+    setOpen: setTranslationsOpen,
+    ref: translationsAnchorRef,
+  } = useDropdown();
   const [translationsPreview, setTranslationsPreview] = useState<ImportPreview | null>(null);
 
   const translationsImport = useCsvFileInput((text) => {
@@ -154,12 +158,12 @@ export function ImportExportToolbar({
       `${sanitizeFilename(spec.agent.id || "spec")}-translations.csv`,
       csv,
     );
-    translationsMenu.setOpen(false);
+    setTranslationsOpen(false);
   }
 
   function startTranslationsImport() {
     translationsImport.trigger();
-    translationsMenu.setOpen(false);
+    setTranslationsOpen(false);
   }
 
   function applyTranslationsPreview() {
@@ -207,15 +211,15 @@ export function ImportExportToolbar({
         </button>
 
         {/* Translations dropdown — CSV round-trip for translatable strings. */}
-        <div ref={translationsMenu.ref} className="relative">
+        <div ref={translationsAnchorRef} className="relative">
           <button
-            onClick={() => translationsMenu.setOpen((o) => !o)}
+            onClick={() => setTranslationsOpen((o) => !o)}
             disabled={!spec}
             className={buttonClass}
           >
             Translations
           </button>
-          {translationsMenu.open && (
+          {translationsOpen && (
             <div className="absolute left-0 top-full mt-1 z-20 min-w-[12rem] rounded-md border border-zinc-200 bg-white shadow-md py-1">
               <button onClick={startTranslationsImport} className={menuItemClass}>
                 Import CSV…
@@ -239,9 +243,9 @@ export function ImportExportToolbar({
         </button>
 
         {/* Export dropdown — spec JSON + compiled system prompt. */}
-        <div ref={exportMenu.ref} className="relative">
+        <div ref={exportAnchorRef} className="relative">
           <button
-            onClick={() => exportMenu.setOpen((o) => !o)}
+            onClick={() => setExportOpen((o) => !o)}
             disabled={!spec}
             className={iconButtonClass}
             title="Export"
@@ -249,7 +253,7 @@ export function ImportExportToolbar({
           >
             <ExportIcon />
           </button>
-          {exportMenu.open && (
+          {exportOpen && (
             <div className="absolute right-0 top-full mt-1 z-20 min-w-[14rem] rounded-md border border-zinc-200 bg-white shadow-md py-1">
               <button onClick={exportSpecJson} className={menuItemClass}>
                 Export JSON
@@ -512,5 +516,3 @@ function TranslationsImportPreviewModal({
   );
 }
 
-// Re-export for consumers that want to drop the toolbar into both header and empty state.
-export { ImportExportToolbar as default };

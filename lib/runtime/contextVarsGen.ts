@@ -1,5 +1,6 @@
 import { chat, DEFAULT_PROVIDER } from "@/lib/llm/dispatch";
-import type { Spec } from "@/lib/schema/v0";
+import { coerceScalarValue, type Spec } from "@/lib/schema/v0";
+import { agentContextPreamble, parseJsonObject } from "./llmJson";
 import type { DeclaredVariable } from "./contextVars";
 
 const SYSTEM_PROMPT = `You generate realistic test values for variables declared in an agent specification.
@@ -24,16 +25,13 @@ export async function generateContextVars(
   }));
 
   const userPrompt = [
-    `Agent purpose: ${spec.agent.meta.purpose || "(not specified)"}`,
-    spec.agent.meta.client ? `Client: ${spec.agent.meta.client}` : null,
+    ...agentContextPreamble(spec),
     "",
     `Declared variables:`,
     JSON.stringify(variableSpec, null, 2),
     "",
     `Return the JSON object now.`,
-  ]
-    .filter((s) => s !== null)
-    .join("\n");
+  ].join("\n");
 
   const res = await chat(DEFAULT_PROVIDER, apiKey, model, {
     systemPrompt: SYSTEM_PROMPT,
@@ -45,57 +43,14 @@ export async function generateContextVars(
   if (!parsed) {
     throw new Error("Generator did not return parseable JSON.");
   }
-  return coerceToDeclared(parsed, declared);
-}
 
-function parseJsonObject(text: string): Record<string, unknown> | null {
-  const trimmed = text.trim();
-  const stripped = trimmed
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "");
-  try {
-    const v = JSON.parse(stripped) as unknown;
-    if (v && typeof v === "object" && !Array.isArray(v)) {
-      return v as Record<string, unknown>;
-    }
-  } catch {
-    // Try extracting the first {...} block.
-    const match = stripped.match(/\{[\s\S]*\}/);
-    if (match) {
-      try {
-        const v = JSON.parse(match[0]) as unknown;
-        if (v && typeof v === "object" && !Array.isArray(v)) {
-          return v as Record<string, unknown>;
-        }
-      } catch {
-        // fall through
-      }
-    }
-  }
-  return null;
-}
-
-function coerceToDeclared(
-  raw: Record<string, unknown>,
-  declared: DeclaredVariable[],
-): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
   const byName = new Map(declared.map((d) => [d.name, d.decl]));
-  for (const [k, v] of Object.entries(raw)) {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(parsed)) {
     const decl = byName.get(k);
     if (!decl) continue;
-    if (v === null || v === undefined || v === "") continue;
-    const type = decl.type ?? "string";
-    if (type === "number") {
-      const n = typeof v === "number" ? v : Number(v);
-      if (Number.isFinite(n)) out[k] = n;
-    } else if (type === "boolean") {
-      if (typeof v === "boolean") out[k] = v;
-      else if (v === "true") out[k] = true;
-      else if (v === "false") out[k] = false;
-    } else {
-      out[k] = typeof v === "string" ? v : String(v);
-    }
+    const coerced = coerceScalarValue(decl, v);
+    if (coerced !== undefined) out[k] = coerced;
   }
   return out;
 }

@@ -2,12 +2,10 @@ import { create } from "zustand";
 import type { Agent, ExitPath, Flow, Spec } from "@/lib/schema/v0";
 import { GOTO_END } from "@/lib/schema/v0";
 import { genId } from "@/lib/ids";
+import { isPlainObject } from "./scopedStorage";
 
 // One-level deep merge: nested plain objects merge, arrays/primitives replace.
 // Keeps partial patches like `{ meta: { name } }` from wiping sibling fields like `meta.modes`.
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
 function mergePatch<T extends object>(base: T, patch: Partial<T>): T {
   const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
   for (const [k, v] of Object.entries(patch)) {

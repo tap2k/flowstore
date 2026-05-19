@@ -25,8 +25,8 @@ export function generateSystemPrompt(
   const lang = opts?.language ?? defaultLang;
   const ctx = { lang, defaultLang };
   const sections = [
-    renderRole(spec, ctx),
-    renderGuardrails(spec, ctx),
+    renderRole(spec),
+    renderGuardrails(spec),
     renderFlows(spec, ctx),
     renderInterrupts(spec, ctx),
     renderKnowledge(spec, ctx),
@@ -57,7 +57,7 @@ export function substituteVars(text: string, vars: Record<string, unknown>): str
   return out;
 }
 
-function renderRole(spec: Spec, ctx: RenderCtx): string {
+function renderRole(spec: Spec): string {
   const { meta } = spec.agent;
   const lines: string[] = [];
   lines.push(`You are ${meta.name}.`);
@@ -70,7 +70,7 @@ function renderRole(spec: Spec, ctx: RenderCtx): string {
   return lines.join(" ");
 }
 
-function renderGuardrails(spec: Spec, ctx: RenderCtx): string {
+function renderGuardrails(spec: Spec): string {
   const items = spec.agent.guardrails ?? [];
   if (!items.length) return "";
   const lines = ["GUARDRAILS (apply at all times):"];
@@ -97,7 +97,7 @@ function renderFlows(spec: Spec, ctx: RenderCtx): string {
     }
     const scripts = renderFlowScripts(flow, ctx);
     if (scripts) lines.push(scripts);
-    const guardrails = renderFlowGuardrails(flow, ctx);
+    const guardrails = renderFlowGuardrails(flow);
     if (guardrails) lines.push(guardrails);
     const knowledge = renderFlowKnowledge(flow, ctx);
     if (knowledge) lines.push(knowledge);
@@ -181,7 +181,7 @@ function renderFlowScripts(flow: Flow, ctx: RenderCtx): string {
   return lines.length > 1 ? lines.join("\n") : "";
 }
 
-function renderFlowGuardrails(flow: Flow, ctx: RenderCtx): string {
+function renderFlowGuardrails(flow: Flow): string {
   const items = flow.guardrails ?? [];
   if (!items.length) return "";
   const lines = ["   Flow guardrails:"];

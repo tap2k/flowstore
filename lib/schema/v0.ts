@@ -339,6 +339,33 @@ export function buildLocalized(
   return byLang;
 }
 
+// === Scalar coercion ========================================================
+
+// Coerce an arbitrary value (typically LLM-produced JSON) to the type declared
+// by a variable. Returns undefined when the value can't be coerced — callers
+// should drop the key rather than store a garbage value.
+//
+// Distinct from the form-input coercion in `runtime/contextVars` which keeps
+// the raw string on number-parse failure so the user can keep typing.
+export function coerceScalarValue(
+  decl: VariableDecl | undefined,
+  value: unknown,
+): unknown {
+  if (value === null || value === undefined || value === "") return undefined;
+  const type = decl?.type ?? "string";
+  if (type === "number") {
+    const n = typeof value === "number" ? value : Number(value);
+    return Number.isFinite(n) ? n : undefined;
+  }
+  if (type === "boolean") {
+    if (typeof value === "boolean") return value;
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return undefined;
+  }
+  return typeof value === "string" ? value : String(value);
+}
+
 // Languages this LocalizedString carries content for. A plain string counts
 // as carrying content for the default language.
 export function languagesPresent(

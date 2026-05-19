@@ -9,6 +9,7 @@ import { formatErrors, validateSpec } from "@/lib/validation/ajv";
 import type { ChatMessage } from "@/lib/llm/types";
 import type { Spec } from "@/lib/schema/v0";
 import type { RuntimeEvent } from "@/lib/runtime/eventTypes";
+import { formatEvent } from "@/lib/runtime/formatEvent";
 
 interface ChatPanelProps {
   open: boolean;
@@ -338,7 +339,7 @@ function renderSimBlock(sim: SimContext): string {
     if (turn.role === "user") {
       lines.push(`user: ${turn.text}`);
       for (const ev of turn.events) {
-        const fmt = formatSimEvent(ev);
+        const fmt = formatEvent(ev);
         if (fmt) lines.push(`  → ${fmt}`);
       }
     } else {
@@ -348,7 +349,7 @@ function renderSimBlock(sim: SimContext): string {
       for (const ev of turn.events) {
         const isRouting = ev.type === "exit_path_taken" || ev.type === "flow_exited";
         if (isRouting) crossed = true;
-        const fmt = formatSimEvent(ev);
+        const fmt = formatEvent(ev);
         if (!fmt) continue;
         (crossed ? post : pre).push(`  → ${fmt}`);
       }
@@ -359,36 +360,6 @@ function renderSimBlock(sim: SimContext): string {
   }
   const body = lines.length > 0 ? `\n\n${lines.join("\n")}` : "";
   return `<simulation>\n${header}${body}\n</simulation>`;
-}
-
-function formatSimEvent(ev: RuntimeEvent): string | null {
-  switch (ev.type) {
-    case "session_started":
-      return `session_started(${ev.lang})`;
-    case "session_ended":
-      return `session_ended(${ev.reason})`;
-    case "flow_entered":
-      return `flow_entered(${ev.flow_id}${ev.via !== "transition" ? `, via=${ev.via}` : ""})`;
-    case "flow_exited":
-      return null;
-    case "exit_path_taken":
-      return `exit_path_taken(${ev.from_flow_id} → ${ev.to_flow_id ?? "∅"}, ${ev.method})`;
-    case "interrupt_triggered":
-      return `interrupt_triggered(${ev.from_flow_id} → ${ev.interrupt_flow_id})`;
-    case "turn_started":
-    case "turn_completed":
-      return null;
-    case "variable_set":
-      return `variable_set(${ev.variable_name} = ${JSON.stringify(ev.value)}, ${ev.method})`;
-    case "capability_invoked":
-      return `capability_invoked(${ev.capability_name})`;
-    case "capability_returned":
-      return ev.error
-        ? `capability_returned(${ev.capability_name}, error=${ev.error})`
-        : `capability_returned(${ev.capability_name})`;
-    case "error":
-      return `error(${ev.code}: ${ev.message})`;
-  }
 }
 
 function summarizeArgs(args: unknown): string {

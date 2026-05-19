@@ -3,13 +3,14 @@ import type { Spec, VariableDecl } from "@/lib/schema/v0";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useSpecStore } from "@/lib/store/spec";
 import {
-  coerceValue,
   collectDeclaredVariables,
   unfilledPlaceholders,
   type DeclaredVariable,
 } from "@/lib/runtime/contextVars";
 import { generateContextVars } from "@/lib/runtime/contextVarsGen";
 import { useSettingsStore } from "@/lib/store/settings";
+import { CollapsibleGenerateSection } from "./CollapsibleGenerateSection";
+import { TypedValueInput } from "./TypedValueInput";
 
 interface VariablesFormProps {
   spec: Spec;
@@ -68,89 +69,60 @@ export function VariablesForm({ spec, disabled }: VariablesFormProps) {
   }
 
   return (
-    <div className="border-b border-zinc-200 bg-zinc-50/50">
-      <div className="flex items-center justify-between px-4 py-2 text-[11px] text-zinc-600">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="flex flex-1 items-center text-left hover:text-zinc-900"
-        >
-          <span className="mr-1 text-zinc-400">{open ? "▾" : "▸"}</span>
-          Variables
-          <span className="ml-1 text-zinc-400">
-            ({filledCount} filled / {declared.length} declared)
-          </span>
-        </button>
-        <div className="flex items-center gap-1">
-          {filledCount > 0 && (
-            <button
-              type="button"
-              onClick={clearContextVars}
-              disabled={disabled || generating}
-              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-              title="Clear all filled variable values."
-            >
-              Clear
-            </button>
-          )}
-          {apiKey && (
-            <button
-              type="button"
-              onClick={onGenerate}
-              disabled={disabled || generating}
-              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-              title="Use the LLM to fill realistic, coherent values for all declared variables."
-            >
-              {generating ? "Generating…" : "✨ Generate"}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {open && (
-        <div className="space-y-3 px-4 pb-6">
-          {genError && (
-            <div className="rounded border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-700">
-              {genError}
-            </div>
-          )}
-
-          <div className="space-y-1">
-            {declared.map((d) => (
-              <VariableRow
-                key={d.name}
-                decl={d}
-                value={contextVars[d.name]}
-                disabled={disabled || generating}
-                onChange={(v) => setContextVar(d.name, v)}
-              />
-            ))}
+    <CollapsibleGenerateSection
+      title="Variables"
+      countLabel={`(${filledCount} filled / ${declared.length} declared)`}
+      open={open}
+      onToggle={() => setOpen((o) => !o)}
+      onClear={filledCount > 0 ? clearContextVars : undefined}
+      onGenerate={onGenerate}
+      apiKey={apiKey}
+      disabled={disabled}
+      generating={generating}
+      generateTitle="Use the LLM to fill realistic, coherent values for all declared variables."
+    >
+      <div className="space-y-3 px-4 pb-6">
+        {genError && (
+          <div className="rounded border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-700">
+            {genError}
           </div>
+        )}
 
-          {undeclaredPlaceholders.length > 0 && (
-            <div className="space-y-1 rounded border border-amber-200 bg-amber-50 px-2 py-1.5">
-              <p className="text-[11px] text-amber-800">
-                Prompt references {"{"}
-                {undeclaredPlaceholders.slice(0, 4).join("}, {")}
-                {"}"}
-                {undeclaredPlaceholders.length > 4
-                  ? `, +${undeclaredPlaceholders.length - 4} more`
-                  : ""}{" "}
-                but they aren&rsquo;t declared as variables — the agent will emit them as literals.
-              </p>
-              <button
-                type="button"
-                onClick={onDeclareUndeclared}
-                className="rounded border border-amber-300 bg-white px-2 py-0.5 text-[11px] text-amber-800 hover:bg-amber-100"
-                title="Add these placeholders to agent.variables (type: string) so they travel with the spec."
-              >
-                Declare as variables
-              </button>
-            </div>
-          )}
+        <div className="space-y-1">
+          {declared.map((d) => (
+            <VariableRow
+              key={d.name}
+              decl={d}
+              value={contextVars[d.name]}
+              disabled={disabled || generating}
+              onChange={(v) => setContextVar(d.name, v)}
+            />
+          ))}
         </div>
-      )}
-    </div>
+
+        {undeclaredPlaceholders.length > 0 && (
+          <div className="space-y-1 rounded border border-amber-200 bg-amber-50 px-2 py-1.5">
+            <p className="text-[11px] text-amber-800">
+              Prompt references {"{"}
+              {undeclaredPlaceholders.slice(0, 4).join("}, {")}
+              {"}"}
+              {undeclaredPlaceholders.length > 4
+                ? `, +${undeclaredPlaceholders.length - 4} more`
+                : ""}{" "}
+              but they aren&rsquo;t declared as variables — the agent will emit them as literals.
+            </p>
+            <button
+              type="button"
+              onClick={onDeclareUndeclared}
+              className="rounded border border-amber-300 bg-white px-2 py-0.5 text-[11px] text-amber-800 hover:bg-amber-100"
+              title="Add these placeholders to agent.variables (type: string) so they travel with the spec."
+            >
+              Declare as variables
+            </button>
+          </div>
+        )}
+      </div>
+    </CollapsibleGenerateSection>
   );
 }
 
@@ -163,13 +135,6 @@ interface RowProps {
 
 function VariableRow({ decl, value, disabled, onChange }: RowProps) {
   const { name, decl: v } = decl;
-  const type = v.type ?? "string";
-  const filled = value !== undefined && value !== null && value !== "";
-
-  const baseInput =
-    "w-full rounded border bg-white px-2 py-1 text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50";
-  const stateBorder = filled ? "border-zinc-300" : "border-dashed border-zinc-300";
-
   return (
     <div className="space-y-0.5">
       <label className="block text-[11px] font-mono text-zinc-700">
@@ -178,52 +143,7 @@ function VariableRow({ decl, value, disabled, onChange }: RowProps) {
           <span className="ml-1 text-zinc-400">· flow {decl.flowId}</span>
         )}
       </label>
-
-      {type === "enum" ? (
-        <select
-          value={typeof value === "string" ? value : ""}
-          disabled={disabled}
-          onChange={(e) => onChange(coerceValue(v, e.target.value))}
-          className={`${baseInput} ${stateBorder}`}
-        >
-          <option value="">(unset)</option>
-          {(v.values ?? []).map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
-      ) : type === "boolean" ? (
-        <select
-          value={value === true ? "true" : value === false ? "false" : ""}
-          disabled={disabled}
-          onChange={(e) => onChange(coerceValue(v, e.target.value))}
-          className={`${baseInput} ${stateBorder}`}
-        >
-          <option value="">(unset)</option>
-          <option value="true">true</option>
-          <option value="false">false</option>
-        </select>
-      ) : type === "number" ? (
-        <input
-          type="number"
-          value={typeof value === "number" ? value : value === undefined ? "" : String(value)}
-          disabled={disabled}
-          onChange={(e) => onChange(coerceValue(v, e.target.value))}
-          placeholder="—"
-          className={`${baseInput} ${stateBorder}`}
-        />
-      ) : (
-        <input
-          type="text"
-          value={typeof value === "string" ? value : value === undefined ? "" : String(value)}
-          disabled={disabled}
-          onChange={(e) => onChange(coerceValue(v, e.target.value))}
-          placeholder="—"
-          className={`${baseInput} ${stateBorder}`}
-        />
-      )}
-
+      <TypedValueInput decl={v} value={value} disabled={disabled} onChange={onChange} />
       {v.description && (
         <p className="text-[10px] text-zinc-500">{v.description}</p>
       )}

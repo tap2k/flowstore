@@ -1,8 +1,9 @@
 import { useSpecStore } from "@/lib/store/spec";
 import { genId } from "@/lib/ids";
-import type { FaqEntry, GlossaryEntry, Knowledge, TableEntry, TableField } from "@/lib/schema/v0";
-import { defaultLanguage, resolveLocalized, setLanguage } from "@/lib/schema/v0";
+import type { GlossaryEntry, Knowledge, TableEntry, TableField } from "@/lib/schema/v0";
+import { defaultLanguage } from "@/lib/schema/v0";
 import { ListEditor } from "@/components/inspector/ListEditor";
+import { FaqListEditor } from "@/components/inspector/FaqListEditor";
 import { Field, Section, inputClass } from "@/components/inspector/primitives";
 import { SheetShell } from "./SheetShell";
 import { downloadCsv, useCsvFileInput } from "./csvIO";
@@ -49,41 +50,10 @@ export function KnowledgeSheet({ onClose }: { onClose: () => void }) {
           />
         }
       >
-        <ListEditor<FaqEntry>
-          items={knowledge?.faq ?? []}
+        <FaqListEditor
+          entries={knowledge?.faq ?? []}
           onChange={(faq) => patchKnowledge({ faq: faq.length ? faq : undefined })}
-          newItem={() => ({ id: genId("faq"), question: "", answer: "" })}
-          addLabel="add FAQ entry"
-          renderItem={(entry, update, remove) => (
-            <div className="rounded border border-zinc-200 p-2 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <input
-                  className={inputClass}
-                  value={entry.question}
-                  onChange={(e) => update({ ...entry, question: e.target.value })}
-                  placeholder="Question"
-                />
-                <button
-                  onClick={remove}
-                  className="text-xs text-zinc-400 hover:text-red-600"
-                >
-                  ×
-                </button>
-              </div>
-              <textarea
-                className={`${inputClass} resize-y min-h-[50px]`}
-                value={resolveLocalized(entry.answer, defaultLang, defaultLang)}
-                onChange={(e) =>
-                  update({
-                    ...entry,
-                    answer:
-                      setLanguage(entry.answer, defaultLang, e.target.value, defaultLang) ?? "",
-                  })
-                }
-                placeholder="Answer"
-              />
-            </div>
-          )}
+          defaultLang={defaultLang}
         />
       </Section>
 

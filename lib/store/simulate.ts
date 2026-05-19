@@ -11,6 +11,7 @@ import { generatePersonaTurn } from "@/lib/runtime/personaClient";
 import { generateSystemPrompt } from "@/lib/codegen/promptGenerator";
 import { cleanMockReturns } from "@/lib/runtime/capabilityMocks";
 import { useSettingsStore } from "@/lib/store/settings";
+import { createScopedJsonStorage, isPlainObject } from "@/lib/store/scopedStorage";
 import type { ChatUsage } from "@/lib/llm/types";
 
 export type SimulateStatus =
@@ -81,7 +82,6 @@ interface SimulateState {
   start: (args: StartArgs) => Promise<void>;
   send: (userText: string) => Promise<void>;
   reset: () => Promise<void>;
-  close: () => Promise<void>;
   hydrateContextVars: (agentId: string) => void;
   setContextVar: (name: string, value: unknown) => void;
   setContextVars: (values: Record<string, unknown>) => void;
@@ -102,99 +102,30 @@ interface SimulateState {
   autoStep: () => Promise<void>;
 }
 
-const CV_PREFIX = "uxflows:simulate:vars:";
-const MOCKS_PREFIX = "uxflows:simulate:mocks:";
-const PERSONA_PREFIX = "uxflows:simulate:persona:";
+const varsStorage = createScopedJsonStorage<Record<string, unknown>>({
+  prefix: "uxflows:simulate:vars:",
+  defaultValue: () => ({}),
+  validate: (raw) => (isPlainObject(raw) ? raw : null),
+  isEmpty: (v) => Object.keys(v).length === 0,
+});
 
-// Only the persona prompt persists across page loads. Turn limit, countdown,
-// and autoRun are per-run intent — they shouldn't survive a reload.
-function loadPersonaPrompt(agentId: string): string {
-  if (typeof window === "undefined") return "";
-  try {
-    const raw = window.localStorage.getItem(PERSONA_PREFIX + agentId);
-    if (!raw) return "";
-    const parsed = JSON.parse(raw) as unknown;
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      const p = parsed as { prompt?: unknown };
-      return typeof p.prompt === "string" ? p.prompt : "";
-    }
-  } catch {
-    // ignore
-  }
-  return "";
-}
+const mocksStorage = createScopedJsonStorage<Record<string, Record<string, unknown>>>({
+  prefix: "uxflows:simulate:mocks:",
+  defaultValue: () => ({}),
+  validate: (raw) =>
+    isPlainObject(raw) ? (raw as Record<string, Record<string, unknown>>) : null,
+  isEmpty: (v) => Object.keys(v).length === 0,
+});
 
-function savePersonaPrompt(agentId: string, prompt: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    if (!prompt) {
-      window.localStorage.removeItem(PERSONA_PREFIX + agentId);
-    } else {
-      window.localStorage.setItem(PERSONA_PREFIX + agentId, JSON.stringify({ prompt }));
-    }
-  } catch {
-    // ignore
-  }
-}
-
-function loadVars(agentId: string): Record<string, unknown> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(CV_PREFIX + agentId);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
-    }
-  } catch {
-    // ignore
-  }
-  return {};
-}
-
-function saveVars(agentId: string, values: Record<string, unknown>): void {
-  if (typeof window === "undefined") return;
-  try {
-    if (Object.keys(values).length === 0) {
-      window.localStorage.removeItem(CV_PREFIX + agentId);
-    } else {
-      window.localStorage.setItem(CV_PREFIX + agentId, JSON.stringify(values));
-    }
-  } catch {
-    // ignore
-  }
-}
-
-function loadMocks(agentId: string): Record<string, Record<string, unknown>> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(MOCKS_PREFIX + agentId);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Record<string, Record<string, unknown>>;
-    }
-  } catch {
-    // ignore
-  }
-  return {};
-}
-
-function saveMocks(
-  agentId: string,
-  values: Record<string, Record<string, unknown>>,
-): void {
-  if (typeof window === "undefined") return;
-  try {
-    if (Object.keys(values).length === 0) {
-      window.localStorage.removeItem(MOCKS_PREFIX + agentId);
-    } else {
-      window.localStorage.setItem(MOCKS_PREFIX + agentId, JSON.stringify(values));
-    }
-  } catch {
-    // ignore
-  }
-}
+// Persona prompt persists per agent; turn limit, countdown, and autoRun are
+// per-run intent and reset on hydrate.
+const personaStorage = createScopedJsonStorage<{ prompt: string }>({
+  prefix: "uxflows:simulate:persona:",
+  defaultValue: () => ({ prompt: "" }),
+  validate: (raw) =>
+    isPlainObject(raw) && typeof raw.prompt === "string" ? { prompt: raw.prompt } : null,
+  isEmpty: (v) => !v.prompt,
+});
 
 function reduceEvents(
   state: Pick<SimulateState, "currentFlowId" | "lastExitEdgeId" | "variables" | "status">,
@@ -237,7 +168,6 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   autoRun: false,
   personaAgentId: null,
   autoStepping: false,
-  lastPersonaUsage: null,
   personaTurnLimit: 10,
   personaTurnsLeft: 0,
 
@@ -251,7 +181,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   hydrateContextVars: (agentId) => {
     const current = get();
     if (current.contextVarsAgentId === agentId) return;
-    set({ contextVars: loadVars(agentId), contextVarsAgentId: agentId });
+    set({ contextVars: varsStorage.load(agentId), contextVarsAgentId: agentId });
   },
 
   setContextVar: (name, value) => {
@@ -260,7 +190,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     if (value === undefined || value === null || value === "") delete next[name];
     else next[name] = value;
     set({ contextVars: next });
-    if (contextVarsAgentId) saveVars(contextVarsAgentId, next);
+    if (contextVarsAgentId) varsStorage.save(contextVarsAgentId, next);
   },
 
   setContextVars: (values) => {
@@ -271,19 +201,20 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       cleaned[k] = v;
     }
     set({ contextVars: cleaned });
-    if (contextVarsAgentId) saveVars(contextVarsAgentId, cleaned);
+    if (contextVarsAgentId) varsStorage.save(contextVarsAgentId, cleaned);
   },
 
   clearContextVars: () => {
-    const { contextVarsAgentId } = get();
+    const { contextVars, contextVarsAgentId } = get();
+    if (Object.keys(contextVars).length === 0) return;
     set({ contextVars: {} });
-    if (contextVarsAgentId) saveVars(contextVarsAgentId, {});
+    if (contextVarsAgentId) varsStorage.save(contextVarsAgentId, {});
   },
 
   hydrateMockReturns: (agentId) => {
     const current = get();
     if (current.mockReturnsAgentId === agentId) return;
-    set({ mockReturns: loadMocks(agentId), mockReturnsAgentId: agentId });
+    set({ mockReturns: mocksStorage.load(agentId), mockReturnsAgentId: agentId });
   },
 
   setMockOutput: (capabilityName, outputName, value) => {
@@ -302,7 +233,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       next[capabilityName] = nextOutputs;
     }
     set({ mockReturns: next });
-    if (mockReturnsAgentId) saveMocks(mockReturnsAgentId, next);
+    if (mockReturnsAgentId) mocksStorage.save(mockReturnsAgentId, next);
   },
 
   setMockReturnsForCapability: (capabilityName, values) => {
@@ -319,7 +250,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       next[capabilityName] = cleaned;
     }
     set({ mockReturns: next });
-    if (mockReturnsAgentId) saveMocks(mockReturnsAgentId, next);
+    if (mockReturnsAgentId) mocksStorage.save(mockReturnsAgentId, next);
   },
 
   setMockReturns: (values) => {
@@ -335,7 +266,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       if (Object.keys(inner).length > 0) cleaned[capName] = inner;
     }
     set({ mockReturns: cleaned });
-    if (mockReturnsAgentId) saveMocks(mockReturnsAgentId, cleaned);
+    if (mockReturnsAgentId) mocksStorage.save(mockReturnsAgentId, cleaned);
   },
 
   clearMockReturnsForCapability: (capabilityName) => {
@@ -344,20 +275,21 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     const next = { ...mockReturns };
     delete next[capabilityName];
     set({ mockReturns: next });
-    if (mockReturnsAgentId) saveMocks(mockReturnsAgentId, next);
+    if (mockReturnsAgentId) mocksStorage.save(mockReturnsAgentId, next);
   },
 
   clearMockReturns: () => {
-    const { mockReturnsAgentId } = get();
+    const { mockReturns, mockReturnsAgentId } = get();
+    if (Object.keys(mockReturns).length === 0) return;
     set({ mockReturns: {} });
-    if (mockReturnsAgentId) saveMocks(mockReturnsAgentId, {});
+    if (mockReturnsAgentId) mocksStorage.save(mockReturnsAgentId, {});
   },
 
   hydratePersona: (agentId) => {
     const current = get();
     if (current.personaAgentId === agentId) return;
     set({
-      personaPrompt: loadPersonaPrompt(agentId),
+      personaPrompt: personaStorage.load(agentId).prompt,
       personaTurnLimit: 10,
       personaTurnsLeft: 0,
       autoRun: false,
@@ -368,7 +300,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   setPersonaPrompt: (prompt) => {
     const { personaAgentId } = get();
     set({ personaPrompt: prompt });
-    if (personaAgentId) savePersonaPrompt(personaAgentId, prompt);
+    if (personaAgentId) personaStorage.save(personaAgentId, { prompt });
   },
 
   setAutoRun: (on) => {
@@ -701,26 +633,6 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     });
   },
 
-  close: async () => {
-    const { mode, sessionId, baseUrl } = get();
-    if (mode === "runner" && sessionId && baseUrl) {
-      await apiEndSession(baseUrl, sessionId);
-    }
-    set({
-      sessionId: null,
-      baseUrl: null,
-      status: "idle",
-      transcript: [],
-      events: [],
-      currentFlowId: null,
-      lastExitEdgeId: null,
-      variables: {},
-      error: null,
-      systemPrompt: null,
-      specSnapshot: null,
-      lastUsage: null,
-    });
-  },
 }));
 
 // Detect the [DONE] sentinel the persona generator instructs the model to emit

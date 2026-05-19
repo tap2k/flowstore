@@ -1,5 +1,6 @@
 import { chat, DEFAULT_PROVIDER } from "@/lib/llm/dispatch";
 import type { Spec } from "@/lib/schema/v0";
+import { agentContextPreamble } from "./llmJson";
 
 const SYSTEM_PROMPT = `You write system prompts for an LLM that will roleplay as the USER side of a conversation with an agent under test.
 
@@ -32,8 +33,7 @@ export async function generatePersonaPrompt(args: {
     .join("\n");
 
   const userPrompt = [
-    `Agent purpose: ${spec.agent.meta.purpose || "(not specified)"}`,
-    spec.agent.meta.client ? `Client: ${spec.agent.meta.client}` : null,
+    ...agentContextPreamble(spec),
     "",
     goals ? `Outcomes the agent is judged against (pick one for the persona to want):\n${goals}` : null,
     "",

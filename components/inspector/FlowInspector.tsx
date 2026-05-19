@@ -1,14 +1,10 @@
 import { useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
-import type { Flow, FlowType, Guardrail, FaqEntry, Condition } from "@/lib/schema/v0";
-import {
-  defaultLanguage,
-  resolveLocalized,
-  setLanguage,
-} from "@/lib/schema/v0";
-import { isCalcRouteJunction } from "@/lib/schema/flowJunction";
+import type { Flow, FlowType, Guardrail, Condition } from "@/lib/schema/v0";
+import { defaultLanguage } from "@/lib/schema/v0";
 import { genId } from "@/lib/ids";
 import { ListEditor } from "./ListEditor";
+import { FaqListEditor } from "./FaqListEditor";
 import { VariablesEditor } from "./VariablesEditor";
 import { ConditionEditor } from "./ConditionEditor";
 import { ScriptsSheet } from "@/components/sheets/ScriptsSheet";
@@ -42,7 +38,6 @@ export function FlowInspector() {
   }
 
   const isInterrupt = flow.type === "interrupt";
-  const isJunction = isCalcRouteJunction(flow);
 
   return (
     <aside className="w-[380px] shrink-0 border-l border-zinc-200 bg-white overflow-y-auto">
@@ -136,45 +131,13 @@ export function FlowInspector() {
         </Field>
 
         <Field label="FAQ">
-          <ListEditor<FaqEntry>
-            items={flow.knowledge?.faq ?? []}
+          <FaqListEditor
+            entries={flow.knowledge?.faq ?? []}
             onChange={(faq) =>
               patch({ knowledge: faq.length ? { faq } : undefined })
             }
-            newItem={() => ({ id: genId("faq"), question: "", answer: "" })}
-            addLabel="add FAQ entry"
+            defaultLang={defaultLang}
             emptyLabel="(none)"
-            renderItem={(entry, update, remove) => (
-              <div className="rounded border border-zinc-200 p-2 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <input
-                    className={inputClass}
-                    value={entry.question}
-                    onChange={(e) => update({ ...entry, question: e.target.value })}
-                    placeholder="Question"
-                  />
-                  <button
-                    onClick={remove}
-                    className="text-xs text-zinc-400 hover:text-red-600"
-                    title="remove"
-                  >
-                    ×
-                  </button>
-                </div>
-                <textarea
-                  className={`${inputClass} resize-y min-h-[50px]`}
-                  value={resolveLocalized(entry.answer, defaultLang, defaultLang)}
-                  onChange={(e) =>
-                    update({
-                      ...entry,
-                      answer:
-                        setLanguage(entry.answer, defaultLang, e.target.value, defaultLang) ?? "",
-                    })
-                  }
-                  placeholder="Answer"
-                />
-              </div>
-            )}
           />
         </Field>
 

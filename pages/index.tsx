@@ -36,6 +36,9 @@ export default function Home() {
       if (result.valid) setSpec(result.spec);
       else clearSavedSpec();
     }
+    // localStorage is client-only; flipping the gate after mount is the whole
+    // point — gates the first render to avoid flashing the empty state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHydrating(false);
   }, [setSpec]);
 

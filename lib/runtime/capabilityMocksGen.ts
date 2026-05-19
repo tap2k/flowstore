@@ -1,5 +1,6 @@
 import { chat, DEFAULT_PROVIDER } from "@/lib/llm/dispatch";
-import type { Spec } from "@/lib/schema/v0";
+import { coerceScalarValue, type Spec } from "@/lib/schema/v0";
+import { agentContextPreamble, parseJsonObject } from "./llmJson";
 import type { MockableCapability } from "./capabilityMocks";
 
 const SYSTEM_PROMPT = `You generate realistic, coherent capability return values for an agent specification. These are mock return values used to simulate the agent's tools without calling real endpoints.
@@ -39,8 +40,7 @@ export async function generateCapabilityMocks(
   );
 
   const userPrompt = [
-    `Agent purpose: ${spec.agent.meta.purpose || "(not specified)"}`,
-    spec.agent.meta.client ? `Client: ${spec.agent.meta.client}` : null,
+    ...agentContextPreamble(spec),
     "",
     Object.keys(filledVars).length > 0
       ? `Variables already set in scope (use these as anchors — outputs should be coherent with them; an output whose name matches one of these should default to the same value unless context suggests divergence):\n${JSON.stringify(filledVars, null, 2)}\n`
@@ -63,64 +63,23 @@ export async function generateCapabilityMocks(
   if (!parsed) {
     throw new Error("Generator did not return parseable JSON.");
   }
-  return coerceToDeclared(parsed, capabilities);
-}
 
-function parseJsonObject(text: string): Record<string, unknown> | null {
-  const trimmed = text.trim();
-  const stripped = trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
-  try {
-    const v = JSON.parse(stripped) as unknown;
-    if (v && typeof v === "object" && !Array.isArray(v)) {
-      return v as Record<string, unknown>;
-    }
-  } catch {
-    const match = stripped.match(/\{[\s\S]*\}/);
-    if (match) {
-      try {
-        const v = JSON.parse(match[0]) as unknown;
-        if (v && typeof v === "object" && !Array.isArray(v)) {
-          return v as Record<string, unknown>;
-        }
-      } catch {
-        // fall through
-      }
-    }
-  }
-  return null;
-}
-
-function coerceToDeclared(
-  raw: Record<string, unknown>,
-  capabilities: MockableCapability[],
-): Record<string, Record<string, unknown>> {
-  const out: Record<string, Record<string, unknown>> = {};
   const byCapName = new Map(
     capabilities.map((c) => [
       c.capabilityName,
       new Map(c.outputs.map((o) => [o.name, o.decl])),
     ]),
   );
-  for (const [capName, outputs] of Object.entries(raw)) {
+  const out: Record<string, Record<string, unknown>> = {};
+  for (const [capName, outputs] of Object.entries(parsed)) {
     const declMap = byCapName.get(capName);
     if (!declMap) continue;
     if (!outputs || typeof outputs !== "object" || Array.isArray(outputs)) continue;
     const cleaned: Record<string, unknown> = {};
     for (const [outName, v] of Object.entries(outputs as Record<string, unknown>)) {
       if (!declMap.has(outName)) continue;
-      if (v === null || v === undefined || v === "") continue;
-      const decl = declMap.get(outName);
-      const type = decl?.type ?? "string";
-      if (type === "number") {
-        const n = typeof v === "number" ? v : Number(v);
-        if (Number.isFinite(n)) cleaned[outName] = n;
-      } else if (type === "boolean") {
-        if (typeof v === "boolean") cleaned[outName] = v;
-        else if (v === "true") cleaned[outName] = true;
-        else if (v === "false") cleaned[outName] = false;
-      } else {
-        cleaned[outName] = typeof v === "string" ? v : String(v);
-      }
+      const coerced = coerceScalarValue(declMap.get(outName), v);
+      if (coerced !== undefined) cleaned[outName] = coerced;
     }
     if (Object.keys(cleaned).length > 0) out[capName] = cleaned;
   }

@@ -5,6 +5,7 @@ import type { Flow, ScriptLine } from "@/lib/schema/v0";
 import { defaultLanguage, getLanguage, setLanguage } from "@/lib/schema/v0";
 import { flowToScriptsCsv, mergeScriptsCsv } from "@/lib/codegen/scriptsCsv";
 import { downloadCsv, sanitizeFilename, useCsvFileInput } from "./csvIO";
+import { SheetShell } from "./SheetShell";
 
 interface ScriptsSheetProps {
   flow: Flow;
@@ -17,6 +18,13 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
   const updateAgent = useSpecStore((s) => s.updateAgent);
   const agent = useSpecStore((s) => s.spec?.agent);
   const [newLang, setNewLang] = useState("");
+
+  const csvImport = useCsvFileInput((text) => {
+    const nextScripts = mergeScriptsCsv(text, flow.scripts, languages);
+    updateFlow(flow.id, {
+      scripts: nextScripts.length > 0 ? nextScripts : undefined,
+    });
+  });
 
   if (!agent) return null;
 
@@ -136,64 +144,54 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
     downloadCsv(`${safeName}-scripts.csv`, flowToScriptsCsv(flow, languages));
   }
 
-  const csvImport = useCsvFileInput((text) => {
-    const nextScripts = mergeScriptsCsv(text, flow.scripts, languages);
-    updateFlow(flow.id, {
-      scripts: nextScripts.length > 0 ? nextScripts : undefined,
-    });
-  });
-
   const colCount = languages.length + 1;
 
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[85vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
+  const headerActions = (
+    <>
+      <input
+        type="text"
+        value={newLang}
+        onChange={(e) => setNewLang(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && addLanguage()}
+        placeholder="+ add language (e.g. ES)"
+        className="rounded border border-zinc-200 px-2 py-1 text-xs w-48 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400"
+      />
+      <button
+        onClick={csvImport.trigger}
+        className="text-xs text-zinc-500 hover:text-zinc-900"
+        title="Import scripts from a CSV file"
       >
-        <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-3">
-          <div className="min-w-0">
-            <h2 className="text-base font-semibold text-zinc-900">Scripts</h2>
-            <p className="text-xs text-zinc-500 mt-0.5 truncate">{flow.name}</p>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            <input
-              type="text"
-              value={newLang}
-              onChange={(e) => setNewLang(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addLanguage()}
-              placeholder="+ add language (e.g. ES)"
-              className="rounded border border-zinc-200 px-2 py-1 text-xs w-48 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400"
-            />
-            <button
-              onClick={csvImport.trigger}
-              className="text-xs text-zinc-500 hover:text-zinc-900"
-              title="Import scripts from a CSV file"
-            >
-              import
-            </button>
-            <button
-              onClick={exportCsv}
-              className="text-xs text-zinc-500 hover:text-zinc-900"
-              title="Download this flow's scripts as a CSV"
-            >
-              export
-            </button>
-            {csvImport.input}
-            <button
-              onClick={onClose}
-              className="text-xs text-zinc-500 hover:text-zinc-900"
-            >
-              close
-            </button>
-          </div>
-        </div>
+        import
+      </button>
+      <button
+        onClick={exportCsv}
+        className="text-xs text-zinc-500 hover:text-zinc-900"
+        title="Download this flow's scripts as a CSV"
+      >
+        export
+      </button>
+      {csvImport.input}
+    </>
+  );
 
-        <div className="flex-1 overflow-auto">
-          <table className="w-full text-xs border-collapse table-fixed">
+  return (
+    <SheetShell
+      title="Scripts"
+      subtitle={flow.name}
+      onClose={onClose}
+      maxWidth="max-w-6xl"
+      headerActions={headerActions}
+      bodyClass="flex-1 overflow-auto"
+      footer={
+        <button
+          onClick={addRow}
+          className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+        >
+          + Add row
+        </button>
+      }
+    >
+      <table className="w-full text-xs border-collapse table-fixed">
             <colgroup>
               <col style={{ width: 28 }} />
               {languages.map((lang) => (
@@ -294,19 +292,8 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
                   })}
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="border-t border-zinc-200 px-5 py-3">
-          <button
-            onClick={addRow}
-            className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
-          >
-            + Add row
-          </button>
-        </div>
-      </div>
-    </div>
+        </tbody>
+      </table>
+    </SheetShell>
   );
 }
