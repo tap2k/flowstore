@@ -2,7 +2,7 @@
 
 Mappings from the UX4 behavioral spec to each supported runtime. These document how the schema maps to each runtime so that Phase 2 export work can be scoped accurately. **None of them ship in the MVP.** Today's only export target is the system-prompt codegen at [`lib/codegen/promptGenerator.ts`](./lib/codegen/promptGenerator.ts) (a monolithic prompt for non-runner runtimes); the tables below inform future targets in the same `lib/codegen/` pipeline.
 
-For the schema these reference, see [SCHEMA.md](./SCHEMA.md).
+For the schema these reference, see [SCHEMA.md](./SCHEMA.md). The strategic question of whether translation preserves enough behavioral fidelity to justify investment is being validated via a bounded LangGraph spike — see [TRANSLATION-POC.md](./TRANSLATION-POC.md).
 
 ## Export Targets
 
