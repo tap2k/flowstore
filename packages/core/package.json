@@ -25,9 +25,11 @@
     "preview-prompt": "tsx scripts/preview-prompt.ts",
     "round-trip": "tsx scripts/round-trip.ts",
     "round-trip-disk": "tsx scripts/round-trip-disk.ts",
+    "github-smoke": "tsx scripts/github-smoke.ts",
     "ux4-init-project": "tsx scripts/ux4-init-project.ts"
   },
   "dependencies": {
+    "@octokit/rest": "^21.1.1",
     "@sinclair/typebox": "^0.34.49",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1"
