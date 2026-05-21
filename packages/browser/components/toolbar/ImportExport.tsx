@@ -8,6 +8,7 @@ import { GuardrailsSheet } from "@/components/sheets/GuardrailsSheet";
 import { BusinessGoalsSheet } from "@/components/sheets/BusinessGoalsSheet";
 import { CapabilitiesSheet } from "@/components/sheets/CapabilitiesSheet";
 import { KnowledgeSheet } from "@/components/sheets/KnowledgeSheet";
+import { GitHubOpenModal } from "@/components/toolbar/GitHubOpenModal";
 import { generateSystemPrompt } from "@ux4/core/codegen/promptGenerator";
 import {
   applyTranslations,
@@ -117,6 +118,7 @@ export function ImportExportToolbar({
   const setSpec = useSpecStore((s) => s.setSpec);
   const addFlow = useSpecStore((s) => s.addFlow);
   const [importOpen, setImportOpen] = useState(false);
+  const [githubOpen, setGithubOpen] = useState(false);
   const [openSheet, setOpenSheet] = useState<null | "agent" | "variables" | "guardrails" | "business_goals" | "capabilities" | "knowledge">(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -240,6 +242,13 @@ export function ImportExportToolbar({
 
         <span className="w-px h-5 bg-zinc-200" />
         <button
+          onClick={() => { setError(null); setGithubOpen(true); }}
+          className={buttonClass}
+          title="Open a UX4 project from GitHub"
+        >
+          GitHub
+        </button>
+        <button
           onClick={() => { setError(null); setImportOpen(true); }}
           className={iconButtonClass}
           title="Import"
@@ -294,6 +303,15 @@ export function ImportExportToolbar({
           onClose={() => setImportOpen(false)}
           onCommit={commitImport}
           onClear={spec ? clearSpec : null}
+        />
+      )}
+      {githubOpen && (
+        <GitHubOpenModal
+          onClose={() => setGithubOpen(false)}
+          onOpenSettings={() => {
+            setGithubOpen(false);
+            onOpenSettings();
+          }}
         />
       )}
       {translationsPreview && spec && (
