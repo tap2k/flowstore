@@ -14,6 +14,7 @@ import {
   startSpecPersistence,
 } from "@/lib/store/persistence";
 import { loadSavedSettings, useSettingsStore } from "@/lib/store/settings";
+import { useGithubProjectStore } from "@/lib/store/githubProject";
 import { validateSpec } from "@ux4/core/validation/ajv";
 
 export default function Home() {
@@ -21,6 +22,7 @@ export default function Home() {
   const setSpec = useSpecStore((s) => s.setSpec);
   const apiKey = useSettingsStore((s) => s.googleApiKey);
   const runnerUrl = useSettingsStore((s) => s.runnerUrl);
+  const githubLocation = useGithubProjectStore((s) => s.location);
   const [hydrating, setHydrating] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -78,10 +80,15 @@ export default function Home() {
       </Head>
       <div className="flex flex-col h-screen bg-zinc-50">
         <header className="flex items-center gap-4 border-b border-zinc-200 bg-white px-6 py-3">
-          <div className="flex items-baseline gap-3">
-            <h1 className="text-lg font-semibold text-zinc-900">
+          <div className="flex flex-col">
+            <h1 className="text-lg font-semibold text-zinc-900 leading-tight">
               {spec ? spec.agent.meta.name : "uxflows"}
             </h1>
+            {githubLocation && (
+              <div className="text-[11px] text-zinc-500 font-mono leading-tight">
+                {githubLocation.owner}/{githubLocation.repo}@{githubLocation.ref}
+              </div>
+            )}
           </div>
           <div className="ml-auto flex items-center gap-4">
             <ImportExportToolbar onOpenSettings={() => setSettingsOpen(true)} />

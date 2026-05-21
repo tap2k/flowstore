@@ -9,6 +9,7 @@ import { BusinessGoalsSheet } from "@/components/sheets/BusinessGoalsSheet";
 import { CapabilitiesSheet } from "@/components/sheets/CapabilitiesSheet";
 import { KnowledgeSheet } from "@/components/sheets/KnowledgeSheet";
 import { GitHubOpenModal } from "@/components/toolbar/GitHubOpenModal";
+import { GitHubProjectControls } from "@/components/toolbar/GitHubProjectControls";
 import { generateSystemPrompt } from "@ux4/core/codegen/promptGenerator";
 import {
   applyTranslations,
@@ -32,6 +33,17 @@ const iconButtonClass =
 
 const menuItemClass =
   "block w-full text-left px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100";
+
+function GithubOpenIcon() {
+  // Cloud with downward arrow — open from remote.
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+      <polyline points="8 17 12 21 16 17" />
+      <line x1="12" y1="12" x2="12" y2="21" />
+    </svg>
+  );
+}
 
 function ImportIcon() {
   return (
@@ -243,11 +255,14 @@ export function ImportExportToolbar({
         <span className="w-px h-5 bg-zinc-200" />
         <button
           onClick={() => { setError(null); setGithubOpen(true); }}
-          className={buttonClass}
+          className={iconButtonClass}
           title="Open a UX4 project from GitHub"
+          aria-label="Open from GitHub"
         >
-          GitHub
+          <GithubOpenIcon />
         </button>
+        <GitHubProjectControls />
+        <span className="w-px h-5 bg-zinc-200" />
         <button
           onClick={() => { setError(null); setImportOpen(true); }}
           className={iconButtonClass}
