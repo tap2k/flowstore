@@ -4,6 +4,7 @@ import { DEFAULT_MODEL, GOOGLE_MODELS } from "@ux4/core/llm/dispatch";
 const KEY = "uxflows:settings:google_api_key";
 const MODEL_KEY = "uxflows:settings:google_model";
 const RUNNER_KEY = "uxflows:settings:runner_url";
+const GITHUB_PAT_KEY = "uxflows:settings:github_pat";
 
 export const DEFAULT_RUNNER_URL = "http://localhost:8000";
 
@@ -11,15 +12,18 @@ interface SettingsState {
   googleApiKey: string;
   googleModel: string;
   runnerUrl: string;
+  githubPat: string;
   setGoogleApiKey: (key: string) => void;
   setGoogleModel: (model: string) => void;
   setRunnerUrl: (url: string) => void;
+  setGithubPat: (pat: string) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
   googleApiKey: "",
   googleModel: DEFAULT_MODEL,
   runnerUrl: DEFAULT_RUNNER_URL,
+  githubPat: "",
   setGoogleApiKey: (key) => {
     if (typeof window !== "undefined") {
       try {
@@ -53,6 +57,18 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     }
     set({ runnerUrl: trimmed });
   },
+  setGithubPat: (pat) => {
+    const trimmed = pat.trim();
+    if (typeof window !== "undefined") {
+      try {
+        if (trimmed) window.localStorage.setItem(GITHUB_PAT_KEY, trimmed);
+        else window.localStorage.removeItem(GITHUB_PAT_KEY);
+      } catch {
+        // ignore
+      }
+    }
+    set({ githubPat: trimmed });
+  },
 }));
 
 export function loadSavedSettings(): void {
@@ -61,6 +77,7 @@ export function loadSavedSettings(): void {
     const key = window.localStorage.getItem(KEY) ?? "";
     const model = window.localStorage.getItem(MODEL_KEY) ?? "";
     const runner = window.localStorage.getItem(RUNNER_KEY);
+    const pat = window.localStorage.getItem(GITHUB_PAT_KEY) ?? "";
     const patch: Partial<SettingsState> = {};
     if (key) patch.googleApiKey = key;
     if (model && GOOGLE_MODELS.some((m) => m.id === model)) {
@@ -69,6 +86,7 @@ export function loadSavedSettings(): void {
     if (runner !== null) {
       patch.runnerUrl = runner;
     }
+    if (pat) patch.githubPat = pat;
     if (Object.keys(patch).length > 0) useSettingsStore.setState(patch);
   } catch {
     // ignore

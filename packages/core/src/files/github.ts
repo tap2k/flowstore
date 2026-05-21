@@ -1,5 +1,21 @@
-import type { Octokit } from "@octokit/rest";
+import { Octokit } from "@octokit/rest";
 import type { FileMap } from "./types";
+
+export { Octokit };
+
+export function makeGitHubClient(token: string): Octokit {
+  return new Octokit({ auth: token });
+}
+
+export interface ConnectionInfo {
+  login: string;
+  name?: string;
+}
+
+export async function testConnection(client: Octokit): Promise<ConnectionInfo> {
+  const res = await client.rest.users.getAuthenticated();
+  return { login: res.data.login, name: res.data.name ?? undefined };
+}
 
 export interface GitHubLocation {
   client: Octokit;
