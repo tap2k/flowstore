@@ -2,7 +2,7 @@
 
 Canonical behavioral spec schema for conversational agents authored in UX4. The UX4 editor (this repo, `uxflows`) is the primary producer and home of the testing surface. The Python runner ([`../uxflows-runner/`](../uxflows-runner/)) is the canonical native execution consumer.
 
-**This document is the authoritative schema.** All producers and consumers defer to it. Schema-as-code (TypeBox) mirrors this document at [`lib/schema/v0.ts`](./lib/schema/v0.ts).
+**This document is the authoritative schema.** All producers and consumers defer to it. Schema-as-code (TypeBox) mirrors this document at [`packages/core/src/schema/v0.ts`](./packages/core/src/schema/v0.ts).
 
 ---
 
@@ -416,6 +416,6 @@ Forward-looking concepts surfaced by mapping the schema against runtimes or by d
 This is the contract across all UX4 producers and consumers. Non-additive changes must be discussed before merging. When this document changes:
 
 1. Bump `$schema` version if structural.
-2. Update [`lib/schema/v0.ts`](./lib/schema/v0.ts) (TypeBox definitions) to match.
+2. Update [`packages/core/src/schema/v0.ts`](./packages/core/src/schema/v0.ts) (TypeBox definitions) to match.
 3. Update the example spec at [`public/coffee.json`](./public/coffee.json).
 4. Notify affected consumers ([`../uxflows-runner/`](../uxflows-runner/) and any other repos consuming the compiled artifact) when the change affects them.

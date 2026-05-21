@@ -266,7 +266,7 @@ Project-scope is file-shaped because it's potentially large + shared across many
 
 Both are conceptually evaluators (a test case references either uniformly). They live in separate directories because their lifecycles differ:
 
-- **`tests/evaluators/<name>.py`** — Python functions; deterministic checks; engineer-authored.
+- **`tests/evaluators/<name>.py`** — Python functions; deterministic checks; engineer-authored. Built-ins vendored by `ux4-init-project`: `forbidden_phrases`, `required_phrases`, `max_turn_length`, `regex_match`, `state_check` (asserts expected key/value pairs in final variable state), `tool_calls_check` (asserts which capabilities were dispatched, with optional ordering + parameter constraints). See [MVP-PLAN.md § Evaluator library](./MVP-PLAN.md#phase-2--testing-surface-mid-august-through-october-2026) for config shapes.
 - **`tests/rubrics/<id>.rubric.json`** — declarative llm-judge criteria + prompt template; designer-authored.
 
 Test cases reference either by name:
@@ -410,7 +410,7 @@ Compilation merges across scope levels (project ∪ agent ∪ flow per entity), 
 **Two compile output formats in MVP:**
 
 - **`ux4-compile --format spec --agent <id>`** — produces the resolved JSON document above for the specified agent (runtime-canonical shape). Consumed by the simulate panel, the Python runner, and any future runtime target.
-- **`ux4-compile --format prompt --agent <id>`** — produces `{ system_prompt: <string>, tool_schemas: [...] }` via the codegen in [lib/codegen/promptGenerator.ts](./lib/codegen/promptGenerator.ts). Consumed by testing scripts (drives an LLM directly) and as the lowest-friction export for "paste into Claude / OpenAI / any LLM" workflows. Honors `agent.system_prompt_template` if set.
+- **`ux4-compile --format prompt --agent <id>`** — produces `{ system_prompt: <string>, tool_schemas: [...] }` via the codegen in [packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts). Consumed by testing scripts (drives an LLM directly) and as the lowest-friction export for "paste into Claude / OpenAI / any LLM" workflows. Honors `agent.system_prompt_template` if set.
 
 Both targets read the same source files. Single-agent projects can omit `--agent`. Pipecat compilation is **deferred post-MVP**, gated on [TRANSLATION-POC.md](./TRANSLATION-POC.md).
 
@@ -433,6 +433,14 @@ When the file model changes structurally, the project manifest's `$schema` URI b
 Existing specs (the `coffee.json` example, any user file authored against the old single-document shape) are migrated by `ux4-init-project --from <spec.json>`: splits the document into the decomposed layout, writes `models/defaults.json`, scaffolds `README.md`.
 
 Single-file specs are also readable transparently by the loader during MVP (the project manifest's absence is the signal). Writing always produces the decomposed layout.
+
+---
+
+## Non-loaded files (supplementary content)
+
+UX4 ignores anything outside the canonical layout. Projects often include supplementary content alongside the spec — design docs (`docs/`), figma exports / screenshots / diagrams (`assets/`), compliance documentation (`references/`), recorded sessions used as test inputs (`samples/`), CI configs (`.github/workflows/`), Git LFS configs, etc. These ride along with the project in the same repo; UX4 doesn't load or validate them. The README at project root is the natural place to inventory what's there and how it relates to the spec.
+
+The strategic value: one repo holds the whole project lifecycle — spec, tests, supplementary docs, CI — so AI coding tools assisting authoring have all the context they need, and audit trails cover everything.
 
 ---
 

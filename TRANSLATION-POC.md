@@ -72,7 +72,7 @@ uxflows-runner/
       capabilities.json   # Shared mock returns for runner + translated
 ```
 
-Why this location: the harness needs runner internals to play scenarios through `TextSession`, so the code lives next to the runner. If the translator productizes after the PoC, it moves to `../uxflows/lib/codegen/langgraph/` to join the editor's codegen pipeline.
+Why this location: the harness needs runner internals to play scenarios through `TextSession`, so the code lives next to the runner. If the translator productizes after the PoC, it moves to `../uxflows/packages/core/src/codegen/langgraph/` to join the editor's codegen pipeline.
 
 ### Generated artifact shape
 

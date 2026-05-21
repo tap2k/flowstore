@@ -47,7 +47,7 @@ The canvas is the canonical editing surface. Text views are entry and export onl
 - **Declarative text import** — paste structured input (JSON or YAML matching the schema). Mechanical parse, no LLM. Used both by humans hand-authoring and as the entry point for upstream parsers' output. [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) produces v0 JSON the user pastes here.
 - **Imperative text import** — paste free-form source: an analyst's script, a process doc, a system prompt, supporting docs. An LLM converts it directly to v0 JSON in one shot, schema-constrained.
 - **Export as JSON** — the exported file is the same shape the declarative import accepts; round-trip preserves the spec.
-- **Export as system prompt** — deterministic codegen ([lib/codegen/promptGenerator.ts](./lib/codegen/promptGenerator.ts)) that flattens the spec into a single monolithic system prompt. For copy-paste into non-runner runtimes (OpenAI, Claude, Voiceflow, etc.); the runner consumes the JSON directly.
+- **Export as system prompt** — deterministic codegen ([packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts)) that flattens the spec into a single monolithic system prompt. For copy-paste into non-runner runtimes (OpenAI, Claude, Voiceflow, etc.); the runner consumes the JSON directly.
 - **Simulate panel** — text chat against [`../uxflows-runner/`](../uxflows-runner/), BYOK Gemini, against the spec currently being edited. Canvas highlights the active flow and last-traversed edge live during the run.
 - **Eval-on-canvas (post-MVP).** Findings from the testing surface (test cases, mocks, rubrics, run results — all in UX4 per [FILE-MODEL.md](./FILE-MODEL.md)) overlay onto the same node and edge IDs the spec defines — guardrail-fail rates pinned to guardrail nodes, scenario coverage on flow nodes. The canvas is the eval view; there is no separate findings tab.
 
@@ -65,36 +65,45 @@ Don't add infrastructure before the need. The design doc's MVP discipline is the
 
 - **Routing lives on functions, not edges.** Edges in the canvas are derived from function metadata (`next_node_id` / `decision`), never persisted as standalone entities. Maps cleanly onto our `routing.exit_paths`.
 - **Decisions as visualization-helper nodes.** Inline decision nodes render on the canvas but persist as metadata on the parent function, not as separate graph nodes. Keeps the schema clean while giving users the visual they expect.
-- **Ajv + TypeBox validation pipeline** (`lib/validation/`) — two layers: schema validation, then custom graph rules (unique IDs, valid references).
-- **Codegen structure** (`lib/codegen/promptGenerator.ts` today; future targets like Pipecat/LiveKit follow the same pattern) — pure functions that walk the schema and emit a string. No LLM.
-- **Schema-driven inspector form pattern** (`components/inspector/forms/`) — one form component per schema shape.
+- **Ajv + TypeBox validation pipeline** (`packages/core/src/validation/`) — two layers: schema validation, then custom graph rules (unique IDs, valid references).
+- **Codegen structure** (`packages/core/src/codegen/promptGenerator.ts` today; future targets like Pipecat/LiveKit follow the same pattern) — pure functions that walk the schema and emit a string. No LLM.
+- **Schema-driven inspector form pattern** (`packages/browser/components/inspector/`) — one form component per schema shape.
 - **Local-first persistence** — autosave to `localStorage`, debounced. No server calls. Good model for our MVP.
 
-## Planned Repository Layout
+## Repository Layout
 
-Directional, not prescriptive. Most of this is not built yet.
+npm workspaces monorepo. `@ux4/core` is pure TS (files, schema, codegen, providers); `@ux4/browser` is the Next.js editor. `@ux4/core` is consumed in-source via `transpilePackages: ["@ux4/core"]` — no build step during dev.
 
 ```
-/pages/             Next.js Pages Router entrypoints
-  /index.tsx        editor shell
-  /api/             API routes (minimal; export/import helpers if needed)
-/components/
-  /canvas/          React Flow nodes, edges, controls
-  /inspector/       schema-driven editor forms
-  /sheets/          tabular editors attached to canvas nodes (scripts, glossary, KB, function stubs)
-/lib/
-  /schema/          TypeBox schema definitions mirroring SCHEMA.md
-  /store/           zustand stores
-  /validation/      Ajv validators + graph rules
-  /codegen/         export targets (system prompt today; later Pipecat, LiveKit, etc.)
-                    /__fixtures__/ paired spec.json + expected.txt for snapshot iteration
-  /examples/        sample specs for development and "Load Example"
-/scripts/           dev-only CLIs (preview-prompt.ts renders a spec to stdout)
-/styles/            globals.css, Tailwind
-/public/
+/package.json                       workspace root; scripts delegate via -w
+/tsconfig.base.json                 shared compiler options
+/packages/core/                     @ux4/core (pure TS; no DOM/React/zustand)
+  /package.json                     exports map: deep paths + per-subdir barrels
+  /scripts/preview-prompt.ts        dev CLI; renders a spec to stdout
+  /src/
+    index.ts                        re-exports schema/v0 + schema/flowJunction
+    ids.ts                          stable-id generation
+    /schema/                        TypeBox schema (mirrors SCHEMA.md)
+    /codegen/                       export targets (system prompt today; later Pipecat, LiveKit, etc.)
+    /validation/                    Ajv validators + graph rules
+    /llm/                           provider dispatch + types (providers/google.ts today)
+    /runtime/                       conversation-simulation primitives (mocks, persona, transcript, …)
+/packages/browser/                  @ux4/browser (the Next.js app)
+  /package.json
+  /next.config.ts                   transpilePackages: ["@ux4/core"], output: "export"
+  /pages/                           Pages Router entrypoints
+  /components/
+    /canvas/                        React Flow nodes, edges, controls
+    /inspector/                     schema-driven editor forms
+    /sheets/                        tabular editors attached to canvas nodes
+  /lib/
+    /store/                         zustand stores (browser-only state)
+    /chat/                          chat-panel store-mutating tools (browser-only)
+  /styles/                          globals.css, Tailwind
+  /public/                          example specs (coffee.json, fnol.json) + static assets
 ```
 
-To iterate on a codegen target: edit the generator, re-run `npx tsx scripts/preview-prompt.ts <fixture-or-other-spec>.json`, diff against the saved fixture output.
+To iterate on a codegen target: edit the generator under `packages/core/src/codegen/`, re-run `npm run preview-prompt -- <absolute-path-to-spec>.json`, diff against expected.
 
 ## Design Principles
 

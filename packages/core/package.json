@@ -1,0 +1,39 @@
+{
+  "name": "@ux4/core",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ids": "./src/ids.ts",
+    "./schema": "./src/schema/index.ts",
+    "./schema/*": "./src/schema/*.ts",
+    "./codegen": "./src/codegen/index.ts",
+    "./codegen/*": "./src/codegen/*.ts",
+    "./validation": "./src/validation/index.ts",
+    "./validation/*": "./src/validation/*.ts",
+    "./files": "./src/files/index.ts",
+    "./files/*": "./src/files/*.ts",
+    "./llm": "./src/llm/index.ts",
+    "./llm/*": "./src/llm/*.ts",
+    "./llm/providers/*": "./src/llm/providers/*.ts",
+    "./runtime": "./src/runtime/index.ts",
+    "./runtime/*": "./src/runtime/*.ts"
+  },
+  "scripts": {
+    "preview-prompt": "tsx scripts/preview-prompt.ts",
+    "round-trip": "tsx scripts/round-trip.ts",
+    "round-trip-disk": "tsx scripts/round-trip-disk.ts",
+    "ux4-init-project": "tsx scripts/ux4-init-project.ts"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.49",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4"
+  }
+}

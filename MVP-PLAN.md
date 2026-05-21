@@ -130,7 +130,8 @@ The Python `uxflows-runner` is outside MVP's testing path — Awaaz runs it for 
 
 **D. Python scripts (vendored per-agent repo):**
 
-- `run.py [--against prompt|endpoint] [--agent <id>] [--personas <glob>] [--evaluators <glob>] [--save-as-gold] <case-or-glob>` — runs one test case or many via glob. Default `--against prompt`: compiles system prompt, drives LLM through user turns, dispatches mocks, runs evaluators. `--against endpoint`: hits an existing agent endpoint (URL + auth via env vars `AGENT_ENDPOINT_URL`, `AGENT_ENDPOINT_TOKEN`), no mocks. Writes results to `tests/runs/<timestamp>-<label>/<test-case-id>.result.json`.
+- `run.py [--against prompt|endpoint] [--agent <id>] [--personas <glob>] [--evaluators <glob>] [--trials N] [--save-as-gold] <case-or-glob>` — runs one test case or many via glob. Default `--against prompt`: compiles system prompt, drives LLM through user turns, dispatches mocks, runs evaluators. `--against endpoint`: hits an existing agent endpoint (URL + auth via env vars `AGENT_ENDPOINT_URL`, `AGENT_ENDPOINT_TOKEN`), no mocks. Writes results to `tests/runs/<timestamp>-<label>/<test-case-id>.result.json`.
+- `--trials N` — run each test case N times (LLM outputs vary). Aggregates pass@k (probability of at least one success) and pass^k (probability of all N succeeding). Default N=1. Critical for any evaluator using LLM-judged rubrics where single-trial results are misleading. Output: result file gets a `trials: [...]` array; aggregate metrics (`pass_at_k`, `pass_caret_k`) per evaluator. Suite summary aggregates across test cases.
 - `validate.py <path>` — validates artifacts (file or directory) against schemas via Node wrapper around `@ux4/core/schema`.
 - Each script <150 lines with a documented header. Nikunj adapts with Claude Code.
 - File-path-based addressing throughout (no id-based CLI args). Personas / evaluators / test cases all referenced as paths or globs.
@@ -156,6 +157,8 @@ The Python `uxflows-runner` is outside MVP's testing path — Awaaz runs it for 
   - `required_phrases`
   - `max_turn_length`
   - `regex_match`
+  - `state_check` — asserts expected key/value pairs in the test's final variable state. Config: `{ expected: { customer_verified: true, payment_status: "processed", outstanding_amount: { "<=": 100 } } }`. Supports literal equality, basic comparison operators (`<=`, `>=`, `<`, `>`, `!=`), and optional regex via `{ pattern: "..." }`. Pulls from the result file's `final_variables`.
+  - `tool_calls_check` — asserts that specific capabilities were dispatched during the test. Config: `{ required: [{ capability: "verify_identity" }, { capability: "process_refund", params: { amount: { "<=": 100 } } }, { capability: "send_confirmation" }], ordered: true | false }`. Parameter constraints use the same operators as `state_check`. Pulls from the result file's `capability_calls` array.
   Users add custom evaluators alongside following the `evaluate(transcript, config, llm_client=None) -> EvaluatorResult` signature.
 - `tests/rubrics/*.rubric.json` — llm-judge rubrics (declarative criteria + scoring scale + prompt template). Template supports `{transcript}`, `{criteria}`, `{gold_standard}` placeholders.
 - Test cases reference either kind uniformly via `evaluators: ["forbidden_phrases", "empathy_for_short_delay"]`. Loader resolves by name in both directories.
@@ -329,7 +332,7 @@ The original uxflows MVP, shipped 2026-05-08. Historical record; absorbed into t
 10. Interactive LLM chat (BYOK Google) — 2026-05-02
 11. Simulate panel (text chat against the runner) — 2026-05-04
 
-**Also shipped beyond the original plan:** variables editor, tables CRUD, `entry_flow_id` picker, delete buttons in inspectors, schema-doc sync, AGENT-SPEC-PROMPT.txt rewritten for one-shot JSON output, Simulate variables form with LLM-powered value generation, system-prompt codegen ([lib/codegen/promptGenerator.ts](./lib/codegen/promptGenerator.ts)), canvas highlight of active flow + last-traversed edge during simulate.
+**Also shipped beyond the original plan:** variables editor, tables CRUD, `entry_flow_id` picker, delete buttons in inspectors, schema-doc sync, AGENT-SPEC-PROMPT.txt rewritten for one-shot JSON output, Simulate variables form with LLM-powered value generation, system-prompt codegen ([packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts)), canvas highlight of active flow + last-traversed edge during simulate.
 
 **Design decisions made during Phase 0** — still load-bearing:
 

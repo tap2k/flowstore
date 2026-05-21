@@ -1,0 +1,192 @@
+import { useState } from "react";
+import { useSpecStore } from "@/lib/store/spec";
+import type { Flow, FlowType, Guardrail, Condition } from "@ux4/core/schema/v0";
+import { defaultLanguage } from "@ux4/core/schema/v0";
+import { genId } from "@ux4/core/ids";
+import { ListEditor } from "./ListEditor";
+import { FaqListEditor } from "./FaqListEditor";
+import { VariablesEditor } from "./VariablesEditor";
+import { ConditionEditor } from "./ConditionEditor";
+import { ScriptsSheet } from "@/components/sheets/ScriptsSheet";
+
+const FLOW_TYPES: FlowType[] = ["happy", "sad", "off", "utility", "interrupt"];
+const DEV = process.env.NEXT_PUBLIC_DEV === "1";
+
+const labelClass = "block text-xs font-medium text-zinc-600 mb-1";
+const inputClass =
+  "w-full rounded border border-zinc-300 px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400";
+const textareaClass = `${inputClass} font-mono resize-y min-h-[80px]`;
+
+export function FlowInspector() {
+  const selection = useSpecStore((s) => s.selection);
+  const flow = useSpecStore((s) =>
+    selection?.kind === "flow" ? s.spec?.flows.find((f) => f.id === selection.id) ?? null : null
+  );
+  const languages = useSpecStore((s) => s.spec?.agent.meta.languages);
+  const updateFlow = useSpecStore((s) => s.updateFlow);
+  const removeFlow = useSpecStore((s) => s.removeFlow);
+  const setSelection = useSpecStore((s) => s.setSelection);
+  const [scriptsOpen, setScriptsOpen] = useState(false);
+
+  if (!flow) return null;
+
+  const defaultLang = defaultLanguage(languages);
+
+  function patch(p: Partial<Flow>) {
+    if (!flow) return;
+    updateFlow(flow.id, p);
+  }
+
+  const isInterrupt = flow.type === "interrupt";
+
+  return (
+    <aside className="w-[380px] shrink-0 border-l border-zinc-200 bg-white overflow-y-auto">
+      <div className="sticky top-0 bg-white border-b border-zinc-200 px-4 py-3 flex items-center gap-2">
+        <span className="text-[10px] uppercase tracking-wide text-zinc-500">Flow</span>
+        <span className="text-xs text-zinc-400 font-mono truncate">{flow.id}</span>
+        <button
+          onClick={() => setSelection(null)}
+          className="ml-auto text-xs text-zinc-500 hover:text-zinc-900"
+        >
+          close
+        </button>
+      </div>
+
+      <div className="p-4 space-y-4">
+        <Field label="Name">
+          <input
+            className={inputClass}
+            value={flow.name}
+            onChange={(e) => patch({ name: e.target.value })}
+          />
+        </Field>
+
+        <Field label="Type">
+          <select
+            className={inputClass}
+            value={flow.type}
+            onChange={(e) => patch({ type: e.target.value as FlowType })}
+          >
+            {FLOW_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        {isInterrupt && (
+          <Field label="Entry condition">
+            <ConditionEditor
+              condition={flow.entry_condition}
+              onChange={(c: Condition | undefined) => patch({ entry_condition: c })}
+              placeholder="Trigger phrase or intent that fires this interrupt"
+            />
+          </Field>
+        )}
+
+        <Field label="Instructions">
+          <textarea
+            className={textareaClass}
+            value={flow.instructions ?? ""}
+            onChange={(e) => patch({ instructions: e.target.value || undefined })}
+            placeholder="Behavioral prose: what to do, how to behave, what to ask."
+          />
+        </Field>
+
+        <Field label="Notes">
+          <textarea
+            className={`${inputClass} resize-y min-h-[60px]`}
+            value={flow.notes ?? ""}
+            onChange={(e) => patch({ notes: e.target.value || undefined })}
+            placeholder="Notes, comments, etc."
+          />
+        </Field>
+
+        <Field label="Guardrails">
+          <ListEditor<Guardrail>
+            items={flow.guardrails ?? []}
+            onChange={(g) => patch({ guardrails: g.length ? g : undefined })}
+            newItem={() => ({ id: genId("g"), statement: "" })}
+            addLabel="add guardrail"
+            emptyLabel="(none)"
+            renderItem={(g, update, remove) => (
+              <div className="flex items-start gap-2">
+                <textarea
+                  className={`${inputClass} resize-y min-h-[40px]`}
+                  value={g.statement}
+                  onChange={(e) => update({ ...g, statement: e.target.value })}
+                  placeholder="Behavioral invariant"
+                />
+                <button
+                  onClick={remove}
+                  className="text-xs text-zinc-400 hover:text-red-600 mt-1"
+                  title="remove"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+          />
+        </Field>
+
+        <Field label="FAQ">
+          <FaqListEditor
+            entries={flow.knowledge?.faq ?? []}
+            onChange={(faq) =>
+              patch({ knowledge: faq.length ? { faq } : undefined })
+            }
+            defaultLang={defaultLang}
+            emptyLabel="(none)"
+          />
+        </Field>
+
+        {DEV && (
+          <Field label="Variables">
+            <VariablesEditor
+              key={flow.id}
+              variables={flow.variables}
+              onChange={(v) => patch({ variables: v })}
+            />
+          </Field>
+        )}
+
+        <Field label="Example transcript">
+          <textarea
+            className={textareaClass}
+            value={flow.example ?? ""}
+            onChange={(e) => patch({ example: e.target.value || undefined })}
+            placeholder="Plain-text transcript illustrating intended behavior. Optional."
+          />
+        </Field>
+
+        <div className="pt-2 border-t border-zinc-200 space-y-2">
+          <button
+            onClick={() => setScriptsOpen(true)}
+            className="w-full rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+          >
+            Open scripts sheet
+          </button>
+          <button
+            onClick={() => {
+              if (window.confirm(`Delete flow "${flow!.name}"?`)) removeFlow(flow!.id);
+            }}
+            className="w-full rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+          >
+            Delete flow
+          </button>
+        </div>
+      </div>
+      {scriptsOpen && <ScriptsSheet flow={flow} onClose={() => setScriptsOpen(false)} />}
+    </aside>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <span className={labelClass}>{label}</span>
+      {children}
+    </div>
+  );
+}
