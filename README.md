@@ -1,6 +1,6 @@
 # uxflows
 
-Visual editor for UX4 behavioral specs. Authors conversational agent flows on a canvas and exports them as JSON conforming to [SCHEMA.md](./SCHEMA.md).
+The browser editor in **UX4 — a Behavioral IDE for Conversational Agents**. Authors conversation specs on a canvas, decomposes them into per-concern files in a Git repo, and pairs with a Python testing surface and a static client-share view. Specs conform to [SCHEMA.md](./SCHEMA.md); the on-disk layout is in [FILE-MODEL.md](./FILE-MODEL.md); the staged plan is in [MVP-PLAN.md](./MVP-PLAN.md).
 
 ## Run
 
@@ -23,12 +23,12 @@ Then open http://localhost:3000.
 
 ## Docs
 
-- [SCHEMA.md](./SCHEMA.md) — authoritative spec schema.
+- [MVP-PLAN.md](./MVP-PLAN.md) — organizing vision and staged plan to the UX4 Browser MVP (Nov 2026).
+- [SCHEMA.md](./SCHEMA.md) — authoritative spec data model.
+- [FILE-MODEL.md](./FILE-MODEL.md) — how a UX4 project decomposes into files on disk.
 - [AGENTS.md](./AGENTS.md) — architecture, tech stack, design principles.
-- [SIDECARS.md](./SIDECARS.md) — UI and testing sidecars; export modes.
 - [TRANSLATIONS.md](./TRANSLATIONS.md) — runtime translation tables (Pipecat, LiveKit, LangGraph, Dialogflow CX, OpenAI Agents SDK).
-- [MVP-PLAN.md](./MVP-PLAN.md) — design decisions and roadmap.
-- [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) — LLM prompt for parsing source material into v0 spec JSON.
+- [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) — LLM prompt for parsing source material into spec JSON.
 
 ## Stack
 

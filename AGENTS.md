@@ -11,21 +11,23 @@ Do not write to the agent memory system for this project. If prior memories exis
 
 Visual editor for UX4 behavioral specs. A Next.js app that authors, simulates, and exports spec JSON conforming to [SCHEMA.md](./SCHEMA.md).
 
+## Forward direction
+
+**UX4 — a Behavioral IDE for Conversational Agents.** Visual spec authoring, Git-shaped collaboration across stakeholders, Python testing surface, static client share view. The Phase 0 MVP (canvas-first single-file spec editor) shipped 2026-05-08. The organizing vision now is the **UX4 MVP** — GitHub-backed per-agent repos, the spec decomposed into per-concern files ([FILE-MODEL.md](./FILE-MODEL.md)), multi-provider model config, and a testing surface that drives compiled system prompts via Python scripts vendored per agent. Target ship: November 2026 for Awaaz pilot; January 2027 for course launch. The staged plan is in [MVP-PLAN.md](./MVP-PLAN.md); read it before making architectural decisions. The rest of this document describes the current state.
+
 ## Product Context
 
-uxflows is the authoring surface of the broader UX4 product. Three sibling repos compose UX4:
+uxflows is the **authoring** surface of the broader UX4 product (browser editor for specs). **Testing** happens via Python scripts vendored into each agent's Git repo by `ux4-init-project` — Nikunj-shaped tooling that compiles the spec to a system prompt + tool schemas and drives an LLM through test cases. Sibling repos:
 
-- `uxflows/` (this repo) — visual editor; authors specs.
-- [`../uxflows-runner/`](../uxflows-runner/) — Python runner; interprets specs, drives voice conversations, emits an event stream. See [`../uxflows-runner/RUNNER-PLAN.md`](../uxflows-runner/RUNNER-PLAN.md) for the operational plan.
-- `../whatsupp2/` — simulation/evaluation app; consumes specs and (eventually) the runner's event stream.
+- `uxflows/` (this repo) — visual editor + `@ux4/core` libraries (files, schema, codegen). Phase 1 splits this into `@ux4/core` and `@ux4/browser` workspaces.
+- [`../uxflows-runner/`](../uxflows-runner/) — Python runner; canonical production execution. Interprets the compiled spec artifact, drives voice conversations, emits an event stream. **Untouched in MVP** — testing in MVP doesn't go through the runner. See [`../uxflows-runner/RUNNER-PLAN.md`](../uxflows-runner/RUNNER-PLAN.md) for the operational plan.
+- **Per-agent repos** (Awaaz owns, UX4 scaffolds) — hold the decomposed spec, testing artifacts (`tests/`), result history (`tests/runs/`), and the Python scripts (`scripts/`).
 
-Read these before making non-obvious architectural decisions:
+`../whatsupp2/` historically held the evaluation/simulation surface; its responsibilities are being subsumed into UX4. Treat references to whatsupp2 in older docs as historical.
 
-- [`../whatsupp2/AGENT-TESTING.md`](../whatsupp2/AGENT-TESTING.md) — product design doc (v0.9): vision, MVP scope, workflows, schema rationale, strategy, roadmap.
-- [`../whatsupp2/AGENT-CLAUDE.md`](../whatsupp2/AGENT-CLAUDE.md) — technical reference for the existing agent-testing implementation in whatsupp2.
-- [`../uxflows-runner/RUNNER-PLAN.md`](../uxflows-runner/RUNNER-PLAN.md) — runner v0 plan and rationale (Pipecat-based, Google all-three for v0).
+Runner-based testing (and Pipecat compilation) lands **post-MVP**, gated on [TRANSLATION-POC.md](./TRANSLATION-POC.md) confirming behavioral fidelity between the system-prompt path and graph-native runtimes.
 
-The schema is the contract across all three repos. They all defer to [SCHEMA.md](./SCHEMA.md) in this repo.
+The schema is the contract across UX4 and the runner. They all defer to [SCHEMA.md](./SCHEMA.md) in this repo.
 
 ## Mission
 
@@ -45,7 +47,7 @@ The canvas is the canonical editing surface. Text views are entry and export onl
 - **Export as JSON** — the exported file is the same shape the declarative import accepts; round-trip preserves the spec.
 - **Export as system prompt** — deterministic codegen ([lib/codegen/promptGenerator.ts](./lib/codegen/promptGenerator.ts)) that flattens the spec into a single monolithic system prompt. For copy-paste into non-runner runtimes (OpenAI, Claude, Voiceflow, etc.); the runner consumes the JSON directly.
 - **Simulate panel** — text chat against [`../uxflows-runner/`](../uxflows-runner/), BYOK Gemini, against the spec currently being edited. Canvas highlights the active flow and last-traversed edge live during the run.
-- **Eval-on-canvas (post-MVP).** Findings from the evaluation consumer (currently whatsupp2) overlay onto the same node and edge IDs the spec defines — guardrail-fail rates pinned to guardrail nodes, scenario coverage on flow nodes. The canvas is the eval view; there is no separate findings tab.
+- **Eval-on-canvas (post-MVP).** Findings from the testing surface (test cases, mocks, rubrics, run results — all in UX4 per [FILE-MODEL.md](./FILE-MODEL.md)) overlay onto the same node and edge IDs the spec defines — guardrail-fail rates pinned to guardrail nodes, scenario coverage on flow nodes. The canvas is the eval view; there is no separate findings tab.
 
 ## Tech Stack
 
@@ -134,15 +136,16 @@ From AGENT-TESTING.md — the five-step loop uxflows supports end-to-end:
 1. **Ingest** — paste a system prompt and attach supporting docs (PDFs, spreadsheets, Word, Figma exports, plain text).
 2. **Parse** — a behavioral parser (LLM-assisted) converts inputs to a structured spec. Today this is [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt). The designer pastes source material in, gets the JSON, and pastes it into the editor's Import. An in-app "Parse with AI" using a user-provided API key is planned to skip the round-trip.
 3. **Review and configure** — user reviews the parsed spec on the canvas, edits inline.
-4. **Simulate** — run personas against the agent endpoint. Evaluator scores each conversation against guardrails and per-scenario `should_happen` / `should_not_happen`. (in the evaluation consumer, currently whatsupp2)
-5. **Share** — internal findings report + client-facing shareable document. (in the evaluation consumer, currently whatsupp2)
+4. **Simulate** — run personas against the agent endpoint. Evaluator scores each conversation against guardrails, per-scenario expectations, and rubrics. (UX4 testing surface — test cases, mocks, rubrics, personas per [FILE-MODEL.md](./FILE-MODEL.md).)
+5. **Share** — internal findings report + client-facing shareable document. (Post-MVP UX4 surface.)
 
 ## Related Docs in This Repo
 
-- [SCHEMA.md](./SCHEMA.md) — authoritative spec schema
-- [MVP-PLAN.md](./MVP-PLAN.md) — ordered work plan to reach MVP, with design decisions and deferred items
-- [TRANSLATIONS.md](./TRANSLATIONS.md) — runtime translation tables (Pipecat, LiveKit, LangGraph, OpenAI Agents SDK; import: Voiceflow, Botpress)
-- [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) — LLM prompt for converting source material into spec JSON (any frontier LLM)
+- [MVP-PLAN.md](./MVP-PLAN.md) — organizing vision and staged plan to the UX4 Browser MVP (Nov 2026). Read first.
+- [SCHEMA.md](./SCHEMA.md) — authoritative spec data model.
+- [FILE-MODEL.md](./FILE-MODEL.md) — how a UX4 project decomposes into files on disk; the serialization contract for SCHEMA.md.
+- [TRANSLATIONS.md](./TRANSLATIONS.md) — runtime translation tables (Pipecat, LiveKit, LangGraph, OpenAI Agents SDK; import: Voiceflow, Botpress).
+- [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) — LLM prompt for converting source material into spec JSON (any frontier LLM).
 
 ## Running
 

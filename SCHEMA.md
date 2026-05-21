@@ -1,6 +1,6 @@
 # UX4 Flows Schema
 
-Canonical behavioral spec schema for conversational agents authored in UX4. The UX4 editor (this repo, `uxflows`) is the primary producer. Consumers include the runner (native execution), evaluation/simulation tooling, and client-facing document rendering — currently sibling repos [`../uxflows-runner/`](../uxflows-runner/) and `../whatsupp2/`.
+Canonical behavioral spec schema for conversational agents authored in UX4. The UX4 editor (this repo, `uxflows`) is the primary producer and home of the testing surface. The Python runner ([`../uxflows-runner/`](../uxflows-runner/)) is the canonical native execution consumer.
 
 **This document is the authoritative schema.** All producers and consumers defer to it. Schema-as-code (TypeBox) mirrors this document at [`lib/schema/v0.ts`](./lib/schema/v0.ts).
 
@@ -120,9 +120,11 @@ Python-like syntax is deliberate. CEL (Common Expression Language) and JsonLogic
 
 ---
 
-## Spec Document
+## Spec Serialization
 
-A serialized spec is a single JSON document wrapping one agent and its flows:
+This document defines the data model. The on-disk serialization — how the agent envelope, flows, knowledge tables, capabilities, mocks, test cases, and the rest decompose into files in a user's repo — is defined in [FILE-MODEL.md](./FILE-MODEL.md).
+
+In memory and as a runtime artifact, a resolved spec has the shape:
 
 ```json
 {
@@ -134,6 +136,8 @@ A serialized spec is a single JSON document wrapping one agent and its flows:
 ```
 
 The agent envelope appears once at the `agent` key; all flows live in the `flows` array. The agent's `entry_flow_id` must reference one of the flows in that array. Any flow id referenced by an exit path's `goto` must exist in `flows` (unless `goto` is the reserved keyword `END` or `RETURN`).
+
+This resolved form is what the Python runner consumes and what the simulate panel hands to the runner. It is produced by `ux4-compile --target spec-direct` from the decomposed source files; users do not hand-edit it. A second compile target, `ux4-compile --target system-prompt`, produces a monolithic system prompt + tool schemas from the same sources for the Phase 2 testing path. See [MVP-PLAN.md](./MVP-PLAN.md) and [FILE-MODEL.md](./FILE-MODEL.md).
 
 ---
 
@@ -407,4 +411,4 @@ This is the contract across all UX4 producers and consumers. Non-additive change
 1. Bump `$schema` version if structural.
 2. Update [`lib/schema/v0.ts`](./lib/schema/v0.ts) (TypeBox definitions) to match.
 3. Update the example spec at [`public/coffee.json`](./public/coffee.json).
-4. Notify affected consumers (currently [`../uxflows-runner/`](../uxflows-runner/) and `../whatsupp2/`) when the change affects them.
+4. Notify affected consumers ([`../uxflows-runner/`](../uxflows-runner/) and any other repos consuming the compiled artifact) when the change affects them.
