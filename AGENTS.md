@@ -13,19 +13,21 @@ Visual editor for UX4 behavioral specs. A Next.js app that authors, simulates, a
 
 ## Forward direction
 
-**UX4 — a Behavioral IDE for Conversational Agents.** Visual spec authoring, Git-shaped collaboration across stakeholders, Python testing surface, static client share view. The Phase 0 MVP (canvas-first single-file spec editor) shipped 2026-05-08. The organizing vision now is the **UX4 MVP** — GitHub-backed per-agent repos, the spec decomposed into per-concern files ([FILE-MODEL.md](./FILE-MODEL.md)), multi-provider model config, and a testing surface that drives compiled system prompts via Python scripts vendored per agent. Target ship: November 2026 for Awaaz pilot; January 2027 for course launch. The staged plan is in [MVP-PLAN.md](./MVP-PLAN.md); read it before making architectural decisions. The rest of this document describes the current state.
+**UX4 — a Behavioral IDE for Conversational Agents.** UX4 owns the open, Git-backed development section of the agent pipeline: visual spec authoring, Git-shaped collaboration across stakeholders, structured testing, client sharing. Runtime execution (the Python runner today; Pipecat / LangGraph / etc. post-MVP) and production monitoring (handled by the runtime's event stream and dedicated eval/observability tools like LangSmith, Cekura, Maxim) are separate concerns. UX4 may integrate with production-monitoring tools post-pilot, but those integrations are not in MVP.
+
+The Phase 0 MVP (canvas-first single-file spec editor) shipped 2026-05-08. The organizing vision now is the **UX4 MVP** — GitHub-backed multi-agent projects (one client repo holds N agents like Tala's purpose × language combinations), the spec decomposed into per-concern files with project / agent / flow scope levels ([FILE-MODEL.md](./FILE-MODEL.md)), multi-provider model config, a testing surface that drives compiled system prompts via Python scripts vendored per agent, comments anchored to spec entities, and a static client share view. Target ship: November 2026 for Awaaz pilot; January 2027 for course launch. The staged plan is in [MVP-PLAN.md](./MVP-PLAN.md); read it before making architectural decisions. The rest of this document describes the current state.
 
 ## Product Context
 
-uxflows is the **authoring** surface of the broader UX4 product (browser editor for specs). **Testing** happens via Python scripts vendored into each agent's Git repo by `ux4-init-project` — Nikunj-shaped tooling that compiles the spec to a system prompt + tool schemas and drives an LLM through test cases. Sibling repos:
+uxflows is the **authoring** surface of the broader UX4 product (browser editor for specs across one or many agents per project). **Testing** happens via Python scripts vendored into each agent's Git repo by `ux4-init-project` — Nikunj-shaped tooling that compiles the spec to a system prompt + tool schemas and drives an LLM through test cases. Sibling repos:
 
-- `uxflows/` (this repo) — visual editor + `@ux4/core` libraries (files, schema, codegen). Phase 1 splits this into `@ux4/core` and `@ux4/browser` workspaces.
-- [`../uxflows-runner/`](../uxflows-runner/) — Python runner; canonical production execution. Interprets the compiled spec artifact, drives voice conversations, emits an event stream. **Untouched in MVP** — testing in MVP doesn't go through the runner. See [`../uxflows-runner/RUNNER-PLAN.md`](../uxflows-runner/RUNNER-PLAN.md) for the operational plan.
-- **Per-agent repos** (Awaaz owns, UX4 scaffolds) — hold the decomposed spec, testing artifacts (`tests/`), result history (`tests/runs/`), and the Python scripts (`scripts/`).
+- `uxflows/` (this repo) — visual editor + `@ux4/core` libraries (files, schema, codegen, providers). Phase 1 splits this into `@ux4/core` and `@ux4/browser` workspaces.
+- [`../uxflows-runner/`](../uxflows-runner/) — Python runner; canonical production execution. Interprets the compiled spec artifact, drives voice conversations, emits an event stream. **Untouched in MVP** — testing in MVP doesn't go through the runner. See [`../uxflows-runner/RUNNER-PLAN.md`](../uxflows-runner/RUNNER-PLAN.md).
+- **Per-agent or multi-agent Git repos** (customer-owned, UX4-scaffolded) — hold the decomposed spec(s) under `agents/<id>/` (multi-agent) or at root (single-agent), shared resources at root (capabilities, project-level guardrails, knowledge, personas, evaluators, rubrics), testing artifacts, run history, comments, and Python scripts.
 
 `../whatsupp2/` historically held the evaluation/simulation surface; its responsibilities are being subsumed into UX4. Treat references to whatsupp2 in older docs as historical.
 
-Runner-based testing (and Pipecat compilation) lands **post-MVP**, gated on [TRANSLATION-POC.md](./TRANSLATION-POC.md) confirming behavioral fidelity between the system-prompt path and graph-native runtimes.
+Runner-based testing and Pipecat compilation are **post-MVP**, gated on [TRANSLATION-POC.md](./TRANSLATION-POC.md) confirming behavioral fidelity between the system-prompt path and graph-native runtimes. Production monitoring (real-time event stream consumption, dashboards, alerting) is **explicitly out of scope** for UX4 — the runtime emits events; LangSmith / Cekura / Maxim / similar tools consume them.
 
 The schema is the contract across UX4 and the runner. They all defer to [SCHEMA.md](./SCHEMA.md) in this repo.
 

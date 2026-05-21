@@ -20,7 +20,7 @@ A spec is co-authored by people with different concerns:
 
 Collapsed into one `spec.json`, every change is a diff against the same blob; PR review can't scope to a concern; merge conflicts are guaranteed at any scale; non-developers can't edit anything without round-tripping through a developer. File-level decomposition gives each concern its own diff history, its own owners, and its own editing affordance.
 
-Decomposition isn't dogmatic. Three shapes exist; each entry lives in the shape that fits its editing affordance, not by rule.
+Decomposition isn't dogmatic. Three shapes exist (file-or-directory, tabular, singleton); each entry lives in the shape that fits its editing affordance.
 
 ---
 
@@ -31,79 +31,183 @@ Decomposition isn't dogmatic. Three shapes exist; each entry lives in the shape 
 - **File form** — a single `<name>.json` at the canonical path, holding an array or dict of entries.
 - **Directory form** — a directory `<name>/` of `*.json` files, each holding one or more entries.
 
-The loader accepts either form transparently — same code path, merged at load. Id collisions across files are an error. The default scaffold picks whichever form fits the typical project size for that collection (see the [Defaults](#defaults-per-collection) table below); a team can collapse to a file or split into a directory at any time without changing anything else.
+The loader accepts either form transparently — same code path, merged at load. Id collisions across files are an error. The default scaffold picks whichever form fits the typical project size for that collection; teams collapse or split at will without changing anything else.
 
-**Tabular content** (CSV + meta JSON) is a sub-pattern used where data is naturally rectangular and the editing population includes non-developers using spreadsheets — scripts per flow, knowledge tables per id. Tabular collections only support the directory form, because the CSV affordance requires per-file structure. Collapsing them into JSON arrays loses Excel editing.
+**Tabular content** (CSV + meta JSON) is a sub-pattern used where data is naturally rectangular and the editing population includes non-developers using spreadsheets — scripts per flow, knowledge tables per id. Tabular collections only support the directory form, because the CSV affordance requires per-file structure.
 
 **Singletons** (`ux4.json`, `agent.json`) are just files — outside the collection rule.
 
-**One exception: `tests/runs/`.** Each run is a folder containing a `manifest.json` plus N result files. Structurally different from "collection of entries"; keep `tests/runs/<timestamp>-<label>/` as-is.
-
-The cut is empirical: how does the human edit this? Small, scan-the-list entries (guardrails, FAQ rows) live happily in the file form; rich, refactored-independently entries (flows, test cases, rubrics) want their own file. The rule supports both either way.
+**Exceptions:** `tests/runs/` (per-run folder with manifest + N results) and `comments/` (per-comment uuid files, additive). Both structurally different from "collection of entries."
 
 ---
 
-## Layout
+## Project shapes: single-agent and multi-agent
 
-Default scaffold from `ux4-init-project`. Every collection accepts either form (file or directory) — defaults are listed; alternatives noted in the [Defaults table](#defaults-per-collection).
+A UX4 project holds one or many agents. Two shapes:
+
+**Single-agent project (default).** Agent meta + flows live at project root. Used when a project ships exactly one agent.
+
+**Multi-agent project.** Agents live under `agents/<id>/`; shared resources (capabilities, project-level guardrails, knowledge, personas, evaluators, etc.) stay at project root. Used when one client / one repo holds multiple coordinated agents (e.g., the same client with N purpose × language combinations).
+
+`ux4-init-project` defaults to single-agent. Adding a second agent (`ux4-init-project --add-agent <id>`) restructures into multi-agent shape: moves the existing agent's `agent.json` + `flows/` into `agents/<existing-id>/`, creates `agents/<new-id>/`, leaves shared resources at root.
+
+Same loader handles both. The resolved compiled spec has the same shape regardless (`{agent: ..., flows: [...]}` per agent).
+
+---
+
+## Layout — single-agent default
 
 ```
 project/
 ├── README.md                                # user-authored narrative; not loaded
-├── ux4.json                                 # project manifest
-├── agent.json                               # meta, modes, languages, chatbot_initiates, entry_flow_id
-├── models/                                  # default: directory
-│   ├── frontier.json                        # claude / gpt / gemini entries via built-in providers
-│   ├── self-hosted.json                     # custom provider + its models
+├── ux4.json                                 # project manifest — minimal: { "$schema": "UX4://project/v0" }
+├── agent.json                               # meta (incl. client, tone, system_prompt_template), modes, languages, chatbot_initiates, entry_flow_id, optional agent-scope guardrails/business-goals/variables/knowledge
+├── models/                                  # multi-provider config
+│   ├── frontier.json
+│   ├── self-hosted.json
 │   └── defaults.json                        # { "default": "claude-sonnet-4-5" }
-├── guardrails.json                          # default: file (array); → guardrails/<concern>.json to promote
-├── business-goals.json                      # default: file (array); → business-goals/<track>.json
-├── variables.json                           # default: file (dict); → variables/<domain>.json
-├── flows/                                   # default: directory
-│   ├── <id>.flow.json                       # instructions, entry_condition, exit_paths, notes, example;
-│   │                                        # flow-scoped guardrails / faq / variables inline
+├── guardrails.json                          # project-level
+├── business-goals.json                      # project-level
+├── variables.json                           # project-level
+├── flows/
+│   ├── <id>.flow.json                       # flow-scoped guardrails/faq/variables inline
 │   └── <id>.scripts.csv                     # per-flow utterances; language columns
-├── capabilities/                            # default: directory
-│   └── <id>.capability.json                 # declaration: kind, inputs, outputs
+├── capabilities/
+│   ├── <id>.capability.json                 # declaration: kind, inputs, outputs
+│   └── <id>.<variant>.mock.json             # paired testing mocks; multiple variants per capability
 ├── knowledge/
-│   ├── faq.json                             # default: file; → knowledge/faq/<topic>.json to promote
-│   ├── glossary.json                        # default: file; → knowledge/glossary/<domain>.json
-│   └── tables/                              # default: directory (CSV affordance)
-│       ├── <id>.csv                         # rows
-│       └── <id>.meta.json                   # structure, purpose, scaling_rule
-├── tests/                                   # testing artifacts (separate from behavior)
-│   ├── cases/<id>.test.json                 # multi-turn scenarios + evaluators
-│   ├── mocks/<id>.<variant>.mock.json       # capability behavior for testing
-│   ├── rubrics/<id>.rubric.json             # reusable LLM-judge criteria
-│   ├── personas/<id>.persona.json           # user-side characters referenced by test cases
-│   ├── evaluators/<name>.py                 # Python; built-ins vendored, users add custom
-│   ├── gold-standards/<test_case_id>.gold.json  # reference transcripts; promoted from runs/ via --save-as-gold
-│   └── runs/<timestamp>-<label>/            # generated; committed when worth keeping
+│   ├── faq.json
+│   ├── glossary.json
+│   └── tables/
+│       ├── <id>.csv
+│       └── <id>.meta.json
+├── comments/<uuid>.comment.json             # additive per-comment files; anchored to any entity
+├── tests/
+│   ├── cases/<id>.test.json                 # scripted user_turns + evaluators
+│   ├── personas/<id>.persona.json           # id + system_prompt + optional name/notes
+│   ├── evaluators/<name>.py                 # deterministic Python evaluators
+│   ├── rubrics/<id>.rubric.json             # llm-judge evaluators (declarative)
+│   ├── gold-standards/<test_case_id>.gold.json
+│   └── runs/<timestamp>-<label>/
 │       ├── manifest.json
 │       └── <test-case-id>.result.json
 └── scripts/                                 # Python; vendored by ux4-init-project; user adapts with Claude Code
-    ├── run_test.py
-    ├── run_suite.py
+    ├── run.py                               # runs one case or many (glob)
     └── validate.py
 ```
 
-All `.json` files carry a `$schema` URI under `UX4://...`. All entries carry stable `id`s; the editor generates them, users don't author them.
+## Layout — multi-agent variant
+
+When a project holds multiple agents (e.g., one Tala-India project with purpose × language agents), the shape promotes. **`tests/` splits between two roots**: shared testing infrastructure (personas, evaluators, rubrics) stays at project `tests/`; agent-scoped (cases, gold-standards, runs) lives under each `agents/<id>/tests/`.
+
+```
+project/
+├── README.md
+├── ux4.json                                 # minimal — { "$schema": "UX4://project/v0" }
+├── models/                                  # shared
+├── guardrails.json                          # project-level (cross-agent)
+├── business-goals.json                      # project-level
+├── variables.json                           # project-level (domain variables)
+├── capabilities/                            # shared
+│   ├── <id>.capability.json
+│   └── <id>.<variant>.mock.json
+├── knowledge/                               # shared
+├── comments/                                # anchored to any entity in any agent or shared
+├── tests/                                   # shared testing infrastructure
+│   ├── personas/                            # reusable across agents
+│   ├── evaluators/                          # reusable
+│   └── rubrics/                             # reusable
+├── scripts/
+└── agents/
+    ├── 30day-past-due-hindi/
+    │   ├── agent.json                       # meta (incl. client, tone, system_prompt_template),
+    │   │                                    # languages, modes, entry_flow_id,
+    │   │                                    # optional agent-scope guardrails/business-goals/variables/knowledge inline
+    │   ├── flows/
+    │   │   ├── <id>.flow.json
+    │   │   └── <id>.scripts.csv
+    │   └── tests/                           # agent-specific
+    │       ├── cases/<id>.test.json
+    │       ├── gold-standards/<test_case_id>.gold.json
+    │       └── runs/<timestamp>-<label>/
+    ├── 30day-past-due-english/
+    │   └── …
+    └── …
+```
+
+All `.json` files carry a `$schema` URI under `UX4://...`. All entries carry stable `id`s; the editor generates them.
 
 ### Project manifest (`ux4.json`)
 
 ```json
 {
-  "$schema": "UX4://project/v0",
-  "name": "string",
-  "runtime_targets": ["spec-direct", "system-prompt"]
+  "$schema": "UX4://project/v0"
 }
 ```
 
-Minimal and structural. The canonical directory layout below is the contract — no override map. `runtime_targets` declares which compilation targets the project uses. Two ship in MVP: `spec-direct` (resolved JSON for the runner / simulate panel) and `system-prompt` (compiled monolithic prompt + tool schemas for testing scripts). Pipecat ships post-MVP, gated on [TRANSLATION-POC.md](./TRANSLATION-POC.md). The default model lives in `models/defaults.json`, not here.
+Bare minimum — its sole job is to identify the directory as a UX4 project at version v0 (schema discriminator + migration anchor). Everything else derives from filesystem or CLI:
+
+- **Agents** — implicit from filesystem. If `agents/` directory exists, scan it. If `agent.json` is at root, single-agent.
+- **Compile targets** — `ux4-compile --target <name>` CLI flag. Not a project property.
+- **Default model** — `models/defaults.json`.
+- **Project name** — derived from directory name (the repo name).
+- **Client** — `agent.json.meta.client`.
 
 ### Project README
 
-Every UX4 project gets a `README.md` at root for the user's own narrative — what this agent is for, who owns it, how to run it. Not part of the schema; not loaded by anything. Pure convention, but useful when a stakeholder opens the repo on GitHub.
+Every UX4 project gets a `README.md` at root for the user's own narrative — what these agents are for, who owns them, how to run them. Not part of the schema; not loaded by anything. Pure convention.
+
+---
+
+## Scope levels (project / agent / flow)
+
+Three scope levels exist in a multi-agent project. Not every entity supports all three — entities live at the scopes that genuinely fit their semantics. Single-agent projects effectively collapse project and agent into one level.
+
+| Entity | Project | Agent | Flow | Notes |
+|---|---|---|---|---|
+| **Agent meta** (name, modes, languages, `entry_flow_id`) | — | ✓ | — | Necessarily per-agent. |
+| **Flows** | — | ✓ | — | Each agent's behavior graph. |
+| **Per-flow scripts CSV** | — | ✓ | ✓ | Tied to the flow; lives under the agent's flows. |
+| **Capabilities** | ✓ | — | — | Backend APIs are project-shared. Per-agent capability declarations: post-MVP. |
+| **Capability mocks** | ✓ | — | — | Paired with capabilities via filename prefix. |
+| **Variables (declarations)** | ✓ | ✓ | ✓ | Domain variables project-level; agent/flow declarations rare but allowed. |
+| **Guardrails** | ✓ | ✓ | ✓ | Compliance project-level; tone/purpose agent-level; flow-specific (consent in `verify_identity`) flow-level inline. |
+| **Business goals** | ✓ | ✓ | — | Project-level metrics; agent-specific outcomes. |
+| **FAQ** | ✓ | ✓ | ✓ | Domain FAQ project-level; agent-specific rare; flow-scoped already supported. |
+| **Glossary, knowledge tables** | ✓ | — | — | Project-level. Per-agent localizations handled via multilingual strings, not separate tables. |
+| **Personas** | ✓ | — | — | Reusable across agents. |
+| **Evaluators (Python)** | ✓ | — | — | Reusable across agents. |
+| **Rubrics** | ✓ | — | — | Reusable across agents. |
+| **Models config** | ✓ | — | — | Per-agent overrides post-MVP. |
+| **Test cases** | — | ✓ | — | Test a specific agent's flows. |
+| **Gold standards** | — | ✓ | — | Per-test-case. |
+| **Runs** | — | ✓ | — | Per-execution. |
+| **Comments** | any | any | any | Anchor identifies scope. |
+
+**Authoring heuristic:** put it at the highest scope it applies to. Cross-agent → project. One agent only → agent. One flow only → flow.
+
+### Resolution semantics
+
+When compiling agent X's spec for the runtime, the loader merges per-scope entities:
+
+- **Capabilities, mocks, glossary, tables, models** = project-level only.
+- **Guardrails** = project ∪ agent ∪ flow (all applicable).
+- **Variables** = project ∪ agent ∪ flow declaration merge.
+- **Business goals** = project ∪ agent.
+- **FAQ** = project ∪ agent ∪ flow.
+- **Flows** = agent-only (under `agents/<id>/flows/`).
+
+The resolved compiled spec is identical in shape to today's `spec.json` (`{agent: {...}, flows: [...]}`) — the runtime is unaware that any of this came from multiple scopes.
+
+### Collision handling
+
+Same id at multiple scopes (e.g., a guardrail id `no_profanity` at both project and agent level): **error in MVP, not silent override**. Explicit is better than implicit. The error tells the user where both are defined; they consolidate.
+
+If overrides become a real workflow ("project guardrail X applies, but this one agent needs Y instead"), add explicit `override: true` semantics post-MVP. For now, no overrides.
+
+### Cross-agent references
+
+Within an agent, a flow's `goto` references another flow id in the same agent. Cross-agent flow references are not allowed in MVP (each agent's flow graph is self-contained). Project-level entities (capabilities, guardrails, personas, etc.) are referenceable from any agent.
 
 ---
 
@@ -111,27 +215,26 @@ Every UX4 project gets a `README.md` at root for the user's own narrative — wh
 
 What `ux4-init-project` writes. Every collection accepts either form; the default is the form that fits the typical starting point.
 
-| Collection | Default scaffold | Why this default | When to switch |
-|---|---|---|---|
-| `flows/` | Directory (per-id `*.flow.json` + paired `*.scripts.csv`) | Almost always more than one flow; each is structurally rich. CSV scripts need the directory form. | Stay in directory form. Collapsing to `flows.json` loses Excel-editable scripts. |
-| `capabilities/` | Directory (per-id `*.capability.json`) | Each capability has declared inputs/outputs; refactored independently. | Stay in directory form. |
-| `guardrails.json` | File (array) | Typically a short list; reviewed as a set. | Promote to `guardrails/<concern>.json` when stakeholders group by concern (regulatory, safety, tone). |
-| `business-goals.json` | File (array) | Typically a short list of outcome criteria. | Promote to `business-goals/<track>.json` when goals span product tracks. |
-| `variables.json` | File (dict) | Usually a small dict of declarations. | Promote to `variables/<domain>.json` when variables span domains. |
-| `knowledge/faq.json` | File (array) | Starts small. | Promote to `knowledge/faq/<topic>.json` when topics emerge (billing, onboarding, troubleshooting). |
-| `knowledge/glossary.json` | File (array) | Usually small. | Promote to `knowledge/glossary/<domain>.json` when terms span fields (financial, legal, product). |
-| `knowledge/tables/` | Directory (per-id `*.csv` + `*.meta.json`) | Tabular content needs the CSV affordance. | Stay in directory form. |
-| `tests/cases/` | Directory (per-id `*.test.json`) | Each test case is structurally rich (user_turns array + nested evaluators). | Stay in directory form; the file form is technically allowed but unwieldy. |
-| `tests/mocks/` | Directory (per-id `*.<variant>.mock.json`) | Multiple variants per capability; each is a behavior spec. Referenced by test cases via mock_bindings. | Stay in directory form. |
-| `tests/rubrics/` | Directory (per-id `*.rubric.json`) | Multi-paragraph prompt templates. | Stay in directory form. |
-| `tests/personas/` | Directory (per-id `*.persona.json`) | Per-id default for reuse across test cases; tiny projects can collapse. | Collapse if you have ≤3 small personas. |
-| `models/` | Directory (`*.json` grouped by tier) | Models grouped by provider tier (frontier, local, custom); built-in providers ship in `@ux4/core`. | Stay in directory form. |
-| `tests/evaluators/` | Directory (Python files) | Built-ins (`forbidden_phrases`, `required_phrases`, `max_turn_length`, `regex_match`, `llm_judge`) vendored by `ux4-init-project`; users add `tests/evaluators/<name>.py` following the `evaluate(transcript, config, llm_client=None)` signature. Not validated as JSON artifacts. | n/a |
-| `tests/gold-standards/` | Directory (per-test-case `*.gold.json`) | Reference transcripts in the same shape as result files; promoted via `python run_test.py --save-as-gold <case>`. Consumed by the `llm_judge` evaluator when its rubric template references `{gold_standard}`. | n/a |
-| `tests/runs/` | Per-run folder | Each run has manifest + N results. **Not part of the shape rule.** | n/a |
-| `scripts/` | Directory (Python scripts) | Vendored by `ux4-init-project`; user adapts with Claude Code. Not validated as artifacts. | n/a |
-
-All `.json` files in any collection carry a `$schema` URI under `UX4://...`. All entries carry stable `id`s; the editor generates them.
+| Collection | Default scaffold | When to switch |
+|---|---|---|
+| `flows/` | Directory (per-id `*.flow.json` + paired `*.scripts.csv`) | Stay in directory form. Collapsing loses Excel-editable scripts. |
+| `capabilities/` | Directory (per-id `*.capability.json` + paired `*.<variant>.mock.json`) | Stay in directory form. Filename-prefix pair the declaration with its mocks. |
+| `guardrails.json` | File (array) | Promote to `guardrails/<concern>.json` when stakeholders group by concern (regulatory, safety, tone). |
+| `business-goals.json` | File (array) | Promote to `business-goals/<track>.json` when goals span product tracks. |
+| `variables.json` | File (dict) | Promote to `variables/<domain>.json` when variables span domains. |
+| `knowledge/faq.json` | File (array) | Promote to `knowledge/faq/<topic>.json` when topics emerge. |
+| `knowledge/glossary.json` | File (array) | Promote to `knowledge/glossary/<domain>.json` when terms span fields. |
+| `knowledge/tables/` | Directory (per-id `*.csv` + `*.meta.json`) | Stay in directory form (CSV affordance). |
+| `tests/cases/` | Directory (per-id `*.test.json`) | Stay in directory form; file form unwieldy. |
+| `tests/personas/` | Directory (per-id `*.persona.json`) | Collapse to file form if ≤3 small personas. |
+| `tests/rubrics/` | Directory (per-id `*.rubric.json`) | Stay in directory form (multi-paragraph templates). |
+| `tests/evaluators/` | Directory (Python files) | Not validated as JSON. Built-ins vendored; user-added go alongside. |
+| `tests/gold-standards/` | Directory (per-test-case `*.gold.json`) | n/a |
+| `models/` | Directory (`*.json` grouped by tier) | Stay in directory form. |
+| `scripts/` | Directory (Python scripts) | Vendored; user adapts with Claude Code. Not validated as artifacts. |
+| `comments/` | Directory (per-uuid `*.comment.json`) | Stay per-uuid (additive; conflict-free). |
+| `tests/runs/` | Per-run folder | Each run has manifest + N results. **Not part of the shape rule.** |
+| `agents/` (multi-agent only) | Directory of agent subdirectories | Single-agent projects don't have this. |
 
 ### Tabular sub-pattern
 
@@ -139,21 +242,67 @@ Two collections use CSV + paired meta JSON:
 
 | File pair | Notes |
 |---|---|
-| `knowledge/tables/<id>.csv` + `<id>.meta.json` | Rows in CSV; `meta.json` carries structure (field types/descriptions), purpose, and scaling_rule. Loader validates CSV columns against `meta.structure[].field`. |
-| `flows/<id>.scripts.csv` | Per-flow utterances. Columns are language codes from `agent.meta.languages`. Variation rows handled via separate columns or an in-cell delimiter convention — pinned during Phase 2 implementation. |
-
-CSV-paired collections only work in the directory form. Collapsing them into JSON arrays (technically allowed) loses Excel editing — a real loss for translators and ops.
+| `knowledge/tables/<id>.csv` + `<id>.meta.json` | Rows in CSV; `meta.json` carries structure (field types/descriptions), purpose, scaling_rule. Loader validates CSV columns against `meta.structure[].field`. |
+| `flows/<id>.scripts.csv` | Per-flow utterances. Columns are language codes from `agent.meta.languages`. Variation rows via separate columns or in-cell delimiter — pinned during implementation. |
 
 ### Singletons
 
 | File | Contents |
 |---|---|
-| `ux4.json` | Project manifest. Minimal and structural. |
-| `agent.json` | `meta` (name, purpose, client, tone, languages, modes), `chatbot_initiates`, `entry_flow_id`, top-level `$schema`. The agent envelope **minus** the collections that have moved to their own files. |
+| `ux4.json` | Project manifest. Minimal: `{ "$schema": "UX4://project/v0" }`. |
+| `agent.json` | Per-agent envelope: `meta` (name, purpose, client, tone, languages, modes), `chatbot_initiates`, `entry_flow_id`, optional `system_prompt_template`, optional `default_model`, plus optional agent-scope `guardrails[]` / `business_goals[]` / `variables{}` / `knowledge.faq[]` inline. At project root in single-agent; under `agents/<id>/` in multi-agent. |
 
-### Flow-scoped collections stay inline
+### Scope collections — physical layout
 
-`flow.guardrails[]`, `flow.knowledge.faq[]`, and `flow.variables{}` live inside `<id>.flow.json`, not in the global files or directories. They're small, tightly coupled to the flow that owns them, and benefit from physical colocation. Promote to agent-scope when an entry needs to be shared across flows. Global guardrails / faq / variables / etc. are agent-scoped only.
+| Scope | Where collections live |
+|---|---|
+| **Project** | Separate files at root (`guardrails.json`, `business-goals.json`, `variables.json`, `knowledge/faq.json`, etc.) |
+| **Agent** | Inline fields in `agent.json` (`guardrails: [...]`, `business_goals: [...]`, `variables: {...}`, `knowledge.faq: [...]`) |
+| **Flow** | Inline fields in `<id>.flow.json` (`flow.guardrails[]`, `flow.knowledge.faq[]`, `flow.variables{}`) |
+
+Project-scope is file-shaped because it's potentially large + shared across many readers. Agent-scope and flow-scope are inline because they're typically small + tightly coupled to their parent. Same conceptual model; physical representation matches the editing affordance.
+
+### Evaluators and rubrics
+
+Both are conceptually evaluators (a test case references either uniformly). They live in separate directories because their lifecycles differ:
+
+- **`tests/evaluators/<name>.py`** — Python functions; deterministic checks; engineer-authored.
+- **`tests/rubrics/<id>.rubric.json`** — declarative llm-judge criteria + prompt template; designer-authored.
+
+Test cases reference either by name:
+
+```json
+"evaluators": [
+  "forbidden_phrases",            // resolves to tests/evaluators/forbidden_phrases.py
+  "empathy_for_short_delay"       // resolves to tests/rubrics/empathy_for_short_delay.rubric.json
+]
+```
+
+Loader looks in both directories. Same reference pattern, different physical homes.
+
+### Comments
+
+Per-uuid additive files at project root (`comments/<uuid>.comment.json`). Each carries an anchor identifying the spec entity being discussed:
+
+```json
+{
+  "$schema": "UX4://comment/v0",
+  "id": "c-2026-05-21-a8f3",
+  "anchor": {
+    "kind": "flow",                      // closed enum (TypeBox schema): flow | exit_path | capability | guardrail | business_goal | variable | faq | glossary | table | persona | rubric | evaluator | test_case | mock
+    "agent_id": "30day-past-due-hindi",  // present iff entity is agent-scoped or below; omit for project-scoped
+    "id": "verify_identity"              // the entity's id within its scope
+  },
+  "thread_id": "t-2026-05-21-3b2c",
+  "parent_id": null,                     // null = top of thread; else id of comment being replied to
+  "author": "nirja",                     // GitHub username
+  "timestamp": "2026-05-21T15:00:00Z",
+  "body": "Should this flow handle the case where...?",
+  "resolved_by": null                    // comment id that resolves this thread, or null
+}
+```
+
+Pure additive — two collaborators creating comments simultaneously write two files; never conflict. Threading via `parent_id`. Resolution by another comment marked `resolved_by`. When the anchored entity is removed, cascade-delete handles the orphaned comments (validation flags them otherwise).
 
 ---
 
@@ -192,34 +341,38 @@ LLM configuration lives in `models/`. Each file is a partial config; the loader 
 // models/defaults.json
 {
   "$schema": "UX4://models/v0",
-  "default": "claude-sonnet-4-5"
+  "default": "claude-sonnet-4-5",
+  "roles": {
+    "agent": "claude-sonnet-4-5",          // OPTIONAL — overrides default for agent execution
+    "judge": "gpt-5",                       // OPTIONAL — for llm-judge rubrics (impartiality)
+    "user_simulation": "claude-haiku-4-5", // OPTIONAL — cheaper model for LLM-as-user
+    "authoring": "claude-sonnet-4-5"       // OPTIONAL — chat panel for spec editing
+  }
 }
 ```
 
-**Endpoint resolution.** Each model's `endpoint` field is a string referencing a named provider — always. Built-in providers (`anthropic`, `openai`, `google`) ship inside `@ux4/core` and are available by name in every project. Custom providers (self-hosted endpoints, vendor proxies) get declared in the `providers` map of any models file before being referenced. One form, one mental model — no inline endpoint objects on model entries.
+Roles are optional. Unset role → falls back to `default`. Per-file `model` field on test cases / rubrics / personas / agent overrides for that file; env vars and CLI flags override at higher precedence.
 
-**Provider kinds.**
+**Endpoint resolution.** Each model's `endpoint` field is a string referencing a named provider — always. Built-in providers (`anthropic`, `openai`, `google`) ship inside `@ux4/core`. Custom providers declared in the `providers` map of any models file. One form, one mental model.
 
-- `anthropic` — Claude API; calls Anthropic directly.
-- `openai` — OpenAI API; calls OpenAI directly.
-- `google` — Gemini API; calls Google directly.
-- `openai-compatible` — any host that speaks OpenAI's chat completions API: Ollama, vLLM, OpenRouter, Together, self-hosted proxies. Long-tail catchall.
+**Provider kinds:** `anthropic`, `openai`, `google`, `openai-compatible` (Ollama / vLLM / OpenRouter / Together / self-hosted — long-tail catchall).
 
-**Personal variation through env vars.** Anything personal flows through env vars, not through committed config:
+**Personal variation through env vars** (no per-developer config file):
 
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, custom `*_KEY` per provider — secrets.
-- `<base_url_env>` (per provider) — redirect a provider's base URL to your own host.
-- `UX4_DEFAULT_MODEL` — override the project default for one shell.
-- Per-call `--model` flag on scripts; per-test-case `model` field. Highest precedence.
+- `<base_url_env>` — redirect a provider's base URL.
+- `UX4_DEFAULT_MODEL` — override project default for one shell.
+- Per-call `--model` flag, per-test-case `model` field — highest precedence.
 
-**Resolution order**, low to high:
+**Model selection resolution order**, low to high:
+1. Built-in default in `@ux4/core`
+2. Project `models/defaults.json` `default`
+3. Project `models/defaults.json` `roles.<role>` (agent / judge / user_simulation / authoring)
+4. Per-file `model` field (in test case / rubric / persona / agent)
+5. Env var (`UX4_AGENT_MODEL`, `UX4_JUDGE_MODEL`, etc.)
+6. Per-call CLI override (`--model`, `--agent-model`, `--judge-model`, `--user-sim-model`)
 
-1. Built-in providers and models baked into `@ux4/core`.
-2. Project `models/*.json` files (merged).
-3. Env vars (base URL overrides, default model override).
-4. Per-call overrides.
-
-No per-developer config file. Personal endpoints either get added to the committed `models/` (with env-driven URLs so the actual host stays personal) or live entirely in env vars.
+**Runtime config (STT, TTS, voices, telephony, audio, barge-in, VAD) is explicitly out of scope for UX4.** Those live with the runner / Pipecat config / deployment infrastructure. UX4 declares semantic info (`meta.languages`, `meta.modes`); the runner picks appropriate runtime knobs. Per "execution separate from spec" — see [SCHEMA.md § Execution Separate From Spec](./SCHEMA.md#execution-separate-from-spec).
 
 ---
 
@@ -227,22 +380,23 @@ No per-developer config file. Personal endpoints either get added to the committ
 
 Entries reference each other by stable `id`. The file path is not the contract — the id is.
 
-- `<flow>.exit_paths[].actions[].capability_id` → looks up a `capabilities/<id>.capability.json`.
-- `<test-case>.scenario.mock_bindings.<capability_id>` → looks up a `tests/mocks/<capability_id>.<variant>.mock.json`.
-- `<test-case>.evaluators[].rubric_id` → looks up `tests/rubrics/<id>.rubric.json`.
-- `<test-case>.scenario.persona_id` → looks up `tests/personas/<id>.persona.json` (when present).
-- `<flow>.exit_paths[].goto` → flow id, `END`, or `RETURN` (unchanged from SCHEMA.md).
-- `agent.entry_flow_id` → flow id; resolves to a file in `flows/`.
+- `<flow>.exit_paths[].actions[].capability_id` → `capabilities/<id>.capability.json`
+- `<test-case>.scenario.mock_bindings.<capability_id>` → `capabilities/<capability_id>.<variant>.mock.json`
+- `<test-case>.evaluators[]` (by name) → either `tests/evaluators/<name>.py` or `tests/rubrics/<name>.rubric.json`
+- `<test-case>.scenario.persona_id` → `tests/personas/<id>.persona.json` (when present; optional)
+- `<flow>.exit_paths[].goto` → flow id (in same agent), `END`, or `RETURN` (unchanged from SCHEMA.md)
+- `agent.entry_flow_id` → flow id; resolves to a file in this agent's `flows/`. In multi-agent, each `agents/<id>/agent.json.entry_flow_id` resolves within that agent's own `agents/<id>/flows/` — no cross-agent resolution.
+- `<comment>.anchor` → spec entity by `(kind, agent_id?, id)`
 
-The loader (`@ux4/core/files`) builds an id-indexed symbol table on project load. Renaming a file requires the id inside the file to change too; the editor handles this atomically. Validation rejects dangling references.
+The loader (`@ux4/core/files`) builds an id-indexed symbol table on project load. Renaming a file requires the id inside the file to change too; the editor handles this atomically via id-rename cascade. Validation rejects dangling references.
 
-Path-based references are not used. The directory layout is fixed by the canonical structure above; references in spec content never name a path.
+Path-based references are not used. The canonical directory layout is the contract; references in spec content never name a path.
 
 ---
 
 ## Compiled runtime artifact
 
-The decomposed files are the **source of truth**. Runtimes consume a **compiled artifact** — a single JSON document with the same shape as the historical `spec.json`:
+The decomposed files are the **source of truth**. Runtimes consume a **compiled artifact** — a single JSON document per agent with the historical `spec.json` shape:
 
 ```json
 {
@@ -251,20 +405,18 @@ The decomposed files are the **source of truth**. Runtimes consume a **compiled 
 }
 ```
 
-Compilation is mechanical: the loader resolves cross-file references and inlines everything.
+Compilation merges across scope levels (project ∪ agent ∪ flow per entity), resolves cross-file references, and inlines everything.
 
-**Two compile targets in MVP:**
+**Two compile output formats in MVP:**
 
-- **`ux4-compile --target spec-direct`** — produces the resolved JSON document above. This is what the simulate panel hands to the runner, and what the Python runner ingests for production execution. Mechanically the same shape the historical `spec.json` had.
-- **`ux4-compile --target system-prompt`** — produces a JSON object `{ system_prompt: <string>, tool_schemas: [<schema>, ...] }` via the existing codegen in [lib/codegen/promptGenerator.ts](./lib/codegen/promptGenerator.ts). This is what Phase 2 testing scripts compile to before driving an LLM through a test case.
+- **`ux4-compile --format spec --agent <id>`** — produces the resolved JSON document above for the specified agent (runtime-canonical shape). Consumed by the simulate panel, the Python runner, and any future runtime target.
+- **`ux4-compile --format prompt --agent <id>`** — produces `{ system_prompt: <string>, tool_schemas: [...] }` via the codegen in [lib/codegen/promptGenerator.ts](./lib/codegen/promptGenerator.ts). Consumed by testing scripts (drives an LLM directly) and as the lowest-friction export for "paste into Claude / OpenAI / any LLM" workflows. Honors `agent.system_prompt_template` if set.
 
-Both targets read the same source files. Pipecat compilation is **deferred post-MVP**, gated on [TRANSLATION-POC.md](./TRANSLATION-POC.md) confirming behavioral fidelity.
+Both targets read the same source files. Single-agent projects can omit `--agent`. Pipecat compilation is **deferred post-MVP**, gated on [TRANSLATION-POC.md](./TRANSLATION-POC.md).
 
-The Python runner ingests `spec-direct` output. Testing scripts ingest `system-prompt` output. Neither consumes the source files; both go through `ux4-compile`. Clean seam.
+Test cases, mocks, rubrics, personas, run outputs, comments, and `models/*` are **not** compiled into the runtime artifact; they live alongside it as the testing and configuration surface.
 
-Test cases, mocks, rubrics, personas, run outputs, and `models/*` are **not** compiled into the runtime artifact; they live alongside it as the testing and configuration surface.
-
-**Where the compiled artifact lives.** Depends on the consumer. For in-process JS consumers (browser editor's simulate panel using `@ux4/core/compile`), `ux4-compile` produces it in memory. For external consumers (Python testing scripts, archival, debugging), write to disk with `ux4-compile --out <path>`. Conventional path when writing inside the project is `dist/spec.json` or `dist/system-prompt.json`, gitignored by `ux4-init-project`. Compiled artifacts shouldn't usually be committed; treat as the same kind of convention as not committing `node_modules/`.
+**Where the compiled artifact lives.** For in-process JS consumers (browser editor's simulate panel using `@ux4/core/compile`), `ux4-compile` produces it in memory. For external consumers (Python testing scripts, archival, debugging), write to disk with `ux4-compile --out <path>`. Conventional path: `dist/<agent-id>.spec.json` or `dist/<agent-id>.prompt.json`, gitignored by `ux4-init-project`. Compiled artifacts shouldn't usually be committed.
 
 ---
 
@@ -272,24 +424,24 @@ Test cases, mocks, rubrics, personas, run outputs, and `models/*` are **not** co
 
 Each file's `$schema` field carries the version. The schema doc ([SCHEMA.md](./SCHEMA.md)) is the contract for `agent` and `flow` shapes; this doc is the contract for the file layout itself.
 
-When the file model changes structurally (new collection promoted to its own file, format change, etc.), the project manifest's `$schema` URI bumps. The browser editor and scripts load older versions through a migration pass; the canonical form is always the latest.
-
-Initial version: `UX4://project/v0`.
+When the file model changes structurally, the project manifest's `$schema` URI bumps. The browser editor and scripts load older versions through a migration pass; the canonical form is always the latest. Initial version: `UX4://project/v0`.
 
 ---
 
 ## Migration from single-file specs
 
-Existing specs (the `coffee.json` example, any user file authored against the old single-document shape) are migrated by a one-shot script: `ux4-init-project --from <spec.json>`. It splits the document into the file layout above, writes a default `models/defaults.json`, and scaffolds a `README.md`. The browser editor offers the same migration when a user opens a single-file spec in a UX4 project context.
+Existing specs (the `coffee.json` example, any user file authored against the old single-document shape) are migrated by `ux4-init-project --from <spec.json>`: splits the document into the decomposed layout, writes `models/defaults.json`, scaffolds `README.md`.
 
-Backwards compatibility for reading single-file specs is supported in the loader through the MVP — the project manifest's absence is the signal that a directory contains a legacy single-file spec, and the loader handles it transparently. Writing always produces the decomposed layout.
+Single-file specs are also readable transparently by the loader during MVP (the project manifest's absence is the signal). Writing always produces the decomposed layout.
 
 ---
 
 ## Notes for implementers
 
 - The id-indexed loader is the central component. Build it first in `@ux4/core/files`; everything else (editor, scripts, validation, compilation) depends on it.
-- The loader handles the shape rule uniformly: same code path reads `guardrails.json` and `guardrails/*.json`, or `flows.json` and `flows/<id>.flow.json`. One implementation, every collection.
-- Validation runs on the in-memory resolved spec, not file-by-file. A single file is valid against its own schema; only the resolved spec is checked against cross-file invariants (referenced ids exist, entry flow is reachable, etc.).
-- Commit boundaries should match concern boundaries when possible. Editing a flow and adding a guardrail it references is two changes; commit them separately so the diffs read cleanly.
-- The file model is the foundation Phase 1 of [MVP-PLAN.md](./MVP-PLAN.md) builds on. GitHub-backed persistence in Phase 1 reads and writes this layout from day one.
+- The loader handles the shape rule uniformly: same code path reads `guardrails.json` and `guardrails/*.json`. One implementation, every collection.
+- Multi-agent resolution: loader walks `agents/<id>/` for agent-scoped entities, root for project-scoped; merges per scope rule. Single-agent projects skip the `agents/` walk.
+- Validation runs on the in-memory resolved spec, not file-by-file. A single file is valid against its own schema; only the resolved spec is checked against cross-file invariants (referenced ids exist, entry flow is reachable, scope collisions caught, etc.).
+- Comments are additive — adding a comment is always conflict-free. Resolution is also a new file (the resolving comment). Cascade-delete on entity removal handles orphans.
+- Commit boundaries should match concern boundaries. Editing a flow and adding a guardrail it references is two changes; commit separately so the diffs read cleanly.
+- The file model is the foundation Phase 1 of [MVP-PLAN.md](./MVP-PLAN.md) builds on.

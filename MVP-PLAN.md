@@ -1,49 +1,41 @@
 # UX4 MVP Plan
 
-The organizing vision and staged operational plan for UX4. This doc is the answer to "what are we building and when." For the data-model contract see [SCHEMA.md](./SCHEMA.md); for the on-disk layout see [FILE-MODEL.md](./FILE-MODEL.md); for architectural rationale see [AGENTS.md](./AGENTS.md); for the translation/fidelity experiment that gates runner-based testing see [TRANSLATION-POC.md](./TRANSLATION-POC.md).
+The organizing vision and staged operational plan for UX4. For the data-model contract see [SCHEMA.md](./SCHEMA.md); for the on-disk layout see [FILE-MODEL.md](./FILE-MODEL.md); for architectural rationale see [AGENTS.md](./AGENTS.md); for the translation/fidelity experiment that gates runner-based testing see [TRANSLATION-POC.md](./TRANSLATION-POC.md).
 
 ---
 
 ## Status (2026-05-21)
 
-**Phase 0 — original uxflows MVP — shipped 2026-05-08.** The visual editor for v0 specs is complete: canvas authoring, schema-driven inspectors, scripts sheet with multilingual columns, simulate panel, system-prompt codegen, AJV validation, LLM-assisted authoring. Details in [Phase 0 appendix](#phase-0-appendix--shipped-mvp).
+**Phase 0 — original uxflows MVP — shipped 2026-05-08.** Visual editor for v0 specs: canvas authoring, schema-driven inspectors, scripts sheet with multilingual columns, simulate panel, system-prompt codegen, AJV validation, LLM-assisted authoring. Details in [Phase 0 appendix](#phase-0-appendix--shipped-mvp).
 
-**Phase 1 — Foundation — in flight.** Decomposing the spec into the file model defined in [FILE-MODEL.md](./FILE-MODEL.md), switching persistence from localStorage to GitHub, monorepo restructure into `@ux4/core` / `@ux4/browser`, multi-provider model config.
+**Phase 1 — Foundation — in flight.** Multi-agent file model, GitHub-backed persistence, multi-provider model config, optional `agent.system_prompt_template`.
 
-**Target ship date: November 2026** for the Awaaz pilot loop; **December 2026** for course-prep polish; **course launch January 2027**.
+**Target ship date:** November 2026 for Awaaz pilot loop; December 2026 for course-prep polish; course launch January 2027.
 
 ## What's being built
 
-UX4 is a **Behavioral IDE for Conversational Agents**: visual spec authoring + Git-shaped collaboration + Python testing + a client share view, with multiple runtime targets behind a single durable spec. Four coordinated surfaces:
+UX4 is a **Behavioral IDE for Conversational Agents** — the open, Git-backed development section of the agent pipeline. Runtime execution (Python runner today; Pipecat / LangGraph / etc. post-MVP) and production observability (handled by the runtime's event stream and dedicated tools like LangSmith, Cekura, Maxim) are separate concerns. UX4 may integrate with production-monitoring tools post-pilot, but those integrations are not in MVP.
 
-- **Visual authoring (browser editor).** Canvas-first authoring of specs in a UX4 project. GitHub-backed persistence. Today also: chat panel for LLM-assisted authoring, simulate panel for ad-hoc text-mode iteration. Tests tab (Phase 2) for schema-aware JSON editing of testing artifacts.
-- **Git-shaped collaboration (per-agent repos).** Hold the decomposed spec, testing artifacts (`tests/`), gold-standard transcripts, result history (`tests/runs/`), models config, and the Python scripts that run tests. File decomposition is by stakeholder concern; see [FILE-MODEL.md § Why decompose](./FILE-MODEL.md#why-decompose).
-- **Python testing surface (vendored scripts).** Vendored into each agent repo by `ux4-init-project`. Drive test execution against compiled system prompts, deployed endpoints, or captured production sessions. Built-in evaluators + custom Python evaluators. Persona-driven LLM-simulated users. Nikunj adapts them with Claude Code.
-- **Client share view (Phase 3).** Static read-only export to GitHub Pages; agency-client surface for spec walkthroughs without GitHub accounts.
+**Four coordinated surfaces over a single durable spec:**
 
-GitHub is the system of record. UX4 holds no server-side state in the free tier.
+- **Visual authoring (browser editor).** Canvas-first authoring of one or many agents in a UX4 project. GitHub-backed persistence. Chat panel for LLM-assisted authoring, simulate panel for live exploration. Extended in Phase 2 for test-case loading, persona-driven runs, mock binding, and capture-as-test-case.
+- **Git-shaped collaboration (per-agent or multi-agent repos).** Decomposed by stakeholder concern per [FILE-MODEL.md](./FILE-MODEL.md). One repo can hold many agents (Tala with N purposes × M languages) with shared capabilities, guardrails, knowledge, personas, evaluators, and rubrics. Comments are first-class additive files anchored to spec entities.
+- **Python testing surface (vendored scripts).** `run.py` drives test execution against compiled system prompts, deployed endpoints, or captured production sessions. Built-in evaluators + custom Python + LLM-judge rubrics. Personas as user-side system prompts; gold standards as reference transcripts. Vendored per agent repo so Nikunj adapts with Claude Code.
+- **Client share view (Phase 3).** Static read-only export to GitHub Pages — agency-client surface for spec walkthroughs without GitHub accounts.
 
-**Pluggable runtimes.** The spec is the durable artifact; runtimes are interchangeable consumers. Today's runtime is the canonical Python runner (Pipecat-on-the-runner for Awaaz's voice production). Pipecat-direct, LangGraph, OpenAI Agents SDK, and a hosted UX4 runtime are post-MVP targets gated on [TRANSLATION-POC.md](./TRANSLATION-POC.md) confirming behavioral fidelity. MVP testing runs against compiled system prompts (a different compile target), explicitly trading graph-execution fidelity for portability and zero-runtime-dependency iteration.
+**Pluggable runtimes.** The spec is the durable artifact; runtimes are interchangeable consumers. Today's canonical runtime is the Python runner (Pipecat-on-the-runner for Awaaz's voice production). Pipecat-direct, LangGraph, OpenAI Agents SDK, hosted UX4 runtime — all post-MVP, gated on [TRANSLATION-POC.md](./TRANSLATION-POC.md) confirming behavioral fidelity. MVP testing runs against compiled system prompts, explicitly trading graph-execution fidelity for portability and zero-runtime-dependency iteration.
 
-### Why system-prompt-based testing for MVP
-
-Testing exercises the spec by compiling it to a monolithic system prompt + tool schemas (the existing TS codegen in [lib/codegen/promptGenerator.ts](./lib/codegen/promptGenerator.ts)), then driving an LLM through the test case's user turns with mock-bound capability dispatch. The Python runner is **not** involved in MVP testing.
-
-This buys two things:
-
-- **Simpler Phase 2.** No runner test-mode hook, no SDK changes, no mock injection plumbing across repos. Scripts call the LLM API directly.
-- **Honest fidelity story.** System-prompt testing covers LLM-level behavior — *what would the LLM do given this prompt* — not graph-level execution (interrupts, stack semantics, transitions). For MVP this is acknowledged tradeoff.
-
-Runner-based testing (and Pipecat compilation) lands **after** [TRANSLATION-POC.md](./TRANSLATION-POC.md) confirms behavioral fidelity between system-prompt path and graph-native runtimes. That work is post-MVP.
+GitHub is the system of record. UX4 holds no server-side state in the free tier. A hosted SaaS tier — for non-tech audiences who need real-time collaboration without Git fluency — is a coherent post-MVP product extension, not MVP scope.
 
 ### Success criterion
 
 Awaaz uses the MVP for real production work by November 2026:
 
-- Nirja and Aditya author specs in the browser editor.
-- Testing artifacts (test cases, mocks, rubrics, personas) live as JSON files in the agent repo, authored via IDE / Claude Code / GitHub web UI as appropriate.
-- Nikunj runs Python scripts (likely modified with Claude Code) for test execution, suite runs, and validation.
-- Their work flows through Git repos following UX4 conventions.
+- Nirja and Aditya author specs in the browser editor — one Tala repo containing all purpose × language agents.
+- Testing artifacts (test cases, mocks, rubrics, personas) live as JSON files in the agent repo, authored via IDE / Claude Code / GitHub web UI; SimulatePanel handles selection and live exploration.
+- Nikunj runs Python scripts (adapted with Claude Code) for test execution, suite runs, validation.
+- Comments anchored to spec entities replace ad-hoc Slack discussion of the spec.
+- Work flows through Git following UX4 conventions.
 
 If Awaaz uses it for real work, MVP shipped. If they only demo with it, it didn't.
 
@@ -52,8 +44,8 @@ If Awaaz uses it for real work, MVP shipped. If they only demo with it, it didn'
 ```
 ┌──────────────────┐         ┌──────────────────┐
 │  Browser editor  │         │  Python scripts  │
-│  (authoring +    │         │ (vendored per    │
-│   simulate)      │         │  agent repo)     │
+│  (canvas +       │         │  (vendored per   │
+│   SimulatePanel) │         │   agent repo)    │
 └────────┬─────────┘         └────────┬─────────┘
          │                            │
          └──────────┬─────────────────┘
@@ -61,7 +53,7 @@ If Awaaz uses it for real work, MVP shipped. If they only demo with it, it didn'
          ┌──────────▼───────────┐
          │   @ux4/core (TS)     │
          │  files, schema,      │
-         │  compile, validate   │
+         │  compile, providers  │
          └──────────┬───────────┘
                     │
               ┌─────▼─────┐
@@ -71,155 +63,231 @@ If Awaaz uses it for real work, MVP shipped. If they only demo with it, it didn'
               └───────────┘
 ```
 
-The Python `uxflows-runner` sits outside this picture in MVP — it remains canonical for production execution (Awaaz already runs it), but MVP testing doesn't involve it.
+The Python `uxflows-runner` is outside MVP's testing path — Awaaz runs it for production; MVP testing uses compiled system prompts directly.
 
-**Repo structure**:
+**Repo structure:**
 
-- **This repo (`uxflows/`)** becomes a monorepo with `@ux4/core` (pure TS: files, schema, codegen) and `@ux4/browser` (the existing Next.js editor).
-- **`uxflows-runner/`** — untouched in MVP. Remains canonical for production.
-- **Per-agent Git repos** — owned by the customer (Awaaz). Contain the decomposed spec, testing artifacts, scripts. Created by `ux4-init-project`.
+- **This repo (`uxflows/`)** — monorepo with `@ux4/core` (pure TS: files, schema, codegen, providers) and `@ux4/browser` (Next.js editor).
+- **`uxflows-runner/`** — untouched in MVP; remains canonical for production.
+- **Per-agent / multi-agent Git repos** — owned by the customer (Awaaz). Hold the decomposed spec, testing artifacts, scripts. Created by `ux4-init-project`.
 
 ## Implementation phases
 
-### Phase 1 — Foundation (June through mid-July 2026)
+### Phase 1 — Foundation (June through August 2026)
 
-**Goal**: file model + GitHub-backed authoring + multi-provider model config.
+**Goal:** file model + multi-agent support + GitHub-backed authoring + multi-provider model config foundation + agent.system_prompt_template.
 
 - **Monorepo workspace setup**: split this repo into `@ux4/core` (pure TS) and `@ux4/browser` (Next.js).
-- **File model implementation** per [FILE-MODEL.md](./FILE-MODEL.md): id-indexed loader, per-file schemas in `@ux4/core/schema`, cross-file reference resolution, validation against resolved spec.
-- **CLI migration script**: `ux4-init-project --from <spec.json>` splits an existing single-file spec into the decomposed layout. No in-editor wizard — Tapan runs the migration manually for existing specs.
+- **File model implementation** per [FILE-MODEL.md](./FILE-MODEL.md): id-indexed loader, per-file schemas in `@ux4/core/schema`, cross-file reference resolution, validation against resolved spec, file-or-directory shape rule for collections.
+- **Multi-agent support**: `agents/<id>/` directory shape, three-level scope rules (project / agent / flow) for guardrails / variables / business-goals / FAQ, scope-aware loader and compilation, collision-as-error semantics. Single-agent projects stay flat; promote via `ux4-init-project --add-agent <id>`.
+- **CLI migration script**: `ux4-init-project --from <spec.json>` splits an existing single-file spec into the decomposed layout (defaults to single-agent shape).
 - **GitHub OAuth + Octokit file I/O**.
-- **Project initialization** in an empty repo (writes `ux4.json` + directory skeleton + `README.md`).
-- **Persistence switch** from localStorage to GitHub-backed via `@ux4/core/files`. localStorage stays as a session-state cache.
-- **Inline schema validation** — extend the existing AJV pipeline to the per-file schemas. Errors render where the user is editing.
-- **`models/` schema + loader** — the file-model side of multi-provider config: schemas for `models/*.json`, loader aggregation, project-default resolution. Built-in providers (`anthropic`, `openai`, `google`) registered in `@ux4/core`. Simulate and chat panels stay on BYOK Google in Phase 1; provider-adapter wiring lands in Phase 2 when the test scripts also need LLM dispatch.
-- **Documentation**: file model, project conventions, migration guide.
+- **Project initialization** in an empty repo (writes `ux4.json` + directory skeleton + scaffolded `README.md`).
+- **Persistence switch** from localStorage to GitHub-backed via `@ux4/core/files`. Auto-commit to main; no branches surfaced in the editor (engineers branch via CLI if they want). localStorage stays as a session-state cache.
+- **Inline schema validation** — extend the existing AJV pipeline to the per-file schemas. Errors render where the user is editing. Cross-file validation surfaces stale references inline (dangling capability ids, persona refs, flow gotos).
+- **`models/` schema + loader**: schemas for `models/*.json`, loader aggregation, project-default resolution. `models/defaults.json` carries `default` + optional `roles` map (agent / judge / user_simulation / authoring). Built-in providers (`anthropic`, `openai`, `google`) registered in `@ux4/core`. Simulate/chat panels keep BYOK Google in Phase 1; provider-adapter wiring lands in Phase 2 alongside script-side LLM dispatch.
+- **`agent.system_prompt_template`** — optional field on agent schema; codegen wraps the deterministic compiled content in the template's `{generated}` placeholder. Pulled in per Nikunj's request. Other placeholders (`{meta.name}`, `{meta.client}`, etc.) for convenience.
+- **`agent.default_model`** — optional field on agent schema; overrides project default for this agent's runs.
+- **`ux4.json` is minimal** — just `{ "$schema": "UX4://project/v0" }`. Agents implicit from filesystem (presence of `agents/` directory); compile targets are CLI flags; project name derived from directory; client lives in `agent.meta.client`.
+- **Documentation**: file model, multi-agent project conventions, migration guide.
 
-Phase 1 doesn't ship: deep graph validation (deferred to Phase 3 — pull in if Awaaz hits a deadlock during pilot); per-file-type form editors (Phase 2 schema-aware JSON editor covers the floor); browser test surfaces (Phase 2). Multilingual support already shipped in Phase 0; Phase 1 testing confirms it survives the CSV + GitHub round-trip as part of normal regression, not as a separate deliverable.
+**Runtime config (STT, TTS, voices, telephony, audio, barge-in, VAD) is explicitly out of UX4 scope.** Lives with the runner / Pipecat config / deployment infrastructure. UX4 declares semantic info (`meta.languages`, `meta.modes`); runner picks runtime knobs. Optional `runtime/` directory is post-MVP if customers demand it.
 
-**Anthropic CORS verification** — week 1 task. If browser-direct LLM calls are blocked, decide on workaround.
+**Anthropic CORS verification** — week 1 task. If browser-direct LLM calls are blocked, decide on workaround (thin proxy, companion Node process, etc.).
 
-**Deliverable**: user connects GitHub → opens or initializes a UX4 project → edits the spec visually (flows decomposed into files under the hood) → saves → sees per-concern commits in their GitHub repo. Simulate and chat panels continue to work as in Phase 0 (BYOK Google); multi-provider lands with the testing path in Phase 2.
+**Deliverable:** user connects GitHub → opens or initializes a UX4 project (single-agent default; multi-agent via add-agent) → edits specs visually with shared resources at root and per-agent flows under `agents/<id>/` → saves → sees per-concern commits in GitHub. Simulate/chat panels continue working as in Phase 0 (BYOK Google); multi-provider lands with the testing path in Phase 2.
 
-### Phase 2 — Testing surface (mid-July through September 2026)
+### Phase 2 — Testing surface (mid-August through October 2026)
 
-**Goal**: per-id JSON file types for testing artifacts + Python scripts that run tests against compiled system prompts + basic result viewer.
+**Goal:** testing surface complete; persona-driven exploration in browser; comments anchored to spec; multi-provider end to end.
 
-- **Per-id schemas** in `@ux4/core/schema` for: test case, capability mock, rubric, persona, result, run manifest. Each carries a `$schema` URI.
-- **Loader discovery** for the `tests/` directory — slots these into the same id-indexed symbol table the spec uses. Cross-file references (test case → rubric, test case → mock by capability id, test case → persona) resolve through it.
-- **Node CLI**: `ux4-compile --target system-prompt <spec>` emits the compiled monolithic prompt + tool schemas as JSON to stdout. Reuses the existing codegen in `@ux4/core`.
-- **Python scripts** vendored per agent repo by `ux4-init-project`:
-  - `run_test.py [--target spec|endpoint] <test_case_path>` — runs one test case. Default target `spec`: compiles spec, drives LLM through user turns, dispatches mocks, runs evaluators. Target `endpoint`: hits an existing agent endpoint (URL + auth via env vars `AGENT_ENDPOINT_URL`, `AGENT_ENDPOINT_TOKEN`), no mocks. Either path writes `tests/runs/<timestamp>-<label>/<test-case-id>.result.json`.
-  - `run_suite.py [--target spec|endpoint] <test_cases_glob>` — same loop over a glob.
-  - `validate.py <path>` — validates artifacts (file or directory) against their schemas via a small Node wrapper around `@ux4/core/schema`.
-  - Each script is <150 lines with a documented header explaining what to modify. Nikunj adapts them with Claude Code.
-- **Endpoint-based testing** (subsumes whatsupp2's existing capability). Same evaluator library runs against either spec-driven or endpoint-driven transcripts; the script driver is what changes. Mock bindings ignored in `--target endpoint` mode (the endpoint has its own capability implementation). Multiple endpoints supported via env-var conventions; no project-level endpoint registry in MVP.
-- **Multi-provider LLM dispatch** lands here too (carry-over from Phase 1's `models/` schema work). Provider adapters (`anthropic`, `openai`, `google`, `openai-compatible`) in `@ux4/core/providers`; env-var resolution for keys and base URLs; simulate and chat panels rewire to read from `models/`. Python scripts use the same provider abstractions via the Node CLI.
-- **Evaluator library — Python, vendored.** `tests/evaluators/*.py` files; each exports `evaluate(transcript, config, llm_client=None) -> EvaluatorResult`. `ux4-init-project` vendors the built-ins:
+**A. File types & loader:**
+
+- Per-id schemas for test case, capability mock, persona, rubric, result, run manifest, comment. Loader discovery for `tests/` and `comments/`.
+- Test cases are scripted only (`user_turns` array; explicit, deterministic). Persona-driven runs live in SimulatePanel for exploration; if a designer wants to lock one as regression, they use capture-as-test-case to extract turns. First-class persona-driven tests deferred until LLM-judge reproducibility is sufficient.
+- Personas: minimal schema (`id` + `system_prompt` + optional `name` / `notes` / `model`).
+- Test cases / rubrics carry optional `model` field for per-file model pinning (reproducibility of regression tests; impartial judge model). Resolution chain: per-call CLI → env var → per-file `model` → `models.roles.<role>` → `models.default` → built-in.
+- Capability mocks paired with capabilities via filename prefix (`capabilities/<id>.<variant>.mock.json`). Project-level; reused across agents.
+- Comments: per-uuid files (`comments/<uuid>.comment.json`); additive, conflict-free. Anchor = `{ kind, agent_id?, id }`.
+
+**B. SimulatePanel extended (unified browser run surface):**
+
+- Dropdown to load test case → drives `user_turns`.
+- Dropdown to load persona → auto-populates user-side system prompt.
+- Naked user-side system prompt (paste/edit directly, like the existing agent-side pattern).
+- Mock binding via existing Phase 0 pattern, extended for test-case mock_bindings.
+- Capture-as-test-case button (extracts user turns from displayed transcript → writes `tests/cases/<auto-id>.test.json`).
+- Download transcript to local machine (no commit, no notes UI; designer adds notes externally — email, ticket, doc).
+- Renders captured result files (from `tests/runs/`) in the same transcript-display surface.
+- **No evaluators run in the browser.** Evaluation is Python's job.
+
+**C. Comments surface in editor:**
+
+- Canvas badge on entities with comments (flow / exit_path / capability / guardrail / test case / mock / rubric / persona).
+- Click badge → side panel with thread view.
+- Add comment from right-click menu or side panel.
+- Reply / resolve via writing new comment files.
+
+**D. Python scripts (vendored per-agent repo):**
+
+- `run.py [--against prompt|endpoint] [--agent <id>] [--personas <glob>] [--evaluators <glob>] [--save-as-gold] <case-or-glob>` — runs one test case or many via glob. Default `--against prompt`: compiles system prompt, drives LLM through user turns, dispatches mocks, runs evaluators. `--against endpoint`: hits an existing agent endpoint (URL + auth via env vars `AGENT_ENDPOINT_URL`, `AGENT_ENDPOINT_TOKEN`), no mocks. Writes results to `tests/runs/<timestamp>-<label>/<test-case-id>.result.json`.
+- `validate.py <path>` — validates artifacts (file or directory) against schemas via Node wrapper around `@ux4/core/schema`.
+- Each script <150 lines with a documented header. Nikunj adapts with Claude Code.
+- File-path-based addressing throughout (no id-based CLI args). Personas / evaluators / test cases all referenced as paths or globs.
+- Multi-persona runs: `--personas tests/personas/*.persona.json` runs the test once per persona file matched.
+
+**E. Endpoint-based testing (`--against endpoint`):**
+
+- Same evaluator library runs against either spec-driven or endpoint-driven transcripts.
+- Mock bindings ignored in `--against endpoint` mode (endpoint has its own capability implementation).
+- Subsumes whatsupp2's existing endpoint-testing capability.
+
+**F. Multi-provider LLM dispatch:**
+
+- Provider adapters (`anthropic`, `openai`, `google`, `openai-compatible`) in `@ux4/core/providers`.
+- Env-var resolution for keys and base URLs.
+- Simulate and chat panels rewire to read from `models/` config.
+- Python scripts use the same provider abstractions via Node CLI.
+
+**G. Evaluator library:**
+
+- `tests/evaluators/*.py` — Python deterministic checks; built-ins vendored by `ux4-init-project`:
   - `forbidden_phrases`
   - `required_phrases`
   - `max_turn_length`
   - `regex_match`
-  - `llm_judge` (loads referenced rubric from `tests/rubrics/`, substitutes `{transcript}` + `{criteria}` + optionally `{gold_standard}`, calls LLM, parses score + reasoning)
-  Users add custom evaluators by writing `tests/evaluators/<name>.py` following the same signature. Test cases reference any evaluator by `type` field — built-in and custom dispatch the same way.
-- **Gold-standard workflow.** Reference transcripts captured as `tests/gold-standards/<test_case_id>.gold.json` (same shape as a result file). Initially generated by `python run_test.py --save-as-gold <case>` — runs the test and promotes its result to the gold-standards directory. Editable thereafter through the Tests tab JSON editor like any other artifact (fix typos, refine the reference behavior, etc.). Future runs compare via an `llm_judge` evaluator whose rubric references `{gold_standard}` in its prompt template. No separate evaluator type — gold standards are an input to rubrics, not a parallel mechanism. Only LLM judging makes sense for conversation comparison anyway; exact-match and embedding similarity don't survive nondeterministic LLM output.
-- **Two test-case user modes — explicit turns and LLM-simulated turns.** The test case's `scenario.user` is either `{ turns: [...] }` (deterministic, regression-style) or `{ persona_id, goal, max_turns }` (an LLM plays the user). Personas become load-bearing: backstory and traits drive the simulated user's behavior. Subsumes whatsupp2's persona-driven simulation. Orthogonal to `--target`: both user modes work against `spec` or `endpoint` driver. Test cases declare their user mode; the script handles whichever is present.
-- **Result viewer** in the browser: reads result files from `tests/runs/`. Displays transcript with role labels, capability calls inline (mock id + inputs/outputs), evaluator results with pass/fail and reasoning, metrics, final variable state. MVP scope: view in-session result + view a specific committed run by path. Cross-run comparison is post-MVP.
-- **Save results to repo**: user-initiated commit. `tests/runs/<timestamp>-<label>/` directory; gitignored is *not* the default — committed runs are the audit trail.
-- **Tests tab in the editor + schema-aware JSON editor.** A new navigation surface in the browser editor surfaces everything under `tests/` from the loader — authoring artifacts (test cases, mocks, rubrics, personas) and gold standards for editing, plus run history for review. Editable artifacts click → schema-aware JSON editor (one component; TypeBox schemas drive autocomplete, validation, and error highlighting); save → commits via the existing GitHub persistence layer. Gold standards edit the same way (initially captured via `--save-as-gold`, then refined manually as the reference behavior evolves). Run results are read-only and feed into the existing result viewer. Single editor component covers all editable file types; no per-file-type forms. Accessibility win without form-per-type cost.
+  Users add custom evaluators alongside following the `evaluate(transcript, config, llm_client=None) -> EvaluatorResult` signature.
+- `tests/rubrics/*.rubric.json` — llm-judge rubrics (declarative criteria + scoring scale + prompt template). Template supports `{transcript}`, `{criteria}`, `{gold_standard}` placeholders.
+- Test cases reference either kind uniformly via `evaluators: ["forbidden_phrases", "empathy_for_short_delay"]`. Loader resolves by name in both directories.
 
-**Deliverable**: user authors a capability mock, a test case, a rubric, a persona as JSON files — either in the editor's Tests tab (schema-aware JSON edit) or in their IDE / Claude Code / GitHub web UI. Runs the test via `python run_test.py <case>`. Sees results in the browser via the result viewer. Optionally commits results. Multi-provider works end-to-end through the testing path.
+**H. Gold-standard workflow:**
 
-### Phase 3 — Awaaz pilot + polish (October through November 2026)
+- `run.py --save-as-gold <case>` writes the run's transcript to `tests/gold-standards/<test_case_id>.gold.json`.
+- Rubrics whose prompt template references `{gold_standard}` auto-load from the gold standards directory at evaluation time.
+- Gold standards editable thereafter — they're just JSON files (fix typos, refine reference behavior).
+- No separate evaluator type; gold standards are an input to rubrics, not a parallel mechanism.
 
-**Goal**: Awaaz adopts MVP for real production work; iterate based on feedback.
+**I. Editor concerns:**
 
-- **Awaaz pilot**: Nirja and Aditya in the browser editor; Nikunj in Claude Code with the vendored Python scripts. They run their actual production-bound work through UX4 conventions.
-- **Iterate** based on Awaaz feedback. Friction in the test-authoring flow is the most likely source; pull in per-file-type forms if the schema-aware JSON editor isn't enough.
-- **Client share view** (strategic, requested by Nirja). Read-only canvas mode hiding simulate/chat/testing/scripts/configs chrome. Editor "Publish share view" button generates a static bundle and pushes to a designated branch (e.g., `gh-pages` or `share/`); GitHub Pages serves it as a public URL. Clients view without GitHub accounts. Hides engineering detail (`$schema` URIs, ids, internal plumbing); shows flows, agent meta, capability declarations, guardrails, scripts, and the existing `notes` field on flows and exit_paths (rendered as guided-walkthrough context — designers write notes knowing clients will see them). Always reflects main branch (no snapshot pinning in MVP). Strategic agency-client relationship surface.
-- **Production session import** — closes the design → production → regression loop without building observability infrastructure. Two scripts:
-  - `python import_session.py <session_log>` — converts a captured runner event log into a `tests/cases/<auto-id>.test.json` with user turns extracted. Designer fills in evaluators afterward and can `--save-as-gold` to lock the behavior.
-  - `python eval_session.py <session_log> --evaluators <ids>` — runs configured evaluators directly against a captured transcript, no test case framing. Produces a result file. "Evaluate this conversation."
+- **Id rename with cascade update** — renaming a flow / capability / etc. in the editor finds all references (in test cases, mocks, other flows, comments) and updates them atomically. Addresses Nikunj's "update test cases when schema changes" feedback.
+- **Concurrent-edit detection** — file-SHA check on save with "this file changed since you opened it" warning. Prevents silent overwrites.
+- **Cross-file validation** surfaces stale references inline (extension of Phase 1 work).
+
+**J. Non-dev framing:**
+
+- Editor (canvas + SimulatePanel) is the surface for designers. Docs don't direct non-devs to IDE / GitHub web UI for normal work. Engineers (Nikunj) use IDE for scripts and JSON editing of testing artifacts; designers stay in the editor.
+- Branches / PRs / merge conflicts are engineer concepts; editor never surfaces them.
+- No Tests tab in MVP. SimulatePanel dropdowns handle test case + persona file selection. If non-dev pain surfaces, a Tests tab with schema-aware JSON editor + per-file-type forms can land post-pilot.
+
+**Deliverable:** Awaaz designers can author multi-agent specs visually, run persona-driven and scripted tests via SimulatePanel + Python scripts, comment on the spec inline, see results, and use multiple LLM providers. Engineers extend evaluators with custom Python or new rubrics.
+
+### Phase 3 — Awaaz pilot + polish (November 2026)
+
+**Goal:** Awaaz adopts MVP for real production work; iterate; ship the strategic surfaces.
+
+- **Awaaz pilot.** Nirja and Aditya in the browser editor; Nikunj in Claude Code with vendored Python scripts. Tala's full purpose × language lineup as one multi-agent project. Real production work.
+- **Iteration based on pilot feedback.** Friction in the test-authoring flow is the most likely source; pull in Tests tab + schema-aware JSON editor + per-file-type forms if the IDE-only path bites for designers.
+- **Client share view** (strategic, requested by Nirja). Read-only canvas mode hiding simulate / chat / testing / scripts / configs chrome. Editor "Publish share view" button generates a static bundle and pushes to a designated branch (`gh-pages` or `share/`); GitHub Pages serves it as a public URL. Clients view without GitHub accounts. Hides engineering detail (`$schema` URIs, ids, internal plumbing); shows flows, agent meta, capability declarations, guardrails, scripts, and the existing `notes` field on flows and exit_paths (rendered as guided-walkthrough context — designers write notes knowing clients will see them). Always reflects main branch (no snapshot pinning in MVP). Strategic agency-client relationship surface.
+- **Production session import** — closes the design → production → regression loop without building observability infrastructure:
+  - `python import_session.py <session_log>` — converts a captured runner event log into a `tests/cases/<auto-id>.test.json` with user turns extracted. Designer fills in evaluators afterward; can `--save-as-gold` to lock behavior.
+  - `python eval_session.py <session_log> --evaluators <glob>` — runs evaluators directly against a captured transcript, no test case framing. "Evaluate this conversation."
   - Format: runner-emitted event stream. UX4 parses it; doesn't define it.
-- **Browser polish**: id rename with cascade update; scripts sheet row reorder if Awaaz hits it; result viewer refinements based on actual use.
-- **Error handling, edge cases, polish** across the editor and scripts.
+- **Deep validation: unreachable calculation exits** — slotted from Phase 1; pull in once pilot surfaces the need.
+- **Browser polish** based on actual use: scripts sheet row reorder if Awaaz hits it; result viewer refinements; canvas perf if 100+ flows lag.
 
-**Deliverable**: MVP shipped. Awaaz using for real production work.
+**Deliverable:** MVP shipped. Awaaz using for real production work on the Tala project.
 
 ### Phase 4 — Course prep (December 2026)
 
-**Goal**: ship-ready for the January 2027 course launch.
+**Goal:** ship-ready for the January 2027 course launch.
 
-- **System prompt export polish**: Phase 0 codegen already exists; refine and document for the course. This is the lowest-friction path for course students (paste into Claude, OpenAI, or any LLM with system-prompt support).
-- **Public tutorial docs**: walkthroughs of authoring → testing → export. Worked example end-to-end.
-- **Beta readiness**: any auth/access flow needed for opening UX4 to public sign-ups (modest; users connect their own GitHub).
+- **System prompt export polish** — Phase 0 codegen already exists; refine and document for the course. Lowest-friction path for course students (paste into Claude, OpenAI, or any LLM with system-prompt + tool-call support).
+- **Public tutorial docs** — walkthroughs of authoring → testing → export. Worked example end-to-end.
+- **Beta readiness** — auth/access flow for opening UX4 to public sign-ups (modest; users connect their own GitHub).
 
-Templates, onboarding UI, and Pipecat compilation are **deferred**. They land when (a) the Awaaz pilot validates the loop and (b) the course launch surfaces real demand for them, not before.
+Templates, onboarding UI, Pipecat compile remain deferred. They land when (a) the Awaaz pilot validates the loop and (b) the course launch surfaces real demand, not before.
 
-**Deliverable**: course can launch.
+**Deliverable:** course can launch.
 
 ## Critical decisions to verify or make early
 
-1. **Anthropic CORS policy for browser-side calls.** Verify week 1 of Phase 1. If browser-direct calls are blocked, need a workaround (thin proxy, companion Node process, etc.).
-2. **`@ux4/core` codegen reuse from Python**. Python scripts shell out to a Node CLI (`ux4-compile --target system-prompt`). Node becomes a required dependency for the per-agent script environment alongside Python. Acceptable; Awaaz has both.
-3. **API key storage in the browser**. Env vars are the source of truth on dev/scripts side. For the browser, paste-and-store-in-localStorage with a clear warning about origin-script exposure. Decide based on Awaaz's risk tolerance. See [FILE-MODEL.md § Models and providers](./FILE-MODEL.md#models-and-providers).
-4. **Result file naming and run folder structure.** Single result file per test case in a run, named by test case id. Run folder `<timestamp>-<label>`. Two logical runs produce two folders.
-5. **Mock dispatch in the system-prompt path.** Since testing happens against a compiled system prompt, mocks aren't dispatched on graph exit transitions — they're dispatched when the LLM invokes a tool. The capability's `outputs` shape is the contract; mocks return objects matching it. The runner's exit-transition semantics aren't exercised in MVP (that's the fidelity gap; see TRANSLATION-POC).
+1. **Anthropic CORS policy for browser-side calls.** Verify week 1 of Phase 1. If blocked, decide on workaround.
+2. **`@ux4/core` codegen reuse from Python.** Python scripts shell out to a Node CLI (`ux4-compile --format prompt --agent <id>`). Node becomes a required dependency for the per-agent script environment alongside Python. Acceptable; Awaaz has both.
+3. **API key storage in the browser.** Env vars on dev/scripts side. For the browser, paste-and-store-in-localStorage with a clear warning about origin-script exposure. Decide based on Awaaz's risk tolerance.
+4. **Mock dispatch in the system-prompt path.** Mocks aren't dispatched on graph exit transitions — they're dispatched when the LLM invokes a tool. The capability's `outputs` shape is the contract; mocks return objects matching it. The runner's exit-transition semantics aren't exercised in MVP (the fidelity gap tracked by TRANSLATION-POC). Unbound capability in spec mode → test fails (not silent default).
+5. **Scope collisions in multi-agent.** Same id at project + agent level = error in MVP, not silent override. Designer consolidates.
+6. **Cross-agent references in multi-agent.** A flow's `goto` references only its own agent's flows. Project-level entities (capabilities, project-guardrails, personas, etc.) referenceable from any agent. No cross-agent flow references in MVP.
 
 ## Still deferred (post-MVP)
 
-Each has been considered and deferred. Some carry over from Phase 0's Beyond-MVP list; some moved out of the new vision during scope cutting.
+Each has been considered and deferred. Defers are pre-conditional, not aspirational — each has a stated trigger.
 
 ### Gated on TRANSLATION-POC
 
-- **`ux4-compile --target pipecat`.** Pipecat compilation as a runtime target. Gates on [TRANSLATION-POC.md](./TRANSLATION-POC.md) confirming fidelity between the spec and graph-native runtimes.
-- **Runner-based testing.** Mock-injection hook in `uxflows-runner/`, Python SDK `runner.run_test(spec, test_case, mocks)`, scripts that exercise the *graph* not the system prompt. Same gate.
-- **Conformance test suite** that runs the same spec + test case through system-prompt path and runner path and asserts equivalence.
+- **`ux4-compile --format pipecat`.** Pipecat as a runtime compile target.
+- **Runner-based testing.** Mock-injection hook in `uxflows-runner/`, Python SDK `runner.run_test(...)`, scripts that exercise the *graph* not the system prompt.
+- **Conformance test suite** that asserts system-prompt-path and runner-path equivalence.
+- **First-class persona-driven test cases** as formal regression units. Currently persona-driven runs live in SimulatePanel for exploration; lock-as-test via capture-as-test-case. Becomes first-class when LLM-judge reproducibility is sufficient to treat them as regression.
 
-### Deferred for scope
+### Gated on Awaaz pilot data
 
-- **Pipecat deploy tooling** (`ux4-deploy-pipecat`). Deployment is platform-specific and substantial; Awaaz deploys themselves.
-- **Browser-native test case / mock / rubric / persona editors as forms.** Phase 2 ships a schema-aware JSON editor that covers all four file types with autocomplete and validation. Per-file-type rich forms (mock behavior-type forms, evaluator-builder UI, rubric template highlighting) land if the JSON editor isn't enough for Awaaz's actual workflow.
-- **Client-comment infrastructure for the share view.** Phase 3 ships the share view with designer-authored `notes` rendered as guided context but no interactive comment surface. Adding comments needs either GitHub-account auth (loses non-technical clients) or a UX4-hosted proxy (breaks the "no server-side state" stance). Decide post-pilot when there's data on actual client-feedback workflows. Likely Cloudflare-Worker proxy posting structured GitHub Issues if it lands.
-- **TS execution engine** in the browser (a TS port of the Python runner). The system-prompt testing path covers MVP; TS engine lands when browser-direct test execution becomes a real audience need.
+- **Tests tab + schema-aware JSON editor in browser.** Designers edit testing artifacts in IDE / GitHub web UI for MVP; ship Tests tab if friction surfaces.
+- **Per-file-type rich form editors** (mock behavior-type forms, evaluator builder, rubric template highlighting). Phase 3+ if JSON-in-IDE doesn't suffice.
+- **Client-comment infrastructure for the share view.** Phase 3 share view has designer-authored `notes` rendered as context; interactive comments need either GitHub-account auth (loses non-tech clients) or a UX4-hosted proxy (breaks no-server-state). Decide post-pilot. Likely Cloudflare-Worker proxy posting to GitHub Issues.
 - **Result viewer comparison view** (side-by-side runs).
-- **Cross-run regression detection automation**.
-- **Templates / vertical templates** (banking, healthcare, insurance, etc.). Phase 4 ships course-launch without templates; add when course demand surfaces.
-- **Onboarding flow for first-time users**. Phase 4 ships without; Awaaz pilots don't need it.
-- **System-prompt template on the agent** (`agent.system_prompt_template` with `{{double-brace}}` placeholders). Deferred pending real templates from Nikunj.
+- **Suite-level evaluators** ("apply this rubric to every test in the suite"). Cross-cutting concerns via documentation in MVP; first-class file type post-pilot if needed.
+
+### Gated on broader-audience product expansion
+
+- **Hosted UX4 collaboration tier.** Real-time presence, live cursors, fine-grained per-entity permissions, server-managed state. For non-tech designer audience that finds Git friction prohibitive. Two-tier strategy: open Git tier (MVP) + hosted SaaS tier (paid, post-pilot). Same schema, same file model — different access surface.
+- **Cross-project analytics** ("eval pass rate across all my projects"). Hosted-tier feature.
+- **Server-side execution, comparison engine, regression detection automation.** Paid tier 2027.
+- **Templates / vertical templates** (banking, healthcare, insurance). Phase 4 ships course without templates; add when demand surfaces.
+- **Onboarding flow for first-time users.** Phase 4 ships without; Awaaz pilots don't need it.
+- **Multi-user organizations beyond GitHub's native collaboration.**
+
+### Gated on production-monitoring integration demand
+
+- **Integration with production monitoring / eval platforms** (LangSmith, Cekura, Maxim, runtime event stream consumers). Two directions: export UX4 evaluation results into their formats; import production data from them as test cases via session-import equivalents. Defer until pilot data shows which platforms Awaaz and broader audience actually use.
+
+### Schema and behavioral additions
+
 - **Steps editor**: structured turn sequencing, captures, per-turn conditions, utterance variations. Schema version bump when implementation pressure is real ([SCHEMA.md § Open Questions](./SCHEMA.md#open-questions)).
 - **Schema additions**: `tool` step, `call` step, runtime hints. Schema version bumps.
 - **Accumulator / reducer semantics on variables, human-in-the-loop pause, async interrupts, intent catalog, turn budgets.** Open Questions in SCHEMA.md.
-- **Skip dagre re-layout when topology hasn't changed.** Perf optimization that matters at 100+ flows. Defer until reported.
-- **Knowledge-coverage-gaps heuristic** (the second deep validation check). Imprecise, hard to tune. Keep the unreachable-calc-exit check; defer this one.
+- **Multi-agent capability isolation** (per-agent allowlist for which project-level capabilities the agent can use). Regulatory pressure trigger.
+- **Per-agent model overrides** in `models/` config.
+- **TS execution engine** in the browser (TS port of the Python runner). System-prompt testing covers MVP; TS engine lands when browser-direct test execution becomes a real audience need.
+
+### Deferred to whenever pain surfaces
+
+- **Skip dagre re-layout when topology hasn't changed.** Perf opt at 100+ flows.
+- **Knowledge-coverage-gaps heuristic** (second deep validation check). Imprecise.
 - **`language_consistency` and `flow_reached` evaluators.** Add if Awaaz asks by name.
-- **Export as text — multiple formats** (declarative YAML, imperative pseudocode, markdown narrative). Read-only by default.
-- **Versioning of specs and guardrails** beyond Git's native versioning.
-- **Real-time collaboration.** UX4 is a Git-shaped product; real-time would be a different product. Not on the roadmap.
-- **Server-side execution, comparison engine, regression detection automation.** Paid tier 2027.
-- **Production observability infrastructure**: real-time event-stream consumption, dashboards, metrics aggregation, alerting, log retention, multi-session analytics. The runner emits an event stream; whatever monitoring Awaaz needs lives in their ops stack. Phase 3 ships one-shot session import for the regression-loop use case; the broader observability surface stays out of UX4.
-- **Multi-user organizations beyond GitHub's native collaboration.** Paid tier.
-- **Runtime adapters beyond `spec-direct`**: LangGraph, OpenAI Agents SDK, Dialogflow CX. Post-MVP.
-- **Voice testing.** Months 9-15.
-- **Eval-on-canvas overlay.** Findings overlaid onto canvas; post-MVP UX4 surface.
+- **Export as text — multiple formats** (declarative YAML, imperative pseudocode, markdown narrative).
+- **Versioning of specs and guardrails** beyond Git native.
+- **Real-time collaboration.** Git-shaped product; real-time is a different product (the hosted-SaaS tier).
+- **Voice testing — acoustic dimension.** Transcript-based voice testing covered via production session import in Phase 3; acoustic (TTS quality, prosody, barge-in) needs audio infrastructure. Months 9-15.
+- **Eval-on-canvas overlay.** Findings overlaid onto canvas.
 
 ## Documentation deliverables
 
 In order of dependency:
 
-1. **[FILE-MODEL.md](./FILE-MODEL.md)** — project conventions and on-disk layout.
+1. **[FILE-MODEL.md](./FILE-MODEL.md)** — project conventions, on-disk layout, multi-agent shapes, scope rules.
 2. **[SCHEMA.md](./SCHEMA.md)** — spec data model.
-3. **Per-file schema docs** — one per file type (capability declaration, capability mock, test case, persona, rubric, result, run manifest, etc.), following SCHEMA.md's style.
-4. **Browser user guide** — connect repo, init project, author spec, run simulate, view results.
-5. **Scripts user guide** — what each script does, environment setup (Python + Node), how to adapt with Claude Code.
+3. **Per-file schema docs** — one per file type (capability declaration, capability mock, test case, persona, rubric, result, run manifest, comment, etc.).
+4. **Browser user guide** — connect repo, init project (single or multi-agent), author specs, run SimulatePanel, view results, add comments.
+5. **Scripts user guide** — what each script does, environment setup (Python + Node), how to adapt with Claude Code, glob patterns for personas / evaluators / tests.
 6. **Library API reference** — generated from TS types with hand-written examples.
-7. **Course tutorial path** — Phase 4 deliverable: walk a student from "open UX4, author flow, export system prompt" in 30 minutes.
+7. **Course tutorial path** — Phase 4: walk a student from "open UX4, author flow, export system prompt" in 30 minutes.
 
 ## Success metrics
 
-- Awaaz adoption for real production work (binary).
-- Test cases authored across Awaaz projects.
+- Awaaz adoption for real production work on Tala (binary).
+- Test cases authored across Awaaz projects (one Tala project, N agents).
 - Capability mocks authored.
+- Comments threads in the editor.
 - Result files committed to Git (proxy for iterations the user wanted to keep).
 - Whether Nikunj uses reference scripts as-is, modifies them, or ignores them.
 - Iteration loop latency: edit spec → see test result. Target under 30 seconds for typical cases.
@@ -229,19 +297,23 @@ In order of dependency:
 
 The schema is the durable artifact. The file model is the serialization. Don't modify the schema to accommodate file-layout concerns; if something feels like it belongs in the schema, the test is whether the Python runner needs it. If only the editor or scripts need it, it's a file-layout concern.
 
-System-prompt-based testing is *good enough* for MVP, not equivalent to graph execution. The fidelity gap is acknowledged and tracked by [TRANSLATION-POC.md](./TRANSLATION-POC.md). Don't paper over it.
+System-prompt-based testing is *good enough* for MVP, not equivalent to graph execution. The fidelity gap is tracked by [TRANSLATION-POC.md](./TRANSLATION-POC.md). Don't paper over it.
+
+Multi-agent compilation: each agent compiles independently. Cross-agent references aren't allowed in MVP. Loader merges project ∪ agent ∪ flow per scope rule into the resolved compiled spec, which has the historical `{agent, flows}` shape — runtime unaware of multi-agent.
 
 GitHub is the system of record. UX4 has no opinion about user data persistence beyond "write files to the user's repo on save." If the user disconnects UX4, their work is intact.
 
-The Python scripts are reference implementations, not products. Don't grow them. If users need richer scripts, they adapt these with AI coding assistance — that's the design.
+The Python scripts are reference implementations, not products. Don't grow them. If users need richer scripts, they adapt with AI coding assistance — that's the design.
 
-The MVP ships in ~6 months from May 2026 (Awaaz pilot completes November). Course-ready ships +1 month. Scope discipline matters more than feature ambition. If something on the deferred list looks essential mid-build, weigh hard before pulling it in.
+Comments are additive — adding is always conflict-free. Resolution is also a new file (the resolving comment marks `resolved_by`). Cascade-delete on entity removal handles orphans.
+
+The MVP ships in ~6 months from May 2026 (Awaaz pilot completes November). Course-ready ships +1 month. Scope discipline matters more than feature ambition. If something on the deferred list looks essential mid-build, weigh hard before pulling it in. Most of the time the right answer is: ship without it; iterate post-pilot.
 
 ---
 
 ## Phase 0 appendix — shipped MVP
 
-The original uxflows MVP, shipped 2026-05-08. Listed here as historical record; the work has been absorbed into the broader vision above.
+The original uxflows MVP, shipped 2026-05-08. Historical record; absorbed into the broader vision above.
 
 **Eleven chunks shipped:**
 
@@ -251,7 +323,7 @@ The original uxflows MVP, shipped 2026-05-08. Listed here as historical record; 
 4. Flow inspector
 5. Scripts sheet
 6. Edge inspector
-7. Agent surfaces — shipped as per-concern toolbar modals, not the originally-specced persistent sidebar
+7. Agent surfaces — per-concern toolbar modals (not a persistent sidebar)
 8. Add / delete flows + drag-to-connect
 9. Basic graph validation
 10. Interactive LLM chat (BYOK Google) — 2026-05-02
@@ -259,11 +331,11 @@ The original uxflows MVP, shipped 2026-05-08. Listed here as historical record; 
 
 **Also shipped beyond the original plan:** variables editor, tables CRUD, `entry_flow_id` picker, delete buttons in inspectors, schema-doc sync, AGENT-SPEC-PROMPT.txt rewritten for one-shot JSON output, Simulate variables form with LLM-powered value generation, system-prompt codegen ([lib/codegen/promptGenerator.ts](./lib/codegen/promptGenerator.ts)), canvas highlight of active flow + last-traversed edge during simulate.
 
-**Design decisions made during Phase 0** — still load-bearing; read these before changing the editor:
+**Design decisions made during Phase 0** — still load-bearing:
 
-- **Canvas is canonical.** Text views are entry/export only; never a live mirror of the spec. Re-importing replaces; we don't merge text edits back into a live graph.
-- **Agent surfaces are per-concern modals**, not a persistent sidebar.
+- **Canvas is canonical.** Text views are entry/export only; never a live mirror of the spec.
+- **Agent surfaces are per-concern modals.**
 - **Chat is a peer authoring surface, not a copilot.** Chat tool-calls mutate the same zustand store the inspectors do.
-- **`flow.example` is annotation-only.** Plain-text transcript; runtimes ignore.
-- **Personas, channels, user segments removed from agent envelope.** Out-of-spec concerns.
-- **MVP flows use `instructions` + `scripts`**, not structured `steps`. Steps deferred to a future schema version bump.
+- **`flow.example` is annotation-only.**
+- **Personas, channels, user segments removed from agent envelope.**
+- **MVP flows use `instructions` + `scripts`**, not structured `steps`.

@@ -137,7 +137,9 @@ In memory and as a runtime artifact, a resolved spec has the shape:
 
 The agent envelope appears once at the `agent` key; all flows live in the `flows` array. The agent's `entry_flow_id` must reference one of the flows in that array. Any flow id referenced by an exit path's `goto` must exist in `flows` (unless `goto` is the reserved keyword `END` or `RETURN`).
 
-This resolved form is what the Python runner consumes and what the simulate panel hands to the runner. It is produced by `ux4-compile --target spec-direct` from the decomposed source files; users do not hand-edit it. A second compile target, `ux4-compile --target system-prompt`, produces a monolithic system prompt + tool schemas from the same sources for the Phase 2 testing path. See [MVP-PLAN.md](./MVP-PLAN.md) and [FILE-MODEL.md](./FILE-MODEL.md).
+This resolved form is what the Python runner consumes and what the simulate panel hands to the runner. It is produced by `ux4-compile --format spec --agent <id>` from the decomposed source files; users do not hand-edit it. A second compile target, `ux4-compile --format prompt --agent <id>`, produces a monolithic system prompt + tool schemas (with `agent.system_prompt_template` wrapping if set) from the same sources for the testing path.
+
+In multi-agent projects, the compiler merges across scope levels (project ∪ agent ∪ flow) per the rules in [FILE-MODEL.md § Scope levels](./FILE-MODEL.md#scope-levels-project--agent--flow). Each agent compiles to its own resolved spec independently; cross-agent references are not allowed.
 
 ---
 
@@ -159,6 +161,9 @@ This resolved form is what the Python runner consumes and what the simulate pane
   },
 
   "chatbot_initiates": "boolean",
+
+  "system_prompt_template": "string (optional; with {generated} placeholder + convenience values from meta)",
+  "default_model": "string (optional; overrides project models/defaults.json default for this agent)",
 
   "guardrails": [
     { "id": "string", "statement": "string" }
@@ -233,6 +238,8 @@ This resolved form is what the Python runner consumes and what the simulate pane
 - **`meta.languages`** — language codes supported by this agent. Drives translation columns.
 - **`meta.modes`** — channels (`voice` and/or `text`). Required, at least one. Drives the runner's I/O adapter.
 - **`chatbot_initiates`** — whether the agent sends the first message.
+- **`system_prompt_template`** — optional. Designer-authored wrapper for the codegen output, used by `ux4-compile --format prompt`. The string carries `{generated}` (the deterministic compiled content) plus convenience placeholders like `{meta.name}`, `{meta.client}`. Lets designers put hard rules or persona framing around the compiled spec without bleeding behavior concerns into other fields. Graph-native runtime targets ignore.
+- **`default_model`** — optional. Overrides the project's default model for this agent's runs. Resolution chain (low to high): built-in default → `models/defaults.json.default` → `models/defaults.json.roles.<role>` → per-file `model` on test case / rubric / persona / agent.default_model → env var → per-call CLI override. See [FILE-MODEL.md § Models and providers](./FILE-MODEL.md#models-and-providers).
 - **`guardrails`** — cross-cutting behavioral invariants. Each is a stable `id` and a single `statement`. Conditional rules written inline as natural language; executable conditional routing belongs in interrupt flows, not guardrails.
 - **`business_goals`** — end-to-end outcome criteria for evaluation. Each entry has a stable `id`, a `name`, and a checkable criterion using the standard three methods. Distinct from `guardrails` (turn-by-turn invariants).
 - **`capabilities`** — declared catalog of external integrations. Each entry has an `id` (editor-generated), a `name` (snake_case, runtime dispatch identifier), a `description` (when/why), a `kind` (`retrieval` or `function`), optional `inputs`, and optional `outputs`. Endpoints, headers, and credentials live in the execution layer, not the spec.
