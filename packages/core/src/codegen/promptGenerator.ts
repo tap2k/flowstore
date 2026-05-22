@@ -33,7 +33,21 @@ export function generateSystemPrompt(
   ].filter(Boolean);
 
   const rendered = sections.join("\n\n---\n\n").trim() + "\n";
-  return vars ? substituteVars(rendered, vars) : rendered;
+  const withVars = vars ? substituteVars(rendered, vars) : rendered;
+
+  // Optional designer wrapper: agent.system_prompt_template wraps the
+  // deterministic body via `{generated}` plus convenience `{meta.*}` placeholders.
+  // Unknown placeholders are left literal (matches substituteVars convention).
+  const template = spec.agent.system_prompt_template;
+  if (!template) return withVars;
+  const meta = spec.agent.meta ?? {};
+  return substituteVars(template, {
+    generated: withVars,
+    "meta.name": meta.name,
+    "meta.client": meta.client,
+    "meta.purpose": meta.purpose,
+    "meta.tone": meta.tone,
+  });
 }
 
 interface RenderCtx {

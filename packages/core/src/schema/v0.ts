@@ -223,6 +223,8 @@ export const AgentSchema = Type.Object(
     version: Type.Optional(Type.String()),
     meta: AgentMetaSchema,
     chatbot_initiates: Type.Optional(Type.Boolean()),
+    system_prompt_template: Type.Optional(Type.String()),
+    default_model: Type.Optional(Type.String()),
     variables: Type.Optional(Type.Record(Type.String(), VariableDeclSchema)),
     guardrails: Type.Optional(Type.Array(GuardrailSchema)),
     business_goals: Type.Optional(Type.Array(BusinessGoalSchema)),

@@ -20,11 +20,11 @@ Landed on `main`:
   - Header subtitle shows `<owner>/<repo>@<branch>` when a GitHub project is loaded.
   - `github-init` CLI — push an existing single-file spec into a real repo (same library path as in-editor init).
 - **1d** `ux4-init-project --from <spec.json> --target <dir>` CLI + `round-trip` / `round-trip-disk` verification scripts. Same decomposition library powers the editor's GitHub init path.
-- **1g** `models/` schema + loader. `UX4://models/v0` defines `{ models, default, roles }` with free-form string keys (no `providers` map, no `kind` enum — schemas validate shape, not value membership). Loader merges `models/*.json` files; `resolveModel` walks the precedence chain (built-in default → project default → role → override). Built-in data carries the four currently supported Google models (Gemini 2.5 / 3.x preview). No runtime consumer yet — Simulate/chat panels stay BYOK Google in Phase 1; provider-adapter wiring lands in Phase 2.
+- **1g** `models/` schema + loader. `UX4://models/v0` defines `{ models, default, roles }` with free-form string keys (no `providers` map, no `kind` enum — schemas validate shape, not value membership). Loader merges `models/*.json` files; `resolveModel` walks the precedence chain (built-in default → project default → role → agent default → override). Built-in data carries the four currently supported Google models (Gemini 2.5 / 3.x preview). No runtime consumer yet — Simulate/chat panels stay BYOK Google in Phase 1; provider-adapter wiring lands in Phase 2.
+- **1h** `agent.system_prompt_template` + `agent.default_model` on the agent schema. Codegen wraps the deterministic body via the template's `{generated}` placeholder plus convenience `{meta.name}`, `{meta.client}`, `{meta.purpose}`, `{meta.tone}` substitutions; unknown placeholders are left literal. `agent.default_model` slots into the `resolveModel` precedence chain between project role and explicit override.
 
 Still open in Phase 1:
 - **1f** Extend inline schema validation to per-file schemas (dangling references, scope collisions).
-- **1h** `agent.system_prompt_template` + `agent.default_model` fields through codegen.
 
 **Target ship date:** November 2026 for Awaaz pilot loop; December 2026 for course-prep polish; course launch January 2027.
 
