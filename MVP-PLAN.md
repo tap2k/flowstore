@@ -26,6 +26,8 @@ Landed on `main`:
 
 **Phase 1 closed.** Phase 2 (testing surface, multi-provider dispatch, comments, etc.) begins from here.
 
+**Design decision — ids are immutable from the editor UI.** Stable ids are the cross-file reference contract; the file model and codegen assume they don't change under live edits. The editor never surfaces an "edit id" field; ids are produced either by AGENT-SPEC-PROMPT.txt (semantic, e.g. `identity_confirmation`) or by the editor's `genId` (opaque, e.g. `flow_a3f2b8c1`). Renaming an id requires manual JSON edits via Claude Code or the GitHub web UI plus a manual reference sweep. Cascade-rename UI (Phase 2.I in the original plan) is deferred until pilot feedback shows designers actually need it; until then the constraint reduces an entire class of "dangling reference after rename" bugs to zero by construction.
+
 **Target ship date:** November 2026 for Awaaz pilot loop; December 2026 for course-prep polish; course launch January 2027.
 
 ## What's being built

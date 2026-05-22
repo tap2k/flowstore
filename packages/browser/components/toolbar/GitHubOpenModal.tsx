@@ -8,6 +8,7 @@ import {
   type Octokit,
 } from "@ux4/core/files/github";
 import { loadProject } from "@ux4/core/files";
+import { scaffoldNewProject } from "@ux4/core/files/scaffold";
 
 interface GitHubOpenModalProps {
   onClose: () => void;
@@ -40,6 +41,12 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [openingProject, setOpeningProject] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // When set, the selected repo+branch has no UX4 project; offer to initialize.
+  // commitSha is null when the ref has no commits at all (truly fresh repo).
+  const [initOffer, setInitOffer] = useState<
+    | { repo: RepoSummary; branch: string; commitSha: string | null }
+    | null
+  >(null);
 
   useEffect(() => {
     if (!client) return;
@@ -82,15 +89,37 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
     const repo = repos[selectedRepoIdx];
     setOpeningProject(true);
     setError(null);
+    setInitOffer(null);
     try {
-      const { files, commitSha } = await readRepoToFileMap({
-        client,
-        owner: repo.owner,
-        repo: repo.repo,
-        ref: selectedBranch,
-      });
+      let files: Record<string, string> | null = null;
+      let commitSha: string | null = null;
+      try {
+        const read = await readRepoToFileMap({
+          client,
+          owner: repo.owner,
+          repo: repo.repo,
+          ref: selectedBranch,
+        });
+        files = read.files;
+        commitSha = read.commitSha;
+      } catch (e: unknown) {
+        // Empty repo: branch ref doesn't exist yet. Offer to initialize.
+        if (typeof e === "object" && e !== null && "status" in e && (e as { status: unknown }).status === 404) {
+          setInitOffer({ repo, branch: selectedBranch, commitSha: null });
+          return;
+        }
+        throw e;
+      }
       const { spec, errors } = loadProject(files);
       if (!spec) {
+        // Repo has commits (e.g., README only) but no UX4 project — offer init.
+        // If load errors look structural (malformed UX4 files), surface them so
+        // the user doesn't accidentally overwrite something they were editing.
+        const isMissingAgent = errors.some((e) => e.message.includes("missing agent.json"));
+        if (isMissingAgent && errors.length === 1) {
+          setInitOffer({ repo, branch: selectedBranch, commitSha });
+          return;
+        }
         const msg =
           errors.length > 0
             ? errors
@@ -108,6 +137,15 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
     } finally {
       setOpeningProject(false);
     }
+  }
+
+  function initializeProject() {
+    if (!initOffer) return;
+    const { repo, branch, commitSha } = initOffer;
+    const scaffold = scaffoldNewProject({ name: repo.repo });
+    setSpec(scaffold);
+    setLoaded({ owner: repo.owner, repo: repo.repo, ref: branch }, commitSha);
+    onClose();
   }
 
   if (!pat) {
@@ -144,7 +182,11 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
           ) : (
             <select
               value={selectedRepoIdx}
-              onChange={(e) => setSelectedRepoIdx(Number(e.target.value))}
+              onChange={(e) => {
+                setSelectedRepoIdx(Number(e.target.value));
+                setInitOffer(null);
+                setError(null);
+              }}
               className="mt-1 w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
             >
               <option value={-1}>— select —</option>
@@ -163,7 +205,11 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
           ) : (
             <select
               value={selectedBranch}
-              onChange={(e) => setSelectedBranch(e.target.value)}
+              onChange={(e) => {
+                setSelectedBranch(e.target.value);
+                setInitOffer(null);
+                setError(null);
+              }}
               disabled={!branches || branches.length === 0}
               className="mt-1 w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:opacity-50"
             >
@@ -180,6 +226,18 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
             {error}
           </div>
         )}
+        {initOffer && (
+          <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 space-y-1">
+            <div>
+              <span className="font-mono">{initOffer.repo.full_name}@{initOffer.branch}</span>{" "}
+              has no UX4 project{initOffer.commitSha === null ? " (and no commits yet)" : ""}.
+            </div>
+            <div>
+              Initialize a starter project? The editor loads a scaffold spec; nothing is written
+              to GitHub until you click Save.
+            </div>
+          </div>
+        )}
       </div>
       <div className="flex justify-end gap-2 pt-3">
         <button
@@ -188,13 +246,22 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
         >
           Cancel
         </button>
-        <button
-          onClick={openProject}
-          disabled={selectedRepoIdx < 0 || !selectedBranch || openingProject}
-          className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
-        >
-          {openingProject ? "Opening…" : "Open"}
-        </button>
+        {initOffer ? (
+          <button
+            onClick={initializeProject}
+            className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
+          >
+            Initialize project
+          </button>
+        ) : (
+          <button
+            onClick={openProject}
+            disabled={selectedRepoIdx < 0 || !selectedBranch || openingProject}
+            className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+          >
+            {openingProject ? "Opening…" : "Open"}
+          </button>
+        )}
       </div>
     </Shell>
   );

@@ -12,6 +12,8 @@ import { KnowledgeSheet } from "@/components/sheets/KnowledgeSheet";
 import { GitHubOpenModal } from "@/components/toolbar/GitHubOpenModal";
 import { GitHubProjectControls } from "@/components/toolbar/GitHubProjectControls";
 import { generateSystemPrompt } from "@ux4/core/codegen/promptGenerator";
+import { decomposeSpec, loadProject } from "@ux4/core/files";
+import { makeZip, readZip } from "@ux4/core/files/zip";
 import {
   applyTranslations,
   previewTranslationsCsv,
@@ -164,6 +166,22 @@ export function ImportExportToolbar({
     setExportOpen(false);
   }
 
+  async function exportZip() {
+    if (!spec) return;
+    const name = sanitizeFilename(spec.agent.id || "spec");
+    const fileMap = decomposeSpec(spec);
+    const blob = await makeZip(fileMap);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${name}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    setExportOpen(false);
+  }
+
   // --- Translations dropdown -----------------------------------------------
   const {
     open: translationsOpen,
@@ -301,6 +319,9 @@ export function ImportExportToolbar({
               <button onClick={exportSpecJson} className={menuItemClass}>
                 Export JSON
               </button>
+              <button onClick={exportZip} className={menuItemClass}>
+                Export ZIP (decomposed)
+              </button>
               <button onClick={exportSystemPrompt} className={menuItemClass}>
                 Export System Prompt
               </button>
@@ -395,6 +416,26 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
   }
 
   function readFile(file: File) {
+    const isZip = /\.zip$/i.test(file.name) || file.type === "application/zip";
+    if (isZip) {
+      readZip(file)
+        .then((files) => {
+          const { spec, errors: loadErrors } = loadProject(files);
+          if (!spec) {
+            setErrors(
+              loadErrors.length > 0
+                ? loadErrors.map((e) => `${e.path ? e.path + ": " : ""}${e.message}`)
+                : ["No UX4 project found in the ZIP."],
+            );
+            return;
+          }
+          handleParsed(spec);
+        })
+        .catch((e: unknown) => {
+          setErrors([e instanceof Error ? e.message : "Could not read the ZIP."]);
+        });
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       const content = String(reader.result ?? "");
@@ -450,10 +491,10 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
             <span className="text-sm font-medium text-zinc-700">
               Drop a file here, or click to browse
             </span>
-            <span className="text-[11px] text-zinc-500">.json, .yaml, .yml</span>
+            <span className="text-[11px] text-zinc-500">.json, .yaml, .yml, .zip</span>
             <input
               type="file"
-              accept=".json,.yaml,.yml,application/json,text/yaml"
+              accept=".json,.yaml,.yml,.zip,application/json,text/yaml,application/zip"
               onChange={onFile}
               className="hidden"
             />

@@ -117,3 +117,9 @@ export function loadSavedSettings(): void {
     // ignore
   }
 }
+
+// Hydrate at module load time, not just inside one mount effect. When Next's
+// HMR re-evaluates this module the zustand store starts empty; without this
+// call the page-level effect doesn't re-run and the user sees blank PAT /
+// API key fields until the next save.
+if (typeof window !== "undefined") loadSavedSettings();
