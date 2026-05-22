@@ -2,6 +2,7 @@ import type { Spec, Agent, Flow } from "@ux4/core/schema/v0";
 import { validateSpec } from "@ux4/core/validation/ajv";
 import { mergeScriptsCsv } from "@ux4/core/codegen/scriptsCsv";
 import { parseTableRowsCsv } from "@ux4/core/codegen/knowledgeCsv";
+import { loadModelsConfig } from "./models";
 import type { FileMap, LoadError, LoadResult } from "./types";
 
 const FLOW_FILE_RE = /^flows\/(.+)\.flow\.json$/;
@@ -10,14 +11,19 @@ const TABLE_META_RE = /^knowledge\/tables\/(.+)\.meta\.json$/;
 
 export function loadProject(files: FileMap): LoadResult {
   const errors: LoadError[] = [];
+  const modelsConfig = loadModelsConfig(files, errors);
 
   const agentRaw = files["agent.json"];
   if (agentRaw === undefined) {
-    return { spec: null, errors: [{ message: "missing agent.json at project root" }] };
+    return {
+      spec: null,
+      modelsConfig,
+      errors: [{ message: "missing agent.json at project root" }],
+    };
   }
 
   const agent = parseJson<Agent>(agentRaw, "agent.json", errors);
-  if (!agent) return { spec: null, errors };
+  if (!agent) return { spec: null, modelsConfig, errors };
 
   // Project-scope: knowledge/glossary.json (file form). Directory form
   // (knowledge/glossary/<sub>.json) ships when a real spec uses it.
@@ -96,10 +102,10 @@ export function loadProject(files: FileMap): LoadResult {
     for (const e of result.errors) {
       errors.push({ message: `${e.instancePath || "(root)"} ${e.message ?? ""}`.trim() });
     }
-    return { spec: null, errors };
+    return { spec: null, modelsConfig, errors };
   }
 
-  return { spec: result.spec, errors };
+  return { spec: result.spec, modelsConfig, errors };
 }
 
 function parseJson<T>(text: string, path: string, errors: LoadError[]): T | null {
