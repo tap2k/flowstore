@@ -4,11 +4,29 @@ The organizing vision and staged operational plan for UX4. For the data-model co
 
 ---
 
-## Status (2026-05-21)
+## Status (2026-05-22)
 
 **Phase 0 — original uxflows MVP — shipped 2026-05-08.** Visual editor for v0 specs: canvas authoring, schema-driven inspectors, scripts sheet with multilingual columns, simulate panel, system-prompt codegen, AJV validation, LLM-assisted authoring. Details in [Phase 0 appendix](#phase-0-appendix--shipped-mvp).
 
-**Phase 1 — Foundation — in flight.** Multi-agent file model, GitHub-backed persistence, multi-provider model config, optional `agent.system_prompt_template`.
+**Phase 1 — Foundation — in flight.**
+
+Landed on `main`:
+- **1a** Monorepo split into `@ux4/core` + `@ux4/browser` (npm workspaces; Next.js consumes core via `transpilePackages`).
+- **1b** File-model loader + decomposer in `@ux4/core/files` (`decomposeSpec`, `loadProject`, Node fs adapter). Single-agent shape, file-form collections, knowledge tables + glossary, per-flow `.flow.json` + `.scripts.csv` pairs. Round-trip lossless on `coffee.json` and the three Tala DPD31 variants (bilingual/en/es). Codegen-equivalence check asserts the compiled system prompt is unchanged across decompose/load.
+- **1d** `ux4-init-project --from <spec.json> --target <dir>` CLI + `round-trip` / `round-trip-disk` verification scripts. Same decomposition library powers the editor's GitHub init path.
+
+Landed on branch `phase-1c-github` (pending merge to `main`):
+- **1c** GitHub-backed persistence end-to-end:
+  - `@ux4/core/files/github` adapter — atomic multi-file commit via Git Data API; `expectedCommitSha` optimistic concurrency; empty-repo init; `ConflictError` on ref-advance.
+  - Settings sheet — GitHub PAT input + Test connection button (calls `GET /user`).
+  - Toolbar icon buttons — Open from GitHub / Save / Refresh, with a "Save to a new branch…" item in the Save dropdown. Conflict modal on save races (Refresh first / Save anyway / Cancel).
+  - Header subtitle — shows `<owner>/<repo>@<branch>` when a GitHub project is loaded.
+  - `github-init` CLI — push an existing single-file spec into a real repo (used to bootstrap smoke testing; same library path as in-editor init).
+
+Still open in Phase 1:
+- **1f** Extend inline schema validation to per-file schemas (dangling references, scope collisions).
+- **1g** `models/` schema + loader; project default + roles map. Built-in providers (`anthropic`, `openai`, `google`) registered in `@ux4/core`. Simulate/chat panels stay BYOK Google in Phase 1; provider-adapter wiring lands in Phase 2.
+- **1h** `agent.system_prompt_template` + `agent.default_model` fields through codegen.
 
 **Target ship date:** November 2026 for Awaaz pilot loop; December 2026 for course-prep polish; course launch January 2027.
 
