@@ -342,7 +342,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       set({ autoRun: false });
       return;
     }
-    const { apiKey, model } = readLlmCreds();
+    const { apiKey, model } = readLlmCreds("persona");
     if (!apiKey) {
       set({
         autoRun: false,
@@ -546,7 +546,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
 
     if (mode === "prompt") {
       try {
-        const { apiKey, model } = readLlmCreds();
+        const { apiKey, model } = readLlmCreds("agent");
         const res = await sendPromptTurn({
           systemPrompt: systemPrompt ?? "",
           history: transcript,
@@ -674,9 +674,12 @@ function stripDoneMarker(text: string): { text: string; done: boolean } {
   return { text: text.replace(re, "").trim(), done: true };
 }
 
-function readLlmCreds(): { apiKey: string; model: string } {
+type SimulateRole = "agent" | "persona";
+
+function readLlmCreds(role: SimulateRole): { apiKey: string; model: string } {
   // Read fresh from settings on each prompt-mode turn so key/model changes
   // mid-session apply without forcing a reset.
   const s = useSettingsStore.getState();
-  return { apiKey: s.googleApiKey, model: s.googleModel };
+  const model = role === "persona" ? s.simulatePersonaModel : s.simulateAgentModel;
+  return { apiKey: s.googleApiKey, model };
 }

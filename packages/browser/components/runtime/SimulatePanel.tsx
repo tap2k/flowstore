@@ -12,6 +12,7 @@ import { generateSystemPrompt } from "@ux4/core/codegen/promptGenerator";
 import type { RuntimeEvent } from "@ux4/core/runtime/eventTypes";
 import { formatEvent, formatValueTruncated } from "@ux4/core/runtime/formatEvent";
 import { translateBatchToEnglish } from "@ux4/core/runtime/translate";
+import { BUILT_IN_MODELS } from "@ux4/core/files/models";
 import { VariablesForm } from "./VariablesForm";
 import { CapabilityMocksForm } from "./CapabilityMocksForm";
 import { PersonaForm } from "./PersonaForm";
@@ -24,7 +25,10 @@ interface SimulatePanelProps {
 
 export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelProps) {
   const apiKey = useSettingsStore((s) => s.googleApiKey);
-  const model = useSettingsStore((s) => s.googleModel);
+  const model = useSettingsStore((s) => s.simulateAgentModel);
+  const setSimulateAgentModel = useSettingsStore((s) => s.setSimulateAgentModel);
+  const personaModel = useSettingsStore((s) => s.simulatePersonaModel);
+  const setSimulatePersonaModel = useSettingsStore((s) => s.setSimulatePersonaModel);
   const runnerUrl = useSettingsStore((s) => s.runnerUrl);
   const mode = useSimulateStore((s) => s.mode);
   const sessionId = useSimulateStore((s) => s.sessionId);
@@ -336,12 +340,23 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             </ModeButton>
           )}
         </div>
-        {mode === "prompt" && (
-          <span className="truncate text-zinc-500">{model}</span>
-        )}
-        {mode === "runner" && (
-          <span className="truncate text-zinc-500">{runnerUrl}</span>
-        )}
+        <select
+          value={model}
+          onChange={(e) => setSimulateAgentModel(e.target.value)}
+          disabled={hasSession}
+          title={
+            mode === "runner"
+              ? "Model id sent to the runner — the runner may override it."
+              : "Model the agent uses in prompt mode"
+          }
+          className="truncate rounded border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-900 hover:border-zinc-200 disabled:opacity-60 cursor-pointer disabled:cursor-default"
+        >
+          {Object.entries(BUILT_IN_MODELS.models).map(([id, m]) => (
+            <option key={id} value={id}>
+              {m.name ?? id}
+            </option>
+          ))}
+        </select>
         {availableLanguages.length > 1 && (
           <select
             value={language ?? ""}

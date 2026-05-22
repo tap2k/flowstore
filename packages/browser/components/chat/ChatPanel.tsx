@@ -3,6 +3,7 @@ import { useSpecStore } from "@/lib/store/spec";
 import { useSettingsStore } from "@/lib/store/settings";
 import { useSimulateStore, type TranscriptTurn } from "@/lib/store/simulate";
 import { chat, DEFAULT_PROVIDER } from "@ux4/core/llm/dispatch";
+import { BUILT_IN_MODELS } from "@ux4/core/files/models";
 import { findTool, toolDefinitions } from "@/lib/chat/tools";
 import { systemPrompt } from "@ux4/core/llm/prompts";
 import { formatErrors, validateSpec } from "@ux4/core/validation/ajv";
@@ -21,7 +22,8 @@ const MAX_AGENT_LOOPS = 12;
 
 export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
   const apiKey = useSettingsStore((s) => s.googleApiKey);
-  const model = useSettingsStore((s) => s.googleModel);
+  const model = useSettingsStore((s) => s.chatModel);
+  const setChatModel = useSettingsStore((s) => s.setChatModel);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -136,7 +138,17 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
       <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2">
         <div>
           <div className="text-sm font-semibold text-zinc-900">Chat</div>
-          <div className="text-[11px] text-zinc-500">{model}</div>
+          <select
+            value={model}
+            onChange={(e) => setChatModel(e.target.value)}
+            className="text-[11px] text-zinc-500 bg-transparent border-none p-0 -ml-0.5 focus:outline-none focus:ring-0 cursor-pointer hover:text-zinc-900"
+          >
+            {Object.entries(BUILT_IN_MODELS.models).map(([id, m]) => (
+              <option key={id} value={id}>
+                {m.name ?? id}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="flex items-center gap-1">
           <button

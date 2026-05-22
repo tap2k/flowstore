@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { SheetShell } from "./SheetShell";
 import { useSettingsStore, DEFAULT_RUNNER_URL } from "@/lib/store/settings";
-import { GOOGLE_MODELS } from "@ux4/core/llm/dispatch";
 import { makeGitHubClient, testConnection } from "@ux4/core/files/github";
 
 interface SettingsSheetProps {
@@ -17,14 +16,11 @@ type GhTestStatus =
 export function SettingsSheet({ onClose }: SettingsSheetProps) {
   const stored = useSettingsStore((s) => s.googleApiKey);
   const setGoogleApiKey = useSettingsStore((s) => s.setGoogleApiKey);
-  const storedModel = useSettingsStore((s) => s.googleModel);
-  const setGoogleModel = useSettingsStore((s) => s.setGoogleModel);
   const storedRunnerUrl = useSettingsStore((s) => s.runnerUrl);
   const setRunnerUrl = useSettingsStore((s) => s.setRunnerUrl);
   const storedGithubPat = useSettingsStore((s) => s.githubPat);
   const setGithubPat = useSettingsStore((s) => s.setGithubPat);
   const [value, setValue] = useState(stored);
-  const [model, setModel] = useState(storedModel);
   const [runnerUrl, setRunnerUrlInput] = useState(storedRunnerUrl);
   const [pat, setPat] = useState(storedGithubPat);
   const [reveal, setReveal] = useState(false);
@@ -33,15 +29,9 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
 
   function save() {
     setGoogleApiKey(value.trim());
-    setGoogleModel(model);
     setRunnerUrl(runnerUrl);
     setGithubPat(pat);
     onClose();
-  }
-
-  function clear() {
-    setValue("");
-    setGoogleApiKey("");
   }
 
   async function testGithub() {
@@ -98,32 +88,6 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         </p>
       </div>
       <div className="space-y-2 pt-3">
-        <label className="text-xs font-medium text-zinc-700">Model</label>
-        <select
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
-        >
-          {GOOGLE_MODELS.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="space-y-2 pt-3">
-        <label className="text-xs font-medium text-zinc-700">Runner URL</label>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={runnerUrl}
-            onChange={(e) => setRunnerUrlInput(e.target.value)}
-            placeholder={DEFAULT_RUNNER_URL}
-            className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400"
-          />
-        </div>
-      </div>
-      <div className="space-y-2 pt-3">
         <label className="text-xs font-medium text-zinc-700">GitHub PAT</label>
         <div className="flex gap-2">
           <input
@@ -147,7 +111,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
             disabled={ghStatus.kind === "testing" || !pat.trim()}
             className="rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
           >
-            {ghStatus.kind === "testing" ? "Testing…" : "Test"}
+            {ghStatus.kind === "testing" ? "testing…" : "test"}
           </button>
         </div>
         {ghStatus.kind === "ok" && (
@@ -173,14 +137,24 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           .
         </p>
       </div>
+      <div className="space-y-2 pt-3">
+        <label className="text-xs font-medium text-zinc-700">Runner URL</label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={runnerUrl}
+            onChange={(e) => setRunnerUrlInput(e.target.value)}
+            placeholder={DEFAULT_RUNNER_URL}
+            className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400"
+          />
+        </div>
+        <p className="text-[11px] text-zinc-500">
+          Endpoint for the Python runner backing Simulate&apos;s runner mode
+          (chat against the live runner instead of just a system prompt).
+          Defaults to a local dev server.
+        </p>
+      </div>
       <div className="flex items-center justify-end gap-2 pt-2">
-        <button
-          onClick={clear}
-          disabled={!stored && !value}
-          className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
-        >
-          Clear
-        </button>
         <button
           onClick={save}
           className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"

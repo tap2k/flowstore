@@ -280,6 +280,7 @@ Each has been considered and deferred. Defers are pre-conditional, not aspiratio
 
 ### Deferred to whenever pain surfaces
 
+- **Token cost telemetry per model.** `BUILT_IN_MODELS` carries only `name` today. When cost visibility becomes real (eval run budgeting, designer per-turn cost feedback, cross-project spend analytics), extend the model entry with `inputPricePerMTok` / `outputPricePerMTok` and surface in Simulate's lastUsage line + a per-run cost in result files. Data-only change; no schema bump.
 - **Skip dagre re-layout when topology hasn't changed.** Perf opt at 100+ flows.
 - **Knowledge-coverage-gaps heuristic** (second deep validation check). Imprecise.
 - **`language_consistency` and `flow_reached` evaluators.** Add if Awaaz asks by name.

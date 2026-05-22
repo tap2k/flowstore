@@ -27,7 +27,7 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
   );
   const clearMockReturns = useSimulateStore((s) => s.clearMockReturns);
   const apiKey = useSettingsStore((s) => s.googleApiKey);
-  const model = useSettingsStore((s) => s.googleModel);
+  const model = useSettingsStore((s) => s.chatModel);
 
   const [open, setOpen] = useState(false);
   const [generating, setGenerating] = useState(false);

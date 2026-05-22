@@ -24,7 +24,7 @@ export function VariablesForm({ spec, disabled }: VariablesFormProps) {
   const setContextVars = useSimulateStore((s) => s.setContextVars);
   const clearContextVars = useSimulateStore((s) => s.clearContextVars);
   const apiKey = useSettingsStore((s) => s.googleApiKey);
-  const model = useSettingsStore((s) => s.googleModel);
+  const model = useSettingsStore((s) => s.chatModel);
   const updateAgent = useSpecStore((s) => s.updateAgent);
 
   const [open, setOpen] = useState(false);

@@ -2,6 +2,7 @@ import { useSimulateStore } from "@/lib/store/simulate";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSettingsStore } from "@/lib/store/settings";
 import { generatePersonaPrompt } from "@ux4/core/runtime/personaGen";
+import { BUILT_IN_MODELS } from "@ux4/core/files/models";
 import { useState } from "react";
 
 interface PersonaFormProps {
@@ -19,7 +20,8 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
   const setPersonaTurnLimit = useSimulateStore((s) => s.setPersonaTurnLimit);
   const spec = useSpecStore((s) => s.spec);
   const apiKey = useSettingsStore((s) => s.googleApiKey);
-  const model = useSettingsStore((s) => s.googleModel);
+  const model = useSettingsStore((s) => s.simulatePersonaModel);
+  const setSimulatePersonaModel = useSettingsStore((s) => s.setSimulatePersonaModel);
 
   const [open, setOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -124,6 +126,20 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
             }
             className="w-full resize-y rounded border border-zinc-300 bg-white p-2 font-mono text-[11px] leading-snug text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
           />
+          <div className="flex items-center gap-2 text-[10px] text-zinc-500">
+            <span>Model:</span>
+            <select
+              value={model}
+              onChange={(e) => setSimulatePersonaModel(e.target.value)}
+              className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            >
+              {Object.entries(BUILT_IN_MODELS.models).map(([id, m]) => (
+                <option key={id} value={id}>
+                  {m.name ?? id}
+                </option>
+              ))}
+            </select>
+          </div>
           <p className="text-[10px] text-zinc-500">
             Persona drives the user side of the conversation when running. The agent&rsquo;s
             lines are sent to this prompt as user input; the model&rsquo;s reply becomes the next
