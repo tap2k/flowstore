@@ -1,4 +1,6 @@
 import type { ModelsFile, ModelEntry, ModelsRoles } from "@ux4/core/schema/files/models";
+import { ModelsFileSchema } from "@ux4/core/schema/files/models";
+import { validateFile, formatErrors } from "@ux4/core/validation/ajv";
 import type { FileMap, LoadError } from "./types";
 
 const MODELS_FILE_RE = /^models\/.+\.json$/;
@@ -42,6 +44,11 @@ export function loadModelsConfig(
         path,
         message: e instanceof Error ? e.message : "could not parse models file",
       });
+      continue;
+    }
+    const check = validateFile(ModelsFileSchema, parsed);
+    if (!check.valid) {
+      for (const msg of formatErrors(check.errors)) errors.push({ path, message: msg });
       continue;
     }
     if (parsed.models) {

@@ -1,4 +1,4 @@
-import Ajv, { type ErrorObject } from "ajv";
+import Ajv, { type ErrorObject, type ValidateFunction, type SchemaObject } from "ajv";
 import addFormats from "ajv-formats";
 import { SpecSchema, type Spec } from "@ux4/core/schema/v0";
 
@@ -23,4 +23,21 @@ export function formatErrors(errors: ErrorObject[]): string[] {
     const path = e.instancePath || "(root)";
     return `${path} ${e.message ?? ""}`.trim();
   });
+}
+
+// Compile-once cache for per-file schemas. The loader calls validateFile()
+// with the schema and input; ajv compiles it once and reuses thereafter.
+const compiledCache = new WeakMap<object, ValidateFunction>();
+
+export function validateFile(
+  schema: SchemaObject,
+  input: unknown,
+): { valid: boolean; errors: ErrorObject[] } {
+  let validator = compiledCache.get(schema);
+  if (!validator) {
+    validator = ajv.compile(schema);
+    compiledCache.set(schema, validator);
+  }
+  if (validator(input)) return { valid: true, errors: [] };
+  return { valid: false, errors: validator.errors ?? [] };
 }

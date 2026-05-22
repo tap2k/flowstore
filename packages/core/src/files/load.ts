@@ -1,5 +1,8 @@
 import type { Spec, Agent, Flow } from "@ux4/core/schema/v0";
-import { validateSpec } from "@ux4/core/validation/ajv";
+import { validateSpec, validateFile, formatErrors } from "@ux4/core/validation/ajv";
+import { ProjectManifestSchema } from "@ux4/core/schema/files/project";
+import { ProjectGlossaryFileSchema } from "@ux4/core/schema/files/glossary";
+import { KnowledgeTableMetaSchema } from "@ux4/core/schema/files/knowledgeTable";
 import { mergeScriptsCsv } from "@ux4/core/codegen/scriptsCsv";
 import { parseTableRowsCsv } from "@ux4/core/codegen/knowledgeCsv";
 import { loadModelsConfig } from "./models";
@@ -11,6 +14,14 @@ const TABLE_META_RE = /^knowledge\/tables\/(.+)\.meta\.json$/;
 
 export function loadProject(files: FileMap): LoadResult {
   const errors: LoadError[] = [];
+
+  // Optional project manifest: validate shape if present.
+  const manifestRaw = files["ux4.json"];
+  if (manifestRaw !== undefined) {
+    const manifest = parseJson<unknown>(manifestRaw, "ux4.json", errors);
+    if (manifest !== null) validateFileInto(manifest, ProjectManifestSchema, "ux4.json", errors);
+  }
+
   const modelsConfig = loadModelsConfig(files, errors);
 
   const agentRaw = files["agent.json"];
@@ -34,6 +45,9 @@ export function loadProject(files: FileMap): LoadResult {
       "knowledge/glossary.json",
       errors,
     );
+    if (glossaryFile !== null) {
+      validateFileInto(glossaryFile, ProjectGlossaryFileSchema, "knowledge/glossary.json", errors);
+    }
     if (glossaryFile && Array.isArray(glossaryFile.glossary)) {
       const nextKnowledge = { ...(agent.knowledge ?? {}), glossary: glossaryFile.glossary };
       agent.knowledge = nextKnowledge as Agent["knowledge"];
@@ -52,6 +66,7 @@ export function loadProject(files: FileMap): LoadResult {
         errors,
       );
       if (!meta) continue;
+      validateFileInto(meta, KnowledgeTableMetaSchema, path, errors);
       const csvPath = `knowledge/tables/${baseId}.csv`;
       const csv = files[csvPath];
       if (csv === undefined) {
@@ -114,5 +129,18 @@ function parseJson<T>(text: string, path: string, errors: LoadError[]): T | null
   } catch (e) {
     errors.push({ path, message: e instanceof Error ? e.message : String(e) });
     return null;
+  }
+}
+
+function validateFileInto(
+  input: unknown,
+  schema: Parameters<typeof validateFile>[0],
+  path: string,
+  errors: LoadError[],
+): void {
+  const result = validateFile(schema, input);
+  if (result.valid) return;
+  for (const msg of formatErrors(result.errors)) {
+    errors.push({ path, message: msg });
   }
 }

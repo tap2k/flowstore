@@ -11,7 +11,14 @@ export interface GraphIssue {
   message: string;
 }
 
-export function validateGraph(spec: Spec): GraphIssue[] {
+export interface GraphValidateOptions {
+  // Resolved models map (project ∪ built-in). When provided, agent.default_model
+  // is checked against it; otherwise the rule is skipped (consumer doesn't know
+  // what models are valid).
+  modelIds?: Set<string>;
+}
+
+export function validateGraph(spec: Spec, opts: GraphValidateOptions = {}): GraphIssue[] {
   const issues: GraphIssue[] = [];
   const flowIds = new Set<string>();
   const seen = new Set<string>();
@@ -31,6 +38,13 @@ export function validateGraph(spec: Spec): GraphIssue[] {
     issues.push({
       at: { kind: "global" },
       message: `agent.entry_flow_id "${spec.agent.entry_flow_id}" does not match any flow`,
+    });
+  }
+
+  if (spec.agent.default_model && opts.modelIds && !opts.modelIds.has(spec.agent.default_model)) {
+    issues.push({
+      at: { kind: "global" },
+      message: `agent.default_model "${spec.agent.default_model}" not in models config`,
     });
   }
 
