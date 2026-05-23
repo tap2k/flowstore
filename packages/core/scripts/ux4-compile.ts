@@ -34,6 +34,10 @@ function parseArgs(argv: string[]): Args {
       out = argv[++i];
     } else if (a === "--vars") {
       vars = parseVars(argv[++i]);
+    } else if (a === "--vars-file") {
+      const path = argv[++i];
+      const parsed = JSON.parse(readFileSync(resolve(path), "utf8")) as Record<string, unknown>;
+      vars = { ...(vars ?? {}), ...parsed };
     } else if (a === "--language") {
       language = argv[++i];
     } else if (a === "--agent") {
@@ -65,7 +69,7 @@ function parseVars(raw: string | undefined): Record<string, unknown> | undefined
 function usage(msg?: string): never {
   if (msg) console.error(msg);
   console.error(
-    "usage: ux4-compile <project-dir|spec.json> --format prompt|spec [--agent <id>] [--out <path>] [--vars k=v,k=v] [--language <code>]",
+    "usage: ux4-compile <project-dir|spec.json> --format prompt|spec [--agent <id>] [--out <path>] [--vars k=v,k=v] [--vars-file <path.json>] [--language <code>]",
   );
   process.exit(2);
 }

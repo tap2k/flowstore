@@ -26,6 +26,7 @@ export function generateSystemPrompt(
   const ctx = { lang, defaultLang };
   const sections = [
     renderRole(spec),
+    renderRuntimeContext(spec, vars),
     renderGuardrails(spec),
     renderFlows(spec, ctx),
     renderInterrupts(spec, ctx),
@@ -69,6 +70,25 @@ export function substituteVars(text: string, vars: Record<string, unknown>): str
     out = out.split(`{${name}}`).join(String(value));
   }
   return out;
+}
+
+// Emits the current value of every declared agent.variables[name] that has
+// a non-empty bound value in `vars`. Without this, instructions like
+// "If broken_ptp is true, open by ..." render with the literal var name and
+// the LLM has no way to evaluate the gate. Same for date anchors like
+// {now}/{day} that flow.instructions never explicitly reference but expect
+// to be available at routing time.
+function renderRuntimeContext(spec: Spec, vars?: Record<string, unknown>): string {
+  if (!vars) return "";
+  const declared = spec.agent.variables ?? {};
+  const lines: string[] = [];
+  for (const name of Object.keys(declared)) {
+    const value = vars[name];
+    if (value === null || value === undefined || value === "") continue;
+    lines.push(`- ${name} = ${JSON.stringify(value)}`);
+  }
+  if (!lines.length) return "";
+  return ["RUNTIME CONTEXT (current values of agent variables — use these to evaluate any conditional instructions and any date arithmetic):", ...lines].join("\n");
 }
 
 function renderRole(spec: Spec): string {

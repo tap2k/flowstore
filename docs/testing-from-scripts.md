@@ -2,6 +2,8 @@
 
 Audience: an engineer who's never seen UX4 and wants to drive their own agent through tests in Python (or anything else). This is the **bring-your-own-script** path — UX4 ships file schemas and a CLI to compile the spec into a usable runtime artifact; how you drive the LLM and evaluate the transcript is up to you.
 
+For *how to use this harness as a prompt-engineering development loop* (gold transcripts, A/B comparison, when to fix the spec vs the generator vs the assertions), see the sibling doc [test-driven-prompts.md](test-driven-prompts.md). This doc is the mechanics; that one is the methodology.
+
 For the broader project context see [MVP-PLAN.md](../MVP-PLAN.md); for the on-disk layout see [FILE-MODEL.md](../FILE-MODEL.md); for the spec data model see [SCHEMA.md](../SCHEMA.md).
 
 ---
