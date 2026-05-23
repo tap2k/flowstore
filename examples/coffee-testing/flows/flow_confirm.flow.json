@@ -1,0 +1,48 @@
+{
+  "$schema": "UX4://flow/v0",
+  "id": "flow_confirm",
+  "version": "0.1.0",
+  "name": "Confirm & place",
+  "type": "happy",
+  "instructions": "Recap the full order in one sentence, including size, drink_style, and customizations (milk + syrup for coffee; honey y/n for tea). Skip 'none' fields naturally — say 'no syrup' rather than 'syrup: none'. Ask 'sound right?' and wait for an explicit yes/no. On yes, place the order. If the patron wants to change a slot ('actually make it oat milk', 'medium not large'), update the slot in place and re-recap — stay in this flow. On cancel or walkaway, log it.",
+  "exit_paths": [
+    {
+      "id": "xp_cf_placed",
+      "condition": {
+        "expression": "Patron confirmed the recap is correct.",
+        "method": "llm"
+      },
+      "assigns": {
+        "order_status": {
+          "method": "direct",
+          "value": "confirmed"
+        }
+      },
+      "actions": [
+        {
+          "capability_id": "cap_place_order"
+        }
+      ],
+      "goto": "END"
+    },
+    {
+      "id": "xp_cf_cancel",
+      "condition": {
+        "expression": "Patron asked to cancel the order or walk away.",
+        "method": "llm"
+      },
+      "assigns": {
+        "order_status": {
+          "method": "direct",
+          "value": "cancelled"
+        }
+      },
+      "actions": [
+        {
+          "capability_id": "cap_log_walkaway"
+        }
+      ],
+      "goto": "END"
+    }
+  ]
+}

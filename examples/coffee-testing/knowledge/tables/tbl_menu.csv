@@ -1,0 +1,7 @@
+drink_type,drink_style,price_small,price_large
+coffee,drip,3,4
+coffee,americano,3.5,4.5
+coffee,latte,4.5,5.5
+tea,black,3,4
+tea,green,3,4
+tea,herbal,3.5,4.5

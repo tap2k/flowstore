@@ -1,0 +1,51 @@
+{
+  "$schema": "UX4://flow/v0",
+  "id": "flow_greet",
+  "version": "0.1.0",
+  "name": "Greet & route",
+  "type": "happy",
+  "instructions": "Open warmly. Ask the patron what they'd like today. From their reply, determine drink_type (coffee or tea). If unclear, ask one short clarifying question and try again. Patrons asking for anything off-menu (pastries, food, smoothies): say we don't carry that and offer coffee or tea.",
+  "exit_paths": [
+    {
+      "id": "xp_greet_to_coffee",
+      "condition": {
+        "expression": "Patron has indicated they want a coffee drink (drip, americano, latte, espresso, or any coffee-style beverage).",
+        "method": "llm"
+      },
+      "assigns": {
+        "drink_type": {
+          "method": "direct",
+          "value": "coffee"
+        }
+      },
+      "goto": "flow_coffee_order"
+    },
+    {
+      "id": "xp_greet_to_tea",
+      "condition": {
+        "expression": "Patron has indicated they want tea (black, green, herbal, or any tea variety).",
+        "method": "llm"
+      },
+      "assigns": {
+        "drink_type": {
+          "method": "direct",
+          "value": "tea"
+        }
+      },
+      "goto": "flow_tea_order"
+    },
+    {
+      "id": "xp_greet_walkaway",
+      "condition": {
+        "expression": "Patron is not ordering anything, asked to leave, or repeatedly cannot decide between coffee and tea.",
+        "method": "llm"
+      },
+      "actions": [
+        {
+          "capability_id": "cap_log_walkaway"
+        }
+      ],
+      "goto": "END"
+    }
+  ]
+}

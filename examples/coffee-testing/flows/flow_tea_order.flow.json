@@ -1,0 +1,35 @@
+{
+  "$schema": "UX4://flow/v0",
+  "id": "flow_tea_order",
+  "version": "0.1.0",
+  "name": "Tea order",
+  "type": "happy",
+  "instructions": "Capture drink_style (black / green / herbal), size (small / medium / large), and honey (true if the patron wants honey, false if not). Move to confirmation when all three are set.",
+  "entry_condition": {
+    "expression": "drink_type == \"tea\"",
+    "method": "calculation"
+  },
+  "exit_paths": [
+    {
+      "id": "xp_te_to_confirm",
+      "condition": {
+        "expression": "Patron has provided tea style, size, and answered the honey question.",
+        "method": "llm"
+      },
+      "goto": "flow_confirm"
+    },
+    {
+      "id": "xp_te_cancel",
+      "condition": {
+        "expression": "Patron changed their mind, asked to cancel, or wants to leave.",
+        "method": "llm"
+      },
+      "actions": [
+        {
+          "capability_id": "cap_log_walkaway"
+        }
+      ],
+      "goto": "END"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "$schema": "UX4://flow/v0",
+  "id": "flow_coffee_order",
+  "version": "0.1.0",
+  "name": "Coffee order",
+  "type": "happy",
+  "instructions": "Capture drink_style (drip / americano / latte), size (small / medium / large), milk (regular / oat / almond / soy / none), and syrup (vanilla / caramel / hazelnut / none). Don't ask for milk on a black drip unless the patron mentions it. If size is large and milk is not oat, casually mention oat milk pairs nicely with a large — once, not twice; the patron can decline. When you have all four slots, move to confirmation.",
+  "entry_condition": {
+    "expression": "drink_type == \"coffee\"",
+    "method": "calculation"
+  },
+  "exit_paths": [
+    {
+      "id": "xp_co_to_confirm",
+      "condition": {
+        "expression": "Patron has provided drink style, size, milk, and syrup choice (or explicitly skipped syrup).",
+        "method": "llm"
+      },
+      "goto": "flow_confirm"
+    },
+    {
+      "id": "xp_co_cancel",
+      "condition": {
+        "expression": "Patron changed their mind, asked to cancel, or wants to leave.",
+        "method": "llm"
+      },
+      "actions": [
+        {
+          "capability_id": "cap_log_walkaway"
+        }
+      ],
+      "goto": "END"
+    }
+  ]
+}

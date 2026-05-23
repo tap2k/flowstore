@@ -1,0 +1,17 @@
+{
+  "$schema": "UX4://test-case/v0",
+  "id": "order-fails-out-of-stock",
+  "name": "Kitchen is out of oat milk — agent recovers gracefully",
+  "description": "cap_place_order raises; agent should apologise, offer alternatives, and not lose the rest of the order.",
+  "user_turns": [
+    "Hi, I'd like a latte please",
+    "Medium",
+    "Oat milk",
+    "Yes go ahead",
+    "Oh, regular milk is fine then"
+  ],
+  "mock_bindings": {
+    "cap_place_order": "out_of_stock"
+  },
+  "evaluators": ["empathy_on_failure"]
+}

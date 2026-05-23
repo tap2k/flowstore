@@ -1,0 +1,10 @@
+{
+  "$schema": "UX4://capability-mock/v0",
+  "capability_id": "cap_place_order",
+  "variant": "out_of_stock",
+  "description": "Kitchen is out of one of the requested ingredients. Agent must recover.",
+  "behavior": {
+    "kind": "error",
+    "error": "out_of_stock: oat_milk"
+  }
+}

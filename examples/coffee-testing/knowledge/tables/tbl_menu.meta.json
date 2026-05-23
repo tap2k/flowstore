@@ -1,0 +1,28 @@
+{
+  "$schema": "UX4://knowledge-table/v0",
+  "id": "tbl_menu",
+  "name": "Drink menu",
+  "purpose": "Catalog of drink styles available, used by the order flows to validate patron requests and quote prices.",
+  "structure": [
+    {
+      "field": "drink_type",
+      "description": "Top-level category.",
+      "type": "string"
+    },
+    {
+      "field": "drink_style",
+      "description": "Specific drink within the type.",
+      "type": "string"
+    },
+    {
+      "field": "price_small",
+      "description": "Small size price in USD.",
+      "type": "number"
+    },
+    {
+      "field": "price_large",
+      "description": "Large size price in USD.",
+      "type": "number"
+    }
+  ]
+}

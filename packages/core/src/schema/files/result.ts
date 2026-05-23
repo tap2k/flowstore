@@ -57,6 +57,15 @@ export const ResultSchema = Type.Object(
     timestamp: Type.String(),
     agent_id: Type.Optional(Type.String()),
     model: Type.Optional(Type.String()),
+    // Where the system prompt came from for this run. "ux4-compile" for the
+    // default (compiled from the spec), or a free-form string (e.g. a file
+    // path, "claude-3.5-handcrafted", "vendor-x-prompt-v2") for comparison
+    // runs against hand-authored or third-party prompts. Tool schemas always
+    // come from the spec — comparison runs vary only the prose. Embedded on
+    // the result (rather than only on the eventual run manifest) so result
+    // files remain self-describing when copied or diffed in isolation —
+    // same rationale as `model` above.
+    prompt_source: Type.Optional(Type.String()),
     transcript: Type.Array(TranscriptTurn),
     capability_calls: Type.Optional(Type.Array(CapabilityCall)),
     final_variables: Type.Optional(Type.Record(Type.String(), Type.Unknown())),

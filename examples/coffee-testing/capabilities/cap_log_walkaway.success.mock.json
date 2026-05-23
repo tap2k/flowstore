@@ -1,0 +1,10 @@
+{
+  "$schema": "UX4://capability-mock/v0",
+  "capability_id": "cap_log_walkaway",
+  "variant": "success",
+  "description": "Walkaway logged successfully.",
+  "behavior": {
+    "kind": "static",
+    "returns": { "logged": true }
+  }
+}

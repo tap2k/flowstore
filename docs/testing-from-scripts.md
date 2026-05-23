@@ -199,6 +199,7 @@ Declarative LLM-judge criterion. Your evaluator framework runs the judge model w
   "timestamp": "2026-06-15T14:32:11Z",
   "agent_id": "coffee",
   "model": "claude-sonnet-4-5",
+  "prompt_source": "ux4-compile",
   "transcript": [
     { "role": "agent", "content": "Welcome to Cafe! What can I get for you?" },
     { "role": "user",  "content": "I'd like a large coffee please" },
@@ -228,6 +229,7 @@ Required: `$schema`, `test_case_id`, `timestamp`, `transcript`.
 Optional:
 
 - `agent_id`, `model` — for traceability when one project has many agents / multiple models in flight.
+- `prompt_source` — `"ux4-compile"` for runs against the spec-compiled prompt, or a free-form string (file path, vendor name, version tag) for comparison runs against hand-authored prompts. See [§ Comparing prompts](#comparing-prompts).
 - `capability_calls` — needed if you want `tool_calls_check`-style evaluators to work later.
 - `final_variables` — needed if you want `state_check`-style evaluation. Tracking a variable scope is your script's job.
 - `evaluator_results` — one entry per evaluator that ran. `passed` for boolean checks, `score` for rubrics, both for hybrids. `notes` is free-form.
@@ -351,7 +353,43 @@ About 90 lines. Add evaluators, multi-trial loops, gold-standard capture, endpoi
 - **Mock failure (`kind: "error"`):** raise with the documented `error` string. The runner sees a tool error, the LLM gets to handle it, and downstream branches in the spec that route on capability failure will exercise correctly.
 - **Endpoint mode (when you build it):** `mock_bindings` are ignored — the real endpoint provides the capability. Compare results across mode in the result viewer.
 
+### `capability.id` vs `capability.name`
+
+A subtle but important distinction. Each capability in `agent.json` has both:
+
+- **`id`** (e.g., `cap_place_order`) — the editor-generated stable reference. Mocks key on this. Test cases' `mock_bindings` key on this. Filename uses this (`<id>.<variant>.mock.json`).
+- **`name`** (e.g., `place_order`) — the snake_case **runtime dispatch identifier**. This is what `ux4-compile --format prompt` emits in `tool_schemas[].name`, and what the LLM provider returns when the model tool-calls.
+
+Your script needs to translate. Build a `name → id` map once from `agent.json.capabilities[]`, then translate the LLM's tool name to the capability id before looking up mocks. The worked example at [examples/coffee-testing/scripts/run.py](../examples/coffee-testing/scripts/run.py) shows the pattern.
+
+For consistency, the `result.capability_calls[].capability` field should also be the id, not the name — so evaluators can pivot on a stable identifier regardless of LLM-provider naming quirks.
+
 ---
+
+## Comparing prompts
+
+A common need during migration: run the same test cases against UX4's compiled prompt **and** against an existing hand-authored prompt to see where they agree and where they diverge. The plumbing for this is small.
+
+1. **Tool schemas always come from the spec.** Apples-to-apples comparison requires both prompts see the same capabilities. Don't try to compare a UX4 run against a prompt that advertises different tools — you'd be measuring two things at once.
+2. **Vary only the system prompt.** Pull the compiled prompt with `ux4-compile --format prompt`, the hand-authored prompt from a `.txt` file. Feed each into the same `client.messages.create(...)` call.
+3. **Record `prompt_source` in the result.** `"ux4-compile"` for the default; a path or version tag for the hand-authored. The editor's result viewer will eventually let you pivot on this field.
+4. **Tag the run-dir.** Use a label like `tests/runs/<ts>-ux4/` vs `tests/runs/<ts>-handauth/` so paired runs sit next to each other on disk.
+
+The example script supports both via flags:
+
+```bash
+# Default — UX4-compiled prompt
+python scripts/run.py tests/cases/happy-path-latte.test.json --label ux4
+
+# Same test, hand-authored prompt
+python scripts/run.py tests/cases/happy-path-latte.test.json \
+  --system-prompt /path/to/existing-prompt.txt \
+  --label handauth
+```
+
+Then diff `tests/runs/<ts>-ux4/happy-path-latte.result.json` against `tests/runs/<ts>-handauth/happy-path-latte.result.json`. Same user turns, same mocks, same model, same tool schemas — the only variable is the prose.
+
+**One nuance.** If `agent.system_prompt_template` is set, codegen wraps the compiled body in the template's `{generated}` placeholder. So a designer can keep their hand-authored persona framing or hard-rules preamble at the top and let UX4 fill in the structured body. That's a third comparison point worth running: bare UX4 vs. hand-authored-wrapper × UX4 vs. fully hand-authored.
 
 ## Evaluator placeholder
 

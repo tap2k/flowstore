@@ -1,0 +1,14 @@
+{
+  "$schema": "UX4://test-case/v0",
+  "id": "walkaway",
+  "name": "Customer leaves without ordering",
+  "description": "Patron starts a conversation, then walks away. Agent should fire cap_log_walkaway and end politely.",
+  "user_turns": [
+    "Hi",
+    "Actually, never mind, I have to go"
+  ],
+  "mock_bindings": {
+    "cap_log_walkaway": "success"
+  },
+  "evaluators": ["forbidden_phrases"]
+}
