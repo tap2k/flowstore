@@ -26,8 +26,6 @@ interface ImportExportToolbarProps {
   onOpenSettings: () => void;
 }
 
-const DEV = process.env.NEXT_PUBLIC_DEV === "1";
-
 const buttonClass =
   "rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 disabled:hover:bg-transparent";
 
@@ -246,11 +244,9 @@ export function ImportExportToolbar({
         <button onClick={() => setOpenSheet("agent")} disabled={!spec} className={buttonClass}>
           Agent
         </button>
-        {DEV && (
-          <button onClick={() => setOpenSheet("variables")} disabled={!spec} className={buttonClass}>
-            Variables
-          </button>
-        )}
+        <button onClick={() => setOpenSheet("variables")} disabled={!spec} className={buttonClass}>
+          Variables
+        </button>
         <button onClick={() => setOpenSheet("guardrails")} disabled={!spec} className={buttonClass}>
           Guardrails
         </button>
