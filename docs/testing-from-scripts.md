@@ -57,6 +57,7 @@ Flags:
 | `--agent <id>` | required in multi-agent projects | Selects which agent to compile. Single-agent projects accept the flag but ignore it. |
 | `--out <path>` | no | Writes to file. Default: stdout. |
 | `--vars k=v,k=v` | no | Substitutes `{k}` placeholders in the compiled prompt before emit. |
+| `--vars-file <path.json>` | no | Same as `--vars`, but loads key/value pairs from a JSON file. Use when a scenario needs many vars (`vars.bau.json`, `vars.broken-ptp.json`, etc.). |
 | `--language <code>` | no | For multilingual specs; picks the language column of scripts. Defaults to the first declared language. |
 
 Input may be a project directory (the normal case — UX4 reads `ux4.json` + `agent.json` + `flows/` + the rest per [FILE-MODEL.md](../FILE-MODEL.md)) or a single-file spec JSON (migration / pre-decomposition path).

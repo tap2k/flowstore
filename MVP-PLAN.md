@@ -1,6 +1,6 @@
 # UX4 MVP Plan
 
-The organizing vision and staged operational plan for UX4. For the data-model contract see [SCHEMA.md](./SCHEMA.md); for the on-disk layout see [FILE-MODEL.md](./FILE-MODEL.md); for architectural rationale see [AGENTS.md](./AGENTS.md); for the translation/fidelity experiment that gates runner-based testing see [TRANSLATION-POC.md](./TRANSLATION-POC.md).
+The organizing vision and staged operational plan for UX4. For the data-model contract see [SCHEMA.md](./SCHEMA.md); for the on-disk layout see [FILE-MODEL.md](./FILE-MODEL.md); for architectural rationale see [AGENTS.md](./AGENTS.md); for the translation/fidelity experiment that gates runner-based testing see [TRANSLATION-POC.md](./TRANSLATION-POC.md); for the systems view of the client-materials → spec → tests → targets loop and what would be required to make it self-optimizing see [docs/optimization-loop.md](./docs/optimization-loop.md).
 
 ---
 
@@ -270,6 +270,10 @@ Each has been considered and deferred. Defers are pre-conditional, not aspiratio
 ### Gated on production-monitoring integration demand
 
 - **Integration with production monitoring / eval platforms** (LangSmith, Cekura, Maxim, runtime event stream consumers). Two directions: export UX4 evaluation results into their formats; import production data from them as test cases via session-import equivalents. Defer until pilot data shows which platforms Awaaz and broader audience actually use.
+
+### Gated on LLM-judge wiring
+
+- **Autonomous spec optimization.** The end-to-end loop (client materials → spec + tests → compiled prompt or runtime → diff matrix → revise spec) is structurally amenable to autonomous optimization because the spec is structured and the diff matrix is a real gradient. See [docs/optimization-loop.md](./docs/optimization-loop.md). Gated on LLM-judge rubrics being wired into the runner (substring-only assertions are too narrow a signal), plus run-level aggregation, mechanism categorization on red cells, and a typed spec-mutation API. Human-in-the-loop optimization works today; full autonomy is incremental once the judge is wired.
 
 ### Schema and behavioral additions
 

@@ -142,12 +142,12 @@ If none of these apply, decomposing is busywork. The canvas makes nodes feel lik
 
 ## MVP Scope
 
-From AGENT-TESTING.md — the five-step loop uxflows supports end-to-end:
+The end-to-end loop uxflows supports — see [docs/optimization-loop.md](./docs/optimization-loop.md) for the systems view and [MVP-PLAN.md](./MVP-PLAN.md) for phase timing:
 
 1. **Ingest** — paste a system prompt and attach supporting docs (PDFs, spreadsheets, Word, Figma exports, plain text).
 2. **Parse** — a behavioral parser (LLM-assisted) converts inputs to a structured spec. Today this is [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt). The designer pastes source material in, gets the JSON, and pastes it into the editor's Import. An in-app "Parse with AI" using a user-provided API key is planned to skip the round-trip.
 3. **Review and configure** — user reviews the parsed spec on the canvas, edits inline.
-4. **Simulate** — run personas against the agent endpoint. Evaluator scores each conversation against guardrails, per-scenario expectations, and rubrics. (UX4 testing surface — test cases, mocks, rubrics, personas per [FILE-MODEL.md](./FILE-MODEL.md).)
+4. **Test** — compile spec to system prompt (or graph-native runtime); run test cases through it; diff against assertions and against legacy / baseline prompts. See [docs/test-driven-prompts.md](./docs/test-driven-prompts.md) for methodology, [docs/testing-from-scripts.md](./docs/testing-from-scripts.md) for harness mechanics.
 5. **Share** — internal findings report + client-facing shareable document. (Post-MVP UX4 surface.)
 
 ## Related Docs in This Repo
@@ -156,6 +156,9 @@ From AGENT-TESTING.md — the five-step loop uxflows supports end-to-end:
 - [SCHEMA.md](./SCHEMA.md) — authoritative spec data model.
 - [FILE-MODEL.md](./FILE-MODEL.md) — how a UX4 project decomposes into files on disk; the serialization contract for SCHEMA.md.
 - [TRANSLATIONS.md](./TRANSLATIONS.md) — runtime translation tables (Pipecat, LiveKit, LangGraph, OpenAI Agents SDK; import: Voiceflow, Botpress).
+- [docs/optimization-loop.md](./docs/optimization-loop.md) — end-to-end view: client materials → spec + tests → targets → eval, and what would be needed for autonomous optimization.
+- [docs/test-driven-prompts.md](./docs/test-driven-prompts.md) — methodology for using the testing harness as a development loop.
+- [docs/testing-from-scripts.md](./docs/testing-from-scripts.md) — harness mechanics reference: `ux4-compile` CLI, file shapes, mock dispatch.
 - [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) — LLM prompt for converting source material into spec JSON (any frontier LLM).
 
 ## Running
@@ -173,4 +176,4 @@ Opens at http://localhost:3000.
 - Prefer editing existing files over creating new ones.
 - Don't add backwards-compat shims. It's early — break freely.
 - Match conventions in sibling UX4 repos where reasonable. The spec is the contract; the runner is the canonical native consumer.
-- Keep the spec schema evolution discussions in SCHEMA.md. The product vision lives in AGENT-TESTING.md.
+- Keep the spec schema evolution discussions in SCHEMA.md. The product vision lives in MVP-PLAN.md.

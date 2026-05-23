@@ -111,7 +111,7 @@ A gold is the source of truth; a **test case** is the executable extraction. The
 
 The case is what `run.py` executes. The gold is what reviewers compare against to argue about whether the *assertions* themselves are right. Keep both.
 
-**Today this is hand-authored from the gold.** A future `CASE-FROM-GOLD-PROMPT` will mechanically derive cases from `gold + spec` — pick distinctive substring assertions from the actual agent script in the routing flow, flag generic words as low-signal. Not built yet; see [§ Open problems](#open-problems).
+**You can hand-author from the gold, or use [`CASE-FROM-GOLD-PROMPT.txt`](../CASE-FROM-GOLD-PROMPT.txt)** to derive cases mechanically from `gold + compiled spec`: distinctive substring assertions drawn from the actual flow scripts, negative assertions seeded from `agent.guardrails`. Awaaz's `awaaz-dpd31/` project used this to derive 5 of its 12 cases from golds. Review the substring choices for ambiguous scenarios — the LLM picks reasonable defaults but routing-distinctive language sometimes needs a human eye.
 
 ### Phase 3 — compile the spec to a prompt
 
@@ -247,11 +247,9 @@ All three are runnable today with `--system-prompt` (for hand-authored) and `--s
 
 ## Open problems
 
-Things that aren't built yet but the loop needs to mature past v1.
+Things that aren't built yet but the loop needs to mature past v1. See [optimization-loop.md](optimization-loop.md) for the systems view of how these gaps gate autonomous optimization.
 
-- **`CASE-FROM-GOLD-PROMPT`.** Mechanically derive `tests/cases/*.test.json` from `tests/gold/*.gold.json` + the compiled spec. Picks distinctive substring assertions per turn by reading the relevant flow's scripts. Currently hand-authored.
-
-- **LLM-as-judge evaluator.** Assertion class: "the agent acknowledged the customer's hardship and offered an alternative." Substring matching can't express this. Schema slot exists (`tests/rubrics/<id>.rubric.json`), runner integration doesn't.
+- **LLM-as-judge evaluator.** Assertion class: "the agent acknowledged the customer's hardship and offered an alternative." Substring matching can't express this. Schema slot exists (`tests/rubrics/<id>.rubric.json`), runner integration doesn't. **This is the gating dependency for autonomous optimization** — without it the eval signal is too narrow.
 
 - **Multi-trial aggregation in `result.json`.** Per-case results have `trials[]` today but suite-level aggregation lives only in stdout. A `manifest.json` per run-dir would let the editor pivot on suite-level pass rates over time.
 
