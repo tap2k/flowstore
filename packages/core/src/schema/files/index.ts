@@ -2,3 +2,8 @@ export * from "./project";
 export * from "./glossary";
 export * from "./models";
 export * from "./knowledgeTable";
+export * from "./testCase";
+export * from "./persona";
+export * from "./capabilityMock";
+export * from "./rubric";
+export * from "./result";

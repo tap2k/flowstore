@@ -28,6 +28,7 @@ Then open http://localhost:3000.
 - [FILE-MODEL.md](./FILE-MODEL.md) — how a UX4 project decomposes into files on disk.
 - [AGENTS.md](./AGENTS.md) — architecture, tech stack, design principles.
 - [TRANSLATIONS.md](./TRANSLATIONS.md) — runtime translation tables (Pipecat, LiveKit, LangGraph, Dialogflow CX, OpenAI Agents SDK).
+- [docs/testing-from-scripts.md](./docs/testing-from-scripts.md) — bring-your-own-script testing path; `ux4-compile` CLI + file shapes engineers need to know.
 - [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) — LLM prompt for parsing source material into spec JSON.
 
 ## Stack

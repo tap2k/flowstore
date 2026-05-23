@@ -27,7 +27,8 @@
     "round-trip-disk": "tsx scripts/round-trip-disk.ts",
     "github-smoke": "tsx scripts/github-smoke.ts",
     "github-init": "tsx scripts/github-init.ts",
-    "ux4-init-project": "tsx scripts/ux4-init-project.ts"
+    "ux4-init-project": "tsx scripts/ux4-init-project.ts",
+    "ux4-compile": "tsx scripts/ux4-compile.ts"
   },
   "dependencies": {
     "@octokit/rest": "^21.1.1",
