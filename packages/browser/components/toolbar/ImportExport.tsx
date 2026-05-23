@@ -115,10 +115,10 @@ function useDropdown() {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
     }
-    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("mousedown", onDocClick, true);
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("mousedown", onDocClick, true);
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
@@ -159,10 +159,13 @@ export function ImportExportToolbar({
     setExportOpen(false);
   }
 
-  function exportSystemPrompt() {
+  async function copySystemPrompt() {
     if (!spec) return;
-    const name = sanitizeFilename(spec.agent.id || "spec");
-    downloadBlob(`${name}-system-prompt.txt`, generateSystemPrompt(spec), "text/plain");
+    try {
+      await navigator.clipboard.writeText(generateSystemPrompt(spec));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not copy to clipboard.");
+    }
     setExportOpen(false);
   }
 
@@ -322,8 +325,8 @@ export function ImportExportToolbar({
               <button onClick={exportZip} className={menuItemClass}>
                 Export ZIP (decomposed)
               </button>
-              <button onClick={exportSystemPrompt} className={menuItemClass}>
-                Export System Prompt
+              <button onClick={copySystemPrompt} className={menuItemClass}>
+                Copy System Prompt
               </button>
             </div>
           )}
