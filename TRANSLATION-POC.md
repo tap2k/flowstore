@@ -1,5 +1,17 @@
 # Translation PoC: LangGraph Fidelity
 
+> **Outcome (Day 11-12, 2026-05-23): SUCCESS — fidelity holds, including
+> under live LLM.** Synthetic harness: 5/5 scenarios pass equivalence on
+> flow path, final variables, and final exit. Live-LLM regression (Gemini
+> 2.5 Flash via Vertex, temperature=0, N=3 per surface per scenario):
+> runner == translated dispatch on 6/6 live runs across L_HP1 (happy) and
+> L_HP2 (invalid policy). Zero intra-surface drift.
+>
+> See [FINDINGS.md](../uxflows-runner/experiments/langgraph_poc/FINDINGS.md).
+> Live regression caught two bugs the synthetic harness couldn't: a
+> prompt-shape divergence (missing guardrails / example) and conversation
+> history dropped on exit-fire transitions. Both fixed in the translator.
+
 A bounded experiment to answer one strategic question with evidence rather than theory: **does translation from a UX4 v0 spec to a graph-native runtime (LangGraph) preserve the flow / exit / capture / variable semantics the runner enforces, with enough fidelity to be useful for production deployments?**
 
 This is a spike. Deliverable is *evidence*, not a shippable translator.
@@ -50,12 +62,21 @@ The PoC is falsifiable. The outcome should shape next-quarter investment; if it 
 **Out of scope:**
 
 - Multilingual (one language only).
-- Interrupts (FNOL doesn't use them; revisit if a later spec requires them).
-- Knowledge.faq / knowledge.tables (unless FNOL uses them).
+- Interrupts. FNOL *does* declare four interrupt flows (`int_human_handoff`, `int_policy_question`, `int_calming`, `int_cancel_claim`), contra an earlier note in this doc. Translator skips them; scenarios are restricted to the linear happy/sad path that never triggers an `entry_condition`. Interrupts become the next experiment if dispatch fidelity holds on the linear path.
+- Knowledge.faq / knowledge.glossary (only used by the skipped interrupt flows in FNOL).
+- `business_goals` (post-hoc evaluation, not dispatch).
 - Voice-specific anything.
 - MCP capabilities (HTTP only).
 - Productionization of the translator — this is a spike.
 - Editor integration.
+
+**Additional spec features in FNOL beyond the original list:**
+
+- `capabilities` of `kind: retrieval` (treated identically to `function` for the PoC — both are HTTP calls with input/output bindings).
+- `exit_path.assigns` with `method: direct` (set a variable to a literal value before firing actions).
+- Utility flows (`type: utility`, no scripts) — pass through with no agent turn, route purely on `calculation` exits.
+- Script string interpolation (`{policy_number}`, `{claim_id}`) — resolved at turn time from current state.
+- Default-else exit paths (no `condition` block) — last-resort branch.
 
 ## Architecture
 
@@ -170,8 +191,12 @@ Minimum four; an optional fifth if time allows.
 
 ## Upfront decisions
 
-1. **LangGraph version** — pin specifically in `pyproject.toml`. The ecosystem moves fast; reproducibility matters.
-2. **Conversational pause mechanism** — `interrupt()` + `MemorySaver` checkpointer. 30-min spike at day 1 before committing to the design.
+1. **LangGraph version** — pinned at `langgraph==1.2.1` with `langchain-core==1.4.0`, added to `uxflows-runner` dev deps. Note: the checkpointer is now `InMemorySaver` (under `langgraph.checkpoint.memory`), not `MemorySaver` as described elsewhere in this doc.
+2. **Conversational pause mechanism** — `interrupt()` + `InMemorySaver` checkpointer. **Spike result (Day 1, [`spike_interrupt.py`](../uxflows-runner/experiments/langgraph_poc/spike_interrupt.py))**: all four patterns work end-to-end without an LLM: (a) `interrupt()` pause + `Command(resume=user_text)` resume; (b) `Command(goto=<self>, update={...})` self-loop for stay-in-flow; (c) back-edge cycles (sad → retry → happy → sad again) with state persisting across cycles; (d) pure conditional `Command(goto=...)` utility flows with no LLM and no interrupt. Two PoC-relevant idioms confirmed: additive state channels need `Annotated[list, operator.add]` reducers, and superstep-keyed checkpoints handle re-entry of the same node id cleanly.
+
+   **F3 (Day 5) — LLM duplication on resume.** LangGraph replays the pre-`interrupt()` half of a node body on every resume. A naïve emit (`_resp = await llm_turn(...)` before `interrupt()`) calls the LLM twice per user-facing turn — unacceptable for cost, latency, and determinism. **Resolution: wrap `llm_turn` in `langgraph.func.task`**. Tasks are checkpointed by LangGraph; the cached return is replayed on resume instead of re-executing. With `@task`, the FNOL happy path runs exactly one LLM call per scripted user turn (verified: 19 stub calls for 19 scripted turns). Translator now emits a module-level `@task`-decorated `_llm_call` wrapper.
+
+3. **Interrupt resume payload** — dict form, not bare string. Original `Command(resume=user_text)` couldn't deliver state captures (e.g. `caller_name`, `callback_number`) because `app.update_state(config, dict)` outside interrupt resume *ends* the graph (terminates the pending interrupt's checkpoint). Translator now emits `interrupt()` consumers that accept either a plain string OR `{"text": ..., "captures": {var: value, ...}}`, merging captures into state on resume. Test harnesses use the dict form; production code with a real LLM uses the string form.
 3. **Capability mock injection** — both surfaces read the same `fixtures/capabilities.json`. The runner gets a `MockCapabilityDispatcher` injected via existing config seams; the translated runtime's `call_capability` reads the same file.
 4. **LLM provider** — same as runner (Vertex Gemini), via LangChain's `ChatVertexAI`. Same temperature (0). Same credentials. Maximum reproducibility.
 5. **Expression eval handling** — copy the runner's logic from [`expressions.py`](../uxflows-runner/src/uxflows_runner/dispatcher/expressions.py) into `runtime_helpers` for the PoC. Don't share Python modules across surfaces yet; productize later if the PoC succeeds.
