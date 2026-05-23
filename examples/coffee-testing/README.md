@@ -33,14 +33,16 @@ Every file carries a `$schema` URI; UX4 validates them on load.
 
 ## Run it
 
+The example uses **Gemini** (`gemini-2.5-flash` by default) — matches the rest of the project: [BUILT_IN_MODELS](../../packages/core/src/files/models.ts) ships Gemini entries, the editor's Simulate panel is BYOK Google, the runner uses Vertex Gemini. Swap providers in your own script by editing the SDK calls in [`scripts/run.py`](scripts/run.py); the file shapes (`test.json`, `mock.json`, `result.json`) are provider-neutral.
+
 From the **uxflows monorepo root** (so the `npm -w @ux4/core` workspace resolves):
 
 ```bash
 # 1. Install Python deps (do this once)
 pip install -r examples/coffee-testing/scripts/requirements.txt
 
-# 2. Set your Anthropic key
-export ANTHROPIC_API_KEY=sk-ant-...
+# 2. Set your Gemini API key
+export GOOGLE_API_KEY=...   # or GEMINI_API_KEY
 
 # 3. Run any of the three test cases
 python examples/coffee-testing/scripts/run.py \

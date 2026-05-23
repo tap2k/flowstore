@@ -42,3 +42,24 @@ next-env.d.ts
 
 # claude code
 .claude/
+
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+*.egg
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Example test-run outputs. This is the uxflows source repo, not a
+# customer's per-agent repo where results accrue — any reference result
+# we intentionally ship lives here only via explicit `git add -f`.
+examples/*/tests/runs/

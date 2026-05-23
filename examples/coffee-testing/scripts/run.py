@@ -1,5 +1,5 @@
 """
-Worked example: drive a UX4 spec through a test case with the Anthropic API.
+Worked example: drive a UX4 spec through a test case with the Gemini API.
 
 This is one shape, not THE shape. Adapt for your provider, evaluator
 framework, and result-handling needs.
@@ -15,7 +15,7 @@ Usage:
     --label nikunj-handauth
 
 Requirements:
-  ANTHROPIC_API_KEY env var
+  GOOGLE_API_KEY (or GEMINI_API_KEY) env var
   pip install -r scripts/requirements.txt
   uxflows checked out at ../../  (so we can shell out to ux4-compile)
 
@@ -38,9 +38,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+# google-genai is imported lazily after arg parsing so --help works without
+# the SDK installed.
+
 # ----- inputs -----
 
-parser = argparse.ArgumentParser(description="Drive a UX4 test case through the Anthropic API.")
+parser = argparse.ArgumentParser(description="Drive a UX4 test case through the Gemini API.")
 parser.add_argument("case", help="Path to a tests/cases/<id>.test.json file")
 parser.add_argument(
     "--system-prompt",
@@ -68,6 +71,11 @@ if args.system_prompt is not None and not args.system_prompt.exists():
 
 case = json.loads(CASE_PATH.read_text())
 
+# Defer the SDK import until after arg parsing + path checks so --help
+# (and obvious path mistakes) don't require the package to be installed.
+from google import genai  # noqa: E402
+from google.genai import types  # noqa: E402
+
 # ----- 1. compile the spec into {system_prompt, tool_schemas} -----
 
 # In a customer's repo this would invoke a published @ux4/cli; today we
@@ -93,14 +101,25 @@ if args.system_prompt is not None:
 else:
     system_prompt: str = compiled["system_prompt"]
 
-# Anthropic's API wants tools with `input_schema`, not `parameters`. Rename.
-anthropic_tools = [
-    {
-        "name": t["name"],
-        "description": t["description"],
-        "input_schema": t["parameters"],
-    }
-    for t in tool_schemas
+# Gemini's FunctionDeclaration takes `parameters` directly — same field name
+# `ux4-compile` emits, no rename needed (unlike Anthropic's input_schema).
+# Strip "additionalProperties" because the Gemini schema validator rejects it.
+def _gemini_clean(schema: dict[str, Any]) -> dict[str, Any]:
+    out = {k: v for k, v in schema.items() if k != "additionalProperties"}
+    if "properties" in out and isinstance(out["properties"], dict):
+        out["properties"] = {k: _gemini_clean(v) for k, v in out["properties"].items()}
+    return out
+
+
+gemini_tools = [
+    types.Tool(function_declarations=[
+        types.FunctionDeclaration(
+            name=t["name"],
+            description=t["description"],
+            parameters=_gemini_clean(t["parameters"]),
+        )
+        for t in tool_schemas
+    ])
 ]
 
 # ----- 2. load mocks, indexed by (capability_id, variant) -----
@@ -110,7 +129,7 @@ for p in (PROJECT / "capabilities").glob("*.mock.json"):
     m = json.loads(p.read_text())
     mocks[(m["capability_id"], m["variant"])] = m
 
-# Anthropic's tool_use blocks return the tool *name* (the spec's
+# Gemini's function_call parts return the tool *name* (the spec's
 # capability.name, snake_case dispatch identifier). Mocks are keyed by
 # capability *id*. Build a name -> id map from the agent envelope so we can
 # translate the LLM's tool call back to a binding lookup.
@@ -120,7 +139,7 @@ NAME_TO_ID: dict[str, str] = {
 }
 
 
-def dispatch_mock(tool_name: str, args: dict[str, Any]) -> tuple[Any, str | None]:
+def dispatch_mock(tool_name: str, args_in: dict[str, Any]) -> tuple[Any, str | None]:
     """Return (result, error). Either result or error is non-None.
     Raises if the test case didn't bind a mock for this capability — silent
     defaults mask broken tests."""
@@ -151,74 +170,87 @@ def dispatch_mock(tool_name: str, args: dict[str, Any]) -> tuple[Any, str | None
 
 # ----- 3. drive the LLM through user_turns -----
 
-from anthropic import Anthropic
+api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+if not api_key:
+    sys.exit("set GOOGLE_API_KEY or GEMINI_API_KEY in your environment")
 
-client = Anthropic()
-model = case.get("model", "claude-sonnet-4-5")
+client = genai.Client(api_key=api_key)
+model = case.get("model", "gemini-2.5-flash")
 
+# Conversation history as a list of Content objects. Gemini takes the system
+# instruction out-of-band via the GenerateContentConfig (mirrors Anthropic's
+# `system` parameter). User+model turns + function calls/responses go here.
+contents: list[types.Content] = []
 transcript: list[dict[str, Any]] = []
 capability_calls: list[dict[str, Any]] = []
-messages: list[dict[str, Any]] = []
 run_error: str | None = None
+
+config = types.GenerateContentConfig(
+    system_instruction=system_prompt,
+    tools=gemini_tools,
+    temperature=0.0,
+)
 
 try:
     for user_turn in case["user_turns"]:
         transcript.append({"role": "user", "content": user_turn})
-        messages.append({"role": "user", "content": user_turn})
+        contents.append(
+            types.Content(role="user", parts=[types.Part.from_text(text=user_turn)])
+        )
 
-        # Inner loop: the assistant may chain multiple tool calls before
+        # Inner loop: the model may chain multiple function calls before
         # producing a text turn we hand to the user. Cap iterations to
         # avoid runaway loops in a broken test.
         for _ in range(8):
-            resp = client.messages.create(
+            resp = client.models.generate_content(
                 model=model,
-                system=system_prompt,
-                tools=anthropic_tools,
-                messages=messages,
-                max_tokens=1024,
+                contents=contents,
+                config=config,
             )
-            messages.append({"role": "assistant", "content": resp.content})
+            candidate = resp.candidates[0]
+            parts = candidate.content.parts or []
+            # Persist the model's turn verbatim so the next call has full history.
+            contents.append(types.Content(role="model", parts=parts))
 
-            text_parts = [b.text for b in resp.content if b.type == "text"]
+            text_parts = [p.text for p in parts if getattr(p, "text", None)]
             if text_parts:
                 transcript.append({
                     "role": "agent",
-                    "content": "\n".join(text_parts),
+                    "content": "\n".join(t for t in text_parts if t),
                 })
 
-            tool_uses = [b for b in resp.content if b.type == "tool_use"]
-            if not tool_uses:
+            fn_calls = [p.function_call for p in parts if getattr(p, "function_call", None)]
+            if not fn_calls:
                 break
 
-            tool_results = []
-            for tu in tool_uses:
-                result, err = dispatch_mock(tu.name, tu.input)
-                # capability_calls[].capability uses the spec's capability id
-                # (not the runtime tool name) so evaluators can pivot
-                # consistently regardless of LLM-provider naming.
-                call_record = {
-                    "capability": NAME_TO_ID.get(tu.name, tu.name),
-                    "params": tu.input,
+            # Build a user-role Content full of function_response parts.
+            response_parts: list[types.Part] = []
+            for fc in fn_calls:
+                fc_args = dict(fc.args) if fc.args else {}
+                result, err = dispatch_mock(fc.name, fc_args)
+                call_record: dict[str, Any] = {
+                    # capability_calls[].capability uses the spec's capability id
+                    # (not the runtime tool name) so evaluators can pivot
+                    # consistently regardless of LLM-provider naming.
+                    "capability": NAME_TO_ID.get(fc.name, fc.name),
+                    "params": fc_args,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
                 if err is not None:
                     call_record["error"] = err
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": tu.id,
-                        "is_error": True,
-                        "content": err,
-                    })
+                    response_parts.append(types.Part.from_function_response(
+                        name=fc.name,
+                        response={"error": err},
+                    ))
                 else:
                     call_record["result"] = result
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": tu.id,
-                        "content": json.dumps(result),
-                    })
+                    response_parts.append(types.Part.from_function_response(
+                        name=fc.name,
+                        response=result if isinstance(result, dict) else {"value": result},
+                    ))
                 capability_calls.append(call_record)
 
-            messages.append({"role": "user", "content": tool_results})
+            contents.append(types.Content(role="user", parts=response_parts))
         else:
             run_error = "exceeded inner tool-call budget (8 iterations)"
             break

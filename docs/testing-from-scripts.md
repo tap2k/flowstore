@@ -242,107 +242,24 @@ Unknown fields are tolerated on transcript turns and capability calls (`addition
 
 ## A minimum `run.py` example
 
-This is one shape. Adapt it. It's deliberately not in the repo — the lesson of [MVP-PLAN.md](../MVP-PLAN.md) is that Nikunj writes the script he needs with Claude Code; UX4 just owns the contract.
+A complete, runnable example lives at [examples/coffee-testing/scripts/run.py](../examples/coffee-testing/scripts/run.py) (~170 lines, Gemini-based to match the project default). Read it top-to-bottom; the structure is:
 
-```python
-import json
-import subprocess
-import sys
-from datetime import datetime, timezone
-from pathlib import Path
+1. Parse CLI args (test case path, optional `--system-prompt` override, optional `--label`).
+2. Shell out to `ux4-compile --format prompt` to get `{system_prompt, tool_schemas}`.
+3. Load mocks from `capabilities/*.mock.json`, indexed by `(capability_id, variant)`.
+4. Build a `capability.name → capability.id` translation map (the LLM tool-calls return the runtime *name*; mocks key on *id*).
+5. Walk `user_turns`. For each turn: call the model, capture text into `transcript`, dispatch any function calls through the mock map (capturing into `capability_calls`), loop until no more tool calls.
+6. Write a `UX4://result/v0` result file under `tests/runs/<ts>-<label>/`.
 
-from anthropic import Anthropic
+That's the entire shape. Adapt to your provider, your evaluator framework, your tracking concerns. The provider-specific surface (SDK calls, function-call response shape, tool-schema field name) is contained in steps 2 and 5; everything else is provider-neutral.
 
-PROJECT = Path("./")
-CASE_PATH = Path(sys.argv[1])
+**Notes for adapting to other providers:**
 
-# 1. Compile the spec into a system prompt + tool schemas.
-compiled = subprocess.check_output(
-    ["npm", "-w", "@ux4/core", "run", "ux4-compile", "--",
-     str(PROJECT), "--format", "prompt"],
-    text=True,
-)
-compiled = json.loads(compiled)
+- **Anthropic** — rename `parameters` → `input_schema` in each tool schema, use `client.messages.create()` with `tool_use`/`tool_result` blocks.
+- **OpenAI** — tool schemas are accepted as `{type: "function", function: {name, description, parameters}}`; tool calls come back as `tool_calls[]` arrays.
+- **OpenAI-compatible** (vLLM, Ollama, OpenRouter, Together) — same as OpenAI, just swap the base URL.
 
-# 2. Load the test case.
-case = json.loads(CASE_PATH.read_text())
-
-# 3. Load mocks once, indexed by capability+variant.
-mocks = {}
-for p in (PROJECT / "capabilities").glob("*.mock.json"):
-    m = json.loads(p.read_text())
-    mocks[(m["capability_id"], m["variant"])] = m
-
-def dispatch_mock(name, args):
-    # Resolve which mock variant fires for this capability.
-    variant = case.get("mock_bindings", {}).get(name)
-    if variant is None:
-        raise RuntimeError(f"unbound capability: {name}")
-    mock = mocks[(name, variant)]
-    if mock["behavior"]["kind"] == "error":
-        raise RuntimeError(mock["behavior"]["error"])
-    return mock["behavior"]["returns"]
-
-# 4. Drive the LLM through user_turns, capturing tool calls.
-client = Anthropic()
-transcript = []
-capability_calls = []
-messages = []
-
-for user_turn in case["user_turns"]:
-    messages.append({"role": "user", "content": user_turn})
-    transcript.append({"role": "user", "content": user_turn})
-
-    while True:
-        resp = client.messages.create(
-            model=case.get("model", "claude-sonnet-4-5"),
-            system=compiled["system_prompt"],
-            tools=compiled["tool_schemas"],
-            messages=messages,
-            max_tokens=1024,
-        )
-        # Capture any text the assistant produced.
-        text_parts = [b.text for b in resp.content if b.type == "text"]
-        if text_parts:
-            transcript.append({"role": "agent", "content": "\n".join(text_parts)})
-
-        # Dispatch any tool calls. Loop until the assistant stops calling tools.
-        tool_uses = [b for b in resp.content if b.type == "tool_use"]
-        if not tool_uses:
-            messages.append({"role": "assistant", "content": resp.content})
-            break
-
-        tool_results = []
-        for tu in tool_uses:
-            result = dispatch_mock(tu.name, tu.input)
-            capability_calls.append({
-                "capability": tu.name,
-                "params": tu.input,
-                "result": result,
-            })
-            tool_results.append({
-                "type": "tool_result",
-                "tool_use_id": tu.id,
-                "content": json.dumps(result),
-            })
-        messages.append({"role": "assistant", "content": resp.content})
-        messages.append({"role": "user", "content": tool_results})
-
-# 5. Write the result file.
-out = {
-    "$schema": "UX4://result/v0",
-    "test_case_id": case["id"],
-    "timestamp": datetime.now(timezone.utc).isoformat(),
-    "transcript": transcript,
-    "capability_calls": capability_calls,
-    "evaluator_results": [],  # plug in your own evaluators
-}
-run_dir = PROJECT / "tests" / "runs" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ-manual")
-run_dir.mkdir(parents=True, exist_ok=True)
-(run_dir / f"{case['id']}.result.json").write_text(json.dumps(out, indent=2))
-```
-
-About 90 lines. Add evaluators, multi-trial loops, gold-standard capture, endpoint mode — whatever you actually need. Nothing in UX4 stops you.
+The `ux4-compile` output uses the most common JSON Schema convention (`parameters` field, not `input_schema`), which works natively with Gemini and OpenAI and needs one rename for Anthropic.
 
 ---
 
