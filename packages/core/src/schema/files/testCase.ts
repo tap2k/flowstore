@@ -34,6 +34,11 @@ export const TestCaseSchema = Type.Object(
     assertions: Type.Optional(Type.Array(Assertion)),
     persona_id: Type.Optional(Type.String()),
     model: Type.Optional(Type.String()),
+    // Path (project-relative) to a JSON file of {placeholder: value} to inject
+    // into the compiled prompt for this case. Makes the case self-describing —
+    // suite runners can pick up the right variable bundle without out-of-band
+    // mapping. CLI --vars-file still wins when explicitly passed.
+    vars_file: Type.Optional(Type.String()),
   },
   { additionalProperties: false },
 );

@@ -13,6 +13,7 @@ import { GitHubOpenModal } from "@/components/toolbar/GitHubOpenModal";
 import { GitHubProjectControls } from "@/components/toolbar/GitHubProjectControls";
 import { generateSystemPrompt } from "@ux4/core/codegen/promptGenerator";
 import { decomposeSpec, loadProject } from "@ux4/core/files";
+import type { FileMap } from "@ux4/core/files/types";
 import { makeZip, readZip } from "@ux4/core/files/zip";
 import {
   applyTranslations,
@@ -121,6 +122,45 @@ function useDropdown() {
     };
   }, [open]);
   return { open, setOpen, ref };
+}
+
+// Walk a dropped folder into a FileMap keyed by paths relative to that folder
+// (so the top-level folder name is stripped — loadProject expects `agent.json`
+// at the root, not `my-project/agent.json`).
+async function readDirectoryEntry(root: FileSystemDirectoryEntry): Promise<FileMap> {
+  const out: FileMap = {};
+  const rootPrefix = root.fullPath.replace(/^\//, "");
+
+  async function walk(entry: FileSystemEntry): Promise<void> {
+    if (entry.isFile) {
+      const file = await new Promise<File>((resolve, reject) =>
+        (entry as FileSystemFileEntry).file(resolve, reject),
+      );
+      const text = await file.text();
+      const full = entry.fullPath.replace(/^\//, "");
+      const rel = rootPrefix && full.startsWith(rootPrefix + "/")
+        ? full.slice(rootPrefix.length + 1)
+        : full;
+      out[rel] = text;
+      return;
+    }
+    if (entry.isDirectory) {
+      const reader = (entry as FileSystemDirectoryEntry).createReader();
+      // readEntries returns at most ~100 per call — keep calling until empty.
+      const children: FileSystemEntry[] = [];
+      while (true) {
+        const batch = await new Promise<FileSystemEntry[]>((resolve, reject) =>
+          reader.readEntries(resolve, reject),
+        );
+        if (batch.length === 0) break;
+        children.push(...batch);
+      }
+      await Promise.all(children.map(walk));
+    }
+  }
+
+  await walk(root);
+  return out;
 }
 
 function downloadBlob(filename: string, content: string, mime: string) {
@@ -414,22 +454,24 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
     handleParsed(parsed.data);
   }
 
+  function loadFileMap(files: FileMap, emptyMessage: string) {
+    const { spec, errors: loadErrors } = loadProject(files);
+    if (!spec) {
+      setErrors(
+        loadErrors.length > 0
+          ? loadErrors.map((e) => `${e.path ? e.path + ": " : ""}${e.message}`)
+          : [emptyMessage],
+      );
+      return;
+    }
+    handleParsed(spec);
+  }
+
   function readFile(file: File) {
     const isZip = /\.zip$/i.test(file.name) || file.type === "application/zip";
     if (isZip) {
       readZip(file)
-        .then((files) => {
-          const { spec, errors: loadErrors } = loadProject(files);
-          if (!spec) {
-            setErrors(
-              loadErrors.length > 0
-                ? loadErrors.map((e) => `${e.path ? e.path + ": " : ""}${e.message}`)
-                : ["No UX4 project found in the ZIP."],
-            );
-            return;
-          }
-          handleParsed(spec);
-        })
+        .then((files) => loadFileMap(files, "No UX4 project found in the ZIP."))
         .catch((e: unknown) => {
           setErrors([e instanceof Error ? e.message : "Could not read the ZIP."]);
         });
@@ -457,6 +499,19 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
   function onDrop(e: React.DragEvent<HTMLLabelElement>) {
     e.preventDefault();
     setDragOver(false);
+    const items = Array.from(e.dataTransfer.items ?? []);
+    const entries = items
+      .map((it) => (typeof it.webkitGetAsEntry === "function" ? it.webkitGetAsEntry() : null))
+      .filter((e): e is FileSystemEntry => !!e);
+    const dir = entries.find((entry) => entry.isDirectory) as FileSystemDirectoryEntry | undefined;
+    if (dir) {
+      readDirectoryEntry(dir)
+        .then((files) => loadFileMap(files, "No UX4 project found in the folder."))
+        .catch((err: unknown) => {
+          setErrors([err instanceof Error ? err.message : "Could not read the folder."]);
+        });
+      return;
+    }
     const file = e.dataTransfer.files?.[0];
     if (file) readFile(file);
   }
@@ -488,9 +543,9 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
             }`}
           >
             <span className="text-sm font-medium text-zinc-700">
-              Drop a file here, or click to browse
+              Drop a file or folder here, or click to browse
             </span>
-            <span className="text-[11px] text-zinc-500">.json, .yaml, .yml, .zip</span>
+            <span className="text-[11px] text-zinc-500">.json, .yaml, .yml, .zip — or a decomposed project folder</span>
             <input
               type="file"
               accept=".json,.yaml,.yml,.zip,application/json,text/yaml,application/zip"

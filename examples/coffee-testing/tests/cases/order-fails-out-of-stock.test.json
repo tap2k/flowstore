@@ -7,8 +7,11 @@
     "Hi, I'd like a latte please",
     "Medium",
     "Oat milk",
+    "No syrup",
     "Yes go ahead",
-    "Oh, regular milk is fine then"
+    "Oh, regular milk is fine then",
+    "No syrup either way",
+    "Yes please"
   ],
   "mock_bindings": {
     "cap_place_order": "out_of_stock"
