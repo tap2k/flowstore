@@ -223,3 +223,74 @@ Minimum four; an optional fifth if time allows.
 **Failure looks like:** scenarios diverge unpredictably with no clear pattern, or diverge in ways that require fundamental reshaping of either the translator or the runner.
 
 → Reweight toward runner-as-production. Per [TRANSLATIONS.md](./TRANSLATIONS.md), the runner already absorbs Pipecat for voice; growing it for production becomes the dominant path. Translators stay escape-hatch for specific deals. Document what failed and why — the negative result is itself valuable evidence.
+
+---
+
+## Pipecat translator — status and what's blocking it (as of 2026-05-23)
+
+**Status: planned but not started. Blocked on integration contract from Awaaz.**
+
+### Why we want it
+
+The strategic target for translation is **deployment on Awaaz** (and platforms like Azure Cloud that accept Pipecat workloads). Awaaz already runs Pipecat agents in production — multiple Tala deployments across India, Mexico, and Philippines are on Pipecat with sub-2s latency, with new use cases being migrated to Pipecat throughout 2026. The UX4 editor's value proposition lands when a designer can author a spec and have it run alongside the hand-written Tala agents on the existing Awaaz infrastructure.
+
+This is a different framing than the LangGraph PoC. LangGraph was a *behavioral fidelity* experiment — answering whether translation can preserve dispatch semantics in principle. Pipecat is an *integration* experiment — answering whether we can emit a drop-in replacement for a hand-written Tala agent that Awaaz can load and run as-is.
+
+### Why we can't start yet
+
+Every meaningful structural decision for the Pipecat translator depends on knowing Awaaz's integration contract. Three open questions:
+
+1. **Entry point**: what function does Awaaz call on a deployed agent file? Possibilities: `run_session(connection, config)`, `build_pipeline(services) -> Pipeline`, a module-level constant, something else. Determines the top-level shape of the generated file.
+2. **Service injection model**: does Awaaz construct the Pipecat services (transport, STT, TTS, LLM) and inject them, or does the agent file construct them? Determines whether the generated file imports `GoogleSTTService` etc. or accepts them as parameters. Also determines how credentials flow in.
+3. **Required interface beyond standard Pipecat**: capability registration, lifecycle hooks, observability requirements, any non-Pipecat APIs the agent must expose to be deployable.
+
+Building blind would mean choosing a file shape and rewriting it once Awaaz tells us their actual contract. The dispatch logic (route-tag parsing, capability dispatch, frame processors) is mostly portable from the LangGraph translator, but the *emission shape* — what the generated file looks like at the module level — is entirely a function of Awaaz's contract.
+
+### Question to send to Awaaz
+
+The minimum useful ask:
+
+> Three quick questions on integrating a Pipecat agent with Awaaz: (1) what entry point does Awaaz call on the agent file, (2) does Awaaz or the agent construct the Pipecat services (transport / STT / TTS / LLM), and (3) is there a required interface beyond standard Pipecat — capability registration, lifecycle hooks, etc.? An example of an existing agent's top-level file would answer all three in one shot.
+
+An example file is the highest-leverage outcome — it implicitly answers all three.
+
+### Pre-decided design choices (independent of Awaaz)
+
+While waiting, several design choices are settled enough to lock in:
+
+- **Interpretation A** (per-flow logic codegen'd, not interpreted at runtime). Generated file is spec-specific Python; the dispatcher is hard-coded into the emitted code rather than reading `LoadedSpec` at runtime. This is what makes it a "translator" rather than "the runner running on Awaaz's infrastructure."
+- **In-text route tags, not Pipecat tool calls.** The runner explicitly chose in-text tags to avoid tool-call atomicity issues at flow transitions. The Pipecat translator inherits the same protocol — we already know it works (live LLM regression confirmed it).
+- **File + small runtime shim.** Generated file imports from `uxflows_pipecat_runtime.py` (route-tag parser, expression eval, capability dispatch — most of which already exists as `runtime_helpers.py` in the LangGraph PoC). The shim is stable across specs; only the generated file is spec-specific.
+- **Generated pipeline emits standard Pipecat metrics only.** No UX4-specific event stream. Awaaz/Azure get whatever observability they normally have. Simpler to ship.
+- **Text mode first, then voice.** Same model as the LangGraph PoC: validate dispatch fidelity in text mode where the harness already exists, then push through to voice (WebRTC + Silero VAD + Cloud STT/TTS) once text holds.
+- **Same FNOL spec.** Don't conflate "does Pipecat translation work" with "does cross-spec generalization work" — those are separate unknowns.
+
+### What we can reuse from the LangGraph PoC
+
+Everything except the LangGraph-specific emitter:
+
+- Scenario shape (`Scenario`, `Turn`, `Fixtures`, `ExpectedTrace`).
+- All 7 synthetic scenarios + 3 live scenarios.
+- Dual-surface harness pattern (runner vs translated, dispatch_trace comparison).
+- Ported runtime helpers (expressions, route-tag parser, resolve_localized, substitution, match_pattern, capability registry).
+- Parity test pattern.
+
+The substantive new work is: the Pipecat code emitter (translator.py equivalent), the Pipecat-side test driver (analog of `run_translated` that runs a Pipecat pipeline instead of a LangGraph app), and voice-mode validation infrastructure.
+
+### Phased plan (when Awaaz unblocks)
+
+Rough ~3-4 day estimate from the existing harness baseline:
+
+1. **Phase 1 (½ day)**: read the Awaaz reference file (if provided); finalize the generated-file structure. Port the runner's `PreLLMPlanner` / `RouteTagFrameProcessor` / `PostLLMResolver` into the runtime shim and verify they work standalone.
+2. **Phase 2 (1 day)**: minimal Pipecat translator covering 2-3 flows; single happy-path scenario passes.
+3. **Phase 3 (1 day)**: full FNOL coverage; synthetic 7/7 regression must pass.
+4. **Phase 4 (½ day)**: live regression in text mode (L_HP1, L_HP2, L_HP3 via a frame-injection test transport).
+5. **Phase 5 (1 day)**: voice-mode regression — drive a real audio conversation through the translated pipeline; confirm dispatch traces still match.
+6. **Phase 6 (½ day)**: write up.
+
+### Pre-known risks for Pipecat (carried forward from this PoC)
+
+- **Tool-call atomicity** — avoided by using in-text route tags (same protocol as runner). Not a Pipecat-only risk anymore; settled by the LangGraph PoC.
+- **Empty-reply LLM behavior** — same fix as LangGraph translator (strong prompt directive + utility-flow LLM call). Should carry over directly.
+- **Pipeline-level state sharing** — Pipecat pipelines are static; per-session state lives on a shared `Session` object the processors close over. Generated translator must thread this correctly.
+- **Voice-mode specifics** — VAD, mid-response barge-in (`InterruptionFrame`), TTS streaming. Not exercised by the LangGraph PoC at all; first appearance is in Phase 5.
