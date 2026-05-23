@@ -116,10 +116,11 @@ The contract is robust:
 - Mock dispatch is keyed deterministically on `(capability_id, variant)`;
   unbound capabilities fail hard, not silently.
 - The methodology (gold → case → run → diff → iterate) is validated on a real
-  customer spec — see `../awaaz-dpd31/` and that project's `README.md`
-  "Findings" section. UX4-compiled prompt beat the hand-authored Tala prompt
-  on 4 of 9 cases, lost 1, tied 5, all reproducible across 3 trials at
-  temperature 0.
+  customer spec: in a recent validation, the UX4-compiled prompt beat the
+  hand-authored production prompt on 4 of 9 cases, lost 1, tied 5, all
+  reproducible across 3 trials at temperature 0. The worked example at
+  [`examples/coffee-testing/`](../examples/coffee-testing/) demonstrates the
+  full harness shape.
 - The same harness drives the runner / translator surfaces ([TRANSLATION-POC](../TRANSLATION-POC.md)
   validated dispatch fidelity for the LangGraph target on 6/6 live runs).
 
