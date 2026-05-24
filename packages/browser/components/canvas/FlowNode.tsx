@@ -25,7 +25,7 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
   const issueTitle = hasIssues ? data.issues!.join("\n") : undefined;
   const isActive = useSimulateStore((s) => s.currentFlowId === id);
   const unresolvedComments = useCommentsStore(
-    (s) => (s.commentsByFlow.get(id) ?? []).filter((c) => !c.resolved).length,
+    (s) => (s.commentsByAnchor.get(`flow/${id}`) ?? []).filter((c) => !c.resolved).length,
   );
 
   if (data.isJunction) {

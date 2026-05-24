@@ -11,7 +11,6 @@ import { ScriptsSheet } from "@/components/sheets/ScriptsSheet";
 import { CommentsSection } from "./CommentsSection";
 
 const FLOW_TYPES: FlowType[] = ["happy", "sad", "off", "utility", "interrupt"];
-const DEV = process.env.NEXT_PUBLIC_DEV === "1";
 
 const labelClass = "block text-xs font-medium text-zinc-600 mb-1";
 const inputClass =
@@ -142,7 +141,7 @@ export function FlowInspector() {
           />
         </Field>
 
-        {DEV && (
+        {process.env.NEXT_PUBLIC_DEV === "1" && (
           <Field label="Variables">
             <VariablesEditor
               key={flow.id}
@@ -161,7 +160,7 @@ export function FlowInspector() {
           />
         </Field>
 
-        <CommentsSection flowId={flow.id} />
+        <CommentsSection anchor={{ kind: "flow", id: flow.id }} />
 
         <div className="pt-2 border-t border-zinc-200 space-y-2">
           <button

@@ -6,8 +6,10 @@ import {
   ControlButton,
   MiniMap,
   MarkerType,
+  Panel,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   type Edge,
   type Node,
 } from "@xyflow/react";
@@ -145,8 +147,59 @@ function EmptyCanvas() {
         maxZoom={2}
       >
         <Background gap={20} size={1} color="#e4e4e7" />
+        <Panel position="top-left">
+          <NewFlowButton />
+        </Panel>
       </ReactFlow>
     </div>
+  );
+}
+
+// Imperatively brings the node named by spec.focusRequest into view.
+// fitView centers AND adjusts zoom to a readable level (bounded by
+// minZoom/maxZoom) — better than setCenter + getZoom for "show me this
+// thing" intent. Only fires on nonce change so user clicks don't yank
+// the viewport; depends on `nodes` so the effect re-runs after React
+// Flow accepts a just-added node.
+function FocusOnRequest({ nodes }: { nodes: Node[] }) {
+  const focusRequest = useSpecStore((s) => s.focusRequest);
+  const rf = useReactFlow();
+  const lastNonceRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!focusRequest) return;
+    if (focusRequest.nonce === lastNonceRef.current) return;
+    // Bail if the node hasn't reached React Flow's store yet; leave
+    // the nonce un-recorded so the next nodes-dep retry can complete.
+    if (!rf.getNode(focusRequest.id)) return;
+    lastNonceRef.current = focusRequest.nonce;
+    rf.fitView({
+      nodes: [{ id: focusRequest.id }],
+      duration: 300,
+      minZoom: 0.6,
+      maxZoom: 1.0,
+      padding: 0.4,
+    });
+  }, [focusRequest, nodes, rf]);
+  return null;
+}
+
+function NewFlowButton() {
+  const addFlow = useSpecStore((s) => s.addFlow);
+  const hasSpec = useSpecStore((s) => !!s.spec);
+  return (
+    <button
+      type="button"
+      onClick={() => addFlow(true)}
+      disabled={!hasSpec}
+      title={hasSpec ? "Add a new flow to the canvas" : "Load or initialize a project first"}
+      // Primary canvas action — sized and shaped distinctly from the
+      // Simulate/Chat consume-the-spec pills in the top-right so it
+      // reads as "the entry point," not a third pill in the same family.
+      className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-900 text-2xl font-light text-white shadow-lg ring-1 ring-black/5 transition hover:scale-105 hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+      aria-label="Add a new flow"
+    >
+      +
+    </button>
   );
 }
 
@@ -163,6 +216,12 @@ function CanvasInner({ spec }: { spec: Spec }) {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
   const traversedEdgeIds = useSimulateStore((s) => s.traversedEdgeIds);
   const simulateStatus = useSimulateStore((s) => s.status);
+  // Store-side selection drives node.selected so programmatic selection
+  // (addFlow, inspector close button, focus-on-comment-anchor, etc.)
+  // shows the React Flow ring, not just the inspector. Click-driven
+  // selection still flows through onNodeClick which sets store
+  // selection, which loops back here.
+  const selection = useSpecStore((s) => s.selection);
   const skipSaveRef = useRef(false);
 
   const relayout = useCallback(() => {
@@ -174,6 +233,20 @@ function CanvasInner({ spec }: { spec: Spec }) {
   useEffect(() => {
     setNodes(initial.nodes);
   }, [initial, setNodes]);
+
+  useEffect(() => {
+    const selectedFlowId = selection?.kind === "flow" ? selection.id : null;
+    setNodes((current) => {
+      let changed = false;
+      const next = current.map((n) => {
+        const wantSelected = n.id === selectedFlowId;
+        if (n.selected === wantSelected) return n;
+        changed = true;
+        return { ...n, selected: wantSelected };
+      });
+      return changed ? next : current;
+    });
+  }, [selection, setNodes]);
 
   useEffect(() => {
     const traversed = new Set(traversedEdgeIds);
@@ -231,6 +304,10 @@ function CanvasInner({ spec }: { spec: Spec }) {
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={20} size={1} color="#e4e4e7" />
+        <Panel position="top-left">
+          <NewFlowButton />
+        </Panel>
+        <FocusOnRequest nodes={nodes} />
         <Controls position="bottom-left" showInteractive={false}>
           <ControlButton onClick={relayout} title="Re-run auto layout">
             <RelayoutIcon />

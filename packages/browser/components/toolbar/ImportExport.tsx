@@ -181,7 +181,6 @@ export function ImportExportToolbar({
 }: ImportExportToolbarProps) {
   const spec = useSpecStore((s) => s.spec);
   const setSpec = useSpecStore((s) => s.setSpec);
-  const addFlow = useSpecStore((s) => s.addFlow);
   const clearGithubProject = useGithubProjectStore((s) => s.clear);
   const [importOpen, setImportOpen] = useState(false);
   const [githubOpen, setGithubOpen] = useState(false);
@@ -278,10 +277,6 @@ export function ImportExportToolbar({
   return (
     <>
       <div className="flex items-center gap-2">
-        <button onClick={() => addFlow(true)} className={`${buttonClass} bg-zinc-900 !text-white border-zinc-900 hover:bg-zinc-700`}>
-          + New flow
-        </button>
-        <span className="w-px h-5 bg-zinc-200" />
         <button onClick={() => setOpenSheet("agent")} disabled={!spec} className={buttonClass}>
           Agent
         </button>
@@ -291,9 +286,11 @@ export function ImportExportToolbar({
         <button onClick={() => setOpenSheet("guardrails")} disabled={!spec} className={buttonClass}>
           Guardrails
         </button>
-        <button onClick={() => setOpenSheet("business_goals")} disabled={!spec} className={buttonClass}>
-          Goals
-        </button>
+        {process.env.NEXT_PUBLIC_DEV === "1" && (
+          <button onClick={() => setOpenSheet("business_goals")} disabled={!spec} className={buttonClass}>
+            Goals
+          </button>
+        )}
         <button onClick={() => setOpenSheet("capabilities")} disabled={!spec} className={buttonClass}>
           Capabilities
         </button>

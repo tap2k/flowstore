@@ -1,5 +1,10 @@
 import { validateFile, formatErrors } from "@ux4/core/validation/ajv";
-import { CommentSchema, type Comment } from "@ux4/core/schema/files/comment";
+import {
+  CommentSchema,
+  anchorKey,
+  type Comment,
+  type CommentAnchor,
+} from "@ux4/core/schema/files/comment";
 import type { FileMap, LoadError } from "./types";
 
 const COMMENT_RE = /^comments\/(.+)\.comment\.json$/;
@@ -33,21 +38,28 @@ export function commentPath(comment: Comment): string {
   return `comments/${comment.id}.comment.json`;
 }
 
-// Index by flow id so a renderer can look up "comments on this flow" in
-// O(1). The current schema only supports `anchor.kind === "flow"`; when
-// more anchor kinds land, broaden this helper or add a generic
-// `commentsByAnchor` index.
-export function indexCommentsByFlow(comments: Comment[]): Map<string, Comment[]> {
+// Index keyed by serialized anchor (`<kind>/<id>`). Renderers do an O(1)
+// lookup against the anchor they care about. Sorted oldest-first inside
+// each bucket.
+export function indexCommentsByAnchor(comments: Comment[]): Map<string, Comment[]> {
   const out = new Map<string, Comment[]>();
   for (const c of comments) {
-    if (c.anchor.kind !== "flow") continue;
-    const list = out.get(c.anchor.id) ?? [];
+    const key = anchorKey(c.anchor);
+    const list = out.get(key) ?? [];
     list.push(c);
-    out.set(c.anchor.id, list);
+    out.set(key, list);
   }
-  // Stable sort: oldest first inside each flow.
   for (const list of out.values()) {
     list.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
   }
   return out;
+}
+
+// Convenience: fetch the bucket for a given anchor. Returns an empty array
+// when no comments anchor here.
+export function commentsForAnchor(
+  index: Map<string, Comment[]>,
+  anchor: CommentAnchor,
+): Comment[] {
+  return index.get(anchorKey(anchor)) ?? [];
 }

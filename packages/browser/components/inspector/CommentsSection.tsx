@@ -1,21 +1,24 @@
 import { useMemo, useState } from "react";
 import { useCommentsStore } from "@/lib/store/comments";
-import type { Comment } from "@ux4/core/schema/files/comment";
+import type { Comment, CommentAnchor } from "@ux4/core/schema/files/comment";
+import { anchorKey } from "@ux4/core/schema/files/comment";
 
 interface CommentsSectionProps {
-  flowId: string;
+  anchor: CommentAnchor;
 }
 
-// Bottom-of-FlowInspector comments surface. Flat list, no threading.
-// Resolved comments hide by default; toggle to show. Resolve marks the
-// file with `resolved: true` rather than deleting — keeps the Git-shaped
-// audit trail.
-export function CommentsSection({ flowId }: CommentsSectionProps) {
-  const commentsByFlow = useCommentsStore((s) => s.commentsByFlow);
+// Anchor-scoped comments surface. Flat list, no threading. Resolved
+// comments hide by default; toggle to show. Resolve marks the file with
+// `resolved: true` rather than deleting — keeps the Git-shaped audit
+// trail. Lives at the bottom of whichever inspector owns the entity
+// (FlowInspector today; ExitPathInspector / others can drop it in).
+export function CommentsSection({ anchor }: CommentsSectionProps) {
+  const commentsByAnchor = useCommentsStore((s) => s.commentsByAnchor);
   const createComment = useCommentsStore((s) => s.createComment);
   const setResolved = useCommentsStore((s) => s.setResolved);
 
-  const all = useMemo(() => commentsByFlow.get(flowId) ?? [], [commentsByFlow, flowId]);
+  const key = anchorKey(anchor);
+  const all = useMemo(() => commentsByAnchor.get(key) ?? [], [commentsByAnchor, key]);
   const unresolved = all.filter((c) => !c.resolved);
   const resolved = all.filter((c) => c.resolved);
 
@@ -30,7 +33,7 @@ export function CommentsSection({ flowId }: CommentsSectionProps) {
     setPosting(true);
     setError(null);
     try {
-      await createComment(flowId, text);
+      await createComment(anchor, text);
       setDraft("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to post comment.");

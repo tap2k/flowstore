@@ -1,21 +1,24 @@
 import { create } from "zustand";
-import type { Comment } from "@ux4/core/schema/files/comment";
-import { indexCommentsByFlow } from "@ux4/core/files";
+import type { Comment, CommentAnchor } from "@ux4/core/schema/files/comment";
+import { anchorKey } from "@ux4/core/schema/files/comment";
+import { indexCommentsByAnchor } from "@ux4/core/files";
 import { postComment, locationFromParts } from "@/lib/comments/client";
 import { useGithubProjectStore } from "./githubProject";
 import { useSettingsStore } from "./settings";
 
 interface CommentsState {
   comments: Comment[];
-  // Derived from `comments`; recomputed on every mutation.
-  commentsByFlow: Map<string, Comment[]>;
+  // Derived from `comments`; recomputed on every mutation. Keyed by
+  // `${kind}/${id}` so any future anchor surface (exit_path, capability,
+  // guardrail, etc.) plugs in without touching the store.
+  commentsByAnchor: Map<string, Comment[]>;
 
   // Replace the full list — used after project load/refresh.
   setAll: (comments: Comment[]) => void;
 
-  // Author + persist a new comment anchored to a flow. Returns the new
-  // comment on success; throws on network/auth failure (caller surfaces).
-  createComment: (flowId: string, body: string) => Promise<Comment>;
+  // Author + persist a new comment anchored to any entity. Returns the
+  // new comment on success; throws on network/auth failure.
+  createComment: (anchor: CommentAnchor, body: string) => Promise<Comment>;
 
   // Toggle resolved on an existing comment by id. Rewrites the same file
   // (UUID-keyed) with the new boolean.
@@ -23,7 +26,7 @@ interface CommentsState {
 }
 
 function rebuildIndex(comments: Comment[]): Map<string, Comment[]> {
-  return indexCommentsByFlow(comments);
+  return indexCommentsByAnchor(comments);
 }
 
 function currentAuthor(): string {
@@ -56,28 +59,28 @@ function getLocationOrThrow() {
 
 export const useCommentsStore = create<CommentsState>((set, get) => ({
   comments: [],
-  commentsByFlow: new Map(),
+  commentsByAnchor: new Map(),
 
   setAll: (comments) => {
-    set({ comments, commentsByFlow: rebuildIndex(comments) });
+    set({ comments, commentsByAnchor: rebuildIndex(comments) });
   },
 
-  createComment: async (flowId, body) => {
+  createComment: async (anchor, body) => {
     const trimmed = body.trim();
     if (!trimmed) throw new Error("Comment body is empty.");
     const loc = getLocationOrThrow();
     const comment: Comment = {
       $schema: "UX4://comment/v0",
       id: newCommentId(),
-      anchor: { kind: "flow", id: flowId },
+      anchor,
       author: currentAuthor(),
       timestamp: nowIso(),
       body: trimmed,
       resolved: false,
     };
-    const commitSha = await postComment(loc, comment, `Comment on ${flowId}`, "create");
+    const commitSha = await postComment(loc, comment, `Comment on ${anchorKey(anchor)}`, "create");
     const next = [...get().comments, comment];
-    set({ comments: next, commentsByFlow: rebuildIndex(next) });
+    set({ comments: next, commentsByAnchor: rebuildIndex(next) });
     // Advance the project's known commit SHA so a subsequent spec save
     // doesn't trip ConflictError on a HEAD the editor itself moved.
     useGithubProjectStore.getState().setCommitSha(commitSha);
@@ -93,11 +96,11 @@ export const useCommentsStore = create<CommentsState>((set, get) => ({
     const commitSha = await postComment(
       loc,
       updated,
-      `${resolved ? "Resolve" : "Reopen"} comment on ${target.anchor.id}`,
+      `${resolved ? "Resolve" : "Reopen"} comment on ${anchorKey(target.anchor)}`,
       "update",
     );
     const next = get().comments.map((c) => (c.id === commentId ? updated : c));
-    set({ comments: next, commentsByFlow: rebuildIndex(next) });
+    set({ comments: next, commentsByAnchor: rebuildIndex(next) });
     useGithubProjectStore.getState().setCommitSha(commitSha);
   },
 }));

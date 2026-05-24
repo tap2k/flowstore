@@ -23,8 +23,14 @@ export type Selection =
 interface SpecState {
   spec: Spec | null;
   selection: Selection;
+  // One-shot intent to center the canvas on a node. Bumped any time a
+  // caller wants the camera to find a node — selection alone is
+  // intentionally not the trigger so user clicks don't yank the viewport.
+  // Nonce makes "focus the same id again" retriggerable.
+  focusRequest: { kind: "flow"; id: string; nonce: number } | null;
   setSpec: (spec: Spec | null) => void;
   setSelection: (selection: Selection) => void;
+  requestFocus: (kind: "flow", id: string) => void;
   updateFlow: (id: string, patch: Partial<Flow>) => void;
   updateAgent: (patch: Partial<Agent>) => void;
   updateExitPath: (flowId: string, exitPathId: string, patch: Partial<ExitPath>) => void;
@@ -58,8 +64,13 @@ function blankAgent(entryFlowId: string): Agent {
 export const useSpecStore = create<SpecState>((set) => ({
   spec: null,
   selection: null,
-  setSpec: (spec) => set({ spec, selection: null }),
+  focusRequest: null,
+  setSpec: (spec) => set({ spec, selection: null, focusRequest: null }),
   setSelection: (selection) => set({ selection }),
+  requestFocus: (kind, id) =>
+    set((state) => ({
+      focusRequest: { kind, id, nonce: (state.focusRequest?.nonce ?? 0) + 1 },
+    })),
   updateFlow: (id, patch) =>
     set((state) => {
       if (!state.spec) return {};
@@ -98,15 +109,20 @@ export const useSpecStore = create<SpecState>((set) => ({
     set((state) => {
       const flow = blankFlow(newId);
       const nextSelection: Selection = select ? { kind: "flow", id: newId } : state.selection;
+      const focusBump = select
+        ? { kind: "flow" as const, id: newId, nonce: (state.focusRequest?.nonce ?? 0) + 1 }
+        : state.focusRequest;
       if (!state.spec) {
         return {
           spec: { agent: blankAgent(newId), flows: [flow] },
           selection: nextSelection,
+          focusRequest: focusBump,
         };
       }
       return {
         spec: { ...state.spec, flows: [...state.spec.flows, flow] },
         selection: nextSelection,
+        focusRequest: focusBump,
       };
     });
     return newId;
