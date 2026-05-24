@@ -185,17 +185,18 @@ function FocusOnRequest({ nodes }: { nodes: Node[] }) {
 
 function NewFlowButton() {
   const addFlow = useSpecStore((s) => s.addFlow);
-  const hasSpec = useSpecStore((s) => !!s.spec);
   return (
     <button
       type="button"
       onClick={() => addFlow(true)}
-      disabled={!hasSpec}
-      title={hasSpec ? "Add a new flow to the canvas" : "Load or initialize a project first"}
+      title="Add a new flow"
       // Primary canvas action — sized and shaped distinctly from the
-      // Simulate/Chat consume-the-spec pills in the top-right so it
-      // reads as "the entry point," not a third pill in the same family.
-      className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-900 text-2xl font-light text-white shadow-lg ring-1 ring-black/5 transition hover:scale-105 hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+      // Run/Assistant pills in the top-right so it reads as "the entry
+      // point," not a third pill in the same family. Always enabled:
+      // addFlow scaffolds a blank agent automatically when no spec is
+      // loaded, so the first click both creates the spec and adds the
+      // first flow.
+      className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-900 text-2xl font-light text-white shadow-lg ring-1 ring-black/5 transition hover:scale-105 hover:bg-zinc-700"
       aria-label="Add a new flow"
     >
       +

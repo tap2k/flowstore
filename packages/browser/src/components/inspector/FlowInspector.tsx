@@ -141,7 +141,7 @@ export function FlowInspector() {
           />
         </Field>
 
-        {process.env.NEXT_PUBLIC_DEV === "1" && (
+        {import.meta.env.VITE_DEV === "1" && (
           <Field label="Variables">
             <VariablesEditor
               key={flow.id}

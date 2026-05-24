@@ -1,15 +1,10 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
-
 # Do not keep agent memory for this project
 
 Do not write to the agent memory system for this project. If prior memories exist, ignore them. Persistent guidance, principles, and project context belong in this file (and the related docs listed below), not in per-conversation memory files. When the user tells you something worth remembering across conversations, propose adding it here instead.
 
 # uxflows
 
-Visual editor for UX4 behavioral specs. A Next.js app that authors, simulates, and exports spec JSON conforming to [SCHEMA.md](./SCHEMA.md).
+Visual editor for UX4 behavioral specs. A Vite-built React SPA that authors, simulates, and exports spec JSON conforming to [SCHEMA.md](./SCHEMA.md).
 
 ## Forward direction
 
@@ -53,9 +48,8 @@ The canvas is the canonical editing surface. Text views are entry and export onl
 
 ## Tech Stack
 
-- **Next.js 16.2** (Pages Router), React 19, TypeScript
-- **Tailwind v4** (PostCSS plugin, no config file)
-- **ESLint** flat config
+- **Vite 7** (SPA, static build via `vite build`), React 19, TypeScript
+- **Tailwind v4** (`@tailwindcss/vite` plugin, no config file)
 - **`@xyflow/react`** — canvas
 - *(just-in-time)* **`zustand`** — shared editor state, when `useState` gets painful
 - *(just-in-time)* **`@sinclair/typebox` + `ajv` + `ajv-formats`** — schema-as-code + runtime validation, when import/export lands
@@ -67,12 +61,12 @@ Don't add infrastructure before the need. The design doc's MVP discipline is the
 - **Decisions as visualization-helper nodes.** Inline decision nodes render on the canvas but persist as metadata on the parent function, not as separate graph nodes. Keeps the schema clean while giving users the visual they expect.
 - **Ajv + TypeBox validation pipeline** (`packages/core/src/validation/`) — two layers: schema validation, then custom graph rules (unique IDs, valid references).
 - **Codegen structure** (`packages/core/src/codegen/promptGenerator.ts` today; future targets like Pipecat/LiveKit follow the same pattern) — pure functions that walk the schema and emit a string. No LLM.
-- **Schema-driven inspector form pattern** (`packages/browser/components/inspector/`) — one form component per schema shape.
+- **Schema-driven inspector form pattern** (`packages/browser/src/components/inspector/`) — one form component per schema shape.
 - **Local-first persistence** — autosave to `localStorage`, debounced. No server calls. Good model for our MVP.
 
 ## Repository Layout
 
-npm workspaces monorepo. `@ux4/core` is pure TS (files, schema, codegen, providers); `@ux4/browser` is the Next.js editor. `@ux4/core` is consumed in-source via `transpilePackages: ["@ux4/core"]` — no build step during dev.
+npm workspaces monorepo. `@ux4/core` is pure TS (files, schema, codegen, providers); `@ux4/browser` is the Vite-built React SPA. `@ux4/core` is consumed in-source — Vite reads its TS exports directly, no build step during dev.
 
 ```
 /package.json                       workspace root; scripts delegate via -w
@@ -88,19 +82,23 @@ npm workspaces monorepo. `@ux4/core` is pure TS (files, schema, codegen, provide
     /validation/                    Ajv validators + graph rules
     /llm/                           provider dispatch + types (providers/google.ts today)
     /runtime/                       conversation-simulation primitives (mocks, persona, transcript, …)
-/packages/browser/                  @ux4/browser (the Next.js app)
+/packages/browser/                  @ux4/browser (the Vite-built React SPA)
   /package.json
-  /next.config.ts                   transpilePackages: ["@ux4/core"], output: "export"
-  /pages/                           Pages Router entrypoints
-  /components/
-    /canvas/                        React Flow nodes, edges, controls
-    /inspector/                     schema-driven editor forms
-    /sheets/                        tabular editors attached to canvas nodes
-  /lib/
-    /store/                         zustand stores (browser-only state)
-    /chat/                          chat-panel store-mutating tools (browser-only)
-  /styles/                          globals.css, Tailwind
-  /public/                          example specs (coffee.json, fnol.json) + static assets
+  /vite.config.ts                   @vitejs/plugin-react + @tailwindcss/vite; alias @/* -> ./src/*
+  /index.html                       single HTML entry; loads /src/main.tsx
+  /src/
+    main.tsx                        mounts <App /> via createRoot
+    App.tsx                         top-level shell (header, canvas, panels)
+    /components/
+      /canvas/                      React Flow nodes, edges, controls
+      /inspector/                   schema-driven editor forms
+      /sheets/                      tabular editors attached to canvas nodes
+    /lib/
+      /store/                       zustand stores (browser-only state)
+      /chat/                        chat-panel store-mutating tools (browser-only)
+    /styles/                        globals.css, Tailwind
+  /public/                          static assets served as-is (favicon.ico)
+/examples/                          demo specs (coffee/, coffee-testing/, fnol/) — loaded via the editor's file picker, not served as runtime URLs
 ```
 
 To iterate on a codegen target: edit the generator under `packages/core/src/codegen/`, re-run `npm run preview-prompt -- <absolute-path-to-spec>.json`, diff against expected.

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import Head from "next/head";
 import { Canvas } from "@/components/canvas/Canvas";
 import { FlowInspector } from "@/components/inspector/FlowInspector";
 import { EdgeInspector } from "@/components/inspector/EdgeInspector";
@@ -17,7 +16,7 @@ import { loadSavedSettings, useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
 import { validateSpec } from "@ux4/core/validation/ajv";
 
-export default function Home() {
+export function App() {
   const spec = useSpecStore((s) => s.spec);
   const setSpec = useSpecStore((s) => s.setSpec);
   const apiKey = useSettingsStore((s) => s.googleApiKey);
@@ -38,11 +37,13 @@ export default function Home() {
       if (result.valid) setSpec(result.spec);
       else clearSavedSpec();
     }
-    // localStorage is client-only; flipping the gate after mount is the whole
-    // point — gates the first render to avoid flashing the empty state.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setHydrating(false);
   }, [setSpec]);
+
+  useEffect(() => {
+    document.title = spec ? `uxflows — ${spec.agent.meta.name}` : "uxflows";
+  }, [spec]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -75,9 +76,6 @@ export default function Home() {
 
   return (
     <>
-      <Head>
-        <title>{spec ? `uxflows — ${spec.agent.meta.name}` : "uxflows"}</title>
-      </Head>
       <div className="flex flex-col h-screen bg-zinc-50">
         <header className="flex items-center gap-4 border-b border-zinc-200 bg-white px-6 py-3">
           <div className="flex flex-col">

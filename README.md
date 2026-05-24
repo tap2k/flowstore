@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-Then open http://localhost:3000.
+Then open http://127.0.0.1:5173.
 
 ## What it does
 
@@ -35,4 +35,4 @@ Then open http://localhost:3000.
 
 ## Stack
 
-Next.js 16 (Pages Router) · React 19 · TypeScript · Tailwind v4 · `@xyflow/react`
+Vite 7 · React 19 · TypeScript · Tailwind v4 · `@xyflow/react`

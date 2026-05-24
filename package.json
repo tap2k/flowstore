@@ -8,8 +8,7 @@
   "scripts": {
     "dev": "npm -w @ux4/browser run dev",
     "build": "npm -w @ux4/browser run build",
-    "start": "npm -w @ux4/browser run start",
-    "lint": "npm -w @ux4/browser run lint",
+    "preview": "npm -w @ux4/browser run preview",
     "preview-prompt": "npm -w @ux4/core run preview-prompt"
   },
   "devDependencies": {

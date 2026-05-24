@@ -286,7 +286,7 @@ export function ImportExportToolbar({
         <button onClick={() => setOpenSheet("guardrails")} disabled={!spec} className={buttonClass}>
           Guardrails
         </button>
-        {process.env.NEXT_PUBLIC_DEV === "1" && (
+        {import.meta.env.VITE_DEV === "1" && (
           <button onClick={() => setOpenSheet("business_goals")} disabled={!spec} className={buttonClass}>
             Goals
           </button>
