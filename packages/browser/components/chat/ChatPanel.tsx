@@ -240,7 +240,7 @@ function EmptyHint({
   if (!hasKey) {
     return (
       <div className="text-xs text-zinc-500">
-        Set up AI authoring by adding a {providerLabel(endpoint)} API key in{" "}
+        Set up Assistant by adding a {providerLabel(endpoint)} API key in{" "}
         <button
           onClick={onOpenSettings}
           className="underline hover:text-zinc-900"

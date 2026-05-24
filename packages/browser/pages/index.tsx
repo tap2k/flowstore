@@ -110,8 +110,8 @@ export default function Home() {
               {apiKey && !chatOpen && (
                 <button
                   onClick={() => setChatOpen(true)}
-                  title="AI authoring — describe a spec change in natural language"
-                  aria-label="AI authoring"
+                  title="Assistant — describe a spec change in natural language"
+                  aria-label="Assistant"
                   className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-white shadow-md hover:bg-zinc-700"
                 >
                   <SparklesIcon />
