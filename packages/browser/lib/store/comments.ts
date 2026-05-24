@@ -75,7 +75,7 @@ export const useCommentsStore = create<CommentsState>((set, get) => ({
       body: trimmed,
       resolved: false,
     };
-    const commitSha = await postComment(loc, comment, `Comment on ${flowId}`);
+    const commitSha = await postComment(loc, comment, `Comment on ${flowId}`, "create");
     const next = [...get().comments, comment];
     set({ comments: next, commentsByFlow: rebuildIndex(next) });
     // Advance the project's known commit SHA so a subsequent spec save
@@ -94,6 +94,7 @@ export const useCommentsStore = create<CommentsState>((set, get) => ({
       loc,
       updated,
       `${resolved ? "Resolve" : "Reopen"} comment on ${target.anchor.id}`,
+      "update",
     );
     const next = get().comments.map((c) => (c.id === commentId ? updated : c));
     set({ comments: next, commentsByFlow: rebuildIndex(next) });
