@@ -295,12 +295,17 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   return (
     <aside className="flex flex-col h-full w-[380px] border-l border-zinc-200 bg-white">
       <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2">
-        <div className="min-w-0 text-[11px] text-zinc-500 truncate">
-          {mode === "prompt" && lastUsage
-            ? `${subtitle} · ${lastUsage.inputTokens.toLocaleString()} in / ${lastUsage.outputTokens.toLocaleString()} out`
-            : currentFlowId
-              ? `${subtitle} · ${currentFlowId}`
-              : subtitle}
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-zinc-900 truncate">
+            Run
+          </div>
+          <div className="text-[11px] text-zinc-500 truncate">
+            {mode === "prompt" && lastUsage
+              ? `${subtitle} · ${lastUsage.inputTokens.toLocaleString()} in / ${lastUsage.outputTokens.toLocaleString()} out`
+              : currentFlowId
+                ? `${subtitle} · ${currentFlowId}`
+                : subtitle}
+          </div>
         </div>
         <div className="flex items-center gap-1">
           {hasSession && (

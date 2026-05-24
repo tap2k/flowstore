@@ -151,11 +151,14 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
   return (
     <aside className="flex flex-col h-full w-[380px] border-l border-zinc-200 bg-white">
       <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2">
-        <ModelPicker
-          value={model}
-          onChange={setChatModel}
-          className="text-[11px] text-zinc-500 bg-transparent border-none p-0 -ml-0.5 focus:outline-none focus:ring-0 cursor-pointer hover:text-zinc-900"
-        />
+        <div>
+          <div className="text-sm font-semibold text-zinc-900">Assistant</div>
+          <ModelPicker
+            value={model}
+            onChange={setChatModel}
+            className="text-[11px] text-zinc-500 bg-transparent border-none p-0 -ml-0.5 focus:outline-none focus:ring-0 cursor-pointer hover:text-zinc-900"
+          />
+        </div>
         <div className="flex items-center gap-1">
           <button
             onClick={clearChat}
