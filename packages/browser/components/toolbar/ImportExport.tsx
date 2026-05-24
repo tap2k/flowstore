@@ -438,6 +438,7 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
   const [text, setText] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   function handleParsed(data: unknown) {
     setErrors([]);
@@ -496,7 +497,35 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
     e.target.value = "";
   }
 
-  function onDrop(e: React.DragEvent<HTMLLabelElement>) {
+  // Folder picker uses webkitdirectory: the input yields a flat FileList whose
+  // entries carry `webkitRelativePath` like "my-project/agent.json". Strip the
+  // top-level folder name so loadProject sees `agent.json` at the root.
+  async function onFolder(e: React.ChangeEvent<HTMLInputElement>) {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) {
+      e.target.value = "";
+      return;
+    }
+    const files: FileMap = {};
+    const first = fileList[0].webkitRelativePath;
+    const rootPrefix = first.includes("/") ? first.slice(0, first.indexOf("/") + 1) : "";
+    try {
+      await Promise.all(
+        Array.from(fileList).map(async (f) => {
+          const rel = rootPrefix && f.webkitRelativePath.startsWith(rootPrefix)
+            ? f.webkitRelativePath.slice(rootPrefix.length)
+            : f.webkitRelativePath || f.name;
+          files[rel] = await f.text();
+        }),
+      );
+      loadFileMap(files, "No UX4 project found in the folder.");
+    } catch (err) {
+      setErrors([err instanceof Error ? err.message : "Could not read the folder."]);
+    }
+    e.target.value = "";
+  }
+
+  function onDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setDragOver(false);
     const items = Array.from(e.dataTransfer.items ?? []);
@@ -532,27 +561,50 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
           </button>
         </div>
         <div className="space-y-4">
-          <label
+          <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={onDrop}
-            className={`flex flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed px-4 py-8 cursor-pointer transition-colors ${
+            className={`flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed px-4 py-8 transition-colors ${
               dragOver
                 ? "border-zinc-700 bg-zinc-50"
                 : "border-zinc-300 hover:border-zinc-400 hover:bg-zinc-50"
             }`}
           >
             <span className="text-sm font-medium text-zinc-700">
-              Drop a file or folder here, or click to browse
+              Drop a file or folder here
             </span>
             <span className="text-[11px] text-zinc-500">.json, .yaml, .yml, .zip — or a decomposed project folder</span>
-            <input
-              type="file"
-              accept=".json,.yaml,.yml,.zip,application/json,text/yaml,application/zip"
-              onChange={onFile}
-              className="hidden"
-            />
-          </label>
+            <div className="flex gap-2 pt-1">
+              <label className="cursor-pointer rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100">
+                Choose file…
+                <input
+                  type="file"
+                  accept=".json,.yaml,.yml,.zip,application/json,text/yaml,application/zip"
+                  onChange={onFile}
+                  className="hidden"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => folderInputRef.current?.click()}
+                className="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+              >
+                Choose folder…
+              </button>
+              <input
+                ref={folderInputRef}
+                type="file"
+                onChange={onFolder}
+                className="hidden"
+                // webkitdirectory is non-standard; React types don't know about
+                // it, hence the lowercase string attr + ts-expect-error.
+                // @ts-expect-error - webkitdirectory is not in React's input types
+                webkitdirectory=""
+                directory=""
+              />
+            </div>
+          </div>
           <div className="text-xs text-zinc-400 text-center">— or —</div>
           <div>
             <textarea
