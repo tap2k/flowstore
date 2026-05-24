@@ -11,6 +11,8 @@ const AGENT_SIMULATE_MODEL_KEY = "uxflows:settings:simulate_agent_model";
 const PERSONA_SIMULATE_MODEL_KEY = "uxflows:settings:simulate_persona_model";
 const RUNNER_KEY = "uxflows:settings:runner_url";
 const GITHUB_PAT_KEY = "uxflows:settings:github_pat";
+const GITHUB_LOGIN_KEY = "uxflows:settings:github_login";
+const GITHUB_NAME_KEY = "uxflows:settings:github_name";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -30,6 +32,11 @@ interface SettingsState {
   simulatePersonaModel: string;
   runnerUrl: string;
   githubPat: string;
+  // Identity echoed from `GET /user` after a PAT is set. Used by Comments
+  // for author display. Both undefined until a PAT is configured and the
+  // echo succeeds. Cleared if the PAT is removed or the echo fails.
+  githubLogin: string;
+  githubName: string;
   setGoogleApiKey: (key: string) => void;
   setOpenaiApiKey: (key: string) => void;
   setOpenrouterApiKey: (key: string) => void;
@@ -38,6 +45,7 @@ interface SettingsState {
   setSimulatePersonaModel: (model: string) => void;
   setRunnerUrl: (url: string) => void;
   setGithubPat: (pat: string) => void;
+  setGithubIdentity: (login: string, name: string) => void;
 }
 
 // Resolved dispatch parameters for a given catalog key. `wireModel` is the
@@ -73,6 +81,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   simulatePersonaModel: DEFAULT_MODEL_ID,
   runnerUrl: DEFAULT_RUNNER_URL,
   githubPat: "",
+  githubLogin: "",
+  githubName: "",
   setGoogleApiKey: (key) => {
     persistString(KEY, key);
     set({ googleApiKey: key });
@@ -105,9 +115,38 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setGithubPat: (pat) => {
     const trimmed = pat.trim();
     persistString(GITHUB_PAT_KEY, trimmed);
+    if (!trimmed) {
+      persistString(GITHUB_LOGIN_KEY, "");
+      persistString(GITHUB_NAME_KEY, "");
+      set({ githubPat: "", githubLogin: "", githubName: "" });
+      return;
+    }
     set({ githubPat: trimmed });
+    // Fire-and-forget identity echo. setGithubIdentity stays cached even
+    // if this fails; user sees the previous login until the next
+    // successful echo. Imported lazily so PAT-less builds don't pull
+    // octokit on initial paint.
+    void fetchAndSetGithubIdentity(trimmed);
+  },
+  setGithubIdentity: (login, name) => {
+    persistString(GITHUB_LOGIN_KEY, login);
+    persistString(GITHUB_NAME_KEY, name);
+    set({ githubLogin: login, githubName: name });
   },
 }));
+
+async function fetchAndSetGithubIdentity(pat: string): Promise<void> {
+  try {
+    const { makeGitHubClient } = await import("@ux4/core/files/github");
+    const client = makeGitHubClient(pat);
+    const res = await client.rest.users.getAuthenticated();
+    const login = res.data.login ?? "";
+    const name = res.data.name ?? "";
+    useSettingsStore.getState().setGithubIdentity(login, name);
+  } catch {
+    // Network or auth failure — keep whatever's currently cached.
+  }
+}
 
 // Look up the dispatch parameters for a given model id, consulting
 // BUILT_IN_MODELS for endpoint inference. Returns the provider, the API
@@ -163,6 +202,8 @@ export function loadSavedSettings(): void {
     const simulatePersona = window.localStorage.getItem(PERSONA_SIMULATE_MODEL_KEY) ?? "";
     const runner = window.localStorage.getItem(RUNNER_KEY);
     const pat = window.localStorage.getItem(GITHUB_PAT_KEY) ?? "";
+    const login = window.localStorage.getItem(GITHUB_LOGIN_KEY) ?? "";
+    const name = window.localStorage.getItem(GITHUB_NAME_KEY) ?? "";
     const patch: Partial<SettingsState> = {};
     if (googleKey) patch.googleApiKey = googleKey;
     if (openaiKey) patch.openaiApiKey = openaiKey;
@@ -172,7 +213,13 @@ export function loadSavedSettings(): void {
     if (simulatePersona && validModelIds.has(simulatePersona)) patch.simulatePersonaModel = simulatePersona;
     if (runner !== null) patch.runnerUrl = runner;
     if (pat) patch.githubPat = pat;
+    if (login) patch.githubLogin = login;
+    if (name) patch.githubName = name;
     if (Object.keys(patch).length > 0) useSettingsStore.setState(patch);
+    // First-load-after-upgrade: PAT cached from before identity was a
+    // concept. Fire the echo so the user gets a real login on next
+    // comment without re-pasting the PAT.
+    if (pat && !login) void fetchAndSetGithubIdentity(pat);
   } catch {
     // ignore
   }

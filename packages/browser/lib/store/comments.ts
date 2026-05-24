@@ -27,11 +27,11 @@ function rebuildIndex(comments: Comment[]): Map<string, Comment[]> {
 }
 
 function currentAuthor(): string {
-  // No auth wiring in MVP — author is the GitHub PAT's owner login, which
-  // the editor doesn't surface explicitly. Use the configured PAT as a
-  // bare-minimum identity; defer real identity wiring (echo `gh api /user`
-  // into a store on PAT save) to later.
-  return "user";
+  // Echoed from `GET /user` on PAT save (see settings.ts
+  // fetchAndSetGithubIdentity). Falls back to "user" on the first comment
+  // posted before the echo completes — extremely brief window in
+  // practice.
+  return useSettingsStore.getState().githubLogin || "user";
 }
 
 function nowIso(): string {
