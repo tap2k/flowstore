@@ -2,29 +2,28 @@
   "name": "@ux4/browser",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",
     "@ux4/core": "*",
     "@xyflow/react": "^12.10.2",
-    "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "yaml": "^2.8.3",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
+    "@tailwindcss/vite": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.4",
-    "tailwindcss": "^4"
+    "@vitejs/plugin-react": "^5",
+    "tailwindcss": "^4",
+    "vite": "^7"
   }
 }
