@@ -31,7 +31,7 @@ Then open http://localhost:3000.
 - [docs/optimization-loop.md](./docs/optimization-loop.md) — end-to-end view: client materials → spec + tests → targets → eval, and what would be needed for autonomous optimization.
 - [docs/test-driven-prompts.md](./docs/test-driven-prompts.md) — methodology for using the testing harness as a development loop.
 - [docs/testing-from-scripts.md](./docs/testing-from-scripts.md) — bring-your-own-script testing path; `ux4-compile` CLI + file shapes engineers need to know.
-- [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) — LLM prompt for parsing source material into spec JSON.
+- [prompts/](./prompts/) — LLM prompts used in the loop: [AGENT-SPEC-PROMPT.txt](./prompts/AGENT-SPEC-PROMPT.txt) parses source material into spec JSON; [GOLD-EXTRACTION-PROMPT.txt](./prompts/GOLD-EXTRACTION-PROMPT.txt) extracts gold transcripts from source materials; [CASE-FROM-GOLD-PROMPT.txt](./prompts/CASE-FROM-GOLD-PROMPT.txt) derives test cases from gold transcripts.
 
 ## Stack
 

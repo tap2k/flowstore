@@ -1,6 +1,6 @@
 # UX4 MVP Plan
 
-The organizing vision and staged operational plan for UX4. For the data-model contract see [SCHEMA.md](./SCHEMA.md); for the on-disk layout see [FILE-MODEL.md](./FILE-MODEL.md); for architectural rationale see [AGENTS.md](./AGENTS.md); for the translation/fidelity experiment that gates runner-based testing see [TRANSLATION-POC.md](./TRANSLATION-POC.md); for the systems view of the client-materials → spec → tests → targets loop and what would be required to make it self-optimizing see [docs/optimization-loop.md](./docs/optimization-loop.md); for the Phase 2 plan that makes test results rich enough to drive iteration (run manifests, `final_variables` assertions, rubric-driven judge evaluators) see [EVALUATION-SURFACE-PLAN.md](./EVALUATION-SURFACE-PLAN.md).
+The organizing vision and staged operational plan for UX4. For the data-model contract see [SCHEMA.md](./SCHEMA.md); for the on-disk layout see [FILE-MODEL.md](./FILE-MODEL.md); for architectural rationale see [AGENTS.md](./AGENTS.md); for the translation/fidelity experiment that gates runner-based testing see [TRANSLATION-POC.md](./TRANSLATION-POC.md); for the systems view of the client-materials → spec → tests → targets loop and what would be required to make it self-optimizing see [docs/optimization-loop.md](./docs/optimization-loop.md); for the Phase 2 plan that consolidates the test-loop work (test-case dropdown + capture in SimulatePanel, run manifests, `final_variables` assertions, result viewer, rubric-driven judge evaluators) see [TESTING-LOOP-PLAN.md](./TESTING-LOOP-PLAN.md).
 
 ---
 
@@ -26,7 +26,7 @@ Landed on `main`:
 
 **Phase 1 closed.** Phase 2 (testing surface, multi-provider dispatch, comments, etc.) begins from here.
 
-**Design decision — ids are immutable from the editor UI.** Stable ids are the cross-file reference contract; the file model and codegen assume they don't change under live edits. The editor never surfaces an "edit id" field; ids are produced either by AGENT-SPEC-PROMPT.txt (semantic, e.g. `identity_confirmation`) or by the editor's `genId` (opaque, e.g. `flow_a3f2b8c1`). Renaming an id requires manual JSON edits via Claude Code or the GitHub web UI plus a manual reference sweep. Cascade-rename UI (Phase 2.I in the original plan) is deferred until pilot feedback shows designers actually need it; until then the constraint reduces an entire class of "dangling reference after rename" bugs to zero by construction.
+**Design decision — ids are immutable from the editor UI.** Stable ids are the cross-file reference contract; the file model and codegen assume they don't change under live edits. The editor never surfaces an "edit id" field; ids are produced either by prompts/AGENT-SPEC-PROMPT.txt (semantic, e.g. `identity_confirmation`) or by the editor's `genId` (opaque, e.g. `flow_a3f2b8c1`). Renaming an id requires manual JSON edits via Claude Code or the GitHub web UI plus a manual reference sweep. Cascade-rename UI (Phase 2.I in the original plan) is deferred until pilot feedback shows designers actually need it; until then the constraint reduces an entire class of "dangling reference after rename" bugs to zero by construction.
 
 **Target ship date:** November 2026 for Awaaz pilot loop; December 2026 for course-prep polish; course launch January 2027.
 
@@ -356,7 +356,7 @@ The original uxflows MVP, shipped 2026-05-08. Historical record; absorbed into t
 10. Interactive LLM chat (BYOK Google) — 2026-05-02
 11. Simulate panel (text chat against the runner) — 2026-05-04
 
-**Also shipped beyond the original plan:** variables editor, tables CRUD, `entry_flow_id` picker, delete buttons in inspectors, schema-doc sync, AGENT-SPEC-PROMPT.txt rewritten for one-shot JSON output, Simulate variables form with LLM-powered value generation, system-prompt codegen ([packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts)), canvas highlight of active flow + last-traversed edge during simulate.
+**Also shipped beyond the original plan:** variables editor, tables CRUD, `entry_flow_id` picker, delete buttons in inspectors, schema-doc sync, prompts/AGENT-SPEC-PROMPT.txt rewritten for one-shot JSON output, Simulate variables form with LLM-powered value generation, system-prompt codegen ([packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts)), canvas highlight of active flow + last-traversed edge during simulate.
 
 **Design decisions made during Phase 0** — still load-bearing:
 

@@ -44,7 +44,7 @@ Narrative sharing with stakeholders is expected to happen *outside* the app for 
 The canvas is the canonical editing surface. Text views are entry and export only — never a live mirror of the spec. Re-importing replaces the current spec; we do not merge text edits back into a live graph. The round-trip fragility that forces tools like Stately into heavy AST machinery is avoided by keeping the canvas canonical.
 
 - **Canvas + inspectors + sheets** — the only place users edit graph structure. Round-trips with the JSON store.
-- **Declarative text import** — paste structured input (JSON or YAML matching the schema). Mechanical parse, no LLM. Used both by humans hand-authoring and as the entry point for upstream parsers' output. [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) produces v0 JSON the user pastes here.
+- **Declarative text import** — paste structured input (JSON or YAML matching the schema). Mechanical parse, no LLM. Used both by humans hand-authoring and as the entry point for upstream parsers' output. [AGENT-SPEC-PROMPT.txt](./prompts/AGENT-SPEC-PROMPT.txt) produces v0 JSON the user pastes here.
 - **Imperative text import** — paste free-form source: an analyst's script, a process doc, a system prompt, supporting docs. An LLM converts it directly to v0 JSON in one shot, schema-constrained.
 - **Export as JSON** — the exported file is the same shape the declarative import accepts; round-trip preserves the spec.
 - **Export as system prompt** — deterministic codegen ([packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts)) that flattens the spec into a single monolithic system prompt. For copy-paste into non-runner runtimes (OpenAI, Claude, Voiceflow, etc.); the runner consumes the JSON directly.
@@ -145,7 +145,7 @@ If none of these apply, decomposing is busywork. The canvas makes nodes feel lik
 The end-to-end loop uxflows supports — see [docs/optimization-loop.md](./docs/optimization-loop.md) for the systems view and [MVP-PLAN.md](./MVP-PLAN.md) for phase timing:
 
 1. **Ingest** — paste a system prompt and attach supporting docs (PDFs, spreadsheets, Word, Figma exports, plain text).
-2. **Parse** — a behavioral parser (LLM-assisted) converts inputs to a structured spec. Today this is [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt). The designer pastes source material in, gets the JSON, and pastes it into the editor's Import. An in-app "Parse with AI" using a user-provided API key is planned to skip the round-trip.
+2. **Parse** — a behavioral parser (LLM-assisted) converts inputs to a structured spec. Today this is [AGENT-SPEC-PROMPT.txt](./prompts/AGENT-SPEC-PROMPT.txt). The designer pastes source material in, gets the JSON, and pastes it into the editor's Import. An in-app "Parse with AI" using a user-provided API key is planned to skip the round-trip.
 3. **Review and configure** — user reviews the parsed spec on the canvas, edits inline.
 4. **Test** — compile spec to system prompt (or graph-native runtime); run test cases through it; diff against assertions and against legacy / baseline prompts. See [docs/test-driven-prompts.md](./docs/test-driven-prompts.md) for methodology, [docs/testing-from-scripts.md](./docs/testing-from-scripts.md) for harness mechanics.
 5. **Share** — internal findings report + client-facing shareable document. (Post-MVP UX4 surface.)
@@ -159,7 +159,7 @@ The end-to-end loop uxflows supports — see [docs/optimization-loop.md](./docs/
 - [docs/optimization-loop.md](./docs/optimization-loop.md) — end-to-end view: client materials → spec + tests → targets → eval, and what would be needed for autonomous optimization.
 - [docs/test-driven-prompts.md](./docs/test-driven-prompts.md) — methodology for using the testing harness as a development loop.
 - [docs/testing-from-scripts.md](./docs/testing-from-scripts.md) — harness mechanics reference: `ux4-compile` CLI, file shapes, mock dispatch.
-- [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) — LLM prompt for converting source material into spec JSON (any frontier LLM).
+- [AGENT-SPEC-PROMPT.txt](./prompts/AGENT-SPEC-PROMPT.txt) — LLM prompt for converting source material into spec JSON (any frontier LLM).
 
 ## Running
 

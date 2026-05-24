@@ -79,11 +79,11 @@ Three sources of golds, in order of preference:
 2. **Production call recordings or QA-tagged transcripts.** Higher signal than synthetic, because real users surface phrasings you wouldn't invent. Privacy considerations apply.
 3. **Hand-authored synthetic golds.** Acceptable for bootstrapping a new agent before customer data exists, but author them *thinking like an adversary*: every gold should target one routing decision, one guardrail, or one edge case you suspect will misfire.
 
-**Extracting golds from existing materials.** [`GOLD-EXTRACTION-PROMPT.txt`](../GOLD-EXTRACTION-PROMPT.txt) at the repo root is a prompt you feed to an LLM along with the customer's source docs. It emits a `UX4://gold-collection/v0` JSON containing one gold per example conversation in the source. NO HALLUCINATION discipline: if the source has no example conversations, output is empty — that's the answer to "what do we need from the customer?" Run with whichever LLM you prefer (Sonnet handles docx + xlsx well; Gemini Flash for cheaper extraction at scale).
+**Extracting golds from existing materials.** [`GOLD-EXTRACTION-PROMPT.txt`](../prompts/GOLD-EXTRACTION-PROMPT.txt) in the [`prompts/`](../prompts/) directory is a prompt you feed to an LLM along with the customer's source docs. It emits a `UX4://gold-collection/v0` JSON containing one gold per example conversation in the source. NO HALLUCINATION discipline: if the source has no example conversations, output is empty — that's the answer to "what do we need from the customer?" Run with whichever LLM you prefer (Sonnet handles docx + xlsx well; Gemini Flash for cheaper extraction at scale).
 
 ```bash
 # Sketch — adapt to your tooling
-cat GOLD-EXTRACTION-PROMPT.txt customer-source.txt | \
+cat prompts/GOLD-EXTRACTION-PROMPT.txt customer-source.txt | \
   llm -m claude-sonnet-4-6 > examples/<project>/tests/gold/all.gold.json
 ```
 
@@ -111,7 +111,7 @@ A gold is the source of truth; a **test case** is the executable extraction. The
 
 The case is what `run.py` executes. The gold is what reviewers compare against to argue about whether the *assertions* themselves are right. Keep both.
 
-**You can hand-author from the gold, or use [`CASE-FROM-GOLD-PROMPT.txt`](../CASE-FROM-GOLD-PROMPT.txt)** to derive cases mechanically from `gold + compiled spec`: distinctive substring assertions drawn from the actual flow scripts, negative assertions seeded from `agent.guardrails`. The pattern is ~30 lines of Python — load each gold, bundle with the derivation prompt + compiled spec, call a model, write `tests/cases/gold-<id>.test.json`. Review the substring choices for ambiguous scenarios — the LLM picks reasonable defaults but routing-distinctive language sometimes needs a human eye.
+**You can hand-author from the gold, or use [`CASE-FROM-GOLD-PROMPT.txt`](../prompts/CASE-FROM-GOLD-PROMPT.txt)** to derive cases mechanically from `gold + compiled spec`: distinctive substring assertions drawn from the actual flow scripts, negative assertions seeded from `agent.guardrails`. The pattern is ~30 lines of Python — load each gold, bundle with the derivation prompt + compiled spec, call a model, write `tests/cases/gold-<id>.test.json`. Review the substring choices for ambiguous scenarios — the LLM picks reasonable defaults but routing-distinctive language sometimes needs a human eye.
 
 ### Phase 3 — compile the spec to a prompt
 
