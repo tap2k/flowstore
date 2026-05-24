@@ -8,6 +8,7 @@ import {
   type Octokit,
 } from "@ux4/core/files/github";
 import { loadProject } from "@ux4/core/files";
+import { useCommentsStore } from "@/lib/store/comments";
 import { scaffoldNewProject } from "@ux4/core/files/scaffold";
 
 interface GitHubOpenModalProps {
@@ -110,7 +111,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
         }
         throw e;
       }
-      const { spec, errors } = loadProject(files);
+      const { spec, comments, errors } = loadProject(files);
       if (!spec) {
         // Repo has commits (e.g., README only) but no UX4 project — offer init.
         // If load errors look structural (malformed UX4 files), surface them so
@@ -131,6 +132,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
       }
       setSpec(spec);
       setLoaded({ owner: repo.owner, repo: repo.repo, ref: selectedBranch }, commitSha);
+      useCommentsStore.getState().setAll(comments);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to open project");
@@ -145,6 +147,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
     const scaffold = scaffoldNewProject({ name: repo.repo });
     setSpec(scaffold);
     setLoaded({ owner: repo.owner, repo: repo.repo, ref: branch }, commitSha);
+    useCommentsStore.getState().setAll([]);
     onClose();
   }
 

@@ -4,6 +4,7 @@ import type { TestCase } from "@ux4/core/schema/files/testCase";
 import type { Persona } from "@ux4/core/schema/files/persona";
 import type { CapabilityMock } from "@ux4/core/schema/files/capabilityMock";
 import type { Rubric } from "@ux4/core/schema/files/rubric";
+import type { Comment } from "@ux4/core/schema/files/comment";
 
 export type FileMap = Record<string, string>;
 
@@ -26,5 +27,6 @@ export interface LoadResult {
   spec: Spec | null;
   modelsConfig: ResolvedModelsConfig | null;
   testingArtifacts: TestingArtifacts;
+  comments: Comment[];
   errors: LoadError[];
 }

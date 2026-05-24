@@ -7,3 +7,4 @@ export * from "./persona";
 export * from "./capabilityMock";
 export * from "./rubric";
 export * from "./result";
+export * from "./comment";

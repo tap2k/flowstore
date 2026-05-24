@@ -13,6 +13,7 @@ import { GitHubOpenModal } from "@/components/toolbar/GitHubOpenModal";
 import { GitHubProjectControls } from "@/components/toolbar/GitHubProjectControls";
 import { generateSystemPrompt } from "@ux4/core/codegen/promptGenerator";
 import { decomposeSpec, loadProject } from "@ux4/core/files";
+import { useCommentsStore } from "@/lib/store/comments";
 import type { FileMap } from "@ux4/core/files/types";
 import { makeZip, readZip } from "@ux4/core/files/zip";
 import {
@@ -456,7 +457,7 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
   }
 
   function loadFileMap(files: FileMap, emptyMessage: string) {
-    const { spec, errors: loadErrors } = loadProject(files);
+    const { spec, comments, errors: loadErrors } = loadProject(files);
     if (!spec) {
       setErrors(
         loadErrors.length > 0
@@ -465,6 +466,7 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
       );
       return;
     }
+    useCommentsStore.getState().setAll(comments);
     handleParsed(spec);
   }
 

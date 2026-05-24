@@ -1,6 +1,7 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { FlowType } from "@ux4/core/schema/v0";
 import { useSimulateStore } from "@/lib/store/simulate";
+import { useCommentsStore } from "@/lib/store/comments";
 
 export interface FlowNodeData {
   name: string;
@@ -23,6 +24,9 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
   const hasIssues = (data.issues?.length ?? 0) > 0;
   const issueTitle = hasIssues ? data.issues!.join("\n") : undefined;
   const isActive = useSimulateStore((s) => s.currentFlowId === id);
+  const unresolvedComments = useCommentsStore(
+    (s) => (s.commentsByFlow.get(id) ?? []).filter((c) => !c.resolved).length,
+  );
 
   if (data.isJunction) {
     return (
@@ -40,7 +44,7 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
   return (
     <div
       title={issueTitle}
-      className={`rounded-md border-2 ${
+      className={`relative rounded-md border-2 ${
         hasIssues ? "border-red-500" : style.border
       } bg-white px-3.5 py-2.5 min-w-[200px] max-w-[260px] text-left ${
         selected
@@ -52,6 +56,7 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
           : "shadow-sm"
       }`}
     >
+      {unresolvedComments > 0 && <CommentBadge count={unresolvedComments} />}
       <Handle type="target" position={Position.Left} className="!bg-zinc-400" />
       <div className="flex items-center justify-between gap-2 mb-1">
         <span className={`text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 ${style.badge}`}>
@@ -118,5 +123,16 @@ function JunctionNode({
         <span className="text-[10px] font-medium leading-tight text-zinc-700">{name}</span>
       </div>
     </div>
+  );
+}
+
+function CommentBadge({ count }: { count: number }) {
+  return (
+    <span
+      title={`${count} unresolved comment${count === 1 ? "" : "s"}`}
+      className="absolute -top-2 -right-2 z-10 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-amber-500 px-1.5 text-[10px] font-medium text-white shadow"
+    >
+      {count > 99 ? "99+" : count}
+    </span>
   );
 }

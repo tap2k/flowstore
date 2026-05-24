@@ -9,6 +9,7 @@ import {
   writeFileMapToRepo,
 } from "@ux4/core/files/github";
 import { decomposeSpec, loadProject } from "@ux4/core/files";
+import { useCommentsStore } from "@/lib/store/comments";
 
 const iconButtonClass =
   "rounded-md border border-zinc-200 p-1.5 text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 disabled:hover:bg-transparent";
@@ -117,13 +118,14 @@ export function GitHubProjectControls() {
         repo: location.repo,
         ref: location.ref,
       });
-      const { spec: loaded, errors } = loadProject(files);
+      const { spec: loaded, comments, errors } = loadProject(files);
       if (!loaded) {
         setError(errors.map((e) => e.message).join("; ") || "Refresh failed");
         return;
       }
       setSpec(loaded);
       setCommitSha(commitSha);
+      useCommentsStore.getState().setAll(comments);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

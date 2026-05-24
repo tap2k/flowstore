@@ -8,6 +8,7 @@ import { FaqListEditor } from "./FaqListEditor";
 import { VariablesEditor } from "./VariablesEditor";
 import { ConditionEditor } from "./ConditionEditor";
 import { ScriptsSheet } from "@/components/sheets/ScriptsSheet";
+import { CommentsSection } from "./CommentsSection";
 
 const FLOW_TYPES: FlowType[] = ["happy", "sad", "off", "utility", "interrupt"];
 const DEV = process.env.NEXT_PUBLIC_DEV === "1";
@@ -159,6 +160,8 @@ export function FlowInspector() {
             placeholder="Plain-text transcript illustrating intended behavior. Optional."
           />
         </Field>
+
+        <CommentsSection flowId={flow.id} />
 
         <div className="pt-2 border-t border-zinc-200 space-y-2">
           <button
