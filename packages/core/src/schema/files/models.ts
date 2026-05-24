@@ -1,12 +1,18 @@
 import { Type, type Static } from "@sinclair/typebox";
 
-// Per-model entry. `name` is a human label; other fields are reserved for
-// future expansion (model_id, endpoint, vendor opts) and live on the spec
-// schema rather than this file's contract — additionalProperties: true lets
-// projects carry forward-compatible extras without bumping the schema.
+// Per-model entry. `name` is a human label; `endpoint` names which provider
+// adapter dispatches calls — when absent, the loader infers from the model
+// id prefix (gpt*/o* → openai, claude* → openai-compatible-via-openrouter,
+// gemini* → google). `model_id` overrides the entry's key for the actual
+// API call (e.g. an entry keyed "claude-sonnet" could carry the wire id
+// "claude-sonnet-4-5"). additionalProperties: true lets projects carry
+// forward-compatible extras (base_url, api_key_env per provider, vendor
+// opts) without bumping the schema.
 const ModelEntry = Type.Object(
   {
     name: Type.Optional(Type.String()),
+    endpoint: Type.Optional(Type.String()),
+    model_id: Type.Optional(Type.String()),
   },
   { additionalProperties: true },
 );

@@ -8,6 +8,7 @@ import {
   type DeclaredVariable,
 } from "@ux4/core/runtime/contextVars";
 import { generateContextVars } from "@ux4/core/runtime/contextVarsGen";
+import { BUILT_IN_MODELS } from "@ux4/core/files/models";
 import { useSettingsStore } from "@/lib/store/settings";
 import { CollapsibleGenerateSection } from "./CollapsibleGenerateSection";
 import { TypedValueInput } from "./TypedValueInput";
@@ -23,8 +24,9 @@ export function VariablesForm({ spec, disabled }: VariablesFormProps) {
   const setContextVar = useSimulateStore((s) => s.setContextVar);
   const setContextVars = useSimulateStore((s) => s.setContextVars);
   const clearContextVars = useSimulateStore((s) => s.clearContextVars);
+  // ✨ Generate uses Gemini structured output (responseSchema) — Google-only.
+  // Force a Gemini model regardless of the chatModel picker.
   const apiKey = useSettingsStore((s) => s.googleApiKey);
-  const model = useSettingsStore((s) => s.chatModel);
   const updateAgent = useSpecStore((s) => s.updateAgent);
 
   const [open, setOpen] = useState(false);
@@ -59,7 +61,8 @@ export function VariablesForm({ spec, disabled }: VariablesFormProps) {
     setGenerating(true);
     setGenError(null);
     try {
-      const generated = await generateContextVars(spec, apiKey, model, declared);
+      const geminiModel = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
+      const generated = await generateContextVars(spec, apiKey, geminiModel, declared);
       setContextVars(generated);
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Generation failed.");

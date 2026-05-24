@@ -1,8 +1,9 @@
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useSpecStore } from "@/lib/store/spec";
-import { useSettingsStore } from "@/lib/store/settings";
+import { hasKeyForModel, useSettingsStore } from "@/lib/store/settings";
 import { generatePersonaPrompt } from "@ux4/core/runtime/personaGen";
 import { BUILT_IN_MODELS } from "@ux4/core/files/models";
+import { ModelPicker } from "./ModelPicker";
 import { useState } from "react";
 
 interface PersonaFormProps {
@@ -19,9 +20,16 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
   const setAutoRun = useSimulateStore((s) => s.setAutoRun);
   const setPersonaTurnLimit = useSimulateStore((s) => s.setPersonaTurnLimit);
   const spec = useSpecStore((s) => s.spec);
-  const apiKey = useSettingsStore((s) => s.googleApiKey);
+  // ✨ Generate uses Gemini structured-output (responseSchema) directly,
+  // which is Google-specific. It needs the Google key regardless of which
+  // model the persona-runtime picker is set to. Multi-provider structured
+  // output is a separate ticket.
+  const googleKey = useSettingsStore((s) => s.googleApiKey);
   const model = useSettingsStore((s) => s.simulatePersonaModel);
   const setSimulatePersonaModel = useSettingsStore((s) => s.setSimulatePersonaModel);
+  // The persona runtime uses whichever provider the picked model maps to.
+  // Auto-Run gates on the picked model having a configured key.
+  const personaHasKey = hasKeyForModel(model);
 
   const [open, setOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -30,7 +38,7 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
   const configured = personaPrompt.trim().length > 0;
 
   async function onGenerate() {
-    if (!apiKey || !spec) return;
+    if (!googleKey || !spec) return;
     if (configured) {
       const ok = window.confirm("Replace the current persona prompt with a generated one?");
       if (!ok) return;
@@ -39,7 +47,10 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
     setGenerating(true);
     setGenError(null);
     try {
-      const prompt = await generatePersonaPrompt({ spec, contextVars, apiKey, model });
+      // Force a Gemini model for the structured-output call regardless of
+      // the picked persona-runtime model.
+      const geminiModel = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
+      const prompt = await generatePersonaPrompt({ spec, contextVars, apiKey: googleKey, model: geminiModel });
       setPersonaPrompt(prompt);
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Generation failed.");
@@ -64,13 +75,13 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
           </span>
         </button>
         <div className="flex items-center gap-1">
-          {apiKey && (
+          {googleKey && (
             <button
               type="button"
               onClick={onGenerate}
               disabled={disabled || generating}
               className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-              title="Use the LLM to draft a persona prompt from the agent's purpose, business goals, and current variable values."
+              title="Use Gemini to draft a persona prompt from the agent's purpose, business goals, and current variable values. (Requires a Google API key — uses Gemini's structured-output API regardless of the picker.)"
             >
               {generating ? "Generating…" : "✨ Generate"}
             </button>
@@ -88,10 +99,10 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
           <button
             type="button"
             onClick={() => setAutoRun(!autoRun)}
-            disabled={!configured || !apiKey}
+            disabled={!configured || !personaHasKey}
             title={
-              !apiKey
-                ? "Persona simulation uses the Google API key in Settings."
+              !personaHasKey
+                ? "Add an API key in Settings for the model the persona picker is set to."
                 : !configured
                   ? "Write a persona system prompt below to start."
                   : autoRun
@@ -128,17 +139,11 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
           />
           <div className="flex items-center gap-2 text-[10px] text-zinc-500">
             <span>Model:</span>
-            <select
+            <ModelPicker
               value={model}
-              onChange={(e) => setSimulatePersonaModel(e.target.value)}
+              onChange={setSimulatePersonaModel}
               className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
-            >
-              {Object.entries(BUILT_IN_MODELS.models).map(([id, m]) => (
-                <option key={id} value={id}>
-                  {m.name ?? id}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <p className="text-[10px] text-zinc-500">
             Persona drives the user side of the conversation when running. The agent&rsquo;s

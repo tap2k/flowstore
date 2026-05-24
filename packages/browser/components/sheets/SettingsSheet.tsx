@@ -14,21 +14,29 @@ type GhTestStatus =
   | { kind: "err"; message: string };
 
 export function SettingsSheet({ onClose }: SettingsSheetProps) {
-  const stored = useSettingsStore((s) => s.googleApiKey);
+  const storedGoogle = useSettingsStore((s) => s.googleApiKey);
   const setGoogleApiKey = useSettingsStore((s) => s.setGoogleApiKey);
+  const storedOpenai = useSettingsStore((s) => s.openaiApiKey);
+  const setOpenaiApiKey = useSettingsStore((s) => s.setOpenaiApiKey);
+  const storedOpenrouter = useSettingsStore((s) => s.openrouterApiKey);
+  const setOpenrouterApiKey = useSettingsStore((s) => s.setOpenrouterApiKey);
   const storedRunnerUrl = useSettingsStore((s) => s.runnerUrl);
   const setRunnerUrl = useSettingsStore((s) => s.setRunnerUrl);
   const storedGithubPat = useSettingsStore((s) => s.githubPat);
   const setGithubPat = useSettingsStore((s) => s.setGithubPat);
-  const [value, setValue] = useState(stored);
+
+  const [google, setGoogle] = useState(storedGoogle);
+  const [openai, setOpenai] = useState(storedOpenai);
+  const [openrouter, setOpenrouter] = useState(storedOpenrouter);
   const [runnerUrl, setRunnerUrlInput] = useState(storedRunnerUrl);
   const [pat, setPat] = useState(storedGithubPat);
-  const [reveal, setReveal] = useState(false);
   const [patReveal, setPatReveal] = useState(false);
   const [ghStatus, setGhStatus] = useState<GhTestStatus>({ kind: "idle" });
 
   function save() {
-    setGoogleApiKey(value.trim());
+    setGoogleApiKey(google.trim());
+    setOpenaiApiKey(openai.trim());
+    setOpenrouterApiKey(openrouter.trim());
     setRunnerUrl(runnerUrl);
     setGithubPat(pat);
     onClose();
@@ -51,42 +59,73 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   }
 
   return (
-    <SheetShell
-      title="Settings"
-      onClose={onClose}
-      maxWidth="max-w-lg"
-    >
-      <div className="space-y-2">
-        <label className="text-xs font-medium text-zinc-700">Google API key</label>
-        <div className="flex gap-2">
-          <input
-            type={reveal ? "text" : "password"}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="AIza…"
-            className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400"
-          />
-          <button
-            onClick={() => setReveal((r) => !r)}
-            className="rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100"
-          >
-            {reveal ? "hide" : "show"}
-          </button>
-        </div>
-        <p className="text-[11px] text-zinc-500">
-          Only for chat / simulate. Stored in this browser&apos;s localStorage. Anyone with access to this browser can read it. 
-          Get a key at{" "}
-          <a
-            href="https://aistudio.google.com/app/apikey"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:text-zinc-900"
-          >
-            aistudio.google.com
-          </a>
-          .
-        </p>
-      </div>
+    <SheetShell title="Settings" onClose={onClose} maxWidth="max-w-lg">
+      <ApiKeyRow
+        label="Google API key"
+        placeholder="AIza…"
+        value={google}
+        onChange={setGoogle}
+        help={
+          <>
+            For Gemini models. Get a key at{" "}
+            <a
+              href="https://aistudio.google.com/app/apikey"
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-zinc-900"
+            >
+              aistudio.google.com
+            </a>
+            .
+          </>
+        }
+      />
+      <ApiKeyRow
+        label="OpenAI API key"
+        placeholder="sk-…"
+        value={openai}
+        onChange={setOpenai}
+        help={
+          <>
+            For GPT models. Get a key at{" "}
+            <a
+              href="https://platform.openai.com/api-keys"
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-zinc-900"
+            >
+              platform.openai.com/api-keys
+            </a>
+            .
+          </>
+        }
+      />
+      <ApiKeyRow
+        label="OpenRouter API key"
+        placeholder="sk-or-…"
+        value={openrouter}
+        onChange={setOpenrouter}
+        help={
+          <>
+            For Claude (Anthropic doesn&apos;t allow browser-direct calls) and any
+            other model OpenRouter hosts. Get a key at{" "}
+            <a
+              href="https://openrouter.ai/keys"
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-zinc-900"
+            >
+              openrouter.ai/keys
+            </a>
+            .
+          </>
+        }
+      />
+      <p className="text-[11px] text-zinc-500 -mt-1">
+        All keys are stored in this browser&apos;s localStorage. Anyone with
+        access to this browser can read them.
+      </p>
+
       <div className="space-y-2 pt-3">
         <label className="text-xs font-medium text-zinc-700">GitHub PAT</label>
         <div className="flex gap-2">
@@ -124,8 +163,8 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           <p className="text-[11px] text-rose-700">{ghStatus.message}</p>
         )}
         <p className="text-[11px] text-zinc-500">
-          Fine-grained PAT with Contents: Read &amp; write on the repos you want UX4 to open. Stored in
-          this browser&apos;s localStorage. Create at{" "}
+          Fine-grained PAT with Contents: Read &amp; write on the repos you want
+          UX4 to open. Create at{" "}
           <a
             href="https://github.com/settings/personal-access-tokens"
             target="_blank"
@@ -137,6 +176,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           .
         </p>
       </div>
+
       <div className="space-y-2 pt-3">
         <label className="text-xs font-medium text-zinc-700">Runner URL</label>
         <div className="flex gap-2">
@@ -149,11 +189,10 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           />
         </div>
         <p className="text-[11px] text-zinc-500">
-          Endpoint for the Python runner backing Simulate&apos;s runner mode
-          (chat against the live runner instead of just a system prompt).
-          Defaults to a local dev server.
+          Endpoint for the Python runner backing Simulate&apos;s runner mode.
         </p>
       </div>
+
       <div className="flex items-center justify-end gap-2 pt-2">
         <button
           onClick={save}
@@ -163,5 +202,38 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         </button>
       </div>
     </SheetShell>
+  );
+}
+
+interface ApiKeyRowProps {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+  help: React.ReactNode;
+}
+
+function ApiKeyRow({ label, placeholder, value, onChange, help }: ApiKeyRowProps) {
+  const [reveal, setReveal] = useState(false);
+  return (
+    <div className="space-y-2 pt-3 first:pt-0">
+      <label className="text-xs font-medium text-zinc-700">{label}</label>
+      <div className="flex gap-2">
+        <input
+          type={reveal ? "text" : "password"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400"
+        />
+        <button
+          onClick={() => setReveal((r) => !r)}
+          className="rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100"
+        >
+          {reveal ? "hide" : "show"}
+        </button>
+      </div>
+      <p className="text-[11px] text-zinc-500">{help}</p>
+    </div>
   );
 }

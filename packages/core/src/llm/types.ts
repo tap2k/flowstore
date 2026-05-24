@@ -38,4 +38,11 @@ export type ChatResponse = {
   usage?: ChatUsage;
 };
 
-export type ProviderId = "google";
+export type ProviderId = "google" | "openai" | "openai-compatible";
+
+// Per-provider runtime knobs the dispatcher passes through. base_url is
+// load-bearing for openai-compatible (OpenRouter, DeepInfra, vLLM, etc.);
+// the others ignore it.
+export type ProviderOptions = {
+  baseUrl?: string;
+};

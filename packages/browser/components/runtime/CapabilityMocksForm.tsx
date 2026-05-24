@@ -7,6 +7,7 @@ import {
   type MockableOutput,
 } from "@ux4/core/runtime/capabilityMocks";
 import { generateCapabilityMocks } from "@ux4/core/runtime/capabilityMocksGen";
+import { BUILT_IN_MODELS } from "@ux4/core/files/models";
 import { useSettingsStore } from "@/lib/store/settings";
 import { CollapsibleGenerateSection } from "./CollapsibleGenerateSection";
 import { TypedValueInput } from "./TypedValueInput";
@@ -26,8 +27,9 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
     (s) => s.clearMockReturnsForCapability,
   );
   const clearMockReturns = useSimulateStore((s) => s.clearMockReturns);
+  // ✨ Generate uses Gemini structured output (responseSchema) — Google-only.
+  // Force a Gemini model regardless of the chatModel picker.
   const apiKey = useSettingsStore((s) => s.googleApiKey);
-  const model = useSettingsStore((s) => s.chatModel);
 
   const [open, setOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -49,10 +51,11 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
     setGenerating(true);
     setGenError(null);
     try {
+      const geminiModel = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
       const generated = await generateCapabilityMocks(
         spec,
         apiKey,
-        model,
+        geminiModel,
         capabilities,
         contextVars,
       );

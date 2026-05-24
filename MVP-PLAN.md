@@ -4,7 +4,7 @@ The organizing vision and staged operational plan for UX4. For the data-model co
 
 ---
 
-## Status (2026-05-22)
+## Status (2026-05-24)
 
 **Phase 0 — original uxflows MVP — shipped 2026-05-08.** Visual editor for v0 specs: canvas authoring, schema-driven inspectors, scripts sheet with multilingual columns, simulate panel, system-prompt codegen, AJV validation, LLM-assisted authoring. Details in [Phase 0 appendix](#phase-0-appendix--shipped-mvp).
 
@@ -24,7 +24,24 @@ Landed on `main`:
 - **1h** `agent.system_prompt_template` + `agent.default_model` on the agent schema. Codegen wraps the deterministic body via the template's `{generated}` placeholder plus convenience `{meta.name}`, `{meta.client}`, `{meta.purpose}`, `{meta.tone}` substitutions; unknown placeholders are left literal. `agent.default_model` slots into the `resolveModel` precedence chain between project role and explicit override.
 - **1f** Per-file AJV validation in the loader for `ux4.json`, `models/*.json`, `knowledge/glossary.json`, `knowledge/tables/<id>.meta.json` — errors flow through `LoadError[]`. New `KnowledgeTableMetaSchema` (UX4://knowledge-table/v0). `validateGraph` extended with an optional `modelIds` set so callers can flag `agent.default_model` referencing an unknown model id. Existing canvas inline display (per-flow red border + tooltip, per-edge red stroke) continues to surface dangling references unchanged.
 
-**Phase 1 closed.** Phase 2 (testing surface, multi-provider dispatch, comments, etc.) begins from here.
+**Phase 1 closed.** Phase 2 (testing surface, comments, etc.) begins from here.
+
+**Phase 2 — Testing surface — kicked off (2026-05-24).**
+
+Landed on `main`:
+- **2F-partial** Multi-provider LLM dispatch in the browser. CORS verified: OpenAI direct works; Anthropic blocks browser origins, so Claude routes via OpenRouter. Three adapters in `@ux4/core/llm/providers/`: `google` (existing), `openai` (native chat-completions), `openai-compatible` (shared base, configurable `base_url`). `ModelEntry` extended with optional `endpoint` + `model_id`; `EndpointId` union covers `google`, `openai`, `openrouter`, `openai-compatible` (catchall). `resolveDispatch(modelId)` walks the precedence chain and returns provider + key + base URL + wire id. Settings sheet gains OpenAI + OpenRouter key rows alongside Google. Shared `ModelPicker` filters by which keys are present (with `showUnconfigured` escape hatch for AgentSheet's spec-level default-model picker and runner mode). Built-in catalog expanded: GPT-5.5/5.4/5.4-mini (native); Claude Opus 4.7 / Sonnet 4.6 / Haiku 4.5 (via OpenRouter); Grok 4.3, DeepSeek V4 Pro/Flash/V3.2, Kimi K2.6, Qwen 3 235B, Llama 4 Maverick, Llama 3.3 70B (free), Nemotron 3 Super 120B (free), Owl Alpha (stealth, free) — all via OpenRouter. Gemini-only authoring helpers (✨ Generate variables/mocks/persona, transcript translate) pinned to a Gemini default regardless of the picker (Google structured-output API; multi-provider structured output is a separate ticket). The `runner` side of the multi-provider story — Python scripts using the same adapters via a Node CLI — remains pending.
+- **Latency display in SimulatePanel.** Wall-clock dispatch latency (prompt-mode LLM call + runner round-trip) renders below each agent bubble. Additive `latencyMs?` field on `TranscriptTurn`.
+
+Still ahead in Phase 2 (see [TESTING-LOOP-PLAN.md](./TESTING-LOOP-PLAN.md) for sequencing):
+- **O-1** `state_check` evaluator + `final_variables` assertions on the testing-script side.
+- **I-1 / I-2** Test-case dropdown + capture-as-test-case in SimulatePanel.
+- **O-2** Run manifest + inter-run diff.
+- **O-3** Result-file viewer in SimulatePanel.
+- **O-4** Rubric judge wired into the harness (load-bearing for semantic eval).
+- Comments anchored to spec entities (canvas badges + side-panel threads).
+- Id-rename cascade and concurrent-edit detection — pilot-hardening, pulled in if Awaaz hits the friction.
+- Multi-provider dispatch on the Python scripts side (`@ux4/core` providers shared via Node CLI).
+- Native Anthropic adapter — deferred until Anthropic relaxes CORS or a proxy lands; Claude works via OpenRouter today.
 
 **Design decision — ids are immutable from the editor UI.** Stable ids are the cross-file reference contract; the file model and codegen assume they don't change under live edits. The editor never surfaces an "edit id" field; ids are produced either by prompts/AGENT-SPEC-PROMPT.txt (semantic, e.g. `identity_confirmation`) or by the editor's `genId` (opaque, e.g. `flow_a3f2b8c1`). Renaming an id requires manual JSON edits via Claude Code or the GitHub web UI plus a manual reference sweep. Cascade-rename UI (Phase 2.I in the original plan) is deferred until pilot feedback shows designers actually need it; until then the constraint reduces an entire class of "dangling reference after rename" bugs to zero by construction.
 

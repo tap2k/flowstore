@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSpecStore, type Selection } from "@/lib/store/spec";
 import type { Spec } from "@ux4/core/schema/v0";
-import { useSettingsStore } from "@/lib/store/settings";
+import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import {
   useSimulateStore,
   type SimulateMode,
@@ -12,7 +12,7 @@ import { generateSystemPrompt } from "@ux4/core/codegen/promptGenerator";
 import type { RuntimeEvent } from "@ux4/core/runtime/eventTypes";
 import { formatEvent, formatValueTruncated } from "@ux4/core/runtime/formatEvent";
 import { translateBatchToEnglish } from "@ux4/core/runtime/translate";
-import { BUILT_IN_MODELS } from "@ux4/core/files/models";
+import { ModelPicker } from "./ModelPicker";
 import { VariablesForm } from "./VariablesForm";
 import { CapabilityMocksForm } from "./CapabilityMocksForm";
 import { PersonaForm } from "./PersonaForm";
@@ -24,8 +24,12 @@ interface SimulatePanelProps {
 }
 
 export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelProps) {
-  const apiKey = useSettingsStore((s) => s.googleApiKey);
   const model = useSettingsStore((s) => s.simulateAgentModel);
+  const dispatch = resolveDispatch(model);
+  const apiKey = dispatch.apiKey;
+  // Translate uses Gemini structured output; needs the Google key
+  // specifically (not whichever provider the picker is on).
+  const googleApiKey = useSettingsStore((s) => s.googleApiKey);
   const setSimulateAgentModel = useSettingsStore((s) => s.setSimulateAgentModel);
   const personaModel = useSettingsStore((s) => s.simulatePersonaModel);
   const setSimulatePersonaModel = useSettingsStore((s) => s.setSimulatePersonaModel);
@@ -153,8 +157,11 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       mode,
       spec: current,
       apiKey,
-      model,
-      baseUrl: mode === "runner" ? runnerUrl : undefined,
+      // wireModel — what gets sent to the LLM API. Catalog key (model) and
+      // wire id differ when the entry sets model_id (Claude on OpenRouter).
+      model: dispatch.wireModel,
+      provider: dispatch.provider,
+      baseUrl: mode === "runner" ? runnerUrl : dispatch.baseUrl,
       language,
     });
   }
@@ -226,8 +233,8 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       if (uncachedTurns.length > 0) {
         const result = await translateBatchToEnglish(
           uncachedTurns.map((t) => ({ id: String(t.ts), text: t.text })),
-          apiKey,
-          model,
+          googleApiKey,
+          "gemini-2.5-flash",
         );
         setTranslations((prev) => {
           const next = new Map(prev);
@@ -250,7 +257,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     : showTranslated && uncachedTurns.length === 0
       ? "show original"
       : "translate";
-  const translateVisible = !!apiKey && transcript.some((t) => t.text);
+  const translateVisible = !!googleApiKey && transcript.some((t) => t.text);
 
   function onKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -340,9 +347,9 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             </ModeButton>
           )}
         </div>
-        <select
+        <ModelPicker
           value={model}
-          onChange={(e) => setSimulateAgentModel(e.target.value)}
+          onChange={setSimulateAgentModel}
           disabled={hasSession}
           title={
             mode === "runner"
@@ -350,13 +357,9 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
               : "Model the agent uses in prompt mode"
           }
           className="truncate rounded border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-900 hover:border-zinc-200 disabled:opacity-60 cursor-pointer disabled:cursor-default"
-        >
-          {Object.entries(BUILT_IN_MODELS.models).map(([id, m]) => (
-            <option key={id} value={id}>
-              {m.name ?? id}
-            </option>
-          ))}
-        </select>
+          // Runner mode shows everything: the runner may have its own keys.
+          showUnconfigured={mode === "runner"}
+        />
         {availableLanguages.length > 1 && (
           <select
             value={language ?? ""}
@@ -442,6 +445,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           <EmptyState
             mode={mode}
             apiKey={apiKey}
+            providerLabel={providerLabelFor(dispatch.endpoint)}
             specLoaded={!!spec}
             validationErrors={validationErrors}
             onStart={startSession}
@@ -577,6 +581,7 @@ function ModeButton({
 function EmptyState({
   mode,
   apiKey,
+  providerLabel,
   specLoaded,
   validationErrors,
   onStart,
@@ -584,6 +589,7 @@ function EmptyState({
 }: {
   mode: SimulateMode;
   apiKey: string;
+  providerLabel: string;
   specLoaded: boolean;
   validationErrors: string[] | null;
   onStart: () => void;
@@ -601,7 +607,7 @@ function EmptyState({
       {mode === "prompt" && !apiKey && (
         <p>
           <button onClick={onOpenSettings} className="underline hover:text-zinc-900">
-            Requires a Google API key in Settings.
+            Requires a {providerLabel} API key in Settings.
           </button>
         </p>
       )}
@@ -694,11 +700,19 @@ function TurnView({
           {shown}
         </div>
       )}
+      {turn.latencyMs !== undefined && (
+        <div className="text-[10px] text-zinc-400">{formatLatency(turn.latencyMs)}</div>
+      )}
       {postEvents.map((ev, i) => (
         <EventLine key={`post-${i}`} ev={ev} spec={spec} />
       ))}
     </div>
   );
+}
+
+function formatLatency(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
 }
 
 // Routing events map to a node or edge on the canvas. Other events have no
@@ -770,5 +784,15 @@ function EventLine({ ev, spec }: { ev: RuntimeEvent; spec: Spec | null }) {
       </pre>
     </details>
   );
+}
+
+function providerLabelFor(endpoint: ReturnType<typeof resolveDispatch>["endpoint"]): string {
+  switch (endpoint) {
+    case "google": return "Google";
+    case "openai": return "OpenAI";
+    case "openrouter": return "OpenRouter";
+    case "openai-compatible": return "OpenAI-compatible";
+    default: return "provider";
+  }
 }
 

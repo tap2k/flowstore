@@ -1,5 +1,5 @@
 import { chat, DEFAULT_PROVIDER } from "@ux4/core/llm/dispatch";
-import type { ChatMessage, ChatUsage } from "@ux4/core/llm/types";
+import type { ChatMessage, ChatUsage, ProviderId } from "@ux4/core/llm/types";
 import type { TranscriptTurn } from "@ux4/core/runtime/transcript";
 
 // Generate the next user-side utterance by inverting roles: the persona LLM
@@ -10,6 +10,8 @@ export async function generatePersonaTurn(args: {
   history: TranscriptTurn[];
   apiKey: string;
   model: string;
+  provider?: ProviderId;
+  baseUrl?: string;
 }): Promise<{ text: string; usage?: ChatUsage }> {
   const messages: ChatMessage[] = [];
   for (const t of args.history) {
@@ -25,10 +27,16 @@ export async function generatePersonaTurn(args: {
     // Seed with a neutral instruction so the model emits an opener.
     messages.push({ role: "user", content: "[begin]" });
   }
-  const res = await chat(DEFAULT_PROVIDER, args.apiKey, args.model, {
-    systemPrompt: args.personaPrompt,
-    messages,
-    tools: [],
-  });
+  const res = await chat(
+    args.provider ?? DEFAULT_PROVIDER,
+    args.apiKey,
+    args.model,
+    {
+      systemPrompt: args.personaPrompt,
+      messages,
+      tools: [],
+    },
+    { baseUrl: args.baseUrl },
+  );
   return { text: res.text, usage: res.usage };
 }

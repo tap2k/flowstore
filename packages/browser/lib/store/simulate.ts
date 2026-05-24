@@ -11,9 +11,9 @@ import { sendPromptTurn } from "@ux4/core/runtime/promptClient";
 import { generatePersonaTurn } from "@ux4/core/runtime/personaClient";
 import { generateSystemPrompt } from "@ux4/core/codegen/promptGenerator";
 import { cleanMockReturns } from "@ux4/core/runtime/capabilityMocks";
-import { useSettingsStore } from "@/lib/store/settings";
+import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { createScopedJsonStorage, isPlainObject } from "@/lib/store/scopedStorage";
-import type { ChatUsage } from "@ux4/core/llm/types";
+import type { ChatUsage, ProviderId } from "@ux4/core/llm/types";
 
 export type { TranscriptTurn };
 
@@ -37,6 +37,12 @@ export interface StartArgs {
   spec: Spec;
   apiKey: string;
   model: string;
+  // null when settings doesn't yet have a provider for the chosen model (no
+  // key configured). Prompt mode rejects with a clear error in that case;
+  // runner mode passes apiKey through to the Python side regardless.
+  provider: ProviderId | null;
+  // baseUrl from settings.resolveDispatch — only meaningful for the
+  // openai-compatible adapter path (OpenRouter today).
   baseUrl?: string;
   language?: string;
 }
@@ -342,11 +348,11 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       set({ autoRun: false });
       return;
     }
-    const { apiKey, model } = readLlmCreds("persona");
-    if (!apiKey) {
+    const creds = readLlmCreds("persona");
+    if (!creds.provider || !creds.apiKey) {
       set({
         autoRun: false,
-        error: "Persona auto-run needs a Google API key in Settings.",
+        error: `Persona auto-run needs a ${creds.endpointLabel} API key in Settings.`,
       });
       return;
     }
@@ -355,8 +361,10 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       const res = await generatePersonaTurn({
         personaPrompt,
         history: transcript,
-        apiKey,
-        model,
+        apiKey: creds.apiKey,
+        model: creds.model,
+        provider: creds.provider,
+        baseUrl: creds.baseUrl,
       });
       // If the user hit Stop while the LLM was thinking, drop the result.
       if (!get().autoRun) return;
@@ -394,7 +402,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   },
 
   start: async (args) => {
-    const { mode, spec, apiKey, model, baseUrl, language } = args;
+    const { mode, spec, apiKey, model, provider, baseUrl, language } = args;
     const { contextVars, mockReturns, systemPrompt: existingOverride } = get();
     const cleanedMocks = cleanMockReturns(mockReturns, spec);
     set({
@@ -415,6 +423,13 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     });
 
     if (mode === "prompt") {
+      if (!provider || !apiKey) {
+        set({
+          status: "error",
+          error: "Prompt-mode session needs an API key for the selected model. Add it in Settings.",
+        });
+        return;
+      }
       try {
         const systemPrompt =
           existingOverride ?? generateSystemPrompt(spec, contextVars, { language });
@@ -429,18 +444,23 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
             events: [],
           };
           set({ transcript: [openerTurn] });
+          const t0 = performance.now();
           const res = await sendPromptTurn({
             systemPrompt,
             history: [],
             userText: PROMPT_MODE_BEGIN,
             apiKey,
             model,
+            provider,
+            baseUrl,
           });
+          const latencyMs = Math.round(performance.now() - t0);
           const agentTurn: TranscriptTurn = {
             role: "agent",
             text: res.text,
             ts: Date.now(),
             events: [],
+            latencyMs,
           };
           set({
             transcript: [openerTurn, agentTurn],
@@ -464,6 +484,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       return;
     }
     try {
+      const t0 = performance.now();
       const res = await apiStartSession({
         baseUrl,
         spec,
@@ -473,6 +494,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         contextVars,
         mockReturns: cleanedMocks,
       });
+      const latencyMs = Math.round(performance.now() - t0);
       const reduced = reduceEvents(
         {
           currentFlowId: null,
@@ -490,6 +512,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           text: res.agent_text,
           ts: Date.now(),
           events: res.events,
+          latencyMs,
         });
       }
       const ended = res.ended || reduced.status === "ended";
@@ -546,14 +569,25 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
 
     if (mode === "prompt") {
       try {
-        const { apiKey, model } = readLlmCreds("agent");
+        const creds = readLlmCreds("agent");
+        if (!creds.provider || !creds.apiKey) {
+          set({
+            status: "error",
+            error: `Prompt-mode turn needs a ${creds.endpointLabel} API key in Settings.`,
+          });
+          return;
+        }
+        const t0 = performance.now();
         const res = await sendPromptTurn({
           systemPrompt: systemPrompt ?? "",
           history: transcript,
           userText: trimmed,
-          apiKey,
-          model,
+          apiKey: creds.apiKey,
+          model: creds.model,
+          provider: creds.provider,
+          baseUrl: creds.baseUrl,
         });
+        const latencyMs = Math.round(performance.now() - t0);
         // Empty text means Gemini returned STOP with no parts — the model is
         // signaling the conversation is over. Skip the empty agent bubble and
         // end the session.
@@ -570,6 +604,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           text: res.text,
           ts: Date.now(),
           events: [],
+          latencyMs,
         };
         set({
           transcript: [...get().transcript, agentTurn],
@@ -587,7 +622,9 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
 
     if (!baseUrl) return;
     try {
+      const t0 = performance.now();
       const res = await apiSendTurn({ baseUrl, sessionId, userText: trimmed });
+      const latencyMs = Math.round(performance.now() - t0);
       const reduced = reduceEvents(
         { currentFlowId, traversedEdgeIds, traversedFlowIds, variables, status: "ready" },
         res.events,
@@ -597,6 +634,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         text: res.agent_text,
         ts: Date.now(),
         events: res.events,
+        latencyMs,
       };
       const ended = res.ended || reduced.status === "ended";
       set({
@@ -676,10 +714,32 @@ function stripDoneMarker(text: string): { text: string; done: boolean } {
 
 type SimulateRole = "agent" | "persona";
 
-function readLlmCreds(role: SimulateRole): { apiKey: string; model: string } {
+function readLlmCreds(role: SimulateRole): {
+  apiKey: string;
+  model: string;
+  provider: ProviderId | null;
+  baseUrl?: string;
+  endpointLabel: string;
+} {
   // Read fresh from settings on each prompt-mode turn so key/model changes
   // mid-session apply without forcing a reset.
   const s = useSettingsStore.getState();
   const model = role === "persona" ? s.simulatePersonaModel : s.simulateAgentModel;
-  return { apiKey: s.googleApiKey, model };
+  const dispatch = resolveDispatch(model);
+  const labels: Record<string, string> = {
+    google: "Google",
+    openai: "OpenAI",
+    openrouter: "OpenRouter",
+    "openai-compatible": "OpenAI-compatible",
+  };
+  return {
+    apiKey: dispatch.apiKey,
+    // wireModel — the actual id sent to the API. Differs from the catalog
+    // key for entries that set model_id (e.g. claude-opus-4.7 →
+    // anthropic/claude-opus-4.7 for OpenRouter).
+    model: dispatch.wireModel,
+    provider: dispatch.provider,
+    baseUrl: dispatch.baseUrl,
+    endpointLabel: dispatch.endpoint ? labels[dispatch.endpoint] : "provider",
+  };
 }

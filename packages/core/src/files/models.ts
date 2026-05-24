@@ -13,21 +13,99 @@ export interface ResolvedModelsConfig {
 
 export type ModelRole = "agent" | "judge" | "user_simulation" | "authoring";
 
-// Ships inside @ux4/core. Used when a project has no models/ at all (or
-// when the project's config doesn't set a field the consumer is asking
-// about). Edit here when a new Google model is supported.
+// Endpoint id is the user-facing handle on a model entry. The dispatcher
+// maps each to (provider adapter, default base_url, settings key slot).
+// First-class: google, openai, openrouter. Catchall: openai-compatible
+// (caller must supply base_url + a key — used for DeepInfra, vLLM, Ollama,
+// Together, Fireworks, or any future provider).
+//
+// Anthropic native is intentionally absent: browser-direct calls fail CORS,
+// so Claude routes through `openrouter` with model_id like
+// "anthropic/claude-sonnet-4-5".
+export type EndpointId =
+  | "google"
+  | "openai"
+  | "openrouter"
+  | "openai-compatible";
+
+// Ships inside @ux4/core. Used when a project has no models/ at all.
+// Edit here when a new built-in model is supported. Catalog key is the
+// friendly handle; model_id (when set) is the wire id sent to the API.
 export const BUILT_IN_MODELS: ResolvedModelsConfig = {
   models: {
-    "gemini-3.5-flash":         { name: "Gemini 3.5 Flash" },
-    "gemini-3.1-pro-preview":   { name: "Gemini 3.1 Pro (preview)" },
-    "gemini-3.1-flash-lite":    { name: "Gemini 3.1 Flash-Lite" },
-    "gemini-3-flash-preview":   { name: "Gemini 3 Flash (preview)" },
-    "gemini-2.5-pro":           { name: "Gemini 2.5 Pro" },
-    "gemini-2.5-flash":         { name: "Gemini 2.5 Flash" },
+    // Google
+    "gemini-3.5-flash":         { name: "Gemini 3.5 Flash", endpoint: "google" },
+    "gemini-3.1-pro-preview":   { name: "Gemini 3.1 Pro (preview)", endpoint: "google" },
+    "gemini-3.1-flash-lite":    { name: "Gemini 3.1 Flash-Lite", endpoint: "google" },
+    "gemini-3-flash-preview":   { name: "Gemini 3 Flash (preview)", endpoint: "google" },
+    "gemini-2.5-pro":           { name: "Gemini 2.5 Pro", endpoint: "google" },
+    "gemini-2.5-flash":         { name: "Gemini 2.5 Flash", endpoint: "google" },
+
+    // OpenAI
+    "gpt-5.5":                  { name: "GPT-5.5", endpoint: "openai" },
+    "gpt-5.4":                  { name: "GPT-5.4", endpoint: "openai" },
+    "gpt-5.4-mini":             { name: "GPT-5.4 Mini", endpoint: "openai" },
+
+    // Anthropic (via OpenRouter — Anthropic blocks browser-direct CORS)
+    "claude-opus-4.7":          { name: "Claude Opus 4.7", endpoint: "openrouter", model_id: "anthropic/claude-opus-4.7" },
+    "claude-sonnet-4.6":        { name: "Claude Sonnet 4.6", endpoint: "openrouter", model_id: "anthropic/claude-sonnet-4.6" },
+    "claude-haiku-4.5":         { name: "Claude Haiku 4.5", endpoint: "openrouter", model_id: "anthropic/claude-haiku-4.5" },
+
+    // Open-weight + stealth on OpenRouter. The :free suffix routes to the
+    // free tier. Owl-alpha is OpenRouter's rotating stealth endpoint.
+    "grok-4.3":                 { name: "Grok 4.3", endpoint: "openrouter", model_id: "x-ai/grok-4.3" },
+    "deepseek-v4-pro":          { name: "DeepSeek V4 Pro", endpoint: "openrouter", model_id: "deepseek/deepseek-v4-pro" },
+    "deepseek-v4-flash":        { name: "DeepSeek V4 Flash", endpoint: "openrouter", model_id: "deepseek/deepseek-v4-flash" },
+    "deepseek-v3.2":            { name: "DeepSeek V3.2", endpoint: "openrouter", model_id: "deepseek/deepseek-v3.2" },
+    "kimi-k2.6":                { name: "Kimi K2.6", endpoint: "openrouter", model_id: "moonshotai/kimi-k2.6" },
+    "qwen-3-235b":              { name: "Qwen 3 235B", endpoint: "openrouter", model_id: "qwen/qwen3-235b-a22b-instruct" },
+    "llama-4-maverick":         { name: "Llama 4 Maverick", endpoint: "openrouter", model_id: "meta-llama/llama-4-maverick" },
+    "llama-3.3-70b":            { name: "Llama 3.3 70B (free)", endpoint: "openrouter", model_id: "meta-llama/llama-3.3-70b-instruct:free" },
+    "nemotron-3-super-120b":    { name: "Nemotron 3 Super 120B (free)", endpoint: "openrouter", model_id: "nvidia/nemotron-3-super-120b-a12b:free" },
+    "owl-alpha":                { name: "Owl Alpha (stealth, free)", endpoint: "openrouter", model_id: "openrouter/owl-alpha" },
   },
   default: "gemini-2.5-flash",
   roles: {},
 };
+
+// Endpoint resolution: explicit on the entry wins; otherwise infer from id
+// prefix for the unambiguous cases (gemini → google, gpt/o-series →
+// openai, anthropic/ prefix → openrouter, meta-llama/ prefix → deepinfra).
+// Bare claude-/grok-/llama- model ids stay unresolved on purpose; the same
+// model lives on multiple hosts and inference can't pick the right one.
+// Returns null when the entry needs explicit `endpoint` to dispatch.
+const KNOWN_ENDPOINTS: ReadonlySet<EndpointId> = new Set([
+  "google",
+  "openai",
+  "openrouter",
+  "openai-compatible",
+]);
+
+export function resolveEndpoint(
+  modelId: string,
+  entry: ModelEntry | undefined,
+): EndpointId | null {
+  if (entry?.endpoint && KNOWN_ENDPOINTS.has(entry.endpoint as EndpointId)) {
+    return entry.endpoint as EndpointId;
+  }
+  if (entry?.endpoint) {
+    // Unknown explicit endpoint falls through to the catchall so future
+    // values (azure, bedrock) don't silently misroute.
+    return "openai-compatible";
+  }
+  if (/^gemini[-_.]/i.test(modelId)) return "google";
+  if (/^gpt[-_]/i.test(modelId)) return "openai";
+  if (/^o[1-9]/i.test(modelId)) return "openai";
+  if (/^anthropic\//i.test(modelId)) return "openrouter";
+  return null;
+}
+
+// Wire id used at dispatch time. Entry's `model_id` overrides the catalog
+// key — entry keyed "claude-sonnet-on-openrouter" can carry the actual wire
+// id "anthropic/claude-sonnet-4-5".
+export function wireModelId(catalogKey: string, entry: ModelEntry | undefined): string {
+  return entry?.model_id ?? catalogKey;
+}
 
 export function loadModelsConfig(
   files: FileMap,

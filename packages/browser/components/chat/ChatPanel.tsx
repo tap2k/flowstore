@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
-import { useSettingsStore } from "@/lib/store/settings";
+import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { useSimulateStore, type TranscriptTurn } from "@/lib/store/simulate";
-import { chat, DEFAULT_PROVIDER } from "@ux4/core/llm/dispatch";
-import { BUILT_IN_MODELS } from "@ux4/core/files/models";
+import { chat } from "@ux4/core/llm/dispatch";
+import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { findTool, toolDefinitions } from "@/lib/chat/tools";
 import { systemPrompt } from "@ux4/core/llm/prompts";
 import { formatErrors, validateSpec } from "@ux4/core/validation/ajv";
@@ -21,9 +21,14 @@ interface ChatPanelProps {
 const MAX_AGENT_LOOPS = 12;
 
 export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
-  const apiKey = useSettingsStore((s) => s.googleApiKey);
   const model = useSettingsStore((s) => s.chatModel);
   const setChatModel = useSettingsStore((s) => s.setChatModel);
+  // Recompute on every render so the dispatch params (key, baseUrl, provider)
+  // stay in sync with both the picker and any setting changes the user
+  // makes in another tab/Settings sheet.
+  const dispatch = resolveDispatch(model);
+  const apiKey = dispatch.apiKey;
+  const provider = dispatch.provider;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -40,8 +45,12 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
   async function send() {
     const text = input.trim();
     if (!text || busy) return;
+    if (!provider) {
+      setError(`No provider configured for "${model}". Add an explicit endpoint in models config.`);
+      return;
+    }
     if (!apiKey) {
-      setError("Add your Google API key in Settings first.");
+      setError(`Add a ${providerLabel(dispatch.endpoint)} API key in Settings first.`);
       return;
     }
     setError(null);
@@ -58,11 +67,17 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
 
     try {
       for (let i = 0; i < MAX_AGENT_LOOPS; i++) {
-        const res = await chat(DEFAULT_PROVIDER, apiKey, model, {
-          systemPrompt,
-          messages: history,
-          tools: toolDefinitions,
-        });
+        const res = await chat(
+          provider,
+          apiKey,
+          dispatch.wireModel,
+          {
+            systemPrompt,
+            messages: history,
+            tools: toolDefinitions,
+          },
+          { baseUrl: dispatch.baseUrl },
+        );
         history = [
           ...history,
           {
@@ -138,17 +153,11 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
       <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2">
         <div>
           <div className="text-sm font-semibold text-zinc-900">Chat</div>
-          <select
+          <ModelPicker
             value={model}
-            onChange={(e) => setChatModel(e.target.value)}
+            onChange={setChatModel}
             className="text-[11px] text-zinc-500 bg-transparent border-none p-0 -ml-0.5 focus:outline-none focus:ring-0 cursor-pointer hover:text-zinc-900"
-          >
-            {Object.entries(BUILT_IN_MODELS.models).map(([id, m]) => (
-              <option key={id} value={id}>
-                {m.name ?? id}
-              </option>
-            ))}
-          </select>
+          />
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -169,7 +178,7 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
 
       <div ref={scrollRef} className="flex-1 overflow-auto p-3 space-y-3 text-sm">
         {messages.length === 0 && !busy && (
-          <EmptyHint hasKey={!!apiKey} onOpenSettings={onOpenSettings} />
+          <EmptyHint hasKey={!!apiKey} endpoint={dispatch.endpoint} onOpenSettings={onOpenSettings} />
         )}
         {messages.map((m, i) => (
           <MessageView key={i} m={m} />
@@ -209,17 +218,29 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
   );
 }
 
+function providerLabel(endpoint: ReturnType<typeof resolveDispatch>["endpoint"]): string {
+  switch (endpoint) {
+    case "google": return "Google";
+    case "openai": return "OpenAI";
+    case "openrouter": return "OpenRouter";
+    case "openai-compatible": return "OpenAI-compatible";
+    default: return "provider";
+  }
+}
+
 function EmptyHint({
   hasKey,
+  endpoint,
   onOpenSettings,
 }: {
   hasKey: boolean;
+  endpoint: ReturnType<typeof resolveDispatch>["endpoint"];
   onOpenSettings: () => void;
 }) {
   if (!hasKey) {
     return (
       <div className="text-xs text-zinc-500">
-        Set up chat by adding a Google API key in{" "}
+        Set up chat by adding a {providerLabel(endpoint)} API key in{" "}
         <button
           onClick={onOpenSettings}
           className="underline hover:text-zinc-900"

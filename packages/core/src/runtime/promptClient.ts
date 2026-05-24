@@ -1,5 +1,5 @@
 import { chat, DEFAULT_PROVIDER } from "@ux4/core/llm/dispatch";
-import type { ChatMessage, ChatUsage } from "@ux4/core/llm/types";
+import type { ChatMessage, ChatUsage, ProviderId } from "@ux4/core/llm/types";
 import type { TranscriptTurn } from "@ux4/core/runtime/transcript";
 
 export interface PromptTurnResponse {
@@ -13,14 +13,22 @@ export async function sendPromptTurn(args: {
   userText: string;
   apiKey: string;
   model: string;
+  provider?: ProviderId;
+  baseUrl?: string;
 }): Promise<PromptTurnResponse> {
   const messages: ChatMessage[] = args.history.map(toChatMessage);
   messages.push({ role: "user", content: args.userText });
-  const res = await chat(DEFAULT_PROVIDER, args.apiKey, args.model, {
-    systemPrompt: args.systemPrompt,
-    messages,
-    tools: [],
-  });
+  const res = await chat(
+    args.provider ?? DEFAULT_PROVIDER,
+    args.apiKey,
+    args.model,
+    {
+      systemPrompt: args.systemPrompt,
+      messages,
+      tools: [],
+    },
+    { baseUrl: args.baseUrl },
+  );
   return { text: res.text, usage: res.usage };
 }
 
