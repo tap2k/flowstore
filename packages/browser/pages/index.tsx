@@ -110,10 +110,11 @@ export default function Home() {
               {apiKey && !chatOpen && (
                 <button
                   onClick={() => setChatOpen(true)}
-                  className="flex items-center gap-1.5 rounded-full bg-white border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
+                  title="AI authoring — describe a spec change in natural language"
+                  aria-label="AI authoring"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-white shadow-md hover:bg-zinc-700"
                 >
-                  <ChatIcon />
-                  Chat
+                  <SparklesIcon />
                 </button>
               )}
             </div>
@@ -143,10 +144,12 @@ export default function Home() {
   );
 }
 
-function ChatIcon() {
+function SparklesIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z" />
+      <path d="M19 14l.75 2.25L22 17l-2.25.75L19 20l-.75-2.25L16 17l2.25-.75z" />
+      <path d="M5 14l.5 1.5L7 16l-1.5.5L5 18l-.5-1.5L3 16l1.5-.5z" />
     </svg>
   );
 }
