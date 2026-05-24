@@ -1,6 +1,6 @@
 # UX4 MVP Plan
 
-The organizing vision and staged operational plan for UX4. For the data-model contract see [SCHEMA.md](./SCHEMA.md); for the on-disk layout see [FILE-MODEL.md](./FILE-MODEL.md); for architectural rationale see [AGENTS.md](./AGENTS.md); for the translation/fidelity experiment that gates runner-based testing see [TRANSLATION-POC.md](./TRANSLATION-POC.md); for the systems view of the client-materials → spec → tests → targets loop and what would be required to make it self-optimizing see [docs/optimization-loop.md](./docs/optimization-loop.md).
+The organizing vision and staged operational plan for UX4. For the data-model contract see [SCHEMA.md](./SCHEMA.md); for the on-disk layout see [FILE-MODEL.md](./FILE-MODEL.md); for architectural rationale see [AGENTS.md](./AGENTS.md); for the translation/fidelity experiment that gates runner-based testing see [TRANSLATION-POC.md](./TRANSLATION-POC.md); for the systems view of the client-materials → spec → tests → targets loop and what would be required to make it self-optimizing see [docs/optimization-loop.md](./docs/optimization-loop.md); for the Phase 2 plan that makes test results rich enough to drive iteration (run manifests, `final_variables` assertions, rubric-driven judge evaluators) see [EVALUATION-SURFACE-PLAN.md](./EVALUATION-SURFACE-PLAN.md).
 
 ---
 
@@ -127,6 +127,7 @@ The Python `uxflows-runner` is outside MVP's testing path — Awaaz runs it for 
 - Test cases / rubrics carry optional `model` field for per-file model pinning (reproducibility of regression tests; impartial judge model). Resolution chain: per-call CLI → env var → per-file `model` → `models.roles.<role>` → `models.default` → built-in.
 - Capability mocks paired with capabilities via filename prefix (`capabilities/<id>.<variant>.mock.json`). Project-level; reused across agents.
 - Comments: per-uuid files (`comments/<uuid>.comment.json`); additive, conflict-free. Anchor = `{ kind, agent_id?, id }`.
+- **Result schema (`UX4://result/v0`) is producer/consumer contract — additive-by-default.** Lives in `@ux4/core/src/schema/files/` alongside the input schemas (test-case, persona, rubric, mock). Strict on the load-bearing fields (`$schema`, `test_case_id`, `timestamp`, `transcript`); `additionalProperties: true` at top level so custom harnesses can add fields (`latency_ms`, `token_counts`, runner-only `flow_trace`, judge-only `judge_model`, etc.) without forking the schema. **Asymmetry vs input schemas is intentional**: inputs are sealed contracts, outputs are extensible records. The well-known fields are what the editor's result viewer renders; everything else rides along but isn't surfaced. Same posture as syslog vs request schema, or OpenTelemetry attributes vs span name. Well-known optional fields the editor surfaces: `agent_id`, `model`, `prompt_source` (pivot field), `capability_calls[]`, `final_variables{}`, `evaluator_results[]` (with `name` + either `passed` or `score` + free-form `notes`), `trials[]` (multi-trial mirror of top-level fields), `error`.
 
 **B. SimulatePanel extended (unified browser run surface):**
 
