@@ -112,7 +112,8 @@ A scripted set of user turns + which mocks to use + which evaluators to run.
   },
   "evaluators": ["forbidden_phrases", "empathy_for_payment_failure"],
   "persona_id": null,
-  "model": "claude-sonnet-4-5"
+  "model": "claude-sonnet-4-5",
+  "language": "en-US"
 }
 ```
 
@@ -123,6 +124,7 @@ Fields:
 - **`evaluators`** — names. Each resolves either to `tests/evaluators/<name>.py` (deterministic Python) or `tests/rubrics/<name>.rubric.json` (LLM-judge). UX4 ships neither yet — you can write your own evaluator framework or skip this for v0 and just write notes into `result.evaluator_results[]`.
 - **`persona_id`** — optional. If present, your script loads `tests/personas/<id>.persona.json` and uses its `system_prompt` as the user-side system prompt for LLM-as-user runs (instead of the scripted `user_turns` — your choice of mode).
 - **`model`** — optional. Pins this case to a specific model. Resolution chain in [FILE-MODEL.md § Model selection](../FILE-MODEL.md#models-and-providers).
+- **`language`** — language code (e.g. `"ES"`, `"EN"`). Forwarded to `ux4-compile --language` (prompt path) and the runner's session `language` field (graph path). **Required when the spec's `meta.languages` declares more than one language** — otherwise compile silently picks the first declared language and assertions in the other language silently fail. Your script should fail loud in this case rather than guess. Single-language specs ignore the field.
 
 The file's `id` must match the basename (`happy-path-large-coffee.test.json` → `id: "happy-path-large-coffee"`).
 

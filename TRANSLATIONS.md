@@ -8,6 +8,8 @@ For the schema these reference, see [SCHEMA.md](./SCHEMA.md). The strategic ques
 
 Targets fall into three structural classes. The **generic config bundle** emits a portable artifact (composed system prompt + JSON tool schemas + behavioral sidecar) consumable by any LLM agent platform that accepts prompt + tool definitions; lossy by design but covers a long tail of platforms at near-zero translator cost. **Graph-native runtimes** (Pipecat, LangGraph, Dialogflow CX) translate UX4 flows directly to nodes and exit_paths to edges; the spec's structure is preserved and enforced at runtime. **Instruction-and-tool runtimes** (LiveKit, OpenAI Agents SDK) emit framework-specific code that composes the entire spec into a single agent's instructions; flow boundaries become prose ordering and exit-path conditions become routing guidance. All three work; the choice affects how much of UX4's authored structure survives as enforced runtime structure versus prose hints. Author for behavioral seams; accept that not all targets enforce them equivalently.
 
+**Shared caveat across graph-native targets (chatty boundaries).** The graph-native shape commits to one LLM call per turn at a flow boundary — the source flow speaks its transition reply, then control hands to the destination. This matches what graph runtimes (Pipecat `FlowManager`, LangGraph `Command(goto=...)`, the uxflows-runner) actually express. It diverges from the monolithic system-prompt path, where one LLM call sees every flow and can author both the source's hand-off and the destination's opener in one go. The divergence is invisible when destination flows have substantive multi-turn content (FNOL-shaped), and silently drops the destination's voice when a destination is **terminator-shaped** — a closer / confirmation flow whose script *is* the meaningful content of the transition turn (Tala-shaped close flows: `commit_to_pay_close`, `partial_commitment_close`, etc.). Full diagnosis and the recommended scoped-follow-up fix (heuristic: destination has scripts AND no LLM-method exit conditions → fire one extra LLM call against the destination's prompt) lives in [`uxflows-runner/RUNNER-PLAN.md` § Chatty-boundary follow-up](../uxflows-runner/RUNNER-PLAN.md#chatty-boundary-follow-up-open). The fix is structural at the IR level and ports to all graph-native targets; export work that lands before the fix needs to either inherit the gap or carry the follow-up logic locally.
+
 Outside the translation taxonomy entirely, **native consumption** interprets the spec directly without translating to a third-party framework. The flow executor is small (flow state machine, three-method dispatcher for conditions/captures, capability dispatcher, interrupt scheduler, guardrail evaluator) and preserves authored intent verbatim: stable IDs, multilingual scripts, eval metadata, and flow-graph structure all flow through to runtime and observability without round-tripping through generated code. The uxflows-runner is the canonical native consumer for production execution; the UX4 browser ships a TypeScript port of the same executor for single-test iteration. The same native-consumption shape works for production runtimes, especially text-first agents. For voice, the cost calculus shifts — voice infrastructure (barge-in, VAD, telephony) is most of the work, and Pipecat-as-pipeline or LiveKit transport remain reasonable dependencies even when flow logic stays native.
 
 ### Generic Config Bundle
@@ -60,6 +62,8 @@ Behavioral spec fields (guardrails, personas) do not appear in Pipecat output �
 
 The export process validates the flow graph before generating Pipecat JSON. Calculation conditions must use the defined expression syntax. Variable references must resolve. Variable names must be lowercase with underscores.
 
+Inherits the chatty-boundary gap described in the [intro caveat](#export-targets) — `FlowManager` transitions speak the source flow's reply but don't author the destination's opener in the same turn. Specs with terminator-shaped close flows need the scoped-follow-up fix in the translator or in an export-time sidecar.
+
 ### LiveKit
 
 LiveKit uses an instruction-and-tool architecture. The entire agent spec generates a single LiveKit agent with comprehensive instructions and `FunctionTool` definitions. The translation is compositional. No LiveKit-specific hints field is needed in the schema.
@@ -109,6 +113,8 @@ LangGraph uses a graph-based execution model architecturally closest to UX4's fl
 | guardrails | Node-level validation logic |
 
 Variable type declarations are especially important for LangGraph. Untyped variables default to string in the generated state schema.
+
+Inherits the chatty-boundary gap described in the [intro caveat](#export-targets) — `Command(goto=...)` transitions don't fire the destination node's LLM call on the same turn, so terminator-shaped destinations stay silent. Validated on FNOL because FNOL's flow boundaries are non-chatty; Tala-shaped specs would expose it. The scoped-follow-up fix wraps cleanly with the existing `@task`-decorated `_llm_call` wrapper (see [TRANSLATION-POC.md § F3](./TRANSLATION-POC.md)).
 
 ### Dialogflow CX / Vertex AI Conversational Agents
 
