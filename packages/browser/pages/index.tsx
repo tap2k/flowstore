@@ -104,7 +104,7 @@ export default function Home() {
                   className="flex items-center gap-1.5 rounded-full bg-white border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
                 >
                   <SimulateIcon />
-                  Simulate
+                  Run
                 </button>
               )}
               {apiKey && !chatOpen && (
