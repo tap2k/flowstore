@@ -110,7 +110,7 @@ export default function Home() {
               {apiKey && !chatOpen && (
                 <button
                   onClick={() => setChatOpen(true)}
-                  className="flex items-center gap-1.5 rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white shadow-md hover:bg-zinc-700"
+                  className="flex items-center gap-1.5 rounded-full bg-white border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
                 >
                   <ChatIcon />
                   Chat
