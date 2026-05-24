@@ -91,7 +91,7 @@ export function CommentsSection({ anchor }: CommentsSectionProps) {
           disabled={posting}
           className="w-full resize-y rounded border border-zinc-300 p-2 text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
         />
-        {error && <p className="text-[11px] text-rose-700">{error}</p>}
+        {error && <p className="text-[11px] text-red-700">{error}</p>}
         <div className="flex justify-end">
           <button
             type="button"

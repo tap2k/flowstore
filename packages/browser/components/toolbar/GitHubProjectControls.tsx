@@ -214,9 +214,9 @@ export function GitHubProjectControls() {
       </button>
 
       {error && (
-        <div className="absolute top-full right-6 mt-2 z-30 rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-800 shadow-md">
+        <div className="absolute top-full right-6 mt-2 z-30 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-800 shadow-md">
           {error}
-          <button onClick={() => setError(null)} className="ml-2 text-rose-600 hover:text-rose-900">
+          <button onClick={() => setError(null)} className="ml-2 text-red-600 hover:text-red-900">
             dismiss
           </button>
         </div>
@@ -282,7 +282,7 @@ function ConflictModal({ remoteSha, onCancel, onRefreshFirst, onSaveAnyway }: Co
           </button>
           <button
             onClick={onSaveAnyway}
-            className="rounded-md border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-800 hover:bg-rose-100"
+            className="rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-800 hover:bg-red-100"
           >
             Save anyway
           </button>
@@ -332,7 +332,7 @@ function NewBranchModal({ baseBranch, saving, onCancel, onSubmit }: NewBranchMod
           className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400"
         />
         {!valid && name && (
-          <p className="mt-1 text-[11px] text-rose-700">
+          <p className="mt-1 text-[11px] text-red-700">
             Use letters, numbers, dot, dash, underscore, or slash. No leading/trailing slash.
           </p>
         )}

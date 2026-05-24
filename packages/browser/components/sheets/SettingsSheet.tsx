@@ -160,7 +160,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           </p>
         )}
         {ghStatus.kind === "err" && (
-          <p className="text-[11px] text-rose-700">{ghStatus.message}</p>
+          <p className="text-[11px] text-red-700">{ghStatus.message}</p>
         )}
         <p className="text-[11px] text-zinc-500">
           Fine-grained PAT with Contents: Read &amp; write on the repos you want

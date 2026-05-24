@@ -225,7 +225,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
           )}
         </div>
         {error && (
-          <div className="rounded border border-rose-200 bg-rose-50 px-2 py-1.5 text-xs text-rose-800">
+          <div className="rounded border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
             {error}
           </div>
         )}
