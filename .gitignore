@@ -57,7 +57,7 @@ env/
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Example test-run outputs. This is the uxflows source repo, not a
+# Example test-run outputs. This is the flowstore source repo, not a
 # customer's per-agent repo where results accrue — any reference result
 # we intentionally ship lives here only via explicit `git add -f`.
 examples/*/tests/runs/

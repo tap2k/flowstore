@@ -1,5 +1,5 @@
 """
-Worked example: drive a UX4 spec through a test case with the Gemini API.
+Worked example: drive a flowstore spec through a test case with the Gemini API.
 
 This is one shape, not THE shape. Adapt for your provider, evaluator
 framework, and result-handling needs.
@@ -8,7 +8,7 @@ Usage:
   cd examples/coffee-testing
   python scripts/run.py tests/cases/happy-path-latte.test.json
 
-  # Compare a hand-authored prompt against the UX4-compiled one,
+  # Compare a hand-authored prompt against the flowstore-compiled one,
   # against the same test case and tool schemas:
   python scripts/run.py tests/cases/happy-path-latte.test.json \
     --system-prompt /path/to/your-prompt.txt \
@@ -17,7 +17,7 @@ Usage:
 Requirements:
   GOOGLE_API_KEY (or GEMINI_API_KEY) env var
   pip install -r scripts/requirements.txt
-  uxflows checked out at ../../  (so we can shell out to ux4-compile)
+  flowstore checked out at ../../  (so we can shell out to flowstore-compile)
 
 Contract:
   Reads:  tests/cases/<id>.test.json, capabilities/<id>.<variant>.mock.json
@@ -43,7 +43,7 @@ from typing import Any
 
 # ----- inputs -----
 
-parser = argparse.ArgumentParser(description="Drive a UX4 test case through the Gemini API.")
+parser = argparse.ArgumentParser(description="Drive a flowstore test case through the Gemini API.")
 parser.add_argument("case", help="Path to a tests/cases/<id>.test.json file")
 parser.add_argument(
     "--system-prompt",
@@ -56,13 +56,13 @@ parser.add_argument(
     "--label",
     default="manual",
     help="Sub-directory tag under tests/runs/ (default: 'manual'). "
-         "Useful for tagging comparison runs: --label ux4 vs --label handauth.",
+         "Useful for tagging comparison runs: --label flowstore vs --label handauth.",
 )
 args = parser.parse_args()
 
 CASE_PATH = Path(args.case).resolve()
 PROJECT = CASE_PATH.parents[2]  # tests/cases/<file>.json -> project root
-UXFLOWS_REPO = (PROJECT / ".." / "..").resolve()  # examples/coffee-testing -> uxflows
+FLOWSTORE_REPO = (PROJECT / ".." / "..").resolve()  # examples/coffee-testing -> flowstore
 
 if not CASE_PATH.exists():
     sys.exit(f"test case not found: {CASE_PATH}")
@@ -78,14 +78,14 @@ from google.genai import types  # noqa: E402
 
 # ----- 1. compile the spec into {system_prompt, tool_schemas} -----
 
-# In a customer's repo this would invoke a published @ux4/cli; today we
+# In a customer's repo this would invoke a published @flowstore/cli; today we
 # shell out to the local workspace. Either way, the output is the contract.
 proc = subprocess.run(
     [
-        "npm", "-w", "@ux4/core", "run", "--silent", "ux4-compile", "--",
+        "npm", "-w", "@flowstore/core", "run", "--silent", "flowstore-compile", "--",
         str(PROJECT), "--format", "prompt",
     ],
-    cwd=UXFLOWS_REPO,
+    cwd=FLOWSTORE_REPO,
     capture_output=True,
     text=True,
     check=True,
@@ -93,7 +93,7 @@ proc = subprocess.run(
 compiled = json.loads(proc.stdout)
 tool_schemas: list[dict[str, Any]] = compiled["tool_schemas"]
 
-# Either use the UX4-compiled prompt (default) or a hand-authored override.
+# Either use the flowstore-compiled prompt (default) or a hand-authored override.
 # Tool schemas always come from the spec — that's how comparison runs stay
 # apples-to-apples.
 if args.system_prompt is not None:
@@ -102,7 +102,7 @@ else:
     system_prompt: str = compiled["system_prompt"]
 
 # Gemini's FunctionDeclaration takes `parameters` directly — same field name
-# `ux4-compile` emits, no rename needed (unlike Anthropic's input_schema).
+# `flowstore-compile` emits, no rename needed (unlike Anthropic's input_schema).
 # Strip "additionalProperties" because the Gemini schema validator rejects it.
 def _gemini_clean(schema: dict[str, Any]) -> dict[str, Any]:
     out = {k: v for k, v in schema.items() if k != "additionalProperties"}
@@ -264,11 +264,11 @@ run_dir = PROJECT / "tests" / "runs" / f"{now.strftime('%Y%m%dT%H%M%SZ')}-{args.
 run_dir.mkdir(parents=True, exist_ok=True)
 
 prompt_source = (
-    str(args.system_prompt) if args.system_prompt is not None else "ux4-compile"
+    str(args.system_prompt) if args.system_prompt is not None else "flowstore-compile"
 )
 
 result: dict[str, Any] = {
-    "$schema": "UX4://result/v0",
+    "$schema": "flowstore://result/v0",
     "test_case_id": case["id"],
     "timestamp": now.isoformat(),
     "agent_id": "agent_bluebird_coffee",
