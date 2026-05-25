@@ -1,18 +1,18 @@
 import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 import { Octokit } from "@octokit/rest";
-import { decomposeSpec } from "@uxflows/core/files";
-import { writeFileMapToRepo } from "@uxflows/core/files/github";
-import type { Spec } from "@uxflows/core/schema/v0";
+import { decomposeSpec } from "@flowstore/core/files";
+import { writeFileMapToRepo } from "@flowstore/core/files/github";
+import type { Spec } from "@flowstore/core/schema/v0";
 
-// Initialize a uxflows project in a real GitHub repo by decomposing a single-file
+// Initialize a flowstore project in a real GitHub repo by decomposing a single-file
 // spec and committing it to the named branch (default: main). Uses base_tree
 // to inherit anything already in the branch (README, supplementary docs).
 // One commit, atomic. Idempotent in spirit — re-running re-writes the same
-// canonical files; old uxflows content not in the new spec is NOT cleaned up
+// canonical files; old flowstore content not in the new spec is NOT cleaned up
 // (treat the target as a smoke / fresh repo).
 //
-//   GH_TOKEN=ghp_xxx GH_REPO=owner/name GH_SPEC=path/to/spec.json npm -w @uxflows/core run github-init
+//   GH_TOKEN=ghp_xxx GH_REPO=owner/name GH_SPEC=path/to/spec.json npm -w @flowstore/core run github-init
 //
 // Optional: GH_BRANCH (default: main)
 
@@ -34,7 +34,7 @@ const branch = process.env.GH_BRANCH ?? "main";
 const source = JSON.parse(readFileSync(specPath, "utf8")) as Spec;
 const fileMap = decomposeSpec(source);
 const client = new Octokit({ auth: token });
-const message = `Initialize uxflows project from ${basename(specPath)}`;
+const message = `Initialize flowstore project from ${basename(specPath)}`;
 
 writeFileMapToRepo({ client, owner, repo, ref: branch }, fileMap, message)
   .then((res) => {

@@ -1,6 +1,6 @@
 # Test-driven prompt engineering
 
-Audience: anyone authoring or iterating on a uxflows agent — designers, prompt authors, engineers. This doc is the methodology for *using* the testing harness as a development loop. For the harness mechanics (file shapes, runner CLI, mock dispatch) see [testing-from-scripts.md](testing-from-scripts.md).
+Audience: anyone authoring or iterating on a flowstore agent — designers, prompt authors, engineers. This doc is the methodology for *using* the testing harness as a development loop. For the harness mechanics (file shapes, runner CLI, mock dispatch) see [testing-from-scripts.md](testing-from-scripts.md).
 
 The shorter version: **write the conversations you want before the prompt that produces them, then iterate the spec / generator / runtime until the harness goes green.** The full version is below.
 
@@ -56,11 +56,11 @@ Five phases, each with a concrete artifact. The phases below are the order you d
 
 ### Phase 1 — gold transcripts
 
-A **gold** is a verbatim example conversation. It is *not* a rule about what the agent should do (that's the spec); it's a captured trajectory through whatever rules apply. Stored as `tests/gold/<id>.gold.json` matching `uxflows://gold/v0`.
+A **gold** is a verbatim example conversation. It is *not* a rule about what the agent should do (that's the spec); it's a captured trajectory through whatever rules apply. Stored as `tests/gold/<id>.gold.json` matching `flowstore://gold/v0`.
 
 ```json
 {
-  "$schema": "uxflows://gold/v0",
+  "$schema": "flowstore://gold/v0",
   "id": "happy_path_basic",
   "name": "Basic happy path",
   "scenario": "BAU borrower confirms identity, names a reason, commits to pay today.",
@@ -79,7 +79,7 @@ Three sources of golds, in order of preference:
 2. **Production call recordings or QA-tagged transcripts.** Higher signal than synthetic, because real users surface phrasings you wouldn't invent. Privacy considerations apply.
 3. **Hand-authored synthetic golds.** Acceptable for bootstrapping a new agent before customer data exists, but author them *thinking like an adversary*: every gold should target one routing decision, one guardrail, or one edge case you suspect will misfire.
 
-**Extracting golds from existing materials.** [`GOLD-EXTRACTION-PROMPT.txt`](../prompts/GOLD-EXTRACTION-PROMPT.txt) in the [`prompts/`](../prompts/) directory is a prompt you feed to an LLM along with the customer's source docs. It emits a `uxflows://gold-collection/v0` JSON containing one gold per example conversation in the source. NO HALLUCINATION discipline: if the source has no example conversations, output is empty — that's the answer to "what do we need from the customer?" Run with whichever LLM you prefer (Sonnet handles docx + xlsx well; Gemini Flash for cheaper extraction at scale).
+**Extracting golds from existing materials.** [`GOLD-EXTRACTION-PROMPT.txt`](../prompts/GOLD-EXTRACTION-PROMPT.txt) in the [`prompts/`](../prompts/) directory is a prompt you feed to an LLM along with the customer's source docs. It emits a `flowstore://gold-collection/v0` JSON containing one gold per example conversation in the source. NO HALLUCINATION discipline: if the source has no example conversations, output is empty — that's the answer to "what do we need from the customer?" Run with whichever LLM you prefer (Sonnet handles docx + xlsx well; Gemini Flash for cheaper extraction at scale).
 
 ```bash
 # Sketch — adapt to your tooling
@@ -89,11 +89,11 @@ cat prompts/GOLD-EXTRACTION-PROMPT.txt customer-source.txt | \
 
 ### Phase 2 — derive test cases from golds
 
-A gold is the source of truth; a **test case** is the executable extraction. The case carries the user side of the gold's turns plus assertions over what the agent must (or must not) say in response. Stored as `tests/cases/<id>.test.json` matching `uxflows://test-case/v0`.
+A gold is the source of truth; a **test case** is the executable extraction. The case carries the user side of the gold's turns plus assertions over what the agent must (or must not) say in response. Stored as `tests/cases/<id>.test.json` matching `flowstore://test-case/v0`.
 
 ```json
 {
-  "$schema": "uxflows://test-case/v0",
+  "$schema": "flowstore://test-case/v0",
   "id": "happy-within-grace",
   "user_turns": [
     "Hola, bien gracias",
@@ -116,7 +116,7 @@ The case is what `run.py` executes. The gold is what reviewers compare against t
 ### Phase 3 — compile the spec to a prompt
 
 ```bash
-npm -w @uxflows/core run --silent uxflows-compile -- examples/<project> --format prompt \
+npm -w @flowstore/core run --silent flowstore-compile -- examples/<project> --format prompt \
   --vars-file examples/<project>/tests/vars.bau.json
 ```
 
@@ -135,9 +135,9 @@ This step is the layer you'll iterate on most often once the cases exist. Three 
 python examples/<project>/scripts/run.py \
   examples/<project>/tests/cases/happy-within-grace.test.json \
   --vars-file examples/<project>/tests/vars.bau.json \
-  --trials 3 --label uxflows
+  --trials 3 --label flowstore
 
-# Same case, hand-authored prompt — for A/B against the uxflows-compiled version
+# Same case, hand-authored prompt — for A/B against the flowstore-compiled version
 python examples/<project>/scripts/run.py \
   examples/<project>/tests/cases/happy-within-grace.test.json \
   --vars-file examples/<project>/tests/vars.bau.json \
@@ -219,11 +219,11 @@ Each step is more expensive than the last (in both engineering time and blast ra
 
 The harness supports running the same test case against two different system prompts with everything else held constant (tool schemas, user turns, mocks, model). Three apples-to-apples comparisons worth running:
 
-1. **uxflows-compiled vs hand-authored** — the migration check. Are we losing behavior the source prompt had? Are we *gaining* behavior (e.g. guardrail compliance the source missed)?
+1. **flowstore-compiled vs hand-authored** — the migration check. Are we losing behavior the source prompt had? Are we *gaining* behavior (e.g. guardrail compliance the source missed)?
 
-2. **uxflows-compiled vs uxflows-compiled, generator-improved** — the regression check. Does the generator change improve targeted cases without regressing others?
+2. **flowstore-compiled vs flowstore-compiled, generator-improved** — the regression check. Does the generator change improve targeted cases without regressing others?
 
-3. **uxflows-compiled vs uxflows with `agent.system_prompt_template`** — the designer-wrapper check. Does adding the customer's preferred persona framing on top of the deterministic body break anything?
+3. **flowstore-compiled vs flowstore with `agent.system_prompt_template`** — the designer-wrapper check. Does adding the customer's preferred persona framing on top of the deterministic body break anything?
 
 All three are runnable today with `--system-prompt` (for hand-authored) and `--system-prompt-extras` (for placeholder dialects). Pair runs via `--label` and diff the result-dir contents.
 
@@ -239,7 +239,7 @@ All three are runnable today with `--system-prompt` (for hand-authored) and `--s
 
 **Single-trial CI.** Cheaper but useless. A green single-trial run is just one roll of a die.
 
-**Ignoring the diff between ground-truth and uxflows because "both passed."** Two prompts that both pass the assertion can differ in important non-asserted ways (one wraps every reply in a verification block, one doesn't; one paraphrases scripts, one quotes them). The transcripts are worth a read even on green.
+**Ignoring the diff between ground-truth and flowstore because "both passed."** Two prompts that both pass the assertion can differ in important non-asserted ways (one wraps every reply in a verification block, one doesn't; one paraphrases scripts, one quotes them). The transcripts are worth a read even on green.
 
 **Mixing fixture changes with logic changes in one diff.** If you change `vars.bau.json` and the prompt generator in the same commit, you can't tell which change moved which cell. Keep them separate.
 
@@ -253,7 +253,7 @@ Things that aren't built yet but the loop needs to mature past v1. See [optimiza
 
 - **Multi-trial aggregation in `result.json`.** Per-case results have `trials[]` today but suite-level aggregation lives only in stdout. A `manifest.json` per run-dir would let the editor pivot on suite-level pass rates over time.
 
-- **Endpoint mode.** Run the harness against a deployed agent endpoint instead of (or alongside) the prompt-driven model, then diff. Lets you grade three things in parallel: production agent, uxflows-compiled prompt, hand-authored prompt.
+- **Endpoint mode.** Run the harness against a deployed agent endpoint instead of (or alongside) the prompt-driven model, then diff. Lets you grade three things in parallel: production agent, flowstore-compiled prompt, hand-authored prompt.
 
 - **Routing observability without test scaffolding.** Today we infer routing from transcript content. For specs without distinctive per-flow utterances, this is brittle. Options: synthetic `mark_flow_entered(flow_id)` capability, LLM-judge routing inference, or runtime instrumentation in the runner that exposes flow-state mid-conversation.
 

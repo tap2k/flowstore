@@ -1,14 +1,14 @@
-import type { Spec } from "@uxflows/core/schema/v0";
+import type { Spec } from "@flowstore/core/schema/v0";
 
 // A minimal valid spec for a brand-new project. The user picks a repo with
-// no uxflows content; init writes this. Single welcome flow with one END exit so
+// no flowstore content; init writes this. Single welcome flow with one END exit so
 // the spec is structurally complete and the canvas has something to render.
 // Designer fills in everything else.
 export function scaffoldNewProject(opts: { name: string; id?: string }): Spec {
   const id = opts.id ?? `agent_${slug(opts.name)}`;
   return {
     agent: {
-      $schema: "uxflows://agent/v0",
+      $schema: "flowstore://agent/v0",
       id,
       meta: {
         name: opts.name,
@@ -20,7 +20,7 @@ export function scaffoldNewProject(opts: { name: string; id?: string }): Spec {
     },
     flows: [
       {
-        $schema: "uxflows://flow/v0",
+        $schema: "flowstore://flow/v0",
         id: "welcome",
         name: "Welcome",
         type: "happy",

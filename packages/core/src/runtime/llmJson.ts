@@ -1,4 +1,4 @@
-import type { Spec } from "@uxflows/core/schema/v0";
+import type { Spec } from "@flowstore/core/schema/v0";
 
 export function agentContextPreamble(spec: Spec): string[] {
   const lines = [`Agent purpose: ${spec.agent.meta.purpose || "(not specified)"}`];

@@ -1,6 +1,6 @@
 import { useSpecStore } from "@/lib/store/spec";
-import type { ExitPath, AssignValue, Method } from "@uxflows/core/schema/v0";
-import { GOTO_END, GOTO_RETURN, isReturnGoto } from "@uxflows/core/schema/v0";
+import type { ExitPath, AssignValue, Method } from "@flowstore/core/schema/v0";
+import { GOTO_END, GOTO_RETURN, isReturnGoto } from "@flowstore/core/schema/v0";
 import { ListEditor } from "./ListEditor";
 import { ConditionEditor } from "./ConditionEditor";
 

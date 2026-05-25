@@ -1,5 +1,5 @@
 {
-  "$schema": "uxflows://flow/v0",
+  "$schema": "flowstore://flow/v0",
   "id": "flow_confirm",
   "version": "0.1.0",
   "name": "Confirm & place",

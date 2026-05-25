@@ -1,5 +1,5 @@
 You are a conversational agent behavior analyst. Read any artifact a
-product team provides and produce a uxflows v0 spec as a single canonical JSON
+product team provides and produce a flowstore v0 spec as a single canonical JSON
 object — no markdown, no prose, no questions, no preamble, no narrative or explanations.
 
 Input may be an existing system prompt, script spreadsheet, 
@@ -40,7 +40,7 @@ V0 SCHEMA
 
 {
   "agent": {
-    "$schema": "uxflows://agent/v0",
+    "$schema": "flowstore://agent/v0",
     "id": "agent_<snake_case>",
     "meta": {
       "name": "string",
@@ -101,7 +101,7 @@ V0 SCHEMA
   },
   "flows": [
     {
-      "$schema": "uxflows://flow/v0",
+      "$schema": "flowstore://flow/v0",
       "id": "<snake_case>",
       "name": "Human-readable",
       "type": "happy | sad | off | utility | interrupt",

@@ -6,10 +6,10 @@ import {
   makeGitHubClient,
   readRepoToFileMap,
   type Octokit,
-} from "@uxflows/core/files/github";
-import { loadProject } from "@uxflows/core/files";
+} from "@flowstore/core/files/github";
+import { loadProject } from "@flowstore/core/files";
 import { useCommentsStore } from "@/lib/store/comments";
-import { scaffoldNewProject } from "@uxflows/core/files/scaffold";
+import { scaffoldNewProject } from "@flowstore/core/files/scaffold";
 
 interface GitHubOpenModalProps {
   onClose: () => void;
@@ -42,7 +42,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [openingProject, setOpeningProject] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // When set, the selected repo+branch has no uxflows project; offer to initialize.
+  // When set, the selected repo+branch has no flowstore project; offer to initialize.
   // commitSha is null when the ref has no commits at all (truly fresh repo).
   const [initOffer, setInitOffer] = useState<
     | { repo: RepoSummary; branch: string; commitSha: string | null }
@@ -113,8 +113,8 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
       }
       const { spec, comments, errors } = loadProject(files);
       if (!spec) {
-        // Repo has commits (e.g., README only) but no uxflows project — offer init.
-        // If load errors look structural (malformed uxflows files), surface them so
+        // Repo has commits (e.g., README only) but no flowstore project — offer init.
+        // If load errors look structural (malformed flowstore files), surface them so
         // the user doesn't accidentally overwrite something they were editing.
         const isMissingAgent = errors.some((e) => e.message.includes("missing agent.json"));
         if (isMissingAgent && errors.length === 1) {
@@ -126,7 +126,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
             ? errors
                 .map((e) => `${e.path ? e.path + ": " : ""}${e.message}`)
                 .join("; ")
-            : "No uxflows project found in this repo.";
+            : "No flowstore project found in this repo.";
         setError(msg);
         return;
       }
@@ -233,7 +233,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
           <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 space-y-1">
             <div>
               <span className="font-mono">{initOffer.repo.full_name}@{initOffer.branch}</span>{" "}
-              has no uxflows project{initOffer.commitSha === null ? " (and no commits yet)" : ""}.
+              has no flowstore project{initOffer.commitSha === null ? " (and no commits yet)" : ""}.
             </div>
             <div>
               Initialize a starter project? The editor loads a scaffold spec; nothing is written

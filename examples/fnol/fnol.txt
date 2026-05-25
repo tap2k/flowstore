@@ -285,8 +285,8 @@ Business goals (agent-level, for evaluation):
 
 Notes on schema fit (read this before running):
 - This spec depends on the runner binding capability outputs to variable scope
-  on exit-action fire — see [uxflows-runner/RUNNER-PLAN.md → Capability outputs
-  bind to variable scope](../../uxflows-runner/RUNNER-PLAN.md#capability-outputs-bind-to-variable-scope-shipped-2026-05-18)
+  on exit-action fire — see [flowstore-runner/RUNNER-PLAN.md → Capability outputs
+  bind to variable scope](../../flowstore-runner/RUNNER-PLAN.md#capability-outputs-bind-to-variable-scope-shipped-2026-05-18)
   for the decision rationale. Two capabilities depend on it:
     - 'verify_policy' outputs drive IDENTIFY's calculation routing into either
       INCIDENT_DETAILS or POLICY_NOT_FOUND.

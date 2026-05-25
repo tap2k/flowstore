@@ -1,6 +1,6 @@
-import type { FaqEntry, GlossaryEntry, TableEntry } from "@uxflows/core/schema/v0";
-import { buildLocalized, defaultLanguage } from "@uxflows/core/schema/v0";
-import { genId } from "@uxflows/core/ids";
+import type { FaqEntry, GlossaryEntry, TableEntry } from "@flowstore/core/schema/v0";
+import { buildLocalized, defaultLanguage } from "@flowstore/core/schema/v0";
+import { genId } from "@flowstore/core/ids";
 import { csvSerialize, parseCsv } from "./csv";
 
 // CSV round-trips for the three Knowledge shapes.

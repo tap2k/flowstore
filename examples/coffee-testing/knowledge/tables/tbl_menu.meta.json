@@ -1,5 +1,5 @@
 {
-  "$schema": "uxflows://knowledge-table/v0",
+  "$schema": "flowstore://knowledge-table/v0",
   "id": "tbl_menu",
   "name": "Drink menu",
   "purpose": "Catalog of drink styles available, used by the order flows to validate patron requests and quote prices.",

@@ -1,14 +1,14 @@
 import { useMemo, useState } from "react";
-import type { Spec, VariableDecl } from "@uxflows/core/schema/v0";
+import type { Spec, VariableDecl } from "@flowstore/core/schema/v0";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useSpecStore } from "@/lib/store/spec";
 import {
   collectDeclaredVariables,
   unfilledPlaceholders,
   type DeclaredVariable,
-} from "@uxflows/core/runtime/contextVars";
-import { generateContextVars } from "@uxflows/core/runtime/contextVarsGen";
-import { BUILT_IN_MODELS } from "@uxflows/core/files/models";
+} from "@flowstore/core/runtime/contextVars";
+import { generateContextVars } from "@flowstore/core/runtime/contextVarsGen";
+import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
 import { useSettingsStore } from "@/lib/store/settings";
 import { CollapsibleGenerateSection } from "./CollapsibleGenerateSection";
 import { TypedValueInput } from "./TypedValueInput";

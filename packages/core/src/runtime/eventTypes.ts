@@ -1,4 +1,4 @@
-// Mirror of uxflows-runner/src/uxflows_runner/events/schema.py.
+// Mirror of flowstore-runner/src/flowstore_runner/events/schema.py.
 // Keep in sync when the runner adds/changes event types.
 
 export type EventMethod = "llm" | "calculation" | "direct" | "capability";

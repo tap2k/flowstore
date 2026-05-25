@@ -1,6 +1,6 @@
-import type { FaqEntry } from "@uxflows/core/schema/v0";
-import { resolveLocalized, setLanguage } from "@uxflows/core/schema/v0";
-import { genId } from "@uxflows/core/ids";
+import type { FaqEntry } from "@flowstore/core/schema/v0";
+import { resolveLocalized, setLanguage } from "@flowstore/core/schema/v0";
+import { genId } from "@flowstore/core/ids";
 import { ListEditor } from "./ListEditor";
 import { inputClass } from "./primitives";
 

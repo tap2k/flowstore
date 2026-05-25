@@ -1,5 +1,5 @@
 {
-  "$schema": "uxflows://flow/v0",
+  "$schema": "flowstore://flow/v0",
   "id": "int_menu",
   "version": "0.1.0",
   "name": "Interrupt — what's on the menu",

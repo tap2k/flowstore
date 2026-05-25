@@ -1,4 +1,4 @@
-import type { Flow, LocalizedString } from "@uxflows/core/schema/v0";
+import type { Flow, LocalizedString } from "@flowstore/core/schema/v0";
 
 function localizedHasContent(value: LocalizedString | undefined): boolean {
   if (value == null) return false;

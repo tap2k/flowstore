@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import type { Comment, CommentAnchor } from "@uxflows/core/schema/files/comment";
-import { anchorKey } from "@uxflows/core/schema/files/comment";
-import { indexCommentsByAnchor } from "@uxflows/core/files";
+import type { Comment, CommentAnchor } from "@flowstore/core/schema/files/comment";
+import { anchorKey } from "@flowstore/core/schema/files/comment";
+import { indexCommentsByAnchor } from "@flowstore/core/files";
 import { postComment, locationFromParts } from "@/lib/comments/client";
 import { useGithubProjectStore } from "./githubProject";
 import { useSettingsStore } from "./settings";
@@ -70,7 +70,7 @@ export const useCommentsStore = create<CommentsState>((set, get) => ({
     if (!trimmed) throw new Error("Comment body is empty.");
     const loc = getLocationOrThrow();
     const comment: Comment = {
-      $schema: "uxflows://comment/v0",
+      $schema: "flowstore://comment/v0",
       id: newCommentId(),
       anchor,
       author: currentAuthor(),

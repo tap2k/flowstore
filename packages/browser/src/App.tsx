@@ -14,7 +14,7 @@ import {
 } from "@/lib/store/persistence";
 import { loadSavedSettings, useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
-import { validateSpec } from "@uxflows/core/validation/ajv";
+import { validateSpec } from "@flowstore/core/validation/ajv";
 
 export function App() {
   const spec = useSpecStore((s) => s.spec);
@@ -47,7 +47,7 @@ export function App() {
   }, [setSpec]);
 
   useEffect(() => {
-    document.title = spec ? `uxflows — ${spec.agent.meta.name}` : "uxflows";
+    document.title = spec ? `flowstore — ${spec.agent.meta.name}` : "flowstore";
   }, [spec]);
 
   useEffect(() => {
@@ -85,7 +85,7 @@ export function App() {
         <header className="flex items-center gap-4 border-b border-zinc-200 bg-white px-6 py-3">
           <div className="flex flex-col">
             <h1 className="text-lg font-semibold text-zinc-900 leading-tight">
-              {spec ? spec.agent.meta.name : "uxflows"}
+              {spec ? spec.agent.meta.name : "flowstore"}
             </h1>
             {githubLocation && (
               <div className="text-[11px] text-zinc-500 font-mono leading-tight">

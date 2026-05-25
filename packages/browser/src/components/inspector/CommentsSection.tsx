@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useCommentsStore } from "@/lib/store/comments";
-import type { Comment, CommentAnchor } from "@uxflows/core/schema/files/comment";
-import { anchorKey } from "@uxflows/core/schema/files/comment";
+import type { Comment, CommentAnchor } from "@flowstore/core/schema/files/comment";
+import { anchorKey } from "@flowstore/core/schema/files/comment";
 
 interface CommentsSectionProps {
   anchor: CommentAnchor;

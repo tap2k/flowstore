@@ -1,4 +1,4 @@
-import type { Capability, Spec, VariableDecl } from "@uxflows/core/schema/v0";
+import type { Capability, Spec, VariableDecl } from "@flowstore/core/schema/v0";
 
 export interface MockableOutput {
   name: string;

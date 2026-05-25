@@ -1,4 +1,4 @@
-import { coerceScalarValue, type Spec, type VariableDecl } from "@uxflows/core/schema/v0";
+import { coerceScalarValue, type Spec, type VariableDecl } from "@flowstore/core/schema/v0";
 import { generateJson } from "./geminiJson";
 import { agentContextPreamble } from "./llmJson";
 import type { MockableCapability } from "./capabilityMocks";

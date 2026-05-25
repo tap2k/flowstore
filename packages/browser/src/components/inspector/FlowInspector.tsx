@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
-import type { Flow, FlowType, Guardrail, Condition } from "@uxflows/core/schema/v0";
-import { defaultLanguage } from "@uxflows/core/schema/v0";
-import { genId } from "@uxflows/core/ids";
+import type { Flow, FlowType, Guardrail, Condition } from "@flowstore/core/schema/v0";
+import { defaultLanguage } from "@flowstore/core/schema/v0";
+import { genId } from "@flowstore/core/ids";
 import { ListEditor } from "./ListEditor";
 import { FaqListEditor } from "./FaqListEditor";
 import { VariablesEditor } from "./VariablesEditor";

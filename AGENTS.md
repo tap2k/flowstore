@@ -2,29 +2,29 @@
 
 Do not write to the agent memory system for this project. If prior memories exist, ignore them. Persistent guidance, principles, and project context belong in this file (and the related docs listed below), not in per-conversation memory files. When the user tells you something worth remembering across conversations, propose adding it here instead.
 
-# uxflows
+# flowstore
 
-Visual editor for uxflows behavioral specs. A Vite-built React SPA that authors, simulates, and exports spec JSON conforming to [SCHEMA.md](./SCHEMA.md).
+Visual editor for flowstore behavioral specs. A Vite-built React SPA that authors, simulates, and exports spec JSON conforming to [SCHEMA.md](./SCHEMA.md).
 
 ## Forward direction
 
-**uxflows — a Behavioral IDE for Conversational Agents.** uxflows owns the open, Git-backed development section of the agent pipeline: visual spec authoring, Git-shaped collaboration across stakeholders, structured testing, client sharing. Runtime execution (the Python runner today; Pipecat / LangGraph / etc. post-MVP) and production monitoring (handled by the runtime's event stream and dedicated eval/observability tools like LangSmith, Cekura, Maxim) are separate concerns. uxflows may integrate with production-monitoring tools post-pilot, but those integrations are not in MVP.
+**flowstore — a Behavioral IDE for Conversational Agents.** flowstore owns the open, Git-backed development section of the agent pipeline: visual spec authoring, Git-shaped collaboration across stakeholders, structured testing, client sharing. Runtime execution (the Python runner today; Pipecat / LangGraph / etc. post-MVP) and production monitoring (handled by the runtime's event stream and dedicated eval/observability tools like LangSmith, Cekura, Maxim) are separate concerns. flowstore may integrate with production-monitoring tools post-pilot, but those integrations are not in MVP.
 
-The Phase 0 MVP (canvas-first single-file spec editor) shipped 2026-05-08. The organizing vision now is the **uxflows MVP** — GitHub-backed multi-agent projects (one client repo holds N agents like Tala's purpose × language combinations), the spec decomposed into per-concern files with project / agent / flow scope levels ([FILE-MODEL.md](./FILE-MODEL.md)), multi-provider model config, a testing surface that drives compiled system prompts via Python scripts vendored per agent, comments anchored to spec entities, and a static client share view. Target ship: November 2026 for Awaaz pilot; January 2027 for course launch. The staged plan is in [MVP-PLAN.md](./MVP-PLAN.md); read it before making architectural decisions. The rest of this document describes the current state.
+The Phase 0 MVP (canvas-first single-file spec editor) shipped 2026-05-08. The organizing vision now is the **flowstore MVP** — GitHub-backed multi-agent projects (one client repo holds N agents like Tala's purpose × language combinations), the spec decomposed into per-concern files with project / agent / flow scope levels ([FILE-MODEL.md](./FILE-MODEL.md)), multi-provider model config, a testing surface that drives compiled system prompts via Python scripts vendored per agent, comments anchored to spec entities, and a static client share view. Target ship: November 2026 for Awaaz pilot; January 2027 for course launch. The staged plan is in [MVP-PLAN.md](./MVP-PLAN.md); read it before making architectural decisions. The rest of this document describes the current state.
 
 ## Product Context
 
-uxflows is the **authoring** surface of the broader uxflows product (browser editor for specs across one or many agents per project). **Testing** happens via Python scripts vendored into each agent's Git repo by `uxflows-init-project` — Nikunj-shaped tooling that compiles the spec to a system prompt + tool schemas and drives an LLM through test cases. Sibling repos:
+flowstore is the **authoring** surface of the broader flowstore product (browser editor for specs across one or many agents per project). **Testing** happens via Python scripts vendored into each agent's Git repo by `flowstore-init-project` — Nikunj-shaped tooling that compiles the spec to a system prompt + tool schemas and drives an LLM through test cases. Sibling repos:
 
-- `uxflows/` (this repo) — visual editor + `@uxflows/core` libraries (files, schema, codegen, providers). Phase 1 splits this into `@uxflows/core` and `@uxflows/browser` workspaces.
-- [`../uxflows-runner/`](../uxflows-runner/) — Python runner; canonical production execution. Interprets the compiled spec artifact, drives voice conversations, emits an event stream. **Untouched in MVP** — testing in MVP doesn't go through the runner. See [`../uxflows-runner/RUNNER-PLAN.md`](../uxflows-runner/RUNNER-PLAN.md).
-- **Per-agent or multi-agent Git repos** (customer-owned, uxflows-scaffolded) — hold the decomposed spec(s) under `agents/<id>/` (multi-agent) or at root (single-agent), shared resources at root (capabilities, project-level guardrails, knowledge, personas, evaluators, rubrics), testing artifacts, run history, comments, and Python scripts.
+- `flowstore/` (this repo) — visual editor + `@flowstore/core` libraries (files, schema, codegen, providers). Phase 1 splits this into `@flowstore/core` and `@flowstore/browser` workspaces.
+- [`../flowstore-runner/`](../flowstore-runner/) — Python runner; canonical production execution. Interprets the compiled spec artifact, drives voice conversations, emits an event stream. **Untouched in MVP** — testing in MVP doesn't go through the runner. See [`../flowstore-runner/RUNNER-PLAN.md`](../flowstore-runner/RUNNER-PLAN.md).
+- **Per-agent or multi-agent Git repos** (customer-owned, flowstore-scaffolded) — hold the decomposed spec(s) under `agents/<id>/` (multi-agent) or at root (single-agent), shared resources at root (capabilities, project-level guardrails, knowledge, personas, evaluators, rubrics), testing artifacts, run history, comments, and Python scripts.
 
-`../whatsupp2/` historically held the evaluation/simulation surface; its responsibilities are being subsumed into uxflows. Treat references to whatsupp2 in older docs as historical.
+`../whatsupp2/` historically held the evaluation/simulation surface; its responsibilities are being subsumed into flowstore. Treat references to whatsupp2 in older docs as historical.
 
-Runner-based testing and Pipecat compilation are **post-MVP**, gated on [TRANSLATION-POC.md](./TRANSLATION-POC.md) confirming behavioral fidelity between the system-prompt path and graph-native runtimes. Production monitoring (real-time event stream consumption, dashboards, alerting) is **explicitly out of scope** for uxflows — the runtime emits events; LangSmith / Cekura / Maxim / similar tools consume them.
+Runner-based testing and Pipecat compilation are **post-MVP**, gated on [TRANSLATION-POC.md](./TRANSLATION-POC.md) confirming behavioral fidelity between the system-prompt path and graph-native runtimes. Production monitoring (real-time event stream consumption, dashboards, alerting) is **explicitly out of scope** for flowstore — the runtime emits events; LangSmith / Cekura / Maxim / similar tools consume them.
 
-The schema is the contract across uxflows and the runner. They all defer to [SCHEMA.md](./SCHEMA.md) in this repo.
+The schema is the contract across flowstore and the runner. They all defer to [SCHEMA.md](./SCHEMA.md) in this repo.
 
 ## Mission
 
@@ -43,8 +43,8 @@ The canvas is the canonical editing surface. Text views are entry and export onl
 - **Imperative text import** — paste free-form source: an analyst's script, a process doc, a system prompt, supporting docs. An LLM converts it directly to v0 JSON in one shot, schema-constrained.
 - **Export as JSON** — the exported file is the same shape the declarative import accepts; round-trip preserves the spec.
 - **Export as system prompt** — deterministic codegen ([packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts)) that flattens the spec into a single monolithic system prompt. For copy-paste into non-runner runtimes (OpenAI, Claude, Voiceflow, etc.); the runner consumes the JSON directly.
-- **Simulate panel** — text chat against [`../uxflows-runner/`](../uxflows-runner/), BYOK Gemini, against the spec currently being edited. Canvas highlights the active flow and last-traversed edge live during the run.
-- **Eval-on-canvas (post-MVP).** Findings from the testing surface (test cases, mocks, rubrics, run results — all in uxflows per [FILE-MODEL.md](./FILE-MODEL.md)) overlay onto the same node and edge IDs the spec defines — guardrail-fail rates pinned to guardrail nodes, scenario coverage on flow nodes. The canvas is the eval view; there is no separate findings tab.
+- **Simulate panel** — text chat against [`../flowstore-runner/`](../flowstore-runner/), BYOK Gemini, against the spec currently being edited. Canvas highlights the active flow and last-traversed edge live during the run.
+- **Eval-on-canvas (post-MVP).** Findings from the testing surface (test cases, mocks, rubrics, run results — all in flowstore per [FILE-MODEL.md](./FILE-MODEL.md)) overlay onto the same node and edge IDs the spec defines — guardrail-fail rates pinned to guardrail nodes, scenario coverage on flow nodes. The canvas is the eval view; there is no separate findings tab.
 
 ## Tech Stack
 
@@ -66,12 +66,12 @@ Don't add infrastructure before the need. The design doc's MVP discipline is the
 
 ## Repository Layout
 
-npm workspaces monorepo. `@uxflows/core` is pure TS (files, schema, codegen, providers); `@uxflows/browser` is the Vite-built React SPA. `@uxflows/core` is consumed in-source — Vite reads its TS exports directly, no build step during dev.
+npm workspaces monorepo. `@flowstore/core` is pure TS (files, schema, codegen, providers); `@flowstore/browser` is the Vite-built React SPA. `@flowstore/core` is consumed in-source — Vite reads its TS exports directly, no build step during dev.
 
 ```
 /package.json                       workspace root; scripts delegate via -w
 /tsconfig.base.json                 shared compiler options
-/packages/core/                     @uxflows/core (pure TS; no DOM/React/zustand)
+/packages/core/                     @flowstore/core (pure TS; no DOM/React/zustand)
   /package.json                     exports map: deep paths + per-subdir barrels
   /scripts/preview-prompt.ts        dev CLI; renders a spec to stdout
   /src/
@@ -82,7 +82,7 @@ npm workspaces monorepo. `@uxflows/core` is pure TS (files, schema, codegen, pro
     /validation/                    Ajv validators + graph rules
     /llm/                           provider dispatch + types (providers/google.ts today)
     /runtime/                       conversation-simulation primitives (mocks, persona, transcript, …)
-/packages/browser/                  @uxflows/browser (the Vite-built React SPA)
+/packages/browser/                  @flowstore/browser (the Vite-built React SPA)
   /package.json
   /vite.config.ts                   @vitejs/plugin-react + @tailwindcss/vite; alias @/* -> ./src/*
   /index.html                       single HTML entry; loads /src/main.tsx
@@ -117,7 +117,7 @@ From the product design doc. The ones that most affect editor decisions:
 - **Optional by default.** Valid schema with minimal fields. Depth added incrementally.
 - **Decomposition is the substrate.** Monolithic prompts hit an instruction-following ceiling in regulated behavior spaces; modular flows are how agents stay reliable at scale.
 - **Decomposition is progressive.** Start coarse, split when there's a real seam. The principle above applies *at scale*; for small specs the right move is *less* decomposition. Node count is a result of behavioral seams, not a target.
-- **Conversation-shape, not workflow-shape.** uxflows primitives are flows, exit paths, guardrails, captures, three methods. Workflow primitives (if/else nodes, while-loops, transform/map nodes, set-state nodes) are the wrong altitude — that's general-purpose orchestration, not regulated conversational behavior. When extending the schema, push toward the conversation-design vocabulary the buyer already speaks.
+- **Conversation-shape, not workflow-shape.** flowstore primitives are flows, exit paths, guardrails, captures, three methods. Workflow primitives (if/else nodes, while-loops, transform/map nodes, set-state nodes) are the wrong altitude — that's general-purpose orchestration, not regulated conversational behavior. When extending the schema, push toward the conversation-design vocabulary the buyer already speaks.
 
 ## Spec Authoring Granularity
 
@@ -140,23 +140,23 @@ If none of these apply, decomposing is busywork. The canvas makes nodes feel lik
 
 ## MVP Scope
 
-The end-to-end loop uxflows supports — see [docs/optimization-loop.md](./docs/optimization-loop.md) for the systems view and [MVP-PLAN.md](./MVP-PLAN.md) for phase timing:
+The end-to-end loop flowstore supports — see [docs/optimization-loop.md](./docs/optimization-loop.md) for the systems view and [MVP-PLAN.md](./MVP-PLAN.md) for phase timing:
 
 1. **Ingest** — paste a system prompt and attach supporting docs (PDFs, spreadsheets, Word, Figma exports, plain text).
 2. **Parse** — a behavioral parser (LLM-assisted) converts inputs to a structured spec. Today this is [AGENT-SPEC-PROMPT.txt](./prompts/AGENT-SPEC-PROMPT.txt). The designer pastes source material in, gets the JSON, and pastes it into the editor's Import. An in-app "Parse with AI" using a user-provided API key is planned to skip the round-trip.
 3. **Review and configure** — user reviews the parsed spec on the canvas, edits inline.
 4. **Test** — compile spec to system prompt (or graph-native runtime); run test cases through it; diff against assertions and against legacy / baseline prompts. See [docs/test-driven-prompts.md](./docs/test-driven-prompts.md) for methodology, [docs/testing-from-scripts.md](./docs/testing-from-scripts.md) for harness mechanics.
-5. **Share** — internal findings report + client-facing shareable document. (Post-MVP uxflows surface.)
+5. **Share** — internal findings report + client-facing shareable document. (Post-MVP flowstore surface.)
 
 ## Related Docs in This Repo
 
-- [MVP-PLAN.md](./MVP-PLAN.md) — organizing vision and staged plan to the uxflows Browser MVP (Nov 2026). Read first.
+- [MVP-PLAN.md](./MVP-PLAN.md) — organizing vision and staged plan to the flowstore Browser MVP (Nov 2026). Read first.
 - [SCHEMA.md](./SCHEMA.md) — authoritative spec data model.
-- [FILE-MODEL.md](./FILE-MODEL.md) — how a uxflows project decomposes into files on disk; the serialization contract for SCHEMA.md.
+- [FILE-MODEL.md](./FILE-MODEL.md) — how a flowstore project decomposes into files on disk; the serialization contract for SCHEMA.md.
 - [TRANSLATIONS.md](./TRANSLATIONS.md) — runtime translation tables (Pipecat, LiveKit, LangGraph, OpenAI Agents SDK; import: Voiceflow, Botpress).
 - [docs/optimization-loop.md](./docs/optimization-loop.md) — end-to-end view: client materials → spec + tests → targets → eval, and what would be needed for autonomous optimization.
 - [docs/test-driven-prompts.md](./docs/test-driven-prompts.md) — methodology for using the testing harness as a development loop.
-- [docs/testing-from-scripts.md](./docs/testing-from-scripts.md) — harness mechanics reference: `uxflows-compile` CLI, file shapes, mock dispatch.
+- [docs/testing-from-scripts.md](./docs/testing-from-scripts.md) — harness mechanics reference: `flowstore-compile` CLI, file shapes, mock dispatch.
 - [AGENT-SPEC-PROMPT.txt](./prompts/AGENT-SPEC-PROMPT.txt) — LLM prompt for converting source material into spec JSON (any frontier LLM).
 
 ## Running
@@ -173,5 +173,5 @@ Opens at http://localhost:3000.
 - Only add comments when the *why* is non-obvious. Never docstring-style multi-paragraph comments.
 - Prefer editing existing files over creating new ones.
 - Don't add backwards-compat shims. It's early — break freely.
-- Match conventions in sibling uxflows repos where reasonable. The spec is the contract; the runner is the canonical native consumer.
+- Match conventions in sibling flowstore repos where reasonable. The spec is the contract; the runner is the canonical native consumer.
 - Keep the spec schema evolution discussions in SCHEMA.md. The product vision lives in MVP-PLAN.md.

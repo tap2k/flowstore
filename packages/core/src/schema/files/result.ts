@@ -52,12 +52,12 @@ const Trial = Type.Object(
 
 export const ResultSchema = Type.Object(
   {
-    $schema: Type.Literal("uxflows://result/v0"),
+    $schema: Type.Literal("flowstore://result/v0"),
     test_case_id: Type.String(),
     timestamp: Type.String(),
     agent_id: Type.Optional(Type.String()),
     model: Type.Optional(Type.String()),
-    // Where the system prompt came from for this run. "uxflows-compile" for the
+    // Where the system prompt came from for this run. "flowstore-compile" for the
     // default (compiled from the spec), or a free-form string (e.g. a file
     // path, "claude-3.5-handcrafted", "vendor-x-prompt-v2") for comparison
     // runs against hand-authored or third-party prompts. Tool schemas always

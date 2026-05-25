@@ -1,19 +1,19 @@
 import { create } from "zustand";
-import type { Spec } from "@uxflows/core/schema/v0";
-import type { RuntimeEvent } from "@uxflows/core/runtime/eventTypes";
-import { type TranscriptTurn } from "@uxflows/core/runtime/transcript";
+import type { Spec } from "@flowstore/core/schema/v0";
+import type { RuntimeEvent } from "@flowstore/core/runtime/eventTypes";
+import { type TranscriptTurn } from "@flowstore/core/runtime/transcript";
 import {
   endSession as apiEndSession,
   sendTurn as apiSendTurn,
   startSession as apiStartSession,
-} from "@uxflows/core/runtime/textClient";
-import { sendPromptTurn } from "@uxflows/core/runtime/promptClient";
-import { generatePersonaTurn } from "@uxflows/core/runtime/personaClient";
-import { generateSystemPrompt } from "@uxflows/core/codegen/promptGenerator";
-import { cleanMockReturns } from "@uxflows/core/runtime/capabilityMocks";
+} from "@flowstore/core/runtime/textClient";
+import { sendPromptTurn } from "@flowstore/core/runtime/promptClient";
+import { generatePersonaTurn } from "@flowstore/core/runtime/personaClient";
+import { generateSystemPrompt } from "@flowstore/core/codegen/promptGenerator";
+import { cleanMockReturns } from "@flowstore/core/runtime/capabilityMocks";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { createScopedJsonStorage, isPlainObject } from "@/lib/store/scopedStorage";
-import type { ChatUsage, ProviderId } from "@uxflows/core/llm/types";
+import type { ChatUsage, ProviderId } from "@flowstore/core/llm/types";
 
 export type { TranscriptTurn };
 
@@ -107,14 +107,14 @@ interface SimulateState {
 }
 
 const varsStorage = createScopedJsonStorage<Record<string, unknown>>({
-  prefix: "uxflows:simulate:vars:",
+  prefix: "flowstore:simulate:vars:",
   defaultValue: () => ({}),
   validate: (raw) => (isPlainObject(raw) ? raw : null),
   isEmpty: (v) => Object.keys(v).length === 0,
 });
 
 const mocksStorage = createScopedJsonStorage<Record<string, Record<string, unknown>>>({
-  prefix: "uxflows:simulate:mocks:",
+  prefix: "flowstore:simulate:mocks:",
   defaultValue: () => ({}),
   validate: (raw) =>
     isPlainObject(raw) ? (raw as Record<string, Record<string, unknown>>) : null,
@@ -124,7 +124,7 @@ const mocksStorage = createScopedJsonStorage<Record<string, Record<string, unkno
 // Persona prompt persists per agent; turn limit, countdown, and autoRun are
 // per-run intent and reset on hydrate.
 const personaStorage = createScopedJsonStorage<{ prompt: string }>({
-  prefix: "uxflows:simulate:persona:",
+  prefix: "flowstore:simulate:persona:",
   defaultValue: () => ({ prompt: "" }),
   validate: (raw) =>
     isPlainObject(raw) && typeof raw.prompt === "string" ? { prompt: raw.prompt } : null,

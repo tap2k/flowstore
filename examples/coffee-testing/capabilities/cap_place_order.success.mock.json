@@ -1,5 +1,5 @@
 {
-  "$schema": "uxflows://capability-mock/v0",
+  "$schema": "flowstore://capability-mock/v0",
   "capability_id": "cap_place_order",
   "variant": "success",
   "description": "Kitchen accepts the order. cap_place_order has no declared outputs, so the returns object is annotation-only — the spec doesn't bind it to any variable.",

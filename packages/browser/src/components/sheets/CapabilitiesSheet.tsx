@@ -1,6 +1,6 @@
 import { useSpecStore } from "@/lib/store/spec";
-import { genId } from "@uxflows/core/ids";
-import type { Capability, CapabilityKind } from "@uxflows/core/schema/v0";
+import { genId } from "@flowstore/core/ids";
+import type { Capability, CapabilityKind } from "@flowstore/core/schema/v0";
 import { ListEditor } from "@/components/inspector/ListEditor";
 import { inputClass, StringListEditor } from "@/components/inspector/primitives";
 import { SheetShell } from "./SheetShell";

@@ -1,17 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSpecStore, type Selection } from "@/lib/store/spec";
-import type { Spec } from "@uxflows/core/schema/v0";
+import type { Spec } from "@flowstore/core/schema/v0";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import {
   useSimulateStore,
   type SimulateMode,
   type TranscriptTurn,
 } from "@/lib/store/simulate";
-import { formatErrors, validateSpec } from "@uxflows/core/validation/ajv";
-import { generateSystemPrompt } from "@uxflows/core/codegen/promptGenerator";
-import type { RuntimeEvent } from "@uxflows/core/runtime/eventTypes";
-import { formatEvent, formatValueTruncated } from "@uxflows/core/runtime/formatEvent";
-import { translateBatchToEnglish } from "@uxflows/core/runtime/translate";
+import { formatErrors, validateSpec } from "@flowstore/core/validation/ajv";
+import { generateSystemPrompt } from "@flowstore/core/codegen/promptGenerator";
+import type { RuntimeEvent } from "@flowstore/core/runtime/eventTypes";
+import { formatEvent, formatValueTruncated } from "@flowstore/core/runtime/formatEvent";
+import { translateBatchToEnglish } from "@flowstore/core/runtime/translate";
 import { ModelPicker } from "./ModelPicker";
 import { VariablesForm } from "./VariablesForm";
 import { CapabilityMocksForm } from "./CapabilityMocksForm";
@@ -193,7 +193,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `uxflows-trace-${agentId}-${shortId}-${ts}.json`;
+    a.download = `flowstore-trace-${agentId}-${shortId}-${ts}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }

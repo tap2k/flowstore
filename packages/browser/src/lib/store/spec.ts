@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import type { Agent, ExitPath, Flow, Spec } from "@uxflows/core/schema/v0";
-import { GOTO_END } from "@uxflows/core/schema/v0";
-import { genId } from "@uxflows/core/ids";
+import type { Agent, ExitPath, Flow, Spec } from "@flowstore/core/schema/v0";
+import { GOTO_END } from "@flowstore/core/schema/v0";
+import { genId } from "@flowstore/core/ids";
 import { isPlainObject } from "./scopedStorage";
 
 // One-level deep merge: nested plain objects merge, arrays/primitives replace.

@@ -7,12 +7,12 @@
 > runner == translated dispatch on 6/6 live runs across L_HP1 (happy) and
 > L_HP2 (invalid policy). Zero intra-surface drift.
 >
-> See [FINDINGS.md](../uxflows-runner/experiments/langgraph_poc/FINDINGS.md).
+> See [FINDINGS.md](../flowstore-runner/experiments/langgraph_poc/FINDINGS.md).
 > Live regression caught two bugs the synthetic harness couldn't: a
 > prompt-shape divergence (missing guardrails / example) and conversation
 > history dropped on exit-fire transitions. Both fixed in the translator.
 
-A bounded experiment to answer one strategic question with evidence rather than theory: **does translation from a uxflows v0 spec to a graph-native runtime (LangGraph) preserve the flow / exit / capture / variable semantics the runner enforces, with enough fidelity to be useful for production deployments?**
+A bounded experiment to answer one strategic question with evidence rather than theory: **does translation from a flowstore v0 spec to a graph-native runtime (LangGraph) preserve the flow / exit / capture / variable semantics the runner enforces, with enough fidelity to be useful for production deployments?**
 
 This is a spike. Deliverable is *evidence*, not a shippable translator.
 
@@ -22,8 +22,8 @@ The translation strategy laid out in [`TRANSLATIONS.md`](./TRANSLATIONS.md) name
 
 LangGraph is chosen for this PoC because:
 
-- Its structural mapping to uxflows is the cleanest of any target (graph nodes, typed state, conditional edges, native interrupts).
-- Text-mode validation is faster to instrument than voice. Text mode is already first-class in the runner ([`server/text_session.py`](../uxflows-runner/src/uxflows_runner/server/text_session.py)).
+- Its structural mapping to flowstore is the cleanest of any target (graph nodes, typed state, conditional edges, native interrupts).
+- Text-mode validation is faster to instrument than voice. Text mode is already first-class in the runner ([`server/text_session.py`](../flowstore-runner/src/flowstore_runner/server/text_session.py)).
 - Lower implementation risk than Pipecat (which reintroduces tool-call atomicity concerns in the routing decision path).
 
 If LangGraph fidelity holds, the same experiment shape rolls forward to Pipecat on a hardened IR. If it doesn't, that's strong evidence to weight the runner-as-production path over translation-as-production.
@@ -54,7 +54,7 @@ The PoC is falsifiable. The outcome should shape next-quarter investment; if it 
 - `flows` with entry/exit semantics → graph nodes.
 - `exit_paths` with `calculation` conditions → conditional edges via ported expression eval.
 - `exit_paths` with `llm` conditions → conditional edges via LLM-judgment helper.
-- `exit_path.actions` → capability invocation with output binding to state (per the capability-output binding decision in [RUNNER-PLAN.md](../uxflows-runner/RUNNER-PLAN.md)).
+- `exit_path.actions` → capability invocation with output binding to state (per the capability-output binding decision in [RUNNER-PLAN.md](../flowstore-runner/RUNNER-PLAN.md)).
 - `entry_condition` on flows → guards before node entry.
 - Per-flow system prompts composed from spec scripts + persona.
 - `agent.chatbot_initiates` → entry node sends opening turn.
@@ -81,10 +81,10 @@ The PoC is falsifiable. The outcome should shape next-quarter investment; if it 
 ## Architecture
 
 ```
-uxflows-runner/
+flowstore-runner/
   experiments/langgraph_poc/
     __init__.py
-    translator.py         # uxflows spec → Python source
+    translator.py         # flowstore spec → Python source
     runtime_helpers.py    # Shared expression eval, capability mock, LLM helper
     generated/
       fnol.py             # Translator output
@@ -93,7 +93,7 @@ uxflows-runner/
       capabilities.json   # Shared mock returns for runner + translated
 ```
 
-Why this location: the harness needs runner internals to play scenarios through `TextSession`, so the code lives next to the runner. If the translator productizes after the PoC, it moves to `../uxflows/packages/core/src/codegen/langgraph/` to join the editor's codegen pipeline.
+Why this location: the harness needs runner internals to play scenarios through `TextSession`, so the code lives next to the runner. If the translator productizes after the PoC, it moves to `../flowstore/packages/core/src/codegen/langgraph/` to join the editor's codegen pipeline.
 
 ### Generated artifact shape
 
@@ -170,7 +170,7 @@ Minimum four; an optional fifth if time allows.
 
 1. **Happy path** — full FNOL flow with valid policy, claim filed successfully.
 2. **Invalid policy** — `verify_policy` returns `{policy_active: False}`; route through the invalid-policy branch.
-3. **Capability failure** — `verify_policy` raises; `policy_active` stays undefined; downstream `var != True` branches fire correctly. Validates the "Failure → undefined" semantic from the [capability-output binding decision](../uxflows-runner/RUNNER-PLAN.md).
+3. **Capability failure** — `verify_policy` raises; `policy_active` stays undefined; downstream `var != True` branches fire correctly. Validates the "Failure → undefined" semantic from the [capability-output binding decision](../flowstore-runner/RUNNER-PLAN.md).
 4. **Missing capture** — user gives incomplete info mid-flow; flow re-prompts; eventually captures and proceeds. Validates capture loop behavior.
 5. **(Optional) Calculation branch** — exit path with a non-trivial expression (date comparison, multi-variable condition). Validates expression eval port.
 
@@ -179,7 +179,7 @@ Minimum four; an optional fifth if time allows.
 | Day | Work |
 |---|---|
 | 1 | Pick FNOL spec; hand-translate to LangGraph on paper. Validate every spec feature has a target equivalent. Smoke out gaps before writing code. |
-| 2 | Wire `runtime_helpers`: expression eval (port from [`expressions.py`](../uxflows-runner/src/uxflows_runner/dispatcher/expressions.py)), `call_capability` with fixture lookup, `llm_turn` / `llm_judge` helpers. |
+| 2 | Wire `runtime_helpers`: expression eval (port from [`expressions.py`](../flowstore-runner/src/flowstore_runner/dispatcher/expressions.py)), `call_capability` with fixture lookup, `llm_turn` / `llm_judge` helpers. |
 | 3-4 | Build translator: walk `LoadedSpec`, emit Python source for state schema, tools, flow nodes, conditional edges, graph construction. |
 | 5 | First end-to-end run of generated `fnol.py` against a hardcoded scenario. One happy path green. |
 | 6 | Test harness: scenario runner for both surfaces, fixture injection, trace comparison helpers. |
@@ -191,15 +191,15 @@ Minimum four; an optional fifth if time allows.
 
 ## Upfront decisions
 
-1. **LangGraph version** — pinned at `langgraph==1.2.1` with `langchain-core==1.4.0`, added to `uxflows-runner` dev deps. Note: the checkpointer is now `InMemorySaver` (under `langgraph.checkpoint.memory`), not `MemorySaver` as described elsewhere in this doc.
-2. **Conversational pause mechanism** — `interrupt()` + `InMemorySaver` checkpointer. **Spike result (Day 1, [`spike_interrupt.py`](../uxflows-runner/experiments/langgraph_poc/spike_interrupt.py))**: all four patterns work end-to-end without an LLM: (a) `interrupt()` pause + `Command(resume=user_text)` resume; (b) `Command(goto=<self>, update={...})` self-loop for stay-in-flow; (c) back-edge cycles (sad → retry → happy → sad again) with state persisting across cycles; (d) pure conditional `Command(goto=...)` utility flows with no LLM and no interrupt. Two PoC-relevant idioms confirmed: additive state channels need `Annotated[list, operator.add]` reducers, and superstep-keyed checkpoints handle re-entry of the same node id cleanly.
+1. **LangGraph version** — pinned at `langgraph==1.2.1` with `langchain-core==1.4.0`, added to `flowstore-runner` dev deps. Note: the checkpointer is now `InMemorySaver` (under `langgraph.checkpoint.memory`), not `MemorySaver` as described elsewhere in this doc.
+2. **Conversational pause mechanism** — `interrupt()` + `InMemorySaver` checkpointer. **Spike result (Day 1, [`spike_interrupt.py`](../flowstore-runner/experiments/langgraph_poc/spike_interrupt.py))**: all four patterns work end-to-end without an LLM: (a) `interrupt()` pause + `Command(resume=user_text)` resume; (b) `Command(goto=<self>, update={...})` self-loop for stay-in-flow; (c) back-edge cycles (sad → retry → happy → sad again) with state persisting across cycles; (d) pure conditional `Command(goto=...)` utility flows with no LLM and no interrupt. Two PoC-relevant idioms confirmed: additive state channels need `Annotated[list, operator.add]` reducers, and superstep-keyed checkpoints handle re-entry of the same node id cleanly.
 
    **F3 (Day 5) — LLM duplication on resume.** LangGraph replays the pre-`interrupt()` half of a node body on every resume. A naïve emit (`_resp = await llm_turn(...)` before `interrupt()`) calls the LLM twice per user-facing turn — unacceptable for cost, latency, and determinism. **Resolution: wrap `llm_turn` in `langgraph.func.task`**. Tasks are checkpointed by LangGraph; the cached return is replayed on resume instead of re-executing. With `@task`, the FNOL happy path runs exactly one LLM call per scripted user turn (verified: 19 stub calls for 19 scripted turns). Translator now emits a module-level `@task`-decorated `_llm_call` wrapper.
 
 3. **Interrupt resume payload** — dict form, not bare string. Original `Command(resume=user_text)` couldn't deliver state captures (e.g. `caller_name`, `callback_number`) because `app.update_state(config, dict)` outside interrupt resume *ends* the graph (terminates the pending interrupt's checkpoint). Translator now emits `interrupt()` consumers that accept either a plain string OR `{"text": ..., "captures": {var: value, ...}}`, merging captures into state on resume. Test harnesses use the dict form; production code with a real LLM uses the string form.
 3. **Capability mock injection** — both surfaces read the same `fixtures/capabilities.json`. The runner gets a `MockCapabilityDispatcher` injected via existing config seams; the translated runtime's `call_capability` reads the same file.
 4. **LLM provider** — same as runner (Vertex Gemini), via LangChain's `ChatVertexAI`. Same temperature (0). Same credentials. Maximum reproducibility.
-5. **Expression eval handling** — copy the runner's logic from [`expressions.py`](../uxflows-runner/src/uxflows_runner/dispatcher/expressions.py) into `runtime_helpers` for the PoC. Don't share Python modules across surfaces yet; productize later if the PoC succeeds.
+5. **Expression eval handling** — copy the runner's logic from [`expressions.py`](../flowstore-runner/src/flowstore_runner/dispatcher/expressions.py) into `runtime_helpers` for the PoC. Don't share Python modules across surfaces yet; productize later if the PoC succeeds.
 
 ## Risks
 
@@ -232,7 +232,7 @@ Minimum four; an optional fifth if time allows.
 
 ### Why we want it
 
-The strategic target for translation is **deployment on Awaaz** (and platforms like Azure Cloud that accept Pipecat workloads). Awaaz already runs Pipecat agents in production — multiple Tala deployments across India, Mexico, and Philippines are on Pipecat with sub-2s latency, with new use cases being migrated to Pipecat throughout 2026. The uxflows editor's value proposition lands when a designer can author a spec and have it run alongside the hand-written Tala agents on the existing Awaaz infrastructure.
+The strategic target for translation is **deployment on Awaaz** (and platforms like Azure Cloud that accept Pipecat workloads). Awaaz already runs Pipecat agents in production — multiple Tala deployments across India, Mexico, and Philippines are on Pipecat with sub-2s latency, with new use cases being migrated to Pipecat throughout 2026. The flowstore editor's value proposition lands when a designer can author a spec and have it run alongside the hand-written Tala agents on the existing Awaaz infrastructure.
 
 This is a different framing than the LangGraph PoC. LangGraph was a *behavioral fidelity* experiment — answering whether translation can preserve dispatch semantics in principle. Pipecat is an *integration* experiment — answering whether we can emit a drop-in replacement for a hand-written Tala agent that Awaaz can load and run as-is.
 
@@ -260,8 +260,8 @@ While waiting, several design choices are settled enough to lock in:
 
 - **Interpretation A** (per-flow logic codegen'd, not interpreted at runtime). Generated file is spec-specific Python; the dispatcher is hard-coded into the emitted code rather than reading `LoadedSpec` at runtime. This is what makes it a "translator" rather than "the runner running on Awaaz's infrastructure."
 - **In-text route tags, not Pipecat tool calls.** The runner explicitly chose in-text tags to avoid tool-call atomicity issues at flow transitions. The Pipecat translator inherits the same protocol — we already know it works (live LLM regression confirmed it).
-- **File + small runtime shim.** Generated file imports from `uxflows_pipecat_runtime.py` (route-tag parser, expression eval, capability dispatch — most of which already exists as `runtime_helpers.py` in the LangGraph PoC). The shim is stable across specs; only the generated file is spec-specific.
-- **Generated pipeline emits standard Pipecat metrics only.** No uxflows-specific event stream. Awaaz/Azure get whatever observability they normally have. Simpler to ship.
+- **File + small runtime shim.** Generated file imports from `flowstore_pipecat_runtime.py` (route-tag parser, expression eval, capability dispatch — most of which already exists as `runtime_helpers.py` in the LangGraph PoC). The shim is stable across specs; only the generated file is spec-specific.
+- **Generated pipeline emits standard Pipecat metrics only.** No flowstore-specific event stream. Awaaz/Azure get whatever observability they normally have. Simpler to ship.
 - **Text mode first, then voice.** Same model as the LangGraph PoC: validate dispatch fidelity in text mode where the harness already exists, then push through to voice (WebRTC + Silero VAD + Cloud STT/TTS) once text holds.
 - **Same FNOL spec.** Don't conflate "does Pipecat translation work" with "does cross-spec generalization work" — those are separate unknowns.
 

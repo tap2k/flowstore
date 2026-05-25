@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-const STORAGE_KEY = "uxflows:github_project";
+const STORAGE_KEY = "flowstore:github_project";
 
 export interface GithubProjectLocation {
   owner: string;

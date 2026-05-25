@@ -1,6 +1,6 @@
-import type { Flow, ScriptLine } from "@uxflows/core/schema/v0";
-import { buildLocalized, defaultLanguage } from "@uxflows/core/schema/v0";
-import { genId } from "@uxflows/core/ids";
+import type { Flow, ScriptLine } from "@flowstore/core/schema/v0";
+import { buildLocalized, defaultLanguage } from "@flowstore/core/schema/v0";
+import { genId } from "@flowstore/core/ids";
 import { csvSerialize, parseCsv } from "./csv";
 
 // CSV round-trip for a single flow's scripts. Schema:

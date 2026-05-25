@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { SheetShell } from "./SheetShell";
 import { useSettingsStore, DEFAULT_RUNNER_URL } from "@/lib/store/settings";
-import { makeGitHubClient, testConnection } from "@uxflows/core/files/github";
+import { makeGitHubClient, testConnection } from "@flowstore/core/files/github";
 
 interface SettingsSheetProps {
   onClose: () => void;
@@ -164,7 +164,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         )}
         <p className="text-[11px] text-zinc-500">
           Fine-grained PAT with Contents: Read &amp; write on the repos you want
-          uxflows to open. Create at{" "}
+          flowstore to open. Create at{" "}
           <a
             href="https://github.com/settings/personal-access-tokens"
             target="_blank"

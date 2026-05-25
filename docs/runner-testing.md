@@ -1,6 +1,6 @@
 # Testing through the runner
 
-Audience: an engineer with a uxflows project repo and a running `uxflows-runner`
+Audience: an engineer with a flowstore project repo and a running `flowstore-runner`
 who wants to test the runner against the same test cases the system-prompt
 path tests against.
 
@@ -22,7 +22,7 @@ the systems view see [optimization-loop.md](optimization-loop.md).
 ```
 run.py (system-prompt path)              run_runner.py (runner path)
 ───────────────────────────              ───────────────────────────
-uxflows-compile --format prompt              uxflows-compile --format spec
+flowstore-compile --format prompt              flowstore-compile --format spec
         ↓                                       ↓
 {system_prompt, tool_schemas}            full {agent, flows} JSON
         ↓                                       ↓
@@ -34,7 +34,7 @@ loop user_turns                          loop user_turns
   → look up mock                           → runner dispatched the mock for us
   → call again                             → next turn
         ↓                                       ↓
-uxflows://result/v0                          uxflows://result/v0
+flowstore://result/v0                          flowstore://result/v0
 ```
 
 Same input files (test case, vars, mocks). Same output schema. Two things
@@ -64,7 +64,7 @@ What the runner exposes at `/api/chat/`:
 
 Notes that aren't obvious from the field names:
 
-- **`spec`** is the full resolved spec JSON (output of `uxflows-compile --format
+- **`spec`** is the full resolved spec JSON (output of `flowstore-compile --format
   spec`), not a path. The runner accepts it inline per request — no
   filesystem touch on the runner side.
 - **`api_key`** is your Google AI Studio key. If omitted, the runner falls
@@ -92,7 +92,7 @@ The test case shape is the same:
 
 ```json
 {
-  "$schema": "uxflows://test-case/v0",
+  "$schema": "flowstore://test-case/v0",
   "id": "happy-within-grace",
   "user_turns": ["Hola, bien gracias", "Sí, soy yo", "Sí, puedo pagar mañana sin problema"],
   "assertions": [
@@ -112,10 +112,10 @@ dispatch; assertions still grade the agent's reply text per turn.
 
 ## What changes in the result file
 
-Same `uxflows://result/v0` shape. Two pivotable fields:
+Same `flowstore://result/v0` shape. Two pivotable fields:
 
 - **`prompt_source`** — set to `"runner"` (or `"runner@<runner-version>"`)
-  instead of `"uxflows-compile"`. This is the field the editor's result viewer
+  instead of `"flowstore-compile"`. This is the field the editor's result viewer
   will pivot on when comparing.
 - **`final_variables`** — populated from the event stream's `variable_set`
   events, which the system-prompt path can't accurately produce (it has no
@@ -163,11 +163,11 @@ What divergence looks like and what it means:
 ## Operational notes
 
 - **Runner must be running.** `run_runner.py` doesn't start it. Set up with
-  `uvicorn uxflows_runner.server.app:app --reload` from the `uxflows-runner`
+  `uvicorn flowstore_runner.server.app:app --reload` from the `flowstore-runner`
   repo, or however you run it for SimulatePanel. Defaults to
   `http://localhost:8000`; override with `--runner-url` or `RUNNER_URL` env
   var.
-- **No Python-level coupling to `uxflows-runner`.** `run_runner.py` only
+- **No Python-level coupling to `flowstore-runner`.** `run_runner.py` only
   needs `httpx`. Already in `examples/coffee-testing/scripts/requirements.txt`.
 - **`GOOGLE_API_KEY` is forwarded to the runner.** Same BYOK pattern
   SimulatePanel uses. The runner's Vertex fallback also works if you don't

@@ -1,10 +1,10 @@
-import type { Spec, Agent, Flow } from "@uxflows/core/schema/v0";
-import { validateSpec, validateFile, formatErrors } from "@uxflows/core/validation/ajv";
-import { ProjectManifestSchema } from "@uxflows/core/schema/files/project";
-import { ProjectGlossaryFileSchema } from "@uxflows/core/schema/files/glossary";
-import { KnowledgeTableMetaSchema } from "@uxflows/core/schema/files/knowledgeTable";
-import { mergeScriptsCsv } from "@uxflows/core/codegen/scriptsCsv";
-import { parseTableRowsCsv } from "@uxflows/core/codegen/knowledgeCsv";
+import type { Spec, Agent, Flow } from "@flowstore/core/schema/v0";
+import { validateSpec, validateFile, formatErrors } from "@flowstore/core/validation/ajv";
+import { ProjectManifestSchema } from "@flowstore/core/schema/files/project";
+import { ProjectGlossaryFileSchema } from "@flowstore/core/schema/files/glossary";
+import { KnowledgeTableMetaSchema } from "@flowstore/core/schema/files/knowledgeTable";
+import { mergeScriptsCsv } from "@flowstore/core/codegen/scriptsCsv";
+import { parseTableRowsCsv } from "@flowstore/core/codegen/knowledgeCsv";
 import { loadModelsConfig } from "./models";
 import { loadTestingArtifacts } from "./testing";
 import { loadComments } from "./comments";
@@ -18,10 +18,10 @@ export function loadProject(files: FileMap): LoadResult {
   const errors: LoadError[] = [];
 
   // Optional project manifest: validate shape if present.
-  const manifestRaw = files["uxflows.json"];
+  const manifestRaw = files["flowstore.json"];
   if (manifestRaw !== undefined) {
-    const manifest = parseJson<unknown>(manifestRaw, "uxflows.json", errors);
-    if (manifest !== null) validateFileInto(manifest, ProjectManifestSchema, "uxflows.json", errors);
+    const manifest = parseJson<unknown>(manifestRaw, "flowstore.json", errors);
+    if (manifest !== null) validateFileInto(manifest, ProjectManifestSchema, "flowstore.json", errors);
   }
 
   const modelsConfig = loadModelsConfig(files, errors);

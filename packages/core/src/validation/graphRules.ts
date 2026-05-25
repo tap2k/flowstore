@@ -1,5 +1,5 @@
-import type { Spec } from "@uxflows/core/schema/v0";
-import { isFlowGoto } from "@uxflows/core/schema/v0";
+import type { Spec } from "@flowstore/core/schema/v0";
+import { isFlowGoto } from "@flowstore/core/schema/v0";
 
 export type IssueLocation =
   | { kind: "flow"; flowId: string }

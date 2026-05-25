@@ -1,11 +1,11 @@
-import { validateFile, formatErrors } from "@uxflows/core/validation/ajv";
-import { TestCaseSchema, type TestCase } from "@uxflows/core/schema/files/testCase";
-import { PersonaSchema, type Persona } from "@uxflows/core/schema/files/persona";
+import { validateFile, formatErrors } from "@flowstore/core/validation/ajv";
+import { TestCaseSchema, type TestCase } from "@flowstore/core/schema/files/testCase";
+import { PersonaSchema, type Persona } from "@flowstore/core/schema/files/persona";
 import {
   CapabilityMockSchema,
   type CapabilityMock,
-} from "@uxflows/core/schema/files/capabilityMock";
-import { RubricSchema, type Rubric } from "@uxflows/core/schema/files/rubric";
+} from "@flowstore/core/schema/files/capabilityMock";
+import { RubricSchema, type Rubric } from "@flowstore/core/schema/files/rubric";
 import type { FileMap, LoadError, TestingArtifacts } from "./types";
 
 const TEST_CASE_RE = /^tests\/cases\/(.+)\.test\.json$/;

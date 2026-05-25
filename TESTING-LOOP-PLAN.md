@@ -4,7 +4,7 @@ The Phase 2 testing surface is on disk in pieces: test cases, personas, mocks, r
 
 This plan groups the work into the three parts of that loop. None of the items are large individually; the win is treating them as one push rather than six unrelated tickets.
 
-Reading order: [MVP-PLAN.md](./MVP-PLAN.md) Phase 2 §B/D/G for the product context this consolidates; [docs/test-driven-prompts.md](./docs/test-driven-prompts.md) for the methodology this enables; [docs/optimization-loop.md](./docs/optimization-loop.md) for the autonomous-iteration endgame this unblocks; [docs/runner-testing.md](./docs/runner-testing.md) for the harness mechanics. Where this plan mentions a "result file" it refers to the `uxflows://result/v0` schema described in [MVP-PLAN.md §A](./MVP-PLAN.md#a-file-types--loader).
+Reading order: [MVP-PLAN.md](./MVP-PLAN.md) Phase 2 §B/D/G for the product context this consolidates; [docs/test-driven-prompts.md](./docs/test-driven-prompts.md) for the methodology this enables; [docs/optimization-loop.md](./docs/optimization-loop.md) for the autonomous-iteration endgame this unblocks; [docs/runner-testing.md](./docs/runner-testing.md) for the harness mechanics. Where this plan mentions a "result file" it refers to the `flowstore://result/v0` schema described in [MVP-PLAN.md §A](./MVP-PLAN.md#a-file-types--loader).
 
 ---
 
@@ -54,7 +54,7 @@ Per-case results exist; there's no run-level manifest and no built-in way to dif
 
 What's missing: a `manifest.json` at the run root summarizing pass/fail counts per case, suite-level pass rate, model/prompt versions used, and the inputs that defined the run (spec hash, test-case set, evaluator set). And a thin comparison view — given two run directories, render a per-case diff: status flipped, score delta, transcript divergence point.
 
-The schema lives next to the result schema in `@uxflows/core/src/schema/files/`. The `uxflows://result/v0` posture is additive-by-default, so the manifest can ride alongside per-case results without disturbing the producer/consumer contract.
+The schema lives next to the result schema in `@flowstore/core/src/schema/files/`. The `flowstore://result/v0` posture is additive-by-default, so the manifest can ride alongside per-case results without disturbing the producer/consumer contract.
 
 Size: ~1 day. Mostly JSON-shape definition and a Python or TypeScript aggregation pass.
 
@@ -68,7 +68,7 @@ Size: ~1 day.
 
 ### O-4. Rubrics wired into the runner (Python)
 
-The rubric schema (`uxflows://rubric/v0`) is defined. The runner doesn't yet load it, and there's no LLM-judge evaluator that consumes it. Substring assertions cover the easy cases ("did the agent say X?") but hit a ceiling on semantic criteria like "acknowledged the customer's hardship before offering an alternative" — pass/fail there requires a judge model reading the whole transcript against rubric criteria and returning a structured verdict.
+The rubric schema (`flowstore://rubric/v0`) is defined. The runner doesn't yet load it, and there's no LLM-judge evaluator that consumes it. Substring assertions cover the easy cases ("did the agent say X?") but hit a ceiling on semantic criteria like "acknowledged the customer's hardship before offering an alternative" — pass/fail there requires a judge model reading the whole transcript against rubric criteria and returning a structured verdict.
 
 The result schema already reserves `evaluator_results[]` with `name`, `passed`/`score`, and free-form `notes`, and a `judge_model` field so the judge is itself reproducible. The work is: rubric loader, judge prompt template, per-criterion LLM call (Gemini JSON mode is the natural fit here — same pattern as the contextVars/capabilityMocks generators), and result emission.
 

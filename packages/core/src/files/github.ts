@@ -44,7 +44,7 @@ export interface WriteOptions {
 }
 
 // Reads every file at HEAD of the named branch into an in-memory FileMap.
-// By default only fetches blobs with uxflows-relevant extensions (.json, .csv,
+// By default only fetches blobs with flowstore-relevant extensions (.json, .csv,
 // .md, .txt, .yaml/.yml) — supplementary content (PDFs, xlsx, etc.) under
 // the FILE-MODEL.md "Non-loaded files" convention is skipped to save
 // bandwidth and API quota. Callers can override with includePath.

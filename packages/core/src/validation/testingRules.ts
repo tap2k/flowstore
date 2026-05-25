@@ -1,5 +1,5 @@
-import type { Spec } from "@uxflows/core/schema/v0";
-import type { TestingArtifacts } from "@uxflows/core/files/types";
+import type { Spec } from "@flowstore/core/schema/v0";
+import type { TestingArtifacts } from "@flowstore/core/files/types";
 
 export type TestingIssueLocation =
   | { kind: "test_case"; id: string }

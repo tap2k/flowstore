@@ -1,15 +1,15 @@
 {
-  "name": "uxflows",
+  "name": "flowstore",
   "version": "0.1.0",
   "private": true,
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm -w @uxflows/browser run dev",
-    "build": "npm -w @uxflows/browser run build",
-    "preview": "npm -w @uxflows/browser run preview",
-    "preview-prompt": "npm -w @uxflows/core run preview-prompt"
+    "dev": "npm -w @flowstore/browser run dev",
+    "build": "npm -w @flowstore/browser run build",
+    "preview": "npm -w @flowstore/browser run preview",
+    "preview-prompt": "npm -w @flowstore/core run preview-prompt"
   },
   "devDependencies": {
     "typescript": "^5"

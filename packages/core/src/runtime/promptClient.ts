@@ -1,6 +1,6 @@
-import { chat, DEFAULT_PROVIDER } from "@uxflows/core/llm/dispatch";
-import type { ChatMessage, ChatUsage, ProviderId } from "@uxflows/core/llm/types";
-import type { TranscriptTurn } from "@uxflows/core/runtime/transcript";
+import { chat, DEFAULT_PROVIDER } from "@flowstore/core/llm/dispatch";
+import type { ChatMessage, ChatUsage, ProviderId } from "@flowstore/core/llm/types";
+import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
 
 export interface PromptTurnResponse {
   text: string;

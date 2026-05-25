@@ -1,6 +1,6 @@
 import { useSpecStore } from "./spec";
 
-export const SPEC_STORAGE_KEY = "uxflows:spec";
+export const SPEC_STORAGE_KEY = "flowstore:spec";
 
 export function loadSavedSpec(): unknown | null {
   if (typeof window === "undefined") return null;

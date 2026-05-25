@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { VariableDecl, VariableType } from "@uxflows/core/schema/v0";
+import type { VariableDecl, VariableType } from "@flowstore/core/schema/v0";
 
 const VARIABLE_TYPES: VariableType[] = ["string", "number", "boolean", "enum"];
 

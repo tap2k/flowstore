@@ -1,6 +1,6 @@
 import { useSpecStore } from "@/lib/store/spec";
-import { genId } from "@uxflows/core/ids";
-import type { BusinessGoal, Method } from "@uxflows/core/schema/v0";
+import { genId } from "@flowstore/core/ids";
+import type { BusinessGoal, Method } from "@flowstore/core/schema/v0";
 import { ListEditor } from "@/components/inspector/ListEditor";
 import { inputClass } from "@/components/inspector/primitives";
 import { SheetShell } from "./SheetShell";

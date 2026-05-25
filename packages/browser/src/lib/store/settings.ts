@@ -1,18 +1,18 @@
 import { create } from "zustand";
-import { BUILT_IN_MODELS, resolveEndpoint, wireModelId } from "@uxflows/core/files/models";
-import type { EndpointId } from "@uxflows/core/files/models";
-import type { ProviderId } from "@uxflows/core/llm/types";
+import { BUILT_IN_MODELS, resolveEndpoint, wireModelId } from "@flowstore/core/files/models";
+import type { EndpointId } from "@flowstore/core/files/models";
+import type { ProviderId } from "@flowstore/core/llm/types";
 
-const KEY = "uxflows:settings:google_api_key";
-const OPENAI_KEY = "uxflows:settings:openai_api_key";
-const OPENROUTER_KEY = "uxflows:settings:openrouter_api_key";
-const CHAT_MODEL_KEY = "uxflows:settings:chat_model";
-const AGENT_SIMULATE_MODEL_KEY = "uxflows:settings:simulate_agent_model";
-const PERSONA_SIMULATE_MODEL_KEY = "uxflows:settings:simulate_persona_model";
-const RUNNER_KEY = "uxflows:settings:runner_url";
-const GITHUB_PAT_KEY = "uxflows:settings:github_pat";
-const GITHUB_LOGIN_KEY = "uxflows:settings:github_login";
-const GITHUB_NAME_KEY = "uxflows:settings:github_name";
+const KEY = "flowstore:settings:google_api_key";
+const OPENAI_KEY = "flowstore:settings:openai_api_key";
+const OPENROUTER_KEY = "flowstore:settings:openrouter_api_key";
+const CHAT_MODEL_KEY = "flowstore:settings:chat_model";
+const AGENT_SIMULATE_MODEL_KEY = "flowstore:settings:simulate_agent_model";
+const PERSONA_SIMULATE_MODEL_KEY = "flowstore:settings:simulate_persona_model";
+const RUNNER_KEY = "flowstore:settings:runner_url";
+const GITHUB_PAT_KEY = "flowstore:settings:github_pat";
+const GITHUB_LOGIN_KEY = "flowstore:settings:github_login";
+const GITHUB_NAME_KEY = "flowstore:settings:github_name";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -140,7 +140,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
 async function fetchAndSetGithubIdentity(pat: string): Promise<void> {
   try {
-    const { makeGitHubClient } = await import("@uxflows/core/files/github");
+    const { makeGitHubClient } = await import("@flowstore/core/files/github");
     const client = makeGitHubClient(pat);
     const res = await client.rest.users.getAuthenticated();
     const login = res.data.login ?? "";

@@ -1,4 +1,4 @@
-import type { Spec } from "@uxflows/core/schema/v0";
+import type { Spec } from "@flowstore/core/schema/v0";
 import type { RuntimeEvent } from "./eventTypes";
 
 export interface StartSessionResponse {
@@ -17,7 +17,7 @@ export interface TurnResponse {
 export class RunnerUnreachableError extends Error {
   constructor(baseUrl: string) {
     super(
-      `Runner unreachable at ${baseUrl} — start it with \`cd ../uxflows-runner && uv run uxflows-runner serve\`, or change the URL in Settings.`,
+      `Runner unreachable at ${baseUrl} — start it with \`cd ../flowstore-runner && uv run flowstore-runner serve\`, or change the URL in Settings.`,
     );
     this.name = "RunnerUnreachableError";
   }

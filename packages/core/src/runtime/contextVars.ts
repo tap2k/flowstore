@@ -1,4 +1,4 @@
-import type { Spec, VariableDecl } from "@uxflows/core/schema/v0";
+import type { Spec, VariableDecl } from "@flowstore/core/schema/v0";
 
 export interface DeclaredVariable {
   name: string;

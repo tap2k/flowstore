@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
-import { generateSystemPrompt } from "@uxflows/core/codegen/promptGenerator";
-import type { Spec } from "@uxflows/core/schema/v0";
+import { generateSystemPrompt } from "@flowstore/core/codegen/promptGenerator";
+import type { Spec } from "@flowstore/core/schema/v0";
 
 const path = process.argv[2];
 if (!path) {

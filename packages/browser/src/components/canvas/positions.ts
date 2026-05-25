@@ -3,7 +3,7 @@ import { createScopedJsonStorage, isPlainObject } from "@/lib/store/scopedStorag
 export type Positions = Record<string, { x: number; y: number }>;
 
 const positionsStorage = createScopedJsonStorage<Positions>({
-  prefix: "uxflows:positions:",
+  prefix: "flowstore:positions:",
   defaultValue: () => ({}),
   validate: (raw) => (isPlainObject(raw) ? (raw as Positions) : null),
   isEmpty: (v) => Object.keys(v).length === 0,
