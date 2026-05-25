@@ -19,7 +19,12 @@ import { validateSpec } from "@ux4/core/validation/ajv";
 export function App() {
   const spec = useSpecStore((s) => s.spec);
   const setSpec = useSpecStore((s) => s.setSpec);
-  const apiKey = useSettingsStore((s) => s.googleApiKey);
+  // Any configured LLM provider unlocks the prompt-mode panels (Run in
+  // prompt mode + Assistant). Google-only here would have hidden them
+  // for OpenAI-only / OpenRouter-only users.
+  const hasLlmKey = useSettingsStore(
+    (s) => !!(s.googleApiKey || s.openaiApiKey || s.openrouterApiKey),
+  );
   const runnerUrl = useSettingsStore((s) => s.runnerUrl);
   const githubLocation = useGithubProjectStore((s) => s.location);
   const [hydrating, setHydrating] = useState(true);
@@ -96,7 +101,7 @@ export function App() {
           <div className="relative flex-1 min-w-0">
             <Canvas />
             <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
-              {spec && runnerUrl && !simulateOpen && (
+              {spec && (hasLlmKey || runnerUrl) && !simulateOpen && (
                 <button
                   onClick={() => setSimulateOpen(true)}
                   className="flex items-center gap-1.5 rounded-full bg-white border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
@@ -105,7 +110,7 @@ export function App() {
                   Run
                 </button>
               )}
-              {apiKey && !chatOpen && (
+              {hasLlmKey && !chatOpen && (
                 <button
                   onClick={() => setChatOpen(true)}
                   title="Assistant — describe a spec change in natural language"
