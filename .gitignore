@@ -16,8 +16,12 @@ node_modules
 # vite
 dist/
 
-# next.js (leftover from pre-vite browser package)
+# next.js (leftover from pre-vite browser package; kept defensively
+# in case anyone re-introduces next-style tooling)
 .next/
+out/
+.vercel/
+.turbo/
 
 # production
 /build
