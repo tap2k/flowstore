@@ -16,6 +16,9 @@ node_modules
 # vite
 dist/
 
+# next.js (leftover from pre-vite browser package)
+.next/
+
 # production
 /build
 
