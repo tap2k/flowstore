@@ -16,6 +16,9 @@ const GITHUB_NAME_KEY = "uxflows:settings:github_name";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
 
+// Used as the input placeholder in the Settings sheet — the actual stored
+// value starts empty so an empty field communicates "configure to enable
+// runner mode" rather than "this is set, ready to go."
 export const DEFAULT_RUNNER_URL = "http://localhost:8000";
 const DEFAULT_MODEL_ID = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
 
@@ -79,7 +82,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   chatModel: DEFAULT_MODEL_ID,
   simulateAgentModel: DEFAULT_MODEL_ID,
   simulatePersonaModel: DEFAULT_MODEL_ID,
-  runnerUrl: DEFAULT_RUNNER_URL,
+  runnerUrl: "",
   githubPat: "",
   githubLogin: "",
   githubName: "",
