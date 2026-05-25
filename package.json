@@ -9,7 +9,10 @@
     "dev": "npm -w @flowstore/browser run dev",
     "build": "npm -w @flowstore/browser run build",
     "preview": "npm -w @flowstore/browser run preview",
-    "preview-prompt": "npm -w @flowstore/core run preview-prompt"
+    "preview-prompt": "npm -w @flowstore/core run preview-prompt",
+    "dev:site": "npm -w @flowstore/site run dev",
+    "build:site": "npm -w @flowstore/site run build",
+    "preview:site": "npm -w @flowstore/site run preview"
   },
   "devDependencies": {
     "typescript": "^5"

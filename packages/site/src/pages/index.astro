@@ -1,0 +1,36 @@
+---
+import Base from "../layouts/Base.astro";
+
+const editorUrl = "https://create.flowstore.org";
+const repoUrl = "https://github.com/tap2k/flowstore";
+---
+
+<Base
+  title="flowstore — a Behavioral IDE for Conversational Agents"
+  description="Author conversation specs on a canvas, decompose them into per-concern files in a Git repo, and pair with a Python testing surface."
+>
+  <main class="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-20">
+    <p class="font-mono text-sm font-semibold tracking-tight text-slate-500">flowstore</p>
+    <h1 class="mt-6 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
+      A Behavioral IDE for Conversational Agents.
+    </h1>
+    <p class="mt-6 max-w-2xl text-lg text-slate-600">
+      Author conversation specs on a canvas. flowstore decomposes them into per-concern files
+      in a Git repo and emits a deterministic system prompt as a pure function of the spec.
+    </p>
+    <div class="mt-10 flex flex-wrap gap-3">
+      <a
+        href={editorUrl}
+        class="rounded-md bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-700"
+      >
+        Open the editor
+      </a>
+      <a
+        href={repoUrl}
+        class="rounded-md border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-900 hover:bg-slate-50"
+      >
+        View on GitHub
+      </a>
+    </div>
+  </main>
+</Base>
