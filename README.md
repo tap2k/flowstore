@@ -11,6 +11,14 @@ npm run dev
 
 Then open http://127.0.0.1:5173.
 
+## Repo layout
+
+npm workspaces monorepo (`packages/*`):
+
+- `@flowstore/browser` — the Vite app you ran above. The editor surface.
+- `@flowstore/core` — schema, codegen, validation, files, runtime. Intended to publish to npm. See [packages/core/README.md](./packages/core/README.md).
+- `@flowstore/site` — placeholder marketing site (Astro, Cloudflare Pages).
+
 ## What it does
 
 - Canvas-first authoring: flows as nodes, exit paths as edges.
