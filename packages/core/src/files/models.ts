@@ -51,8 +51,7 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     "claude-sonnet-4.6":        { name: "Claude Sonnet 4.6", endpoint: "openrouter", model_id: "anthropic/claude-sonnet-4.6" },
     "claude-haiku-4.5":         { name: "Claude Haiku 4.5", endpoint: "openrouter", model_id: "anthropic/claude-haiku-4.5" },
 
-    // Open-weight + stealth on OpenRouter. The :free suffix routes to the
-    // free tier. Owl-alpha is OpenRouter's rotating stealth endpoint.
+    // Open-weight on OpenRouter. The :free suffix routes to the free tier.
     "grok-4.3":                 { name: "Grok 4.3", endpoint: "openrouter", model_id: "x-ai/grok-4.3" },
     "deepseek-v4-pro":          { name: "DeepSeek V4 Pro", endpoint: "openrouter", model_id: "deepseek/deepseek-v4-pro" },
     "deepseek-v4-flash":        { name: "DeepSeek V4 Flash", endpoint: "openrouter", model_id: "deepseek/deepseek-v4-flash" },
@@ -62,7 +61,6 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     "qwen3.6-flash":            { name: "Qwen 3.6 Flash", endpoint: "openrouter", model_id: "qwen/qwen3.6-flash" },
     "llama-4-maverick":         { name: "Llama 4 Maverick", endpoint: "openrouter", model_id: "meta-llama/llama-4-maverick" },
     "llama-3.3-70b":            { name: "Llama 3.3 70B (free)", endpoint: "openrouter", model_id: "meta-llama/llama-3.3-70b-instruct:free" },
-    "owl-alpha":                { name: "Owl Alpha (stealth, free)", endpoint: "openrouter", model_id: "openrouter/owl-alpha" },
   },
   default: "gemini-2.5-flash",
   roles: {},
