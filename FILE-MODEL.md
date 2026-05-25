@@ -98,7 +98,7 @@ project/
 
 ## Layout — multi-agent variant
 
-When a project holds multiple agents (e.g., one Tala-India project with purpose × language agents), the shape promotes. **`tests/` splits between two roots**: shared testing infrastructure (personas, evaluators, rubrics) stays at project `tests/`; agent-scoped (cases, gold-standards, runs) lives under each `agents/<id>/tests/`.
+When a project holds multiple agents (e.g., one Tala-India project with purpose × language agents), the shape promotes. **`tests/` splits between two roots**: shared testing infrastructure (personas, evaluators, rubrics) stays at project `tests/`; agent-scoped (cases, gold-standards, runs) lives under each `agents/<id>/tests/`. **`flows/` may also live at both scopes**: shared flows (typically interrupts like `verify_identity`, `handle_wrong_person`, `request_callback`) at project root; agent-specific flows under each `agents/<id>/flows/`.
 
 ```
 project/
@@ -112,6 +112,11 @@ project/
 │   ├── <id>.capability.json
 │   └── <id>.<variant>.mock.json
 ├── knowledge/                               # shared
+├── flows/                                   # shared flows (interrupts and other cross-agent surfaces)
+│   ├── verify_identity.flow.json
+│   ├── verify_identity.scripts.csv          # must carry every language any referencing agent declares
+│   ├── handle_wrong_person.flow.json
+│   └── handle_wrong_person.scripts.csv
 ├── comments/                                # anchored to any entity in any agent or shared
 ├── tests/                                   # shared testing infrastructure
 │   ├── personas/                            # reusable across agents
@@ -123,7 +128,7 @@ project/
     │   ├── agent.json                       # meta (incl. client, tone, system_prompt_template),
     │   │                                    # languages, modes, entry_flow_id,
     │   │                                    # optional agent-scope guardrails/business-goals/variables/knowledge inline
-    │   ├── flows/
+    │   ├── flows/                           # agent-specific flows (the main collection graph)
     │   │   ├── <id>.flow.json
     │   │   └── <id>.scripts.csv
     │   └── tests/                           # agent-specific
@@ -134,6 +139,8 @@ project/
     │   └── …
     └── …
 ```
+
+**Why `agents/` is a subdir, not top-level.** Project-level resources (`capabilities/`, `knowledge/`, `tests/`, `flows/`, `models/`, etc.) sit at root; an `agents/` container keeps agent ids from colliding with those names and gives the loader a single signal ("is there an `agents/` directory?") for multi-agent mode. Agent ids are filesystem-implicit — there is no list of agents in `ux4.json`. Adding/removing an agent is just creating/deleting the directory, same as every other collection in the file model.
 
 All `.json` files carry a `$schema` URI under `UX4://...`. All entries carry stable `id`s; the editor generates them.
 
@@ -166,8 +173,8 @@ Three scope levels exist in a multi-agent project. Not every entity supports all
 | Entity | Project | Agent | Flow | Notes |
 |---|---|---|---|---|
 | **Agent meta** (name, modes, languages, `entry_flow_id`) | — | ✓ | — | Necessarily per-agent. |
-| **Flows** | — | ✓ | — | Each agent's behavior graph. |
-| **Per-flow scripts CSV** | — | ✓ | ✓ | Tied to the flow; lives under the agent's flows. |
+| **Flows** | ✓ | ✓ | — | Project-level flows are shared across agents (e.g., interrupts like `verify_identity`, `handle_wrong_person`). Agent-level flows are agent-specific. Resolution is agent-first, project-fallback. |
+| **Per-flow scripts CSV** | ✓ | ✓ | ✓ | Lives next to its flow file. Project-level flow → project-level scripts (shared verbatim across agents). Agent-level flow → agent-level scripts. |
 | **Capabilities** | ✓ | — | — | Backend APIs are project-shared. Per-agent capability declarations: post-MVP. |
 | **Capability mocks** | ✓ | — | — | Paired with capabilities via filename prefix. |
 | **Variables (declarations)** | ✓ | ✓ | ✓ | Domain variables project-level; agent/flow declarations rare but allowed. |
@@ -195,7 +202,7 @@ When compiling agent X's spec for the runtime, the loader merges per-scope entit
 - **Variables** = project ∪ agent ∪ flow declaration merge.
 - **Business goals** = project ∪ agent.
 - **FAQ** = project ∪ agent ∪ flow.
-- **Flows** = agent-only (under `agents/<id>/flows/`).
+- **Flows** = project ∪ agent. Agent-level flows shadow project-level on id collision (explicit override allowed for flows, unlike other entities — a shared interrupt can be specialized for one agent by declaring an agent-level flow with the same id; the loader warns, doesn't error). Flow references (`entry_flow_id`, `goto`) resolve **agent-first, project-fallback** — letting a shared interrupt `goto: continue_collection` resolve to each agent's own continuation.
 
 The resolved compiled spec is identical in shape to today's `spec.json` (`{agent: {...}, flows: [...]}`) — the runtime is unaware that any of this came from multiple scopes.
 
@@ -207,7 +214,9 @@ If overrides become a real workflow ("project guardrail X applies, but this one 
 
 ### Cross-agent references
 
-Within an agent, a flow's `goto` references another flow id in the same agent. Cross-agent flow references are not allowed in MVP (each agent's flow graph is self-contained). Project-level entities (capabilities, guardrails, personas, etc.) are referenceable from any agent.
+A flow's `goto` resolves agent-first, then project-level (so a shared interrupt at project root can `goto` an id that each agent defines for itself). Direct references into *another* agent's flows are not allowed — each agent's compiled spec must be self-contained. Project-level entities (capabilities, guardrails, personas, shared flows, etc.) are referenceable from any agent.
+
+**Languages on shared flows.** A project-level scripts CSV must carry columns for every language declared by any agent that references the flow. Validation errors otherwise. If one agent needs a divergent script for the same flow, shadow it: declare an agent-level flow with the same id (see resolution semantics above) and put the divergent CSV under that agent.
 
 ---
 
@@ -384,8 +393,8 @@ Entries reference each other by stable `id`. The file path is not the contract �
 - `<test-case>.scenario.mock_bindings.<capability_id>` → `capabilities/<capability_id>.<variant>.mock.json`
 - `<test-case>.evaluators[]` (by name) → either `tests/evaluators/<name>.py` or `tests/rubrics/<name>.rubric.json`
 - `<test-case>.scenario.persona_id` → `tests/personas/<id>.persona.json` (when present; optional)
-- `<flow>.exit_paths[].goto` → flow id (in same agent), `END`, or `RETURN` (unchanged from SCHEMA.md)
-- `agent.entry_flow_id` → flow id; resolves to a file in this agent's `flows/`. In multi-agent, each `agents/<id>/agent.json.entry_flow_id` resolves within that agent's own `agents/<id>/flows/` — no cross-agent resolution.
+- `<flow>.exit_paths[].goto` → flow id, `END`, or `RETURN`. Resolution is agent-first, then project-level `flows/` (no resolution into another agent's flows). Unchanged from SCHEMA.md aside from the project-level fallback.
+- `agent.entry_flow_id` → flow id; resolves agent-first (this agent's `flows/`), then project-level `flows/`. No cross-agent resolution.
 - `<comment>.anchor` → spec entity by `(kind, agent_id?, id)`
 
 The loader (`@ux4/core/files`) builds an id-indexed symbol table on project load. Renaming a file requires the id inside the file to change too; the editor handles this atomically via id-rename cascade. Validation rejects dangling references.
@@ -449,6 +458,7 @@ The strategic value: one repo holds the whole project lifecycle — spec, tests,
 - The id-indexed loader is the central component. Build it first in `@ux4/core/files`; everything else (editor, scripts, validation, compilation) depends on it.
 - The loader handles the shape rule uniformly: same code path reads `guardrails.json` and `guardrails/*.json`. One implementation, every collection.
 - Multi-agent resolution: loader walks `agents/<id>/` for agent-scoped entities, root for project-scoped; merges per scope rule. Single-agent projects skip the `agents/` walk.
+- Flow resolution is agent-first, project-fallback. Agent-level flows with the same id as a project-level flow shadow (override) the project-level one with a warning. This is the one entity that allows override semantics in MVP — the use case (specializing a shared interrupt for one agent) is concrete enough to justify the carve-out.
 - Validation runs on the in-memory resolved spec, not file-by-file. A single file is valid against its own schema; only the resolved spec is checked against cross-file invariants (referenced ids exist, entry flow is reachable, scope collisions caught, etc.).
 - Comments are additive — adding a comment is always conflict-free. Resolution is also a new file (the resolving comment). Cascade-delete on entity removal handles orphans.
 - Commit boundaries should match concern boundaries. Editing a flow and adding a guardrail it references is two changes; commit separately so the diffs read cleanly.

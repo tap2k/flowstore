@@ -286,6 +286,7 @@ Each has been considered and deferred. Defers are pre-conditional, not aspiratio
 - **Templates / vertical templates** (banking, healthcare, insurance). Phase 4 ships course without templates; add when demand surfaces.
 - **Onboarding flow for first-time users.** Phase 4 ships without; Awaaz pilots don't need it.
 - **Multi-user organizations beyond GitHub's native collaboration.**
+- **Non-GitHub Git backends for browser editing** (GitLab, Gitea/Forgejo, self-hosted bare repos, raw SSH remotes). The file model and CLI are already Git-host-agnostic — only the browser editor is coupled to GitHub, via the ~15-call Octokit surface in [packages/core/src/files/github.ts](./packages/core/src/files/github.ts), all of which are GitHub REST mirrors of plain Git operations (no PRs, Issues, or Apps). Two viable swaps: (a) per-forge adapters (`@ux4/git-host` interface with `github` / `gitlab` / `gitea` impls — ~1 day each), or (b) one `isomorphic-git` implementation that works against any Git remote (requires a CORS proxy and an auth rework). Trigger: a concrete user (compliance-blocked customer, course participant on self-hosted Gitea, Awaaz extension to GitLab). Today's self-hosters use the CLI against their own Git host and skip the browser editor — that's the unblocked path; this entry is about closing the editor gap.
 
 ### Gated on production-monitoring integration demand
 
