@@ -1,27 +1,31 @@
 {
   "name": "@flowstore/core",
-  "version": "0.1.0",
-  "private": true,
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "version": "0.1.0-alpha.1",
+  "description": "Flowstore core — schema, codegen, validation, and runtime",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./ids": "./src/ids.ts",
-    "./schema": "./src/schema/index.ts",
-    "./schema/*": "./src/schema/*.ts",
-    "./codegen": "./src/codegen/index.ts",
-    "./codegen/*": "./src/codegen/*.ts",
-    "./validation": "./src/validation/index.ts",
-    "./validation/*": "./src/validation/*.ts",
-    "./files": "./src/files/index.ts",
-    "./files/*": "./src/files/*.ts",
-    "./llm": "./src/llm/index.ts",
-    "./llm/*": "./src/llm/*.ts",
-    "./llm/providers/*": "./src/llm/providers/*.ts",
-    "./runtime": "./src/runtime/index.ts",
-    "./runtime/*": "./src/runtime/*.ts"
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.mjs", "require": "./dist/index.js" },
+    "./ids": { "types": "./dist/ids.d.ts", "import": "./dist/ids.mjs", "require": "./dist/ids.js" },
+    "./schema": { "types": "./dist/schema/index.d.ts", "import": "./dist/schema/index.mjs", "require": "./dist/schema/index.js" },
+    "./schema/*": { "types": "./dist/schema/*.d.ts", "import": "./dist/schema/*.mjs", "require": "./dist/schema/*.js" },
+    "./codegen": { "types": "./dist/codegen/index.d.ts", "import": "./dist/codegen/index.mjs", "require": "./dist/codegen/index.js" },
+    "./codegen/*": { "types": "./dist/codegen/*.d.ts", "import": "./dist/codegen/*.mjs", "require": "./dist/codegen/*.js" },
+    "./validation": { "types": "./dist/validation/index.d.ts", "import": "./dist/validation/index.mjs", "require": "./dist/validation/index.js" },
+    "./validation/*": { "types": "./dist/validation/*.d.ts", "import": "./dist/validation/*.mjs", "require": "./dist/validation/*.js" },
+    "./files": { "types": "./dist/files/index.d.ts", "import": "./dist/files/index.mjs", "require": "./dist/files/index.js" },
+    "./files/*": { "types": "./dist/files/*.d.ts", "import": "./dist/files/*.mjs", "require": "./dist/files/*.js" },
+    "./llm": { "types": "./dist/llm/index.d.ts", "import": "./dist/llm/index.mjs", "require": "./dist/llm/index.js" },
+    "./llm/*": { "types": "./dist/llm/*.d.ts", "import": "./dist/llm/*.mjs", "require": "./dist/llm/*.js" },
+    "./llm/providers/*": { "types": "./dist/llm/providers/*.d.ts", "import": "./dist/llm/providers/*.mjs", "require": "./dist/llm/providers/*.js" },
+    "./runtime": { "types": "./dist/runtime/index.d.ts", "import": "./dist/runtime/index.mjs", "require": "./dist/runtime/index.js" },
+    "./runtime/*": { "types": "./dist/runtime/*.d.ts", "import": "./dist/runtime/*.mjs", "require": "./dist/runtime/*.js" }
   },
+  "files": ["dist"],
   "scripts": {
+    "build": "tsup",
     "preview-prompt": "tsx scripts/preview-prompt.ts",
     "round-trip": "tsx scripts/round-trip.ts",
     "round-trip-disk": "tsx scripts/round-trip-disk.ts",
@@ -39,6 +43,7 @@
   },
   "devDependencies": {
     "@types/node": "^20",
+    "tsup": "^8.5.1",
     "tsx": "^4"
   }
 }

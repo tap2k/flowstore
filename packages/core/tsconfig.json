@@ -1,7 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["esnext"]
+    "lib": ["esnext"],
+    "incremental": false,
+    "paths": {
+      "@flowstore/core": ["./src/index.ts"],
+      "@flowstore/core/*": ["./src/*"]
+    }
   },
   "include": ["src/**/*.ts", "scripts/**/*.ts"]
 }
