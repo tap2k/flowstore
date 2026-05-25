@@ -1,7 +1,7 @@
 import { useSpecStore } from "@/lib/store/spec";
-import type { Agent, ExitPath, Flow } from "@ux4/core/schema/v0";
-import { GOTO_END, GOTO_RETURN, isEndGoto, isReturnGoto } from "@ux4/core/schema/v0";
-import type { JSONSchema, ToolDefinition } from "@ux4/core/llm/types";
+import type { Agent, ExitPath, Flow } from "@uxflows/core/schema/v0";
+import { GOTO_END, GOTO_RETURN, isEndGoto, isReturnGoto } from "@uxflows/core/schema/v0";
+import type { JSONSchema, ToolDefinition } from "@uxflows/core/llm/types";
 
 export type ToolResult =
   | { ok: true; data?: Record<string, unknown> }

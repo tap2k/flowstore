@@ -1,7 +1,7 @@
 import { useSpecStore } from "@/lib/store/spec";
-import { genId } from "@ux4/core/ids";
-import type { GlossaryEntry, Knowledge, TableEntry, TableField } from "@ux4/core/schema/v0";
-import { defaultLanguage } from "@ux4/core/schema/v0";
+import { genId } from "@uxflows/core/ids";
+import type { GlossaryEntry, Knowledge, TableEntry, TableField } from "@uxflows/core/schema/v0";
+import { defaultLanguage } from "@uxflows/core/schema/v0";
 import { ListEditor } from "@/components/inspector/ListEditor";
 import { FaqListEditor } from "@/components/inspector/FaqListEditor";
 import { Field, Section, inputClass } from "@/components/inspector/primitives";
@@ -14,7 +14,7 @@ import {
   parseGlossaryCsv,
   parseTableRowsCsv,
   tableToCsv,
-} from "@ux4/core/codegen/knowledgeCsv";
+} from "@uxflows/core/codegen/knowledgeCsv";
 
 export function KnowledgeSheet({ onClose }: { onClose: () => void }) {
   const knowledge = useSpecStore((s) => s.spec?.agent.knowledge ?? null);

@@ -1,6 +1,6 @@
 import Ajv, { type ErrorObject, type ValidateFunction, type SchemaObject } from "ajv";
 import addFormats from "ajv-formats";
-import { SpecSchema, type Spec } from "@ux4/core/schema/v0";
+import { SpecSchema, type Spec } from "@uxflows/core/schema/v0";
 
 const ajv = new Ajv({ allErrors: true, strict: false });
 addFormats(ajv);

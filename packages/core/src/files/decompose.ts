@@ -1,9 +1,9 @@
-import type { Spec, Flow, Agent } from "@ux4/core/schema/v0";
-import { flowToScriptsCsv } from "@ux4/core/codegen/scriptsCsv";
-import { tableToCsv } from "@ux4/core/codegen/knowledgeCsv";
+import type { Spec, Flow, Agent } from "@uxflows/core/schema/v0";
+import { flowToScriptsCsv } from "@uxflows/core/codegen/scriptsCsv";
+import { tableToCsv } from "@uxflows/core/codegen/knowledgeCsv";
 import type { FileMap } from "./types";
 
-const PROJECT_MANIFEST = { $schema: "UX4://project/v0" } as const;
+const PROJECT_MANIFEST = { $schema: "uxflows://project/v0" } as const;
 
 export interface DecomposeOptions {
   projectName?: string;
@@ -12,13 +12,13 @@ export interface DecomposeOptions {
 export function decomposeSpec(spec: Spec, opts: DecomposeOptions = {}): FileMap {
   const out: FileMap = {};
 
-  out["ux4.json"] = stringifyJson(PROJECT_MANIFEST);
+  out["uxflows.json"] = stringifyJson(PROJECT_MANIFEST);
   out["agent.json"] = stringifyJson(buildAgentFile(spec.agent));
 
   const glossary = spec.agent.knowledge?.glossary;
   if (glossary && glossary.length > 0) {
     out["knowledge/glossary.json"] = stringifyJson({
-      $schema: "UX4://project-glossary/v0",
+      $schema: "uxflows://project-glossary/v0",
       glossary,
     });
   }
@@ -26,7 +26,7 @@ export function decomposeSpec(spec: Spec, opts: DecomposeOptions = {}): FileMap 
   for (const table of spec.agent.knowledge?.tables ?? []) {
     const { rows: _rows, ...meta } = table;
     out[`knowledge/tables/${table.id}.meta.json`] = stringifyJson({
-      $schema: "UX4://knowledge-table/v0",
+      $schema: "uxflows://knowledge-table/v0",
       ...meta,
     });
     out[`knowledge/tables/${table.id}.csv`] = tableToCsv(table);
@@ -72,14 +72,14 @@ function scaffoldReadme(spec: Spec, opts: DecomposeOptions): string {
     "",
     spec.agent.meta.purpose ?? "",
     "",
-    "Authored in UX4. Spec files are decomposed under this directory:",
+    "Authored in uxflows. Spec files are decomposed under this directory:",
     "",
-    "- `ux4.json` — project manifest",
+    "- `uxflows.json` — project manifest",
     "- `agent.json` — agent envelope",
     "- `flows/` — per-flow behavior (`.flow.json`) + utterances (`.scripts.csv`)",
     "- `knowledge/` — project-scope glossary and tables",
     "",
-    "See the UX4 file-model docs for the on-disk layout.",
+    "See the uxflows file-model docs for the on-disk layout.",
     "",
   ];
   return lines.join("\n");

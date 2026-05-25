@@ -1,8 +1,8 @@
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useSpecStore } from "@/lib/store/spec";
 import { hasKeyForModel, useSettingsStore } from "@/lib/store/settings";
-import { generatePersonaPrompt } from "@ux4/core/runtime/personaGen";
-import { BUILT_IN_MODELS } from "@ux4/core/files/models";
+import { generatePersonaPrompt } from "@uxflows/core/runtime/personaGen";
+import { BUILT_IN_MODELS } from "@uxflows/core/files/models";
 import { ModelPicker } from "./ModelPicker";
 import { useState } from "react";
 

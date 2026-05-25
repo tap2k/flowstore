@@ -1,9 +1,9 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { readDirectoryToFileMap } from "@ux4/core/files/node";
-import { loadProject } from "@ux4/core/files";
-import { generateSystemPrompt } from "@ux4/core/codegen/promptGenerator";
-import type { Spec, Capability, VariableDecl } from "@ux4/core/schema/v0";
+import { readDirectoryToFileMap } from "@uxflows/core/files/node";
+import { loadProject } from "@uxflows/core/files";
+import { generateSystemPrompt } from "@uxflows/core/codegen/promptGenerator";
+import type { Spec, Capability, VariableDecl } from "@uxflows/core/schema/v0";
 
 interface Args {
   format: "prompt" | "spec";
@@ -69,7 +69,7 @@ function parseVars(raw: string | undefined): Record<string, unknown> | undefined
 function usage(msg?: string): never {
   if (msg) console.error(msg);
   console.error(
-    "usage: ux4-compile <project-dir|spec.json> --format prompt|spec [--agent <id>] [--out <path>] [--vars k=v,k=v] [--vars-file <path.json>] [--language <code>]",
+    "usage: uxflows-compile <project-dir|spec.json> --format prompt|spec [--agent <id>] [--out <path>] [--vars k=v,k=v] [--vars-file <path.json>] [--language <code>]",
   );
   process.exit(2);
 }

@@ -2,15 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { useSimulateStore, type TranscriptTurn } from "@/lib/store/simulate";
-import { chat } from "@ux4/core/llm/dispatch";
+import { chat } from "@uxflows/core/llm/dispatch";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { findTool, toolDefinitions } from "@/lib/chat/tools";
-import { systemPrompt } from "@ux4/core/llm/prompts";
-import { formatErrors, validateSpec } from "@ux4/core/validation/ajv";
-import type { ChatMessage } from "@ux4/core/llm/types";
-import type { Spec } from "@ux4/core/schema/v0";
-import type { RuntimeEvent } from "@ux4/core/runtime/eventTypes";
-import { formatEvent } from "@ux4/core/runtime/formatEvent";
+import { systemPrompt } from "@uxflows/core/llm/prompts";
+import { formatErrors, validateSpec } from "@uxflows/core/validation/ajv";
+import type { ChatMessage } from "@uxflows/core/llm/types";
+import type { Spec } from "@uxflows/core/schema/v0";
+import type { RuntimeEvent } from "@uxflows/core/runtime/eventTypes";
+import { formatEvent } from "@uxflows/core/runtime/formatEvent";
 
 interface ChatPanelProps {
   open: boolean;

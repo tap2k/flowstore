@@ -25,7 +25,7 @@ const ErrorBehavior = Type.Object(
 // by the loader, not by this schema.
 export const CapabilityMockSchema = Type.Object(
   {
-    $schema: Type.Literal("UX4://capability-mock/v0"),
+    $schema: Type.Literal("uxflows://capability-mock/v0"),
     capability_id: Type.String(),
     variant: Type.String(),
     description: Type.Optional(Type.String()),

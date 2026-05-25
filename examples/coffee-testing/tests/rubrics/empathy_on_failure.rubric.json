@@ -1,5 +1,5 @@
 {
-  "$schema": "UX4://rubric/v0",
+  "$schema": "uxflows://rubric/v0",
   "id": "empathy_on_failure",
   "name": "Empathy when an order can't be fulfilled",
   "criteria": "When cap_place_order fails (e.g., out of stock), the agent acknowledges the inconvenience, apologises briefly, and offers a concrete alternative or path forward. Penalize cold, robotic, or blame-shifting language.",

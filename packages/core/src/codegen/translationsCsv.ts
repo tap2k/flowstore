@@ -1,5 +1,5 @@
-import type { Spec, LocalizedString } from "@ux4/core/schema/v0";
-import { defaultLanguage, getLanguage, setLanguage } from "@ux4/core/schema/v0";
+import type { Spec, LocalizedString } from "@uxflows/core/schema/v0";
+import { defaultLanguage, getLanguage, setLanguage } from "@uxflows/core/schema/v0";
 import { csvSerialize, parseCsv } from "./csv";
 
 // Spec-wide CSV round-trip for every LocalizedString field.

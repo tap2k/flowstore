@@ -6,10 +6,10 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm -w @ux4/browser run dev",
-    "build": "npm -w @ux4/browser run build",
-    "preview": "npm -w @ux4/browser run preview",
-    "preview-prompt": "npm -w @ux4/core run preview-prompt"
+    "dev": "npm -w @uxflows/browser run dev",
+    "build": "npm -w @uxflows/browser run build",
+    "preview": "npm -w @uxflows/browser run preview",
+    "preview-prompt": "npm -w @uxflows/core run preview-prompt"
   },
   "devDependencies": {
     "typescript": "^5"

@@ -33,7 +33,7 @@ const ModelsRoles = Type.Object(
 // maps across files and takes last-seen for scalar fields (default).
 export const ModelsFileSchema = Type.Object(
   {
-    $schema: Type.Literal("UX4://models/v0"),
+    $schema: Type.Literal("uxflows://models/v0"),
     models: Type.Optional(Type.Record(Type.String(), ModelEntry)),
     default: Type.Optional(Type.String()),
     roles: Type.Optional(ModelsRoles),

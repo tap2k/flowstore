@@ -1,10 +1,10 @@
-import type { Spec, Agent, Flow } from "@ux4/core/schema/v0";
-import { validateSpec, validateFile, formatErrors } from "@ux4/core/validation/ajv";
-import { ProjectManifestSchema } from "@ux4/core/schema/files/project";
-import { ProjectGlossaryFileSchema } from "@ux4/core/schema/files/glossary";
-import { KnowledgeTableMetaSchema } from "@ux4/core/schema/files/knowledgeTable";
-import { mergeScriptsCsv } from "@ux4/core/codegen/scriptsCsv";
-import { parseTableRowsCsv } from "@ux4/core/codegen/knowledgeCsv";
+import type { Spec, Agent, Flow } from "@uxflows/core/schema/v0";
+import { validateSpec, validateFile, formatErrors } from "@uxflows/core/validation/ajv";
+import { ProjectManifestSchema } from "@uxflows/core/schema/files/project";
+import { ProjectGlossaryFileSchema } from "@uxflows/core/schema/files/glossary";
+import { KnowledgeTableMetaSchema } from "@uxflows/core/schema/files/knowledgeTable";
+import { mergeScriptsCsv } from "@uxflows/core/codegen/scriptsCsv";
+import { parseTableRowsCsv } from "@uxflows/core/codegen/knowledgeCsv";
 import { loadModelsConfig } from "./models";
 import { loadTestingArtifacts } from "./testing";
 import { loadComments } from "./comments";
@@ -18,10 +18,10 @@ export function loadProject(files: FileMap): LoadResult {
   const errors: LoadError[] = [];
 
   // Optional project manifest: validate shape if present.
-  const manifestRaw = files["ux4.json"];
+  const manifestRaw = files["uxflows.json"];
   if (manifestRaw !== undefined) {
-    const manifest = parseJson<unknown>(manifestRaw, "ux4.json", errors);
-    if (manifest !== null) validateFileInto(manifest, ProjectManifestSchema, "ux4.json", errors);
+    const manifest = parseJson<unknown>(manifestRaw, "uxflows.json", errors);
+    if (manifest !== null) validateFileInto(manifest, ProjectManifestSchema, "uxflows.json", errors);
   }
 
   const modelsConfig = loadModelsConfig(files, errors);

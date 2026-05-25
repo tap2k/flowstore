@@ -1,6 +1,6 @@
-# Testing UX4 Agents From Scripts
+# Testing uxflows Agents From Scripts
 
-Audience: an engineer who's never seen UX4 and wants to drive their own agent through tests in Python (or anything else). This is the **bring-your-own-script** path — UX4 ships file schemas and a CLI to compile the spec into a usable runtime artifact; how you drive the LLM and evaluate the transcript is up to you.
+Audience: an engineer who's never seen uxflows and wants to drive their own agent through tests in Python (or anything else). This is the **bring-your-own-script** path — uxflows ships file schemas and a CLI to compile the spec into a usable runtime artifact; how you drive the LLM and evaluate the transcript is up to you.
 
 For *how to use this harness as a prompt-engineering development loop* (gold transcripts, A/B comparison, when to fix the spec vs the generator vs the assertions), see the sibling doc [test-driven-prompts.md](test-driven-prompts.md). This doc is the mechanics; that one is the methodology.
 
@@ -12,8 +12,8 @@ For the broader project context see [MVP-PLAN.md](../MVP-PLAN.md); for the on-di
 
 ```
   ┌─────────────────┐                ┌──────────────────────┐
-  │  Your spec      │  ux4-compile   │ system_prompt + tools│
-  │  (UX4 project)  │ ─────────────▶ │  (JSON)              │
+  │  Your spec      │  uxflows-compile   │ system_prompt + tools│
+  │  (uxflows project)  │ ─────────────▶ │  (JSON)              │
   └─────────────────┘                └──────────┬───────────┘
                                                 │
                                                 ▼
@@ -26,26 +26,26 @@ For the broader project context see [MVP-PLAN.md](../MVP-PLAN.md); for the on-di
                                                 ▼
                                        ┌────────────────┐
                                        │ result.json    │
-                                       │ (UX4 reads it) │
+                                       │ (uxflows reads it) │
                                        └────────────────┘
 ```
 
 Three things are load-bearing across the seam:
 
-1. **`ux4-compile`** produces a stable `{system_prompt, tool_schemas}` JSON. Your script drives any LLM with that.
+1. **`uxflows-compile`** produces a stable `{system_prompt, tool_schemas}` JSON. Your script drives any LLM with that.
 2. **Test cases** (`tests/cases/*.test.json`) define what to run; **personas** (`tests/personas/*.persona.json`) optionally define a user-side system prompt; **mocks** (`capabilities/*.mock.json`) define what capabilities should return during the run.
 3. **Result files** (`tests/runs/<timestamp>/*.result.json`) are what your script writes — and what the editor's result viewer reads. The shape is contract.
 
-Everything else (evaluator framework, multi-trial aggregation, gold-standards loading, endpoint mode) is yours to write however you want. The reference scripts UX4 will eventually vendor are *one* shape; not *the* shape.
+Everything else (evaluator framework, multi-trial aggregation, gold-standards loading, endpoint mode) is yours to write however you want. The reference scripts uxflows will eventually vendor are *one* shape; not *the* shape.
 
 ---
 
-## `ux4-compile` CLI
+## `uxflows-compile` CLI
 
 Invoke from inside this repo (or once installed in your project) as:
 
 ```bash
-npm -w @ux4/core run ux4-compile -- <project-dir|spec.json> --format prompt
+npm -w @uxflows/core run uxflows-compile -- <project-dir|spec.json> --format prompt
 ```
 
 Flags:
@@ -60,7 +60,7 @@ Flags:
 | `--vars-file <path.json>` | no | Same as `--vars`, but loads key/value pairs from a JSON file. Use when a scenario needs many vars (`vars.bau.json`, `vars.broken-ptp.json`, etc.). |
 | `--language <code>` | no | For multilingual specs; picks the language column of scripts. Defaults to the first declared language. |
 
-Input may be a project directory (the normal case — UX4 reads `ux4.json` + `agent.json` + `flows/` + the rest per [FILE-MODEL.md](../FILE-MODEL.md)) or a single-file spec JSON (migration / pre-decomposition path).
+Input may be a project directory (the normal case — uxflows reads `uxflows.json` + `agent.json` + `flows/` + the rest per [FILE-MODEL.md](../FILE-MODEL.md)) or a single-file spec JSON (migration / pre-decomposition path).
 
 Output of `--format prompt`:
 
@@ -91,15 +91,15 @@ Output of `--format prompt`:
 
 ## File shapes you need to know
 
-All carry a `$schema` URI and a stable `id`. UX4 validates these on load; the editor refuses to commit invalid files.
+All carry a `$schema` URI and a stable `id`. uxflows validates these on load; the editor refuses to commit invalid files.
 
-### `tests/cases/<id>.test.json` — `UX4://test-case/v0`
+### `tests/cases/<id>.test.json` — `uxflows://test-case/v0`
 
 A scripted set of user turns + which mocks to use + which evaluators to run.
 
 ```json
 {
-  "$schema": "UX4://test-case/v0",
+  "$schema": "uxflows://test-case/v0",
   "id": "happy-path-large-coffee",
   "name": "Customer orders a large coffee — happy path",
   "user_turns": [
@@ -121,20 +121,20 @@ Fields:
 
 - **`user_turns`** — array of strings. Your script feeds these to the LLM one at a time, capturing the assistant's reply between turns. Mocks fire when the assistant tool-calls.
 - **`mock_bindings`** — map of `capability_id` → `variant`. Resolves to `capabilities/<capability_id>.<variant>.mock.json`. An unbound capability call is a hard fail; do not silently default.
-- **`evaluators`** — names. Each resolves either to `tests/evaluators/<name>.py` (deterministic Python) or `tests/rubrics/<name>.rubric.json` (LLM-judge). UX4 ships neither yet — you can write your own evaluator framework or skip this for v0 and just write notes into `result.evaluator_results[]`.
+- **`evaluators`** — names. Each resolves either to `tests/evaluators/<name>.py` (deterministic Python) or `tests/rubrics/<name>.rubric.json` (LLM-judge). uxflows ships neither yet — you can write your own evaluator framework or skip this for v0 and just write notes into `result.evaluator_results[]`.
 - **`persona_id`** — optional. If present, your script loads `tests/personas/<id>.persona.json` and uses its `system_prompt` as the user-side system prompt for LLM-as-user runs (instead of the scripted `user_turns` — your choice of mode).
 - **`model`** — optional. Pins this case to a specific model. Resolution chain in [FILE-MODEL.md § Model selection](../FILE-MODEL.md#models-and-providers).
-- **`language`** — language code (e.g. `"ES"`, `"EN"`). Forwarded to `ux4-compile --language` (prompt path) and the runner's session `language` field (graph path). **Required when the spec's `meta.languages` declares more than one language** — otherwise compile silently picks the first declared language and assertions in the other language silently fail. Your script should fail loud in this case rather than guess. Single-language specs ignore the field.
+- **`language`** — language code (e.g. `"ES"`, `"EN"`). Forwarded to `uxflows-compile --language` (prompt path) and the runner's session `language` field (graph path). **Required when the spec's `meta.languages` declares more than one language** — otherwise compile silently picks the first declared language and assertions in the other language silently fail. Your script should fail loud in this case rather than guess. Single-language specs ignore the field.
 
 The file's `id` must match the basename (`happy-path-large-coffee.test.json` → `id: "happy-path-large-coffee"`).
 
-### `tests/personas/<id>.persona.json` — `UX4://persona/v0`
+### `tests/personas/<id>.persona.json` — `uxflows://persona/v0`
 
 A user-side system prompt for LLM-as-user exploration. Minimal by design.
 
 ```json
 {
-  "$schema": "UX4://persona/v0",
+  "$schema": "uxflows://persona/v0",
   "id": "irritated-frequent-flyer",
   "name": "Irritated frequent flyer",
   "system_prompt": "You are a frequent customer who has had three bad experiences in a row...",
@@ -143,13 +143,13 @@ A user-side system prompt for LLM-as-user exploration. Minimal by design.
 }
 ```
 
-### `capabilities/<capability_id>.<variant>.mock.json` — `UX4://capability-mock/v0`
+### `capabilities/<capability_id>.<variant>.mock.json` — `uxflows://capability-mock/v0`
 
 What a mocked capability should return when the agent tool-calls it during a test run.
 
 ```json
 {
-  "$schema": "UX4://capability-mock/v0",
+  "$schema": "uxflows://capability-mock/v0",
   "capability_id": "process_payment",
   "variant": "success",
   "behavior": {
@@ -163,7 +163,7 @@ Or for the failure case:
 
 ```json
 {
-  "$schema": "UX4://capability-mock/v0",
+  "$schema": "uxflows://capability-mock/v0",
   "capability_id": "process_payment",
   "variant": "decline",
   "behavior": {
@@ -175,15 +175,15 @@ Or for the failure case:
 
 `kind: "static"` returns its `returns` object verbatim every call. `kind: "error"` raises with the given message. More behavior types (`sequence`, `delay`, etc.) will land when a real spec asks for them.
 
-The filename must match `<capability_id>.<variant>` from the body — UX4 checks this on load.
+The filename must match `<capability_id>.<variant>` from the body — uxflows checks this on load.
 
-### `tests/rubrics/<id>.rubric.json` — `UX4://rubric/v0`
+### `tests/rubrics/<id>.rubric.json` — `uxflows://rubric/v0`
 
 Declarative LLM-judge criterion. Your evaluator framework runs the judge model with `prompt_template` (substituting `{transcript}`, `{criteria}`, and optionally `{gold_standard}`) and reads back a score in `scale.min..scale.max`.
 
 ```json
 {
-  "$schema": "UX4://rubric/v0",
+  "$schema": "uxflows://rubric/v0",
   "id": "empathy_for_payment_failure",
   "name": "Empathy when payment fails",
   "criteria": "The agent acknowledges the customer's frustration and offers an alternative.",
@@ -193,18 +193,18 @@ Declarative LLM-judge criterion. Your evaluator framework runs the judge model w
 }
 ```
 
-### `tests/runs/<timestamp>-<label>/<test_case_id>.result.json` — `UX4://result/v0`
+### `tests/runs/<timestamp>-<label>/<test_case_id>.result.json` — `uxflows://result/v0`
 
 **The contract**. Your script writes this. The editor reads it. Field-by-field:
 
 ```json
 {
-  "$schema": "UX4://result/v0",
+  "$schema": "uxflows://result/v0",
   "test_case_id": "happy-path-large-coffee",
   "timestamp": "2026-06-15T14:32:11Z",
   "agent_id": "coffee",
   "model": "claude-sonnet-4-5",
-  "prompt_source": "ux4-compile",
+  "prompt_source": "uxflows-compile",
   "transcript": [
     { "role": "agent", "content": "Welcome to Cafe! What can I get for you?" },
     { "role": "user",  "content": "I'd like a large coffee please" },
@@ -234,7 +234,7 @@ Required: `$schema`, `test_case_id`, `timestamp`, `transcript`.
 Optional:
 
 - `agent_id`, `model` — for traceability when one project has many agents / multiple models in flight.
-- `prompt_source` — `"ux4-compile"` for runs against the spec-compiled prompt, or a free-form string (file path, vendor name, version tag) for comparison runs against hand-authored prompts. See [§ Comparing prompts](#comparing-prompts).
+- `prompt_source` — `"uxflows-compile"` for runs against the spec-compiled prompt, or a free-form string (file path, vendor name, version tag) for comparison runs against hand-authored prompts. See [§ Comparing prompts](#comparing-prompts).
 - `capability_calls` — needed if you want `tool_calls_check`-style evaluators to work later.
 - `final_variables` — needed if you want `state_check`-style evaluation. Tracking a variable scope is your script's job.
 - `evaluator_results` — one entry per evaluator that ran. `passed` for boolean checks, `score` for rubrics, both for hybrids. `notes` is free-form.
@@ -250,11 +250,11 @@ Unknown fields are tolerated on transcript turns and capability calls (`addition
 A complete, runnable example lives at [examples/coffee-testing/scripts/run.py](../examples/coffee-testing/scripts/run.py) (~170 lines, Gemini-based to match the project default). Read it top-to-bottom; the structure is:
 
 1. Parse CLI args (test case path, optional `--system-prompt` override, optional `--label`).
-2. Shell out to `ux4-compile --format prompt` to get `{system_prompt, tool_schemas}`.
+2. Shell out to `uxflows-compile --format prompt` to get `{system_prompt, tool_schemas}`.
 3. Load mocks from `capabilities/*.mock.json`, indexed by `(capability_id, variant)`.
 4. Build a `capability.name → capability.id` translation map (the LLM tool-calls return the runtime *name*; mocks key on *id*).
 5. Walk `user_turns`. For each turn: call the model, capture text into `transcript`, dispatch any function calls through the mock map (capturing into `capability_calls`), loop until no more tool calls.
-6. Write a `UX4://result/v0` result file under `tests/runs/<ts>-<label>/`.
+6. Write a `uxflows://result/v0` result file under `tests/runs/<ts>-<label>/`.
 
 That's the entire shape. Adapt to your provider, your evaluator framework, your tracking concerns. The provider-specific surface (SDK calls, function-call response shape, tool-schema field name) is contained in steps 2 and 5; everything else is provider-neutral.
 
@@ -264,7 +264,7 @@ That's the entire shape. Adapt to your provider, your evaluator framework, your 
 - **OpenAI** — tool schemas are accepted as `{type: "function", function: {name, description, parameters}}`; tool calls come back as `tool_calls[]` arrays.
 - **OpenAI-compatible** (vLLM, Ollama, OpenRouter, Together) — same as OpenAI, just swap the base URL.
 
-The `ux4-compile` output uses the most common JSON Schema convention (`parameters` field, not `input_schema`), which works natively with Gemini and OpenAI and needs one rename for Anthropic.
+The `uxflows-compile` output uses the most common JSON Schema convention (`parameters` field, not `input_schema`), which works natively with Gemini and OpenAI and needs one rename for Anthropic.
 
 ---
 
@@ -280,7 +280,7 @@ The `ux4-compile` output uses the most common JSON Schema convention (`parameter
 A subtle but important distinction. Each capability in `agent.json` has both:
 
 - **`id`** (e.g., `cap_place_order`) — the editor-generated stable reference. Mocks key on this. Test cases' `mock_bindings` key on this. Filename uses this (`<id>.<variant>.mock.json`).
-- **`name`** (e.g., `place_order`) — the snake_case **runtime dispatch identifier**. This is what `ux4-compile --format prompt` emits in `tool_schemas[].name`, and what the LLM provider returns when the model tool-calls.
+- **`name`** (e.g., `place_order`) — the snake_case **runtime dispatch identifier**. This is what `uxflows-compile --format prompt` emits in `tool_schemas[].name`, and what the LLM provider returns when the model tool-calls.
 
 Your script needs to translate. Build a `name → id` map once from `agent.json.capabilities[]`, then translate the LLM's tool name to the capability id before looking up mocks. The worked example at [examples/coffee-testing/scripts/run.py](../examples/coffee-testing/scripts/run.py) shows the pattern.
 
@@ -290,18 +290,18 @@ For consistency, the `result.capability_calls[].capability` field should also be
 
 ## Comparing prompts
 
-A common need during migration: run the same test cases against UX4's compiled prompt **and** against an existing hand-authored prompt to see where they agree and where they diverge. The plumbing for this is small.
+A common need during migration: run the same test cases against uxflows's compiled prompt **and** against an existing hand-authored prompt to see where they agree and where they diverge. The plumbing for this is small.
 
-1. **Tool schemas always come from the spec.** Apples-to-apples comparison requires both prompts see the same capabilities. Don't try to compare a UX4 run against a prompt that advertises different tools — you'd be measuring two things at once.
-2. **Vary only the system prompt.** Pull the compiled prompt with `ux4-compile --format prompt`, the hand-authored prompt from a `.txt` file. Feed each into the same `client.messages.create(...)` call.
-3. **Record `prompt_source` in the result.** `"ux4-compile"` for the default; a path or version tag for the hand-authored. The editor's result viewer will eventually let you pivot on this field.
-4. **Tag the run-dir.** Use a label like `tests/runs/<ts>-ux4/` vs `tests/runs/<ts>-handauth/` so paired runs sit next to each other on disk.
+1. **Tool schemas always come from the spec.** Apples-to-apples comparison requires both prompts see the same capabilities. Don't try to compare a uxflows run against a prompt that advertises different tools — you'd be measuring two things at once.
+2. **Vary only the system prompt.** Pull the compiled prompt with `uxflows-compile --format prompt`, the hand-authored prompt from a `.txt` file. Feed each into the same `client.messages.create(...)` call.
+3. **Record `prompt_source` in the result.** `"uxflows-compile"` for the default; a path or version tag for the hand-authored. The editor's result viewer will eventually let you pivot on this field.
+4. **Tag the run-dir.** Use a label like `tests/runs/<ts>-uxflows/` vs `tests/runs/<ts>-handauth/` so paired runs sit next to each other on disk.
 
 The example script supports both via flags:
 
 ```bash
-# Default — UX4-compiled prompt
-python scripts/run.py tests/cases/happy-path-latte.test.json --label ux4
+# Default — uxflows-compiled prompt
+python scripts/run.py tests/cases/happy-path-latte.test.json --label uxflows
 
 # Same test, hand-authored prompt
 python scripts/run.py tests/cases/happy-path-latte.test.json \
@@ -309,13 +309,13 @@ python scripts/run.py tests/cases/happy-path-latte.test.json \
   --label handauth
 ```
 
-Then diff `tests/runs/<ts>-ux4/happy-path-latte.result.json` against `tests/runs/<ts>-handauth/happy-path-latte.result.json`. Same user turns, same mocks, same model, same tool schemas — the only variable is the prose.
+Then diff `tests/runs/<ts>-uxflows/happy-path-latte.result.json` against `tests/runs/<ts>-handauth/happy-path-latte.result.json`. Same user turns, same mocks, same model, same tool schemas — the only variable is the prose.
 
-**One nuance.** If `agent.system_prompt_template` is set, codegen wraps the compiled body in the template's `{generated}` placeholder. So a designer can keep their hand-authored persona framing or hard-rules preamble at the top and let UX4 fill in the structured body. That's a third comparison point worth running: bare UX4 vs. hand-authored-wrapper × UX4 vs. fully hand-authored.
+**One nuance.** If `agent.system_prompt_template` is set, codegen wraps the compiled body in the template's `{generated}` placeholder. So a designer can keep their hand-authored persona framing or hard-rules preamble at the top and let uxflows fill in the structured body. That's a third comparison point worth running: bare uxflows vs. hand-authored-wrapper × uxflows vs. fully hand-authored.
 
 ## Evaluator placeholder
 
-UX4 ships no evaluator framework today. When you add one:
+uxflows ships no evaluator framework today. When you add one:
 
 - Evaluators are referenced by **name** in `test_case.evaluators[]`.
 - Names resolve to either `tests/evaluators/<name>.py` (Python module exposing `evaluate(transcript, config, llm_client=None) -> EvaluatorResult`) or `tests/rubrics/<name>.rubric.json` (LLM-judge).
@@ -331,7 +331,7 @@ Things that aren't pinned yet. Push back if you have strong opinions; we'd rathe
 
 - **Multi-trial result shape.** `result.trials[]` mirrors the top-level shape. Aggregate metrics (pass@k, pass^k) land on the suite-level run manifest, not the per-case result. Run manifest schema isn't shipped yet.
 - **Run manifest** (`tests/runs/<dir>/manifest.json`) — not yet defined. Carries run-level config (which evaluator glob, which model, `--against prompt|endpoint`, trial count) + per-test-case result paths. Schema lands when a real run loop wants it.
-- **Rubric template variables.** `{transcript}`, `{criteria}`, `{gold_standard}` are the conventional names; nothing enforces them. Pinning this is a `UX4://rubric/v0` clarification, not a breaking change.
+- **Rubric template variables.** `{transcript}`, `{criteria}`, `{gold_standard}` are the conventional names; nothing enforces them. Pinning this is a `uxflows://rubric/v0` clarification, not a breaking change.
 - **Endpoint-mode result shape.** Should an endpoint-mode result note the endpoint URL? Probably yes (for audit), with the URL captured in `run_manifest` not the per-case result. Tabled.
 - **Evaluator file format for rubrics + Python.** Python evaluators are flat files; rubrics are JSON. The convention for "this name resolves to a Python file or a JSON file, prefer the Python one if both exist" is documented but not enforced by code yet.
 

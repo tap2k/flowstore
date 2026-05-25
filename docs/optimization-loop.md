@@ -1,6 +1,6 @@
-# The UX4 optimization loop
+# The uxflows optimization loop
 
-A description of the end-to-end loop UX4 enables today, what makes it candidate
+A description of the end-to-end loop uxflows enables today, what makes it candidate
 for self-optimization, and the concrete gaps an autonomous optimizer would hit
 right now. Reading order: [MVP-PLAN.md](../MVP-PLAN.md) for the product context,
 [testing-from-scripts.md](testing-from-scripts.md) for the harness mechanics,
@@ -25,7 +25,7 @@ extends.
            │  GOLD-EXTRACTION-PROMPT (LLM)
            ▼
   ┌─────────────────────────┐         ┌────────────────────┐
-  │  UX4 project (Git repo) │         │  Legacy prompt     │
+  │  uxflows project (Git repo) │         │  Legacy prompt     │
   │   spec (decomposed)     │         │  (txt, optional)   │
   │   tests/gold/*          │         └─────────┬──────────┘
   │   tests/cases/*         │                   │
@@ -33,13 +33,13 @@ extends.
   │   capabilities/*.mock   │                   │
   └────────┬────────────────┘                   │
            │                                    │
-           │  ux4-compile                       │
+           │  uxflows-compile                       │
            │   --format prompt   ──► system_prompt + tool_schemas
            │   --format spec     ──► resolved {agent, flows} for runtimes
            ▼                                    │
   ┌──────────────────────────────────┐          │
   │  Targets under test              │          │
-  │   • UX4-compiled prompt          │          │
+  │   • uxflows-compiled prompt          │          │
   │   • Legacy hand-authored prompt  │◄─────────┘
   │   • Runner / LangGraph / Pipecat │
   │     (graph-native, tool_schemas  │
@@ -78,7 +78,7 @@ measuring two things at once.
 
 The classic argument against autonomous prompt optimization is that the
 artifact under optimization (a 600-line system prompt blob) is unstructured —
-any mutation has unpredictable blast radius, and there's no gradient. UX4
+any mutation has unpredictable blast radius, and there's no gradient. uxflows
 restructures the problem:
 
 1. **The spec is the source of truth, not the prompt.** Optimizers mutate
@@ -89,13 +89,13 @@ restructures the problem:
    without regressing any other cell is unambiguously good. A change that flips
    one green and one red is a trade-off the loop surfaces explicitly.
 3. **Comparison baselines are first-class.** The same harness that runs the
-   UX4-compiled prompt runs the legacy prompt under identical conditions. An
+   uxflows-compiled prompt runs the legacy prompt under identical conditions. An
    optimizer always has a baseline to beat, not just an abstract quality target.
-4. **The result file is the contract.** `UX4://result/v0` carries transcripts,
+4. **The result file is the contract.** `uxflows://result/v0` carries transcripts,
    tool calls, final variables, and evaluator results in a stable shape — any
    optimizer reads the same thing the human reads.
 5. **Run-dir naming is pivotable.** `tests/runs/<ts>-<label>/` lets paired runs
-   (current vs proposed, ux4 vs legacy) sit next to each other on disk and be
+   (current vs proposed, uxflows vs legacy) sit next to each other on disk and be
    diffed mechanically.
 
 The architectural bet is: **edit-spec-and-recompile** is a much smaller mutation
@@ -108,15 +108,15 @@ optimizer that converges and one that wanders.
 
 The contract is robust:
 
-- File shapes pinned via `$schema` URIs (`UX4://test-case/v0`,
-  `UX4://result/v0`, `UX4://capability-mock/v0`, etc.); the editor and loader
+- File shapes pinned via `$schema` URIs (`uxflows://test-case/v0`,
+  `uxflows://result/v0`, `uxflows://capability-mock/v0`, etc.); the editor and loader
   reject malformed files.
-- Tool-schema-from-spec is enforced by `ux4-compile --format prompt`; you
+- Tool-schema-from-spec is enforced by `uxflows-compile --format prompt`; you
   can't accidentally A/B two prompts with different capability surfaces.
 - Mock dispatch is keyed deterministically on `(capability_id, variant)`;
   unbound capabilities fail hard, not silently.
 - The methodology (gold → case → run → diff → iterate) is validated on a real
-  customer spec: in a recent validation, the UX4-compiled prompt beat the
+  customer spec: in a recent validation, the uxflows-compiled prompt beat the
   hand-authored production prompt on 4 of 9 cases, lost 1, tied 5, all
   reproducible across 3 trials at temperature 0. The worked example at
   [`examples/coffee-testing/`](../examples/coffee-testing/) demonstrates the
@@ -130,7 +130,7 @@ What is **not** robust enough for autonomous optimization without human review:
   failures ("model said the right thing in different words") and reward literal
   mimicry. An optimizer that's only graded on substring matches will converge
   on prompts that maximize substring hits, which is not the goal.
-- **No LLM-judge wiring yet.** `UX4://rubric/v0` is specced; the runner doesn't
+- **No LLM-judge wiring yet.** `uxflows://rubric/v0` is specced; the runner doesn't
   evaluate them. Until it does, the assertion vocabulary can't express
   semantic criteria like "acknowledge the customer's hardship and offer an
   alternative" without smuggling the criterion into substring matches.
@@ -195,7 +195,7 @@ contract. (6) and (7) are research-shaped.
 
 Three cases worth being explicit about:
 
-1. **As a comparison baseline.** Standard migration check: is the UX4-compiled
+1. **As a comparison baseline.** Standard migration check: is the uxflows-compiled
    prompt at least as good as what the customer is already running? Run the
    same cases against both, diff the matrix. This is what the Tala validation
    did.
@@ -206,7 +206,7 @@ Three cases worth being explicit about:
 3. **As a wrapper kept around the compiled spec.** `agent.system_prompt_template`
    lets a designer keep the customer's persona framing or hard-rules preamble
    as a wrapper, with `{generated}` filled in by the deterministic codegen.
-   The A/B becomes three-way: bare UX4 vs. wrapper × UX4 vs. fully
+   The A/B becomes three-way: bare uxflows vs. wrapper × uxflows vs. fully
    hand-authored.
 
 For optimization, (1) is the most load-bearing — it gives the optimizer a
@@ -233,7 +233,7 @@ Note that most of those layers — assertions, variable bundles, spec flow
 content, spec variables, and model selection — live in the customer's own
 agent repo and are editable in place. The one exception is the prompt
 generator itself (`packages/core/src/codegen/promptGenerator.ts` in `uxflows`),
-which requires a cross-repo change because a generator edit affects every UX4
+which requires a cross-repo change because a generator edit affects every uxflows
 spec everywhere. That's the right altitude for class-of-problem fixes but a
 real seam for an autonomous loop running entirely inside one customer's repo:
 the loop can identify a generator-layer fault but not fix it without

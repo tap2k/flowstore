@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { parse as parseYaml } from "yaml";
 import { useSpecStore } from "@/lib/store/spec";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
-import { validateSpec, formatErrors } from "@ux4/core/validation/ajv";
+import { validateSpec, formatErrors } from "@uxflows/core/validation/ajv";
 import { AgentSheet } from "@/components/sheets/AgentSheet";
 import { VariablesSheet } from "@/components/sheets/VariablesSheet";
 import { GuardrailsSheet } from "@/components/sheets/GuardrailsSheet";
@@ -11,17 +11,17 @@ import { CapabilitiesSheet } from "@/components/sheets/CapabilitiesSheet";
 import { KnowledgeSheet } from "@/components/sheets/KnowledgeSheet";
 import { GitHubOpenModal } from "@/components/toolbar/GitHubOpenModal";
 import { GitHubProjectControls } from "@/components/toolbar/GitHubProjectControls";
-import { generateSystemPrompt } from "@ux4/core/codegen/promptGenerator";
-import { decomposeSpec, loadProject } from "@ux4/core/files";
+import { generateSystemPrompt } from "@uxflows/core/codegen/promptGenerator";
+import { decomposeSpec, loadProject } from "@uxflows/core/files";
 import { useCommentsStore } from "@/lib/store/comments";
-import type { FileMap } from "@ux4/core/files/types";
-import { makeZip, readZip } from "@ux4/core/files/zip";
+import type { FileMap } from "@uxflows/core/files/types";
+import { makeZip, readZip } from "@uxflows/core/files/zip";
 import {
   applyTranslations,
   previewTranslationsCsv,
   specToTranslationsCsv,
   type ImportPreview,
-} from "@ux4/core/codegen/translationsCsv";
+} from "@uxflows/core/codegen/translationsCsv";
 import { downloadCsv, sanitizeFilename, useCsvFileInput } from "@/components/sheets/csvIO";
 
 interface ImportExportToolbarProps {
@@ -324,7 +324,7 @@ export function ImportExportToolbar({
         <button
           onClick={() => { setError(null); setGithubOpen(true); }}
           className={iconButtonClass}
-          title="Open a UX4 project from GitHub"
+          title="Open a uxflows project from GitHub"
           aria-label="Open from GitHub"
         >
           <GithubOpenIcon />
@@ -471,7 +471,7 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
     const isZip = /\.zip$/i.test(file.name) || file.type === "application/zip";
     if (isZip) {
       readZip(file)
-        .then((files) => loadFileMap(files, "No UX4 project found in the ZIP."))
+        .then((files) => loadFileMap(files, "No uxflows project found in the ZIP."))
         .catch((e: unknown) => {
           setErrors([e instanceof Error ? e.message : "Could not read the ZIP."]);
         });
@@ -517,7 +517,7 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
           files[rel] = await f.text();
         }),
       );
-      loadFileMap(files, "No UX4 project found in the folder.");
+      loadFileMap(files, "No uxflows project found in the folder.");
     } catch (err) {
       setErrors([err instanceof Error ? err.message : "Could not read the folder."]);
     }
@@ -534,7 +534,7 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
     const dir = entries.find((entry) => entry.isDirectory) as FileSystemDirectoryEntry | undefined;
     if (dir) {
       readDirectoryEntry(dir)
-        .then((files) => loadFileMap(files, "No UX4 project found in the folder."))
+        .then((files) => loadFileMap(files, "No uxflows project found in the folder."))
         .catch((err: unknown) => {
           setErrors([err instanceof Error ? err.message : "Could not read the folder."]);
         });

@@ -14,7 +14,7 @@ import {
 } from "@/lib/store/persistence";
 import { loadSavedSettings, useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
-import { validateSpec } from "@ux4/core/validation/ajv";
+import { validateSpec } from "@uxflows/core/validation/ajv";
 
 export function App() {
   const spec = useSpecStore((s) => s.spec);

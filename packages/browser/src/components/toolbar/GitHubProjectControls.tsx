@@ -7,8 +7,8 @@ import {
   makeGitHubClient,
   readRepoToFileMap,
   writeFileMapToRepo,
-} from "@ux4/core/files/github";
-import { decomposeSpec, loadProject } from "@ux4/core/files";
+} from "@uxflows/core/files/github";
+import { decomposeSpec, loadProject } from "@uxflows/core/files";
 import { useCommentsStore } from "@/lib/store/comments";
 
 const iconButtonClass =
@@ -90,7 +90,7 @@ export function GitHubProjectControls() {
       const res = await writeFileMapToRepo(
         { client, owner: location.owner, repo: location.repo, ref: location.ref },
         fileMap,
-        "Update spec from UX4 editor",
+        "Update spec from uxflows editor",
         opts,
       );
       setCommitSha(res.commitSha);
@@ -154,7 +154,7 @@ export function GitHubProjectControls() {
       const res = await writeFileMapToRepo(
         { client, owner: location.owner, repo: location.repo, ref: branchName },
         fileMap,
-        "Update spec from UX4 editor",
+        "Update spec from uxflows editor",
       );
       setLoaded(
         { owner: location.owner, repo: location.repo, ref: branchName },

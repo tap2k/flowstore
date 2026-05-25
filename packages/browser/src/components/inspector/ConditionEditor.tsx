@@ -1,4 +1,4 @@
-import type { Condition, Method } from "@ux4/core/schema/v0";
+import type { Condition, Method } from "@uxflows/core/schema/v0";
 
 const METHODS: Method[] = ["llm", "calculation", "direct"];
 

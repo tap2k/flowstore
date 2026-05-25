@@ -14,7 +14,7 @@ const TableField = Type.Object(
 // against `structure[].field` at row-parse time in parseTableRowsCsv.
 export const KnowledgeTableMetaSchema = Type.Object(
   {
-    $schema: Type.Literal("UX4://knowledge-table/v0"),
+    $schema: Type.Literal("uxflows://knowledge-table/v0"),
     id: Type.String(),
     name: Type.String(),
     purpose: Type.Optional(Type.String()),

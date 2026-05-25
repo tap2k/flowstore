@@ -4,14 +4,14 @@ import type {
   ExitPath,
   Condition,
   FaqEntry,
-} from "@ux4/core/schema/v0";
+} from "@uxflows/core/schema/v0";
 import {
   isEndGoto,
   isReturnGoto,
   isFlowGoto,
   resolveLocalized,
   defaultLanguage,
-} from "@ux4/core/schema/v0";
+} from "@uxflows/core/schema/v0";
 
 // Capabilities are intentionally not rendered here. The naked prompt has no
 // tools to call; when tool-use is wired in, capabilities should be passed as a

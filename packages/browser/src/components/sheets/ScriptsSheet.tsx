@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
-import { genId } from "@ux4/core/ids";
-import type { Flow, ScriptLine } from "@ux4/core/schema/v0";
-import { defaultLanguage, getLanguage, setLanguage } from "@ux4/core/schema/v0";
-import { flowToScriptsCsv, mergeScriptsCsv } from "@ux4/core/codegen/scriptsCsv";
+import { genId } from "@uxflows/core/ids";
+import type { Flow, ScriptLine } from "@uxflows/core/schema/v0";
+import { defaultLanguage, getLanguage, setLanguage } from "@uxflows/core/schema/v0";
+import { flowToScriptsCsv, mergeScriptsCsv } from "@uxflows/core/codegen/scriptsCsv";
 import { downloadCsv, sanitizeFilename, useCsvFileInput } from "./csvIO";
 import { SheetShell } from "./SheetShell";
 

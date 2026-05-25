@@ -6,7 +6,7 @@ import { Type, type Static } from "@sinclair/typebox";
 // independently of the agent's model.
 export const PersonaSchema = Type.Object(
   {
-    $schema: Type.Literal("UX4://persona/v0"),
+    $schema: Type.Literal("uxflows://persona/v0"),
     id: Type.String(),
     system_prompt: Type.String(),
     name: Type.Optional(Type.String()),

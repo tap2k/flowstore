@@ -123,7 +123,7 @@ Panel calls `requestFocus("flow", flowId)` and also `setSelection({ kind: "flow"
 
 ## Implementation order
 
-1. **`compileSystemPrompt` + segments** in `@ux4/core`. Unit tests:
+1. **`compileSystemPrompt` + segments** in `@uxflows/core`. Unit tests:
    - `text` matches existing `generateSystemPrompt` byte-for-byte on Tala + coffee fixtures.
    - Segments cover all non-separator text without overlap.
    - Each segment's `source` matches the expected entity.

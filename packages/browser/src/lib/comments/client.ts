@@ -1,9 +1,9 @@
 import {
   makeGitHubClient,
   type GitHubLocation,
-} from "@ux4/core/files/github";
-import { commentPath } from "@ux4/core/files";
-import type { Comment } from "@ux4/core/schema/files/comment";
+} from "@uxflows/core/files/github";
+import { commentPath } from "@uxflows/core/files";
+import type { Comment } from "@uxflows/core/schema/files/comment";
 
 // Posts a single comment file via GitHub's Contents API (`PUT
 // /repos/{owner}/{repo}/contents/{path}`), not the lower-level Git Data

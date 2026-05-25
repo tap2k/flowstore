@@ -38,7 +38,7 @@ const CommentAnchor = Type.Object(
 
 export const CommentSchema = Type.Object(
   {
-    $schema: Type.Literal("UX4://comment/v0"),
+    $schema: Type.Literal("uxflows://comment/v0"),
     id: Type.String(),
     anchor: CommentAnchor,
     author: Type.String(),

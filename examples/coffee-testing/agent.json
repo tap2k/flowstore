@@ -1,5 +1,5 @@
 {
-  "$schema": "UX4://agent/v0",
+  "$schema": "uxflows://agent/v0",
   "id": "agent_bluebird_coffee",
   "version": "0.1.0",
   "meta": {

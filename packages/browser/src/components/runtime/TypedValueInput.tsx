@@ -1,5 +1,5 @@
-import type { VariableDecl } from "@ux4/core/schema/v0";
-import { coerceValue } from "@ux4/core/runtime/contextVars";
+import type { VariableDecl } from "@uxflows/core/schema/v0";
+import { coerceValue } from "@uxflows/core/runtime/contextVars";
 
 interface Props {
   decl: VariableDecl | undefined;

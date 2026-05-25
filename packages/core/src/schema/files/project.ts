@@ -2,7 +2,7 @@ import { Type, type Static } from "@sinclair/typebox";
 
 export const ProjectManifestSchema = Type.Object(
   {
-    $schema: Type.Literal("UX4://project/v0"),
+    $schema: Type.Literal("uxflows://project/v0"),
   },
   { additionalProperties: false },
 );

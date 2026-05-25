@@ -1,5 +1,5 @@
-import { chat, DEFAULT_PROVIDER } from "@ux4/core/llm/dispatch";
-import type { Spec } from "@ux4/core/schema/v0";
+import { chat, DEFAULT_PROVIDER } from "@uxflows/core/llm/dispatch";
+import type { Spec } from "@uxflows/core/schema/v0";
 import { agentContextPreamble } from "./llmJson";
 
 const SYSTEM_PROMPT = `You write system prompts for an LLM that will roleplay as the USER side of a conversation with an agent under test.

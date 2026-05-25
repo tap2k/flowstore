@@ -1,10 +1,10 @@
-import { validateFile, formatErrors } from "@ux4/core/validation/ajv";
+import { validateFile, formatErrors } from "@uxflows/core/validation/ajv";
 import {
   CommentSchema,
   anchorKey,
   type Comment,
   type CommentAnchor,
-} from "@ux4/core/schema/files/comment";
+} from "@uxflows/core/schema/files/comment";
 import type { FileMap, LoadError } from "./types";
 
 const COMMENT_RE = /^comments\/(.+)\.comment\.json$/;

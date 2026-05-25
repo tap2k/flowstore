@@ -1,6 +1,6 @@
-import type { ModelsFile, ModelEntry, ModelsRoles } from "@ux4/core/schema/files/models";
-import { ModelsFileSchema } from "@ux4/core/schema/files/models";
-import { validateFile, formatErrors } from "@ux4/core/validation/ajv";
+import type { ModelsFile, ModelEntry, ModelsRoles } from "@uxflows/core/schema/files/models";
+import { ModelsFileSchema } from "@uxflows/core/schema/files/models";
+import { validateFile, formatErrors } from "@uxflows/core/validation/ajv";
 import type { FileMap, LoadError } from "./types";
 
 const MODELS_FILE_RE = /^models\/.+\.json$/;
@@ -28,7 +28,7 @@ export type EndpointId =
   | "openrouter"
   | "openai-compatible";
 
-// Ships inside @ux4/core. Used when a project has no models/ at all.
+// Ships inside @uxflows/core. Used when a project has no models/ at all.
 // Edit here when a new built-in model is supported. Catalog key is the
 // friendly handle; model_id (when set) is the wire id sent to the API.
 export const BUILT_IN_MODELS: ResolvedModelsConfig = {

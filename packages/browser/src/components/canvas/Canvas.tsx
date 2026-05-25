@@ -13,15 +13,15 @@ import {
   type Edge,
   type Node,
 } from "@xyflow/react";
-import type { Spec } from "@ux4/core/schema/v0";
-import { isFlowGoto } from "@ux4/core/schema/v0";
+import type { Spec } from "@uxflows/core/schema/v0";
+import { isFlowGoto } from "@uxflows/core/schema/v0";
 import { FlowNode, type FlowNodeData } from "./FlowNode";
-import { isCalcRouteJunction } from "@ux4/core/schema/flowJunction";
+import { isCalcRouteJunction } from "@uxflows/core/schema/flowJunction";
 import { autoLayout } from "./layout";
 import { loadPositions, savePositions, type Positions } from "./positions";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSimulateStore } from "@/lib/store/simulate";
-import { validateGraph, groupIssuesByFlow, groupIssuesByEdge } from "@ux4/core/validation/graphRules";
+import { validateGraph, groupIssuesByFlow, groupIssuesByEdge } from "@uxflows/core/validation/graphRules";
 
 const ACTIVE_EDGE_STROKE = "#0ea5e9";
 

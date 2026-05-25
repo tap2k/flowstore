@@ -2,10 +2,10 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
-import { decomposeSpec, loadProject } from "@ux4/core/files";
-import { readDirectoryToFileMap, writeFileMapToDirectory } from "@ux4/core/files/node";
-import { generateSystemPrompt } from "@ux4/core/codegen/promptGenerator";
-import type { Spec } from "@ux4/core/schema/v0";
+import { decomposeSpec, loadProject } from "@uxflows/core/files";
+import { readDirectoryToFileMap, writeFileMapToDirectory } from "@uxflows/core/files/node";
+import { generateSystemPrompt } from "@uxflows/core/codegen/promptGenerator";
+import type { Spec } from "@uxflows/core/schema/v0";
 
 const path = process.argv[2];
 if (!path) {
@@ -15,7 +15,7 @@ if (!path) {
 
 const source = JSON.parse(readFileSync(path, "utf8")) as Spec;
 
-const tmp = mkdtempSync(join(tmpdir(), "ux4-roundtrip-"));
+const tmp = mkdtempSync(join(tmpdir(), "uxflows-roundtrip-"));
 try {
   writeFileMapToDirectory(decomposeSpec(source), tmp);
   const reread = readDirectoryToFileMap(tmp);

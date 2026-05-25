@@ -1,19 +1,19 @@
 import { create } from "zustand";
-import type { Spec } from "@ux4/core/schema/v0";
-import type { RuntimeEvent } from "@ux4/core/runtime/eventTypes";
-import { type TranscriptTurn } from "@ux4/core/runtime/transcript";
+import type { Spec } from "@uxflows/core/schema/v0";
+import type { RuntimeEvent } from "@uxflows/core/runtime/eventTypes";
+import { type TranscriptTurn } from "@uxflows/core/runtime/transcript";
 import {
   endSession as apiEndSession,
   sendTurn as apiSendTurn,
   startSession as apiStartSession,
-} from "@ux4/core/runtime/textClient";
-import { sendPromptTurn } from "@ux4/core/runtime/promptClient";
-import { generatePersonaTurn } from "@ux4/core/runtime/personaClient";
-import { generateSystemPrompt } from "@ux4/core/codegen/promptGenerator";
-import { cleanMockReturns } from "@ux4/core/runtime/capabilityMocks";
+} from "@uxflows/core/runtime/textClient";
+import { sendPromptTurn } from "@uxflows/core/runtime/promptClient";
+import { generatePersonaTurn } from "@uxflows/core/runtime/personaClient";
+import { generateSystemPrompt } from "@uxflows/core/codegen/promptGenerator";
+import { cleanMockReturns } from "@uxflows/core/runtime/capabilityMocks";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { createScopedJsonStorage, isPlainObject } from "@/lib/store/scopedStorage";
-import type { ChatUsage, ProviderId } from "@ux4/core/llm/types";
+import type { ChatUsage, ProviderId } from "@uxflows/core/llm/types";
 
 export type { TranscriptTurn };
 

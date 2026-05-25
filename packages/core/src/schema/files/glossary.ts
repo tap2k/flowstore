@@ -11,7 +11,7 @@ const GlossaryEntry = Type.Object(
 
 export const ProjectGlossaryFileSchema = Type.Object(
   {
-    $schema: Type.Literal("UX4://project-glossary/v0"),
+    $schema: Type.Literal("uxflows://project-glossary/v0"),
     glossary: Type.Array(GlossaryEntry),
   },
   { additionalProperties: false },

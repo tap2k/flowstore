@@ -1,8 +1,8 @@
-# UX4 Project File Model
+# uxflows Project File Model
 
-How a UX4 project is laid out on disk. This is the **serialization contract** for the schema defined in [SCHEMA.md](./SCHEMA.md): the schema defines the data model; this document defines how that model is split across files in a user's GitHub repo.
+How a uxflows project is laid out on disk. This is the **serialization contract** for the schema defined in [SCHEMA.md](./SCHEMA.md): the schema defines the data model; this document defines how that model is split across files in a user's GitHub repo.
 
-GitHub is the system of record. A UX4 project is a directory in a Git repo with the layout below. The browser editor reads and writes these files; the Python runner (and other consumers) load them. There is no other persistence layer in the free tier.
+GitHub is the system of record. A uxflows project is a directory in a Git repo with the layout below. The browser editor reads and writes these files; the Python runner (and other consumers) load them. There is no other persistence layer in the free tier.
 
 For the broader vision this slots into, see [MVP-PLAN.md](./MVP-PLAN.md). For the design principles that govern what lives in the spec vs. outside it, see [AGENTS.md](./AGENTS.md).
 
@@ -35,7 +35,7 @@ The loader accepts either form transparently — same code path, merged at load.
 
 **Tabular content** (CSV + meta JSON) is a sub-pattern used where data is naturally rectangular and the editing population includes non-developers using spreadsheets — scripts per flow, knowledge tables per id. Tabular collections only support the directory form, because the CSV affordance requires per-file structure.
 
-**Singletons** (`ux4.json`, `agent.json`) are just files — outside the collection rule.
+**Singletons** (`uxflows.json`, `agent.json`) are just files — outside the collection rule.
 
 **Exceptions:** `tests/runs/` (per-run folder with manifest + N results) and `comments/` (per-comment uuid files, additive). Both structurally different from "collection of entries."
 
@@ -43,13 +43,13 @@ The loader accepts either form transparently — same code path, merged at load.
 
 ## Project shapes: single-agent and multi-agent
 
-A UX4 project holds one or many agents. Two shapes:
+A uxflows project holds one or many agents. Two shapes:
 
 **Single-agent project (default).** Agent meta + flows live at project root. Used when a project ships exactly one agent.
 
 **Multi-agent project.** Agents live under `agents/<id>/`; shared resources (capabilities, project-level guardrails, knowledge, personas, evaluators, etc.) stay at project root. Used when one client / one repo holds multiple coordinated agents (e.g., the same client with N purpose × language combinations).
 
-`ux4-init-project` defaults to single-agent. Adding a second agent (`ux4-init-project --add-agent <id>`) restructures into multi-agent shape: moves the existing agent's `agent.json` + `flows/` into `agents/<existing-id>/`, creates `agents/<new-id>/`, leaves shared resources at root.
+`uxflows-init-project` defaults to single-agent. Adding a second agent (`uxflows-init-project --add-agent <id>`) restructures into multi-agent shape: moves the existing agent's `agent.json` + `flows/` into `agents/<existing-id>/`, creates `agents/<new-id>/`, leaves shared resources at root.
 
 Same loader handles both. The resolved compiled spec has the same shape regardless (`{agent: ..., flows: [...]}` per agent).
 
@@ -60,7 +60,7 @@ Same loader handles both. The resolved compiled spec has the same shape regardle
 ```
 project/
 ├── README.md                                # user-authored narrative; not loaded
-├── ux4.json                                 # project manifest — minimal: { "$schema": "UX4://project/v0" }
+├── uxflows.json                                 # project manifest — minimal: { "$schema": "uxflows://project/v0" }
 ├── agent.json                               # meta (incl. client, tone, system_prompt_template), modes, languages, chatbot_initiates, entry_flow_id, optional agent-scope guardrails/business-goals/variables/knowledge
 ├── models/                                  # multi-provider config
 │   ├── frontier.json
@@ -91,7 +91,7 @@ project/
 │   └── runs/<timestamp>-<label>/
 │       ├── manifest.json
 │       └── <test-case-id>.result.json
-└── scripts/                                 # Python; vendored by ux4-init-project; user adapts with Claude Code
+└── scripts/                                 # Python; vendored by uxflows-init-project; user adapts with Claude Code
     ├── run.py                               # runs one case or many (glob)
     └── validate.py
 ```
@@ -103,7 +103,7 @@ When a project holds multiple agents (e.g., one Tala-India project with purpose 
 ```
 project/
 ├── README.md
-├── ux4.json                                 # minimal — { "$schema": "UX4://project/v0" }
+├── uxflows.json                                 # minimal — { "$schema": "uxflows://project/v0" }
 ├── models/                                  # shared
 ├── guardrails.json                          # project-level (cross-agent)
 ├── business-goals.json                      # project-level
@@ -140,29 +140,29 @@ project/
     └── …
 ```
 
-**Why `agents/` is a subdir, not top-level.** Project-level resources (`capabilities/`, `knowledge/`, `tests/`, `flows/`, `models/`, etc.) sit at root; an `agents/` container keeps agent ids from colliding with those names and gives the loader a single signal ("is there an `agents/` directory?") for multi-agent mode. Agent ids are filesystem-implicit — there is no list of agents in `ux4.json`. Adding/removing an agent is just creating/deleting the directory, same as every other collection in the file model.
+**Why `agents/` is a subdir, not top-level.** Project-level resources (`capabilities/`, `knowledge/`, `tests/`, `flows/`, `models/`, etc.) sit at root; an `agents/` container keeps agent ids from colliding with those names and gives the loader a single signal ("is there an `agents/` directory?") for multi-agent mode. Agent ids are filesystem-implicit — there is no list of agents in `uxflows.json`. Adding/removing an agent is just creating/deleting the directory, same as every other collection in the file model.
 
-All `.json` files carry a `$schema` URI under `UX4://...`. All entries carry stable `id`s; the editor generates them.
+All `.json` files carry a `$schema` URI under `uxflows://...`. All entries carry stable `id`s; the editor generates them.
 
-### Project manifest (`ux4.json`)
+### Project manifest (`uxflows.json`)
 
 ```json
 {
-  "$schema": "UX4://project/v0"
+  "$schema": "uxflows://project/v0"
 }
 ```
 
-Bare minimum — its sole job is to identify the directory as a UX4 project at version v0 (schema discriminator + migration anchor). Everything else derives from filesystem or CLI:
+Bare minimum — its sole job is to identify the directory as a uxflows project at version v0 (schema discriminator + migration anchor). Everything else derives from filesystem or CLI:
 
 - **Agents** — implicit from filesystem. If `agents/` directory exists, scan it. If `agent.json` is at root, single-agent.
-- **Compile targets** — `ux4-compile --target <name>` CLI flag. Not a project property.
+- **Compile targets** — `uxflows-compile --target <name>` CLI flag. Not a project property.
 - **Default model** — `models/defaults.json`.
 - **Project name** — derived from directory name (the repo name).
 - **Client** — `agent.json.meta.client`.
 
 ### Project README
 
-Every UX4 project gets a `README.md` at root for the user's own narrative — what these agents are for, who owns them, how to run them. Not part of the schema; not loaded by anything. Pure convention.
+Every uxflows project gets a `README.md` at root for the user's own narrative — what these agents are for, who owns them, how to run them. Not part of the schema; not loaded by anything. Pure convention.
 
 ---
 
@@ -222,7 +222,7 @@ A flow's `goto` resolves agent-first, then project-level (so a shared interrupt 
 
 ## Defaults per collection
 
-What `ux4-init-project` writes. Every collection accepts either form; the default is the form that fits the typical starting point.
+What `uxflows-init-project` writes. Every collection accepts either form; the default is the form that fits the typical starting point.
 
 | Collection | Default scaffold | When to switch |
 |---|---|---|
@@ -258,7 +258,7 @@ Two collections use CSV + paired meta JSON:
 
 | File | Contents |
 |---|---|
-| `ux4.json` | Project manifest. Minimal: `{ "$schema": "UX4://project/v0" }`. |
+| `uxflows.json` | Project manifest. Minimal: `{ "$schema": "uxflows://project/v0" }`. |
 | `agent.json` | Per-agent envelope: `meta` (name, purpose, client, tone, languages, modes), `chatbot_initiates`, `entry_flow_id`, optional `system_prompt_template`, optional `default_model`, plus optional agent-scope `guardrails[]` / `business_goals[]` / `variables{}` / `knowledge.faq[]` inline. At project root in single-agent; under `agents/<id>/` in multi-agent. |
 
 ### Scope collections — physical layout
@@ -275,7 +275,7 @@ Project-scope is file-shaped because it's potentially large + shared across many
 
 Both are conceptually evaluators (a test case references either uniformly). They live in separate directories because their lifecycles differ:
 
-- **`tests/evaluators/<name>.py`** — Python functions; deterministic checks; engineer-authored. Built-ins vendored by `ux4-init-project`: `forbidden_phrases`, `required_phrases`, `max_turn_length`, `regex_match`, `state_check` (asserts expected key/value pairs in final variable state), `tool_calls_check` (asserts which capabilities were dispatched, with optional ordering + parameter constraints). See [MVP-PLAN.md § Evaluator library](./MVP-PLAN.md#phase-2--testing-surface-mid-august-through-october-2026) for config shapes.
+- **`tests/evaluators/<name>.py`** — Python functions; deterministic checks; engineer-authored. Built-ins vendored by `uxflows-init-project`: `forbidden_phrases`, `required_phrases`, `max_turn_length`, `regex_match`, `state_check` (asserts expected key/value pairs in final variable state), `tool_calls_check` (asserts which capabilities were dispatched, with optional ordering + parameter constraints). See [MVP-PLAN.md § Evaluator library](./MVP-PLAN.md#phase-2--testing-surface-mid-august-through-october-2026) for config shapes.
 - **`tests/rubrics/<id>.rubric.json`** — declarative llm-judge criteria + prompt template; designer-authored.
 
 Test cases reference either by name:
@@ -295,7 +295,7 @@ Per-uuid additive files at project root (`comments/<uuid>.comment.json`). Each c
 
 ```json
 {
-  "$schema": "UX4://comment/v0",
+  "$schema": "uxflows://comment/v0",
   "id": "c-2026-05-21-a8f3",
   "anchor": {
     "kind": "flow",                      // closed enum (TypeBox schema): flow | exit_path | capability | guardrail | business_goal | variable | faq | glossary | table | persona | rubric | evaluator | test_case | mock
@@ -322,7 +322,7 @@ LLM configuration lives in `models/`. Each file is a partial config; the loader 
 ```json
 // models/frontier.json
 {
-  "$schema": "UX4://models/v0",
+  "$schema": "uxflows://models/v0",
   "models": {
     "claude-sonnet-4-5": { "endpoint": "anthropic", "model_id": "claude-sonnet-4-5" },
     "gpt-5":             { "endpoint": "openai",    "model_id": "gpt-5" },
@@ -332,7 +332,7 @@ LLM configuration lives in `models/`. Each file is a partial config; the loader 
 
 // models/self-hosted.json
 {
-  "$schema": "UX4://models/v0",
+  "$schema": "uxflows://models/v0",
   "providers": {
     "my-vllm": {
       "kind": "openai-compatible",
@@ -349,7 +349,7 @@ LLM configuration lives in `models/`. Each file is a partial config; the loader 
 
 // models/defaults.json
 {
-  "$schema": "UX4://models/v0",
+  "$schema": "uxflows://models/v0",
   "default": "claude-sonnet-4-5",
   "roles": {
     "agent": "claude-sonnet-4-5",          // OPTIONAL — overrides default for agent execution
@@ -362,7 +362,7 @@ LLM configuration lives in `models/`. Each file is a partial config; the loader 
 
 Roles are optional. Unset role → falls back to `default`. Per-file `model` field on test cases / rubrics / personas / agent overrides for that file; env vars and CLI flags override at higher precedence.
 
-**Endpoint resolution.** Each model's `endpoint` field is a string referencing a named provider — always. Built-in providers (`anthropic`, `openai`, `google`) ship inside `@ux4/core`. Custom providers declared in the `providers` map of any models file. One form, one mental model.
+**Endpoint resolution.** Each model's `endpoint` field is a string referencing a named provider — always. Built-in providers (`anthropic`, `openai`, `google`) ship inside `@uxflows/core`. Custom providers declared in the `providers` map of any models file. One form, one mental model.
 
 **Provider kinds:** `anthropic`, `openai`, `google`, `openai-compatible` (Ollama / vLLM / OpenRouter / Together / self-hosted — long-tail catchall).
 
@@ -370,18 +370,18 @@ Roles are optional. Unset role → falls back to `default`. Per-file `model` fie
 
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, custom `*_KEY` per provider — secrets.
 - `<base_url_env>` — redirect a provider's base URL.
-- `UX4_DEFAULT_MODEL` — override project default for one shell.
+- `uxflows_DEFAULT_MODEL` — override project default for one shell.
 - Per-call `--model` flag, per-test-case `model` field — highest precedence.
 
 **Model selection resolution order**, low to high:
-1. Built-in default in `@ux4/core`
+1. Built-in default in `@uxflows/core`
 2. Project `models/defaults.json` `default`
 3. Project `models/defaults.json` `roles.<role>` (agent / judge / user_simulation / authoring)
 4. Per-file `model` field (in test case / rubric / persona / agent)
-5. Env var (`UX4_AGENT_MODEL`, `UX4_JUDGE_MODEL`, etc.)
+5. Env var (`uxflows_AGENT_MODEL`, `uxflows_JUDGE_MODEL`, etc.)
 6. Per-call CLI override (`--model`, `--agent-model`, `--judge-model`, `--user-sim-model`)
 
-**Runtime config (STT, TTS, voices, telephony, audio, barge-in, VAD) is explicitly out of scope for UX4.** Those live with the runner / Pipecat config / deployment infrastructure. UX4 declares semantic info (`meta.languages`, `meta.modes`); the runner picks appropriate runtime knobs. Per "execution separate from spec" — see [SCHEMA.md § Execution Separate From Spec](./SCHEMA.md#execution-separate-from-spec).
+**Runtime config (STT, TTS, voices, telephony, audio, barge-in, VAD) is explicitly out of scope for uxflows.** Those live with the runner / Pipecat config / deployment infrastructure. uxflows declares semantic info (`meta.languages`, `meta.modes`); the runner picks appropriate runtime knobs. Per "execution separate from spec" — see [SCHEMA.md § Execution Separate From Spec](./SCHEMA.md#execution-separate-from-spec).
 
 ---
 
@@ -397,7 +397,7 @@ Entries reference each other by stable `id`. The file path is not the contract �
 - `agent.entry_flow_id` → flow id; resolves agent-first (this agent's `flows/`), then project-level `flows/`. No cross-agent resolution.
 - `<comment>.anchor` → spec entity by `(kind, agent_id?, id)`
 
-The loader (`@ux4/core/files`) builds an id-indexed symbol table on project load. Renaming a file requires the id inside the file to change too; the editor handles this atomically via id-rename cascade. Validation rejects dangling references.
+The loader (`@uxflows/core/files`) builds an id-indexed symbol table on project load. Renaming a file requires the id inside the file to change too; the editor handles this atomically via id-rename cascade. Validation rejects dangling references.
 
 Path-based references are not used. The canonical directory layout is the contract; references in spec content never name a path.
 
@@ -418,14 +418,14 @@ Compilation merges across scope levels (project ∪ agent ∪ flow per entity), 
 
 **Two compile output formats in MVP:**
 
-- **`ux4-compile --format spec --agent <id>`** — produces the resolved JSON document above for the specified agent (runtime-canonical shape). Consumed by the simulate panel, the Python runner, and any future runtime target.
-- **`ux4-compile --format prompt --agent <id>`** — produces `{ system_prompt: <string>, tool_schemas: [...] }` via the codegen in [packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts). Consumed by testing scripts (drives an LLM directly) and as the lowest-friction export for "paste into Claude / OpenAI / any LLM" workflows. Honors `agent.system_prompt_template` if set.
+- **`uxflows-compile --format spec --agent <id>`** — produces the resolved JSON document above for the specified agent (runtime-canonical shape). Consumed by the simulate panel, the Python runner, and any future runtime target.
+- **`uxflows-compile --format prompt --agent <id>`** — produces `{ system_prompt: <string>, tool_schemas: [...] }` via the codegen in [packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts). Consumed by testing scripts (drives an LLM directly) and as the lowest-friction export for "paste into Claude / OpenAI / any LLM" workflows. Honors `agent.system_prompt_template` if set.
 
 Both targets read the same source files. Single-agent projects can omit `--agent`. Pipecat compilation is **deferred post-MVP**, gated on [TRANSLATION-POC.md](./TRANSLATION-POC.md).
 
 Test cases, mocks, rubrics, personas, run outputs, comments, and `models/*` are **not** compiled into the runtime artifact; they live alongside it as the testing and configuration surface.
 
-**Where the compiled artifact lives.** For in-process JS consumers (browser editor's simulate panel using `@ux4/core/compile`), `ux4-compile` produces it in memory. For external consumers (Python testing scripts, archival, debugging), write to disk with `ux4-compile --out <path>`. Conventional path: `dist/<agent-id>.spec.json` or `dist/<agent-id>.prompt.json`, gitignored by `ux4-init-project`. Compiled artifacts shouldn't usually be committed.
+**Where the compiled artifact lives.** For in-process JS consumers (browser editor's simulate panel using `@uxflows/core/compile`), `uxflows-compile` produces it in memory. For external consumers (Python testing scripts, archival, debugging), write to disk with `uxflows-compile --out <path>`. Conventional path: `dist/<agent-id>.spec.json` or `dist/<agent-id>.prompt.json`, gitignored by `uxflows-init-project`. Compiled artifacts shouldn't usually be committed.
 
 ---
 
@@ -433,13 +433,13 @@ Test cases, mocks, rubrics, personas, run outputs, comments, and `models/*` are 
 
 Each file's `$schema` field carries the version. The schema doc ([SCHEMA.md](./SCHEMA.md)) is the contract for `agent` and `flow` shapes; this doc is the contract for the file layout itself.
 
-When the file model changes structurally, the project manifest's `$schema` URI bumps. The browser editor and scripts load older versions through a migration pass; the canonical form is always the latest. Initial version: `UX4://project/v0`.
+When the file model changes structurally, the project manifest's `$schema` URI bumps. The browser editor and scripts load older versions through a migration pass; the canonical form is always the latest. Initial version: `uxflows://project/v0`.
 
 ---
 
 ## Migration from single-file specs
 
-Existing specs (the `coffee.json` example, any user file authored against the old single-document shape) are migrated by `ux4-init-project --from <spec.json>`: splits the document into the decomposed layout, writes `models/defaults.json`, scaffolds `README.md`.
+Existing specs (the `coffee.json` example, any user file authored against the old single-document shape) are migrated by `uxflows-init-project --from <spec.json>`: splits the document into the decomposed layout, writes `models/defaults.json`, scaffolds `README.md`.
 
 Single-file specs are also readable transparently by the loader during MVP (the project manifest's absence is the signal). Writing always produces the decomposed layout.
 
@@ -447,7 +447,7 @@ Single-file specs are also readable transparently by the loader during MVP (the 
 
 ## Non-loaded files (supplementary content)
 
-UX4 ignores anything outside the canonical layout. Projects often include supplementary content alongside the spec — design docs (`docs/`), figma exports / screenshots / diagrams (`assets/`), compliance documentation (`references/`), recorded sessions used as test inputs (`samples/`), CI configs (`.github/workflows/`), Git LFS configs, etc. These ride along with the project in the same repo; UX4 doesn't load or validate them. The README at project root is the natural place to inventory what's there and how it relates to the spec.
+uxflows ignores anything outside the canonical layout. Projects often include supplementary content alongside the spec — design docs (`docs/`), figma exports / screenshots / diagrams (`assets/`), compliance documentation (`references/`), recorded sessions used as test inputs (`samples/`), CI configs (`.github/workflows/`), Git LFS configs, etc. These ride along with the project in the same repo; uxflows doesn't load or validate them. The README at project root is the natural place to inventory what's there and how it relates to the spec.
 
 The strategic value: one repo holds the whole project lifecycle — spec, tests, supplementary docs, CI — so AI coding tools assisting authoring have all the context they need, and audit trails cover everything.
 
@@ -455,7 +455,7 @@ The strategic value: one repo holds the whole project lifecycle — spec, tests,
 
 ## Notes for implementers
 
-- The id-indexed loader is the central component. Build it first in `@ux4/core/files`; everything else (editor, scripts, validation, compilation) depends on it.
+- The id-indexed loader is the central component. Build it first in `@uxflows/core/files`; everything else (editor, scripts, validation, compilation) depends on it.
 - The loader handles the shape rule uniformly: same code path reads `guardrails.json` and `guardrails/*.json`. One implementation, every collection.
 - Multi-agent resolution: loader walks `agents/<id>/` for agent-scoped entities, root for project-scoped; merges per scope rule. Single-agent projects skip the `agents/` walk.
 - Flow resolution is agent-first, project-fallback. Agent-level flows with the same id as a project-level flow shadow (override) the project-level one with a warning. This is the one entity that allows override semantics in MVP — the use case (specializing a shared interrupt for one agent) is concrete enough to justify the carve-out.

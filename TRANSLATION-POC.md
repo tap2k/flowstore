@@ -12,7 +12,7 @@
 > prompt-shape divergence (missing guardrails / example) and conversation
 > history dropped on exit-fire transitions. Both fixed in the translator.
 
-A bounded experiment to answer one strategic question with evidence rather than theory: **does translation from a UX4 v0 spec to a graph-native runtime (LangGraph) preserve the flow / exit / capture / variable semantics the runner enforces, with enough fidelity to be useful for production deployments?**
+A bounded experiment to answer one strategic question with evidence rather than theory: **does translation from a uxflows v0 spec to a graph-native runtime (LangGraph) preserve the flow / exit / capture / variable semantics the runner enforces, with enough fidelity to be useful for production deployments?**
 
 This is a spike. Deliverable is *evidence*, not a shippable translator.
 
@@ -22,7 +22,7 @@ The translation strategy laid out in [`TRANSLATIONS.md`](./TRANSLATIONS.md) name
 
 LangGraph is chosen for this PoC because:
 
-- Its structural mapping to UX4 is the cleanest of any target (graph nodes, typed state, conditional edges, native interrupts).
+- Its structural mapping to uxflows is the cleanest of any target (graph nodes, typed state, conditional edges, native interrupts).
 - Text-mode validation is faster to instrument than voice. Text mode is already first-class in the runner ([`server/text_session.py`](../uxflows-runner/src/uxflows_runner/server/text_session.py)).
 - Lower implementation risk than Pipecat (which reintroduces tool-call atomicity concerns in the routing decision path).
 
@@ -84,7 +84,7 @@ The PoC is falsifiable. The outcome should shape next-quarter investment; if it 
 uxflows-runner/
   experiments/langgraph_poc/
     __init__.py
-    translator.py         # UX4 spec → Python source
+    translator.py         # uxflows spec → Python source
     runtime_helpers.py    # Shared expression eval, capability mock, LLM helper
     generated/
       fnol.py             # Translator output
@@ -232,7 +232,7 @@ Minimum four; an optional fifth if time allows.
 
 ### Why we want it
 
-The strategic target for translation is **deployment on Awaaz** (and platforms like Azure Cloud that accept Pipecat workloads). Awaaz already runs Pipecat agents in production — multiple Tala deployments across India, Mexico, and Philippines are on Pipecat with sub-2s latency, with new use cases being migrated to Pipecat throughout 2026. The UX4 editor's value proposition lands when a designer can author a spec and have it run alongside the hand-written Tala agents on the existing Awaaz infrastructure.
+The strategic target for translation is **deployment on Awaaz** (and platforms like Azure Cloud that accept Pipecat workloads). Awaaz already runs Pipecat agents in production — multiple Tala deployments across India, Mexico, and Philippines are on Pipecat with sub-2s latency, with new use cases being migrated to Pipecat throughout 2026. The uxflows editor's value proposition lands when a designer can author a spec and have it run alongside the hand-written Tala agents on the existing Awaaz infrastructure.
 
 This is a different framing than the LangGraph PoC. LangGraph was a *behavioral fidelity* experiment — answering whether translation can preserve dispatch semantics in principle. Pipecat is an *integration* experiment — answering whether we can emit a drop-in replacement for a hand-written Tala agent that Awaaz can load and run as-is.
 
@@ -261,7 +261,7 @@ While waiting, several design choices are settled enough to lock in:
 - **Interpretation A** (per-flow logic codegen'd, not interpreted at runtime). Generated file is spec-specific Python; the dispatcher is hard-coded into the emitted code rather than reading `LoadedSpec` at runtime. This is what makes it a "translator" rather than "the runner running on Awaaz's infrastructure."
 - **In-text route tags, not Pipecat tool calls.** The runner explicitly chose in-text tags to avoid tool-call atomicity issues at flow transitions. The Pipecat translator inherits the same protocol — we already know it works (live LLM regression confirmed it).
 - **File + small runtime shim.** Generated file imports from `uxflows_pipecat_runtime.py` (route-tag parser, expression eval, capability dispatch — most of which already exists as `runtime_helpers.py` in the LangGraph PoC). The shim is stable across specs; only the generated file is spec-specific.
-- **Generated pipeline emits standard Pipecat metrics only.** No UX4-specific event stream. Awaaz/Azure get whatever observability they normally have. Simpler to ship.
+- **Generated pipeline emits standard Pipecat metrics only.** No uxflows-specific event stream. Awaaz/Azure get whatever observability they normally have. Simpler to ship.
 - **Text mode first, then voice.** Same model as the LangGraph PoC: validate dispatch fidelity in text mode where the harness already exists, then push through to voice (WebRTC + Silero VAD + Cloud STT/TTS) once text holds.
 - **Same FNOL spec.** Don't conflate "does Pipecat translation work" with "does cross-spec generalization work" — those are separate unknowns.
 

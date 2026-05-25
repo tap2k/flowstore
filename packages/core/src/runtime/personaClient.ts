@@ -1,6 +1,6 @@
-import { chat, DEFAULT_PROVIDER } from "@ux4/core/llm/dispatch";
-import type { ChatMessage, ChatUsage, ProviderId } from "@ux4/core/llm/types";
-import type { TranscriptTurn } from "@ux4/core/runtime/transcript";
+import { chat, DEFAULT_PROVIDER } from "@uxflows/core/llm/dispatch";
+import type { ChatMessage, ChatUsage, ProviderId } from "@uxflows/core/llm/types";
+import type { TranscriptTurn } from "@uxflows/core/runtime/transcript";
 
 // Generate the next user-side utterance by inverting roles: the persona LLM
 // sees the agent's lines as user input and produces an assistant reply, which

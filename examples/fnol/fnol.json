@@ -1,6 +1,6 @@
 {
   "agent": {
-    "$schema": "UX4://agent/v0",
+    "$schema": "uxflows://agent/v0",
     "id": "agent_northwind_fnol",
     "version": "0.1.0",
     "meta": {
@@ -327,7 +327,7 @@
   },
   "flows": [
     {
-      "$schema": "UX4://flow/v0",
+      "$schema": "uxflows://flow/v0",
       "id": "flow_safety_triage",
       "version": "0.1.0",
       "name": "Safety triage",
@@ -367,7 +367,7 @@
       ]
     },
     {
-      "$schema": "UX4://flow/v0",
+      "$schema": "uxflows://flow/v0",
       "id": "flow_defer_emergency",
       "version": "0.1.0",
       "name": "Defer for emergency",
@@ -412,7 +412,7 @@
       ]
     },
     {
-      "$schema": "UX4://flow/v0",
+      "$schema": "uxflows://flow/v0",
       "id": "flow_identify",
       "version": "0.1.0",
       "name": "Identify policyholder",
@@ -443,7 +443,7 @@
       ]
     },
     {
-      "$schema": "UX4://flow/v0",
+      "$schema": "uxflows://flow/v0",
       "id": "flow_route_verified",
       "version": "0.1.0",
       "name": "Route on verification",
@@ -470,7 +470,7 @@
       ]
     },
     {
-      "$schema": "UX4://flow/v0",
+      "$schema": "uxflows://flow/v0",
       "id": "flow_policy_not_found",
       "version": "0.1.0",
       "name": "Policy not found",
@@ -526,7 +526,7 @@
       ]
     },
     {
-      "$schema": "UX4://flow/v0",
+      "$schema": "uxflows://flow/v0",
       "id": "flow_incident_details",
       "version": "0.1.0",
       "name": "Incident details",
@@ -562,7 +562,7 @@
       ]
     },
     {
-      "$schema": "UX4://flow/v0",
+      "$schema": "uxflows://flow/v0",
       "id": "flow_vehicle_info",
       "version": "0.1.0",
       "name": "Vehicle info",
@@ -598,7 +598,7 @@
       ]
     },
     {
-      "$schema": "UX4://flow/v0",
+      "$schema": "uxflows://flow/v0",
       "id": "flow_other_party_info",
       "version": "0.1.0",
       "name": "Other party info",
@@ -626,7 +626,7 @@
       ]
     },
     {
-      "$schema": "UX4://flow/v0",
+      "$schema": "uxflows://flow/v0",
       "id": "flow_photos",
       "version": "0.1.0",
       "name": "Photos commitment",
@@ -650,7 +650,7 @@
       ]
     },
     {
-      "$schema": "UX4://flow/v0",
+      "$schema": "uxflows://flow/v0",
       "id": "flow_review_and_file",
       "version": "0.1.0",
       "name": "Review & file claim",
@@ -708,7 +708,7 @@
       ]
     },
     {
-      "$schema": "UX4://flow/v0",
+      "$schema": "uxflows://flow/v0",
       "id": "flow_schedule_adjuster",
       "version": "0.1.0",
       "name": "Schedule adjuster callback",
@@ -747,7 +747,7 @@
       ]
     },
     {
-      "$schema": "UX4://flow/v0",
+      "$schema": "uxflows://flow/v0",
       "id": "int_human_handoff",
       "version": "0.1.0",
       "name": "Interrupt — talk to a person",
@@ -774,7 +774,7 @@
       ]
     },
     {
-      "$schema": "UX4://flow/v0",
+      "$schema": "uxflows://flow/v0",
       "id": "int_policy_question",
       "version": "0.1.0",
       "name": "Interrupt — policy / coverage question",
@@ -813,7 +813,7 @@
       ]
     },
     {
-      "$schema": "UX4://flow/v0",
+      "$schema": "uxflows://flow/v0",
       "id": "int_calming",
       "version": "0.1.0",
       "name": "Interrupt — calm the caller",
@@ -856,7 +856,7 @@
       ]
     },
     {
-      "$schema": "UX4://flow/v0",
+      "$schema": "uxflows://flow/v0",
       "id": "int_cancel_claim",
       "version": "0.1.0",
       "name": "Interrupt — cancel / never mind",

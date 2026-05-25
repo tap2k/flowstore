@@ -1,5 +1,5 @@
 {
-  "$schema": "UX4://capability-mock/v0",
+  "$schema": "uxflows://capability-mock/v0",
   "capability_id": "cap_log_walkaway",
   "variant": "success",
   "description": "Walkaway logged successfully.",

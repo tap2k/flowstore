@@ -1,5 +1,5 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import type { FlowType } from "@ux4/core/schema/v0";
+import type { FlowType } from "@uxflows/core/schema/v0";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useCommentsStore } from "@/lib/store/comments";
 

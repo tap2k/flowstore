@@ -32,11 +32,11 @@ No surrounding text. Nothing before or after the JSON.
 V0 SCHEMA
 
 {
-  "$schema": "UX4://gold-collection/v0",
+  "$schema": "uxflows://gold-collection/v0",
   "agent_id": "agent_<snake_case>",  // matches the spec being graded; best-guess if not stated
   "golds": [
     {
-      "$schema": "UX4://gold/v0",
+      "$schema": "uxflows://gold/v0",
       "id": "<snake_case_slug_derived_from_section_label>",
       "name": "Human-readable label (verbatim from source if labelled)",
       "scenario": "Free-text one-sentence summary of what this conversation exercises (your synthesis, not from source).",
@@ -150,7 +150,7 @@ The output must contain only content grounded in the source material.
 You are extracting captured trajectories, not authoring new ones. If
 the source contains zero example conversations, output:
 
-{ "$schema": "UX4://gold-collection/v0", "agent_id": "<id>", "golds": [] }
+{ "$schema": "uxflows://gold-collection/v0", "agent_id": "<id>", "golds": [] }
 
 Never invent any of the following — even if it would make a partial
 trajectory feel complete or fill an obvious gap in coverage:

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
-import type { Agent, Mode } from "@ux4/core/schema/v0";
-import { BUILT_IN_MODELS } from "@ux4/core/files/models";
+import type { Agent, Mode } from "@uxflows/core/schema/v0";
+import { BUILT_IN_MODELS } from "@uxflows/core/files/models";
 import { Field, inputClass } from "@/components/inspector/primitives";
 import { SingleFlowPicker } from "@/components/inspector/FlowPicker";
 import { SheetShell } from "./SheetShell";

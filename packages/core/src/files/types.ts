@@ -1,10 +1,10 @@
-import type { Spec } from "@ux4/core/schema/v0";
+import type { Spec } from "@uxflows/core/schema/v0";
 import type { ResolvedModelsConfig } from "./models";
-import type { TestCase } from "@ux4/core/schema/files/testCase";
-import type { Persona } from "@ux4/core/schema/files/persona";
-import type { CapabilityMock } from "@ux4/core/schema/files/capabilityMock";
-import type { Rubric } from "@ux4/core/schema/files/rubric";
-import type { Comment } from "@ux4/core/schema/files/comment";
+import type { TestCase } from "@uxflows/core/schema/files/testCase";
+import type { Persona } from "@uxflows/core/schema/files/persona";
+import type { CapabilityMock } from "@uxflows/core/schema/files/capabilityMock";
+import type { Rubric } from "@uxflows/core/schema/files/rubric";
+import type { Comment } from "@uxflows/core/schema/files/comment";
 
 export type FileMap = Record<string, string>;
 

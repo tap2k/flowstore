@@ -1,4 +1,4 @@
-import { BUILT_IN_MODELS } from "@ux4/core/files/models";
+import { BUILT_IN_MODELS } from "@uxflows/core/files/models";
 import { hasKeyForModel, resolveDispatch } from "@/lib/store/settings";
 
 interface ModelPickerProps {

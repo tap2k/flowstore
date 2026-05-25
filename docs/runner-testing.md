@@ -1,6 +1,6 @@
 # Testing through the runner
 
-Audience: an engineer with a UX4 project repo and a running `uxflows-runner`
+Audience: an engineer with a uxflows project repo and a running `uxflows-runner`
 who wants to test the runner against the same test cases the system-prompt
 path tests against.
 
@@ -22,7 +22,7 @@ the systems view see [optimization-loop.md](optimization-loop.md).
 ```
 run.py (system-prompt path)              run_runner.py (runner path)
 ───────────────────────────              ───────────────────────────
-ux4-compile --format prompt              ux4-compile --format spec
+uxflows-compile --format prompt              uxflows-compile --format spec
         ↓                                       ↓
 {system_prompt, tool_schemas}            full {agent, flows} JSON
         ↓                                       ↓
@@ -34,7 +34,7 @@ loop user_turns                          loop user_turns
   → look up mock                           → runner dispatched the mock for us
   → call again                             → next turn
         ↓                                       ↓
-UX4://result/v0                          UX4://result/v0
+uxflows://result/v0                          uxflows://result/v0
 ```
 
 Same input files (test case, vars, mocks). Same output schema. Two things
@@ -64,7 +64,7 @@ What the runner exposes at `/api/chat/`:
 
 Notes that aren't obvious from the field names:
 
-- **`spec`** is the full resolved spec JSON (output of `ux4-compile --format
+- **`spec`** is the full resolved spec JSON (output of `uxflows-compile --format
   spec`), not a path. The runner accepts it inline per request — no
   filesystem touch on the runner side.
 - **`api_key`** is your Google AI Studio key. If omitted, the runner falls
@@ -92,7 +92,7 @@ The test case shape is the same:
 
 ```json
 {
-  "$schema": "UX4://test-case/v0",
+  "$schema": "uxflows://test-case/v0",
   "id": "happy-within-grace",
   "user_turns": ["Hola, bien gracias", "Sí, soy yo", "Sí, puedo pagar mañana sin problema"],
   "assertions": [
@@ -112,10 +112,10 @@ dispatch; assertions still grade the agent's reply text per turn.
 
 ## What changes in the result file
 
-Same `UX4://result/v0` shape. Two pivotable fields:
+Same `uxflows://result/v0` shape. Two pivotable fields:
 
 - **`prompt_source`** — set to `"runner"` (or `"runner@<runner-version>"`)
-  instead of `"ux4-compile"`. This is the field the editor's result viewer
+  instead of `"uxflows-compile"`. This is the field the editor's result viewer
   will pivot on when comparing.
 - **`final_variables`** — populated from the event stream's `variable_set`
   events, which the system-prompt path can't accurately produce (it has no

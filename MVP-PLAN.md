@@ -1,6 +1,6 @@
-# UX4 MVP Plan
+# uxflows MVP Plan
 
-The organizing vision and staged operational plan for UX4. For the data-model contract see [SCHEMA.md](./SCHEMA.md); for the on-disk layout see [FILE-MODEL.md](./FILE-MODEL.md); for architectural rationale see [AGENTS.md](./AGENTS.md); for the translation/fidelity experiment that gates runner-based testing see [TRANSLATION-POC.md](./TRANSLATION-POC.md); for the systems view of the client-materials → spec → tests → targets loop and what would be required to make it self-optimizing see [docs/optimization-loop.md](./docs/optimization-loop.md); for the Phase 2 plan that consolidates the test-loop work (test-case dropdown + capture in SimulatePanel, run manifests, `final_variables` assertions, result viewer, rubric-driven judge evaluators) see [TESTING-LOOP-PLAN.md](./TESTING-LOOP-PLAN.md).
+The organizing vision and staged operational plan for uxflows. For the data-model contract see [SCHEMA.md](./SCHEMA.md); for the on-disk layout see [FILE-MODEL.md](./FILE-MODEL.md); for architectural rationale see [AGENTS.md](./AGENTS.md); for the translation/fidelity experiment that gates runner-based testing see [TRANSLATION-POC.md](./TRANSLATION-POC.md); for the systems view of the client-materials → spec → tests → targets loop and what would be required to make it self-optimizing see [docs/optimization-loop.md](./docs/optimization-loop.md); for the Phase 2 plan that consolidates the test-loop work (test-case dropdown + capture in SimulatePanel, run manifests, `final_variables` assertions, result viewer, rubric-driven judge evaluators) see [TESTING-LOOP-PLAN.md](./TESTING-LOOP-PLAN.md).
 
 ---
 
@@ -11,27 +11,27 @@ The organizing vision and staged operational plan for UX4. For the data-model co
 **Phase 1 — Foundation — in flight.**
 
 Landed on `main`:
-- **1a** Monorepo split into `@ux4/core` + `@ux4/browser` (npm workspaces; Next.js consumes core via `transpilePackages`).
-- **1b** File-model loader + decomposer in `@ux4/core/files` (`decomposeSpec`, `loadProject`, Node fs adapter). Single-agent shape, file-form collections, knowledge tables + glossary, per-flow `.flow.json` + `.scripts.csv` pairs. Round-trip lossless on `coffee.json` and the three Tala DPD31 variants (bilingual/en/es). Codegen-equivalence check asserts the compiled system prompt is unchanged across decompose/load.
+- **1a** Monorepo split into `@uxflows/core` + `@uxflows/browser` (npm workspaces; Next.js consumes core via `transpilePackages`).
+- **1b** File-model loader + decomposer in `@uxflows/core/files` (`decomposeSpec`, `loadProject`, Node fs adapter). Single-agent shape, file-form collections, knowledge tables + glossary, per-flow `.flow.json` + `.scripts.csv` pairs. Round-trip lossless on `coffee.json` and the three Tala DPD31 variants (bilingual/en/es). Codegen-equivalence check asserts the compiled system prompt is unchanged across decompose/load.
 - **1c** GitHub-backed persistence end-to-end:
-  - `@ux4/core/files/github` adapter — atomic multi-file commit via Git Data API; `expectedCommitSha` optimistic concurrency; empty-repo init; `ConflictError` on ref-advance.
+  - `@uxflows/core/files/github` adapter — atomic multi-file commit via Git Data API; `expectedCommitSha` optimistic concurrency; empty-repo init; `ConflictError` on ref-advance.
   - Settings sheet — GitHub PAT input + Test connection button.
   - Toolbar icon buttons — Open from GitHub / Save / Refresh, with a "Save to a new branch…" item in the Save dropdown. Conflict modal on save races.
   - Header subtitle shows `<owner>/<repo>@<branch>` when a GitHub project is loaded.
   - `github-init` CLI — push an existing single-file spec into a real repo (same library path as in-editor init).
-- **1d** `ux4-init-project --from <spec.json> --target <dir>` CLI + `round-trip` / `round-trip-disk` verification scripts. Same decomposition library powers the editor's GitHub init path.
-- **1g** `models/` schema + loader. `UX4://models/v0` defines `{ models, default, roles }` with free-form string keys (no `providers` map, no `kind` enum — schemas validate shape, not value membership). Loader merges `models/*.json` files; `resolveModel` walks the precedence chain (built-in default → project default → role → agent default → override). Built-in data carries the four currently supported Google models (Gemini 2.5 / 3.x preview). No runtime consumer yet — Simulate/chat panels stay BYOK Google in Phase 1; provider-adapter wiring lands in Phase 2.
+- **1d** `uxflows-init-project --from <spec.json> --target <dir>` CLI + `round-trip` / `round-trip-disk` verification scripts. Same decomposition library powers the editor's GitHub init path.
+- **1g** `models/` schema + loader. `uxflows://models/v0` defines `{ models, default, roles }` with free-form string keys (no `providers` map, no `kind` enum — schemas validate shape, not value membership). Loader merges `models/*.json` files; `resolveModel` walks the precedence chain (built-in default → project default → role → agent default → override). Built-in data carries the four currently supported Google models (Gemini 2.5 / 3.x preview). No runtime consumer yet — Simulate/chat panels stay BYOK Google in Phase 1; provider-adapter wiring lands in Phase 2.
 - **1h** `agent.system_prompt_template` + `agent.default_model` on the agent schema. Codegen wraps the deterministic body via the template's `{generated}` placeholder plus convenience `{meta.name}`, `{meta.client}`, `{meta.purpose}`, `{meta.tone}` substitutions; unknown placeholders are left literal. `agent.default_model` slots into the `resolveModel` precedence chain between project role and explicit override.
-- **1f** Per-file AJV validation in the loader for `ux4.json`, `models/*.json`, `knowledge/glossary.json`, `knowledge/tables/<id>.meta.json` — errors flow through `LoadError[]`. New `KnowledgeTableMetaSchema` (UX4://knowledge-table/v0). `validateGraph` extended with an optional `modelIds` set so callers can flag `agent.default_model` referencing an unknown model id. Existing canvas inline display (per-flow red border + tooltip, per-edge red stroke) continues to surface dangling references unchanged.
+- **1f** Per-file AJV validation in the loader for `uxflows.json`, `models/*.json`, `knowledge/glossary.json`, `knowledge/tables/<id>.meta.json` — errors flow through `LoadError[]`. New `KnowledgeTableMetaSchema` (uxflows://knowledge-table/v0). `validateGraph` extended with an optional `modelIds` set so callers can flag `agent.default_model` referencing an unknown model id. Existing canvas inline display (per-flow red border + tooltip, per-edge red stroke) continues to surface dangling references unchanged.
 
 **Phase 1 closed.** Phase 2 (testing surface, comments, etc.) begins from here.
 
 **Phase 2 — Testing surface — kicked off (2026-05-24).**
 
 Landed on `main`:
-- **2F-partial** Multi-provider LLM dispatch in the browser. CORS verified: OpenAI direct works; Anthropic blocks browser origins, so Claude routes via OpenRouter. Three adapters in `@ux4/core/llm/providers/`: `google` (existing), `openai` (native chat-completions), `openai-compatible` (shared base, configurable `base_url`). `ModelEntry` extended with optional `endpoint` + `model_id`; `EndpointId` union covers `google`, `openai`, `openrouter`, `openai-compatible` (catchall). `resolveDispatch(modelId)` walks the precedence chain and returns provider + key + base URL + wire id. Settings sheet gains OpenAI + OpenRouter key rows alongside Google. Shared `ModelPicker` filters by which keys are present (with `showUnconfigured` escape hatch for AgentSheet's spec-level default-model picker and runner mode). Built-in catalog expanded: GPT-5.5/5.4/5.4-mini (native); Claude Opus 4.7 / Sonnet 4.6 / Haiku 4.5 (via OpenRouter); Grok 4.3, DeepSeek V4 Pro/Flash/V3.2, Kimi K2.6, Qwen 3 235B, Llama 4 Maverick, Llama 3.3 70B (free), Nemotron 3 Super 120B (free), Owl Alpha (stealth, free) — all via OpenRouter. Gemini-only authoring helpers (✨ Generate variables/mocks/persona, transcript translate) pinned to a Gemini default regardless of the picker (Google structured-output API; multi-provider structured output is a separate ticket). The `runner` side of the multi-provider story — Python scripts using the same adapters via a Node CLI — remains pending.
+- **2F-partial** Multi-provider LLM dispatch in the browser. CORS verified: OpenAI direct works; Anthropic blocks browser origins, so Claude routes via OpenRouter. Three adapters in `@uxflows/core/llm/providers/`: `google` (existing), `openai` (native chat-completions), `openai-compatible` (shared base, configurable `base_url`). `ModelEntry` extended with optional `endpoint` + `model_id`; `EndpointId` union covers `google`, `openai`, `openrouter`, `openai-compatible` (catchall). `resolveDispatch(modelId)` walks the precedence chain and returns provider + key + base URL + wire id. Settings sheet gains OpenAI + OpenRouter key rows alongside Google. Shared `ModelPicker` filters by which keys are present (with `showUnconfigured` escape hatch for AgentSheet's spec-level default-model picker and runner mode). Built-in catalog expanded: GPT-5.5/5.4/5.4-mini (native); Claude Opus 4.7 / Sonnet 4.6 / Haiku 4.5 (via OpenRouter); Grok 4.3, DeepSeek V4 Pro/Flash/V3.2, Kimi K2.6, Qwen 3 235B, Llama 4 Maverick, Llama 3.3 70B (free), Nemotron 3 Super 120B (free), Owl Alpha (stealth, free) — all via OpenRouter. Gemini-only authoring helpers (✨ Generate variables/mocks/persona, transcript translate) pinned to a Gemini default regardless of the picker (Google structured-output API; multi-provider structured output is a separate ticket). The `runner` side of the multi-provider story — Python scripts using the same adapters via a Node CLI — remains pending.
 - **Latency display in SimulatePanel.** Wall-clock dispatch latency (prompt-mode LLM call + runner round-trip) renders below each agent bubble. Additive `latencyMs?` field on `TranscriptTurn`.
-- **Comments anchored to flows.** Per-uuid additive files at `comments/<uuid>.comment.json` (`UX4://comment/v0`). Flat threading (no replies), resolve flips `resolved: true` rather than deleting (Git-shaped audit trail kept). `CommentsSection` lives at the bottom of `FlowInspector`; small amber unresolved-count badge on each flow node on the canvas. Writes use GitHub's Contents API (`PUT /contents/{path}`) so concurrent posts serialize cleanly — `mode: "create"` for new comments skips the existence probe, `mode: "update"` for resolve/reopen fetches the current blob sha. v1 anchor enum is `flow` only; broaden when designers ask. Author is hardcoded to `"user"` until a `gh api /user` echo lands on PAT save.
+- **Comments anchored to flows.** Per-uuid additive files at `comments/<uuid>.comment.json` (`uxflows://comment/v0`). Flat threading (no replies), resolve flips `resolved: true` rather than deleting (Git-shaped audit trail kept). `CommentsSection` lives at the bottom of `FlowInspector`; small amber unresolved-count badge on each flow node on the canvas. Writes use GitHub's Contents API (`PUT /contents/{path}`) so concurrent posts serialize cleanly — `mode: "create"` for new comments skips the existence probe, `mode: "update"` for resolve/reopen fetches the current blob sha. v1 anchor enum is `flow` only; broaden when designers ask. Author is hardcoded to `"user"` until a `gh api /user` echo lands on PAT save.
 
 Still ahead in Phase 2 (see [TESTING-LOOP-PLAN.md](./TESTING-LOOP-PLAN.md) for sequencing):
 - **O-1** `state_check` evaluator + `final_variables` assertions on the testing-script side. *Runner-deferred → currently no-op; revisit when runner is the testing path.*
@@ -40,7 +40,7 @@ Still ahead in Phase 2 (see [TESTING-LOOP-PLAN.md](./TESTING-LOOP-PLAN.md) for s
 - **O-3** Result-file viewer in SimulatePanel.
 - **O-4** Rubric judge wired into the harness (load-bearing for semantic eval).
 - Id-rename cascade and concurrent-edit detection — pilot-hardening, pulled in if Awaaz hits the friction.
-- Multi-provider dispatch on the Python scripts side (`@ux4/core` providers shared via Node CLI).
+- Multi-provider dispatch on the Python scripts side (`@uxflows/core` providers shared via Node CLI).
 - Native Anthropic adapter — deferred until Anthropic relaxes CORS or a proxy lands; Claude works via OpenRouter today.
 - Comments: replies/threading, anchor kinds beyond flow, real author identity from `gh api /user`. Pull in if pilot surfaces the friction.
 
@@ -50,18 +50,18 @@ Still ahead in Phase 2 (see [TESTING-LOOP-PLAN.md](./TESTING-LOOP-PLAN.md) for s
 
 ## What's being built
 
-UX4 is a **Behavioral IDE for Conversational Agents** — the open, Git-backed development section of the agent pipeline. Runtime execution (Python runner today; Pipecat / LangGraph / etc. post-MVP) and production observability (handled by the runtime's event stream and dedicated tools like LangSmith, Cekura, Maxim) are separate concerns. UX4 may integrate with production-monitoring tools post-pilot, but those integrations are not in MVP.
+uxflows is a **Behavioral IDE for Conversational Agents** — the open, Git-backed development section of the agent pipeline. Runtime execution (Python runner today; Pipecat / LangGraph / etc. post-MVP) and production observability (handled by the runtime's event stream and dedicated tools like LangSmith, Cekura, Maxim) are separate concerns. uxflows may integrate with production-monitoring tools post-pilot, but those integrations are not in MVP.
 
 **Four coordinated surfaces over a single durable spec:**
 
-- **Visual authoring (browser editor).** Canvas-first authoring of one or many agents in a UX4 project. GitHub-backed persistence. Chat panel for LLM-assisted authoring, simulate panel for live exploration. Extended in Phase 2 for test-case loading, persona-driven runs, mock binding, and capture-as-test-case.
+- **Visual authoring (browser editor).** Canvas-first authoring of one or many agents in a uxflows project. GitHub-backed persistence. Chat panel for LLM-assisted authoring, simulate panel for live exploration. Extended in Phase 2 for test-case loading, persona-driven runs, mock binding, and capture-as-test-case.
 - **Git-shaped collaboration (per-agent or multi-agent repos).** Decomposed by stakeholder concern per [FILE-MODEL.md](./FILE-MODEL.md). One repo can hold many agents (Tala with N purposes × M languages) with shared capabilities, guardrails, knowledge, personas, evaluators, and rubrics. Comments are first-class additive files anchored to spec entities.
 - **Python testing surface (vendored scripts).** `run.py` drives test execution against compiled system prompts, deployed endpoints, or captured production sessions. Built-in evaluators + custom Python + LLM-judge rubrics. Personas as user-side system prompts; gold standards as reference transcripts. Vendored per agent repo so Nikunj adapts with Claude Code.
 - **Client share view (Phase 3).** Static read-only export to GitHub Pages — agency-client surface for spec walkthroughs without GitHub accounts.
 
-**Pluggable runtimes.** The spec is the durable artifact; runtimes are interchangeable consumers. Today's canonical runtime is the Python runner (Pipecat-on-the-runner for Awaaz's voice production). Pipecat-direct, LangGraph, OpenAI Agents SDK, hosted UX4 runtime — all post-MVP, gated on [TRANSLATION-POC.md](./TRANSLATION-POC.md) confirming behavioral fidelity. MVP testing runs against compiled system prompts, explicitly trading graph-execution fidelity for portability and zero-runtime-dependency iteration.
+**Pluggable runtimes.** The spec is the durable artifact; runtimes are interchangeable consumers. Today's canonical runtime is the Python runner (Pipecat-on-the-runner for Awaaz's voice production). Pipecat-direct, LangGraph, OpenAI Agents SDK, hosted uxflows runtime — all post-MVP, gated on [TRANSLATION-POC.md](./TRANSLATION-POC.md) confirming behavioral fidelity. MVP testing runs against compiled system prompts, explicitly trading graph-execution fidelity for portability and zero-runtime-dependency iteration.
 
-GitHub is the system of record. UX4 holds no server-side state in the free tier. A hosted SaaS tier — for non-tech audiences who need real-time collaboration without Git fluency — is a coherent post-MVP product extension, not MVP scope.
+GitHub is the system of record. uxflows holds no server-side state in the free tier. A hosted SaaS tier — for non-tech audiences who need real-time collaboration without Git fluency — is a coherent post-MVP product extension, not MVP scope.
 
 ### Success criterion
 
@@ -71,7 +71,7 @@ Awaaz uses the MVP for real production work by November 2026:
 - Testing artifacts (test cases, mocks, rubrics, personas) live as JSON files in the agent repo, authored via IDE / Claude Code / GitHub web UI; SimulatePanel handles selection and live exploration.
 - Nikunj runs Python scripts (adapted with Claude Code) for test execution, suite runs, validation.
 - Comments anchored to spec entities replace ad-hoc Slack discussion of the spec.
-- Work flows through Git following UX4 conventions.
+- Work flows through Git following uxflows conventions.
 
 If Awaaz uses it for real work, MVP shipped. If they only demo with it, it didn't.
 
@@ -87,7 +87,7 @@ If Awaaz uses it for real work, MVP shipped. If they only demo with it, it didn'
          └──────────┬─────────────────┘
                     │
          ┌──────────▼───────────┐
-         │   @ux4/core (TS)     │
+         │   @uxflows/core (TS)     │
          │  files, schema,      │
          │  compile, providers  │
          └──────────┬───────────┘
@@ -103,9 +103,9 @@ The Python `uxflows-runner` is outside MVP's testing path — Awaaz runs it for 
 
 **Repo structure:**
 
-- **This repo (`uxflows/`)** — monorepo with `@ux4/core` (pure TS: files, schema, codegen, providers) and `@ux4/browser` (Next.js editor).
+- **This repo (`uxflows/`)** — monorepo with `@uxflows/core` (pure TS: files, schema, codegen, providers) and `@uxflows/browser` (Next.js editor).
 - **`uxflows-runner/`** — untouched in MVP; remains canonical for production.
-- **Per-agent / multi-agent Git repos** — owned by the customer (Awaaz). Hold the decomposed spec, testing artifacts, scripts. Created by `ux4-init-project`.
+- **Per-agent / multi-agent Git repos** — owned by the customer (Awaaz). Hold the decomposed spec, testing artifacts, scripts. Created by `uxflows-init-project`.
 
 ## Implementation phases
 
@@ -113,25 +113,25 @@ The Python `uxflows-runner` is outside MVP's testing path — Awaaz runs it for 
 
 **Goal:** file model + multi-agent support + GitHub-backed authoring + multi-provider model config foundation + agent.system_prompt_template.
 
-- **Monorepo workspace setup**: split this repo into `@ux4/core` (pure TS) and `@ux4/browser` (Next.js).
-- **File model implementation** per [FILE-MODEL.md](./FILE-MODEL.md): id-indexed loader, per-file schemas in `@ux4/core/schema`, cross-file reference resolution, validation against resolved spec, file-or-directory shape rule for collections.
-- **Multi-agent support**: `agents/<id>/` directory shape, three-level scope rules (project / agent / flow) for guardrails / variables / business-goals / FAQ, scope-aware loader and compilation, collision-as-error semantics. Single-agent projects stay flat; promote via `ux4-init-project --add-agent <id>`.
-- **CLI migration script**: `ux4-init-project --from <spec.json>` splits an existing single-file spec into the decomposed layout (defaults to single-agent shape).
+- **Monorepo workspace setup**: split this repo into `@uxflows/core` (pure TS) and `@uxflows/browser` (Next.js).
+- **File model implementation** per [FILE-MODEL.md](./FILE-MODEL.md): id-indexed loader, per-file schemas in `@uxflows/core/schema`, cross-file reference resolution, validation against resolved spec, file-or-directory shape rule for collections.
+- **Multi-agent support**: `agents/<id>/` directory shape, three-level scope rules (project / agent / flow) for guardrails / variables / business-goals / FAQ, scope-aware loader and compilation, collision-as-error semantics. Single-agent projects stay flat; promote via `uxflows-init-project --add-agent <id>`.
+- **CLI migration script**: `uxflows-init-project --from <spec.json>` splits an existing single-file spec into the decomposed layout (defaults to single-agent shape).
 - **GitHub OAuth + Octokit file I/O**.
-- **Project initialization** in an empty repo (writes `ux4.json` + directory skeleton + scaffolded `README.md`).
-- **Persistence switch** from localStorage to GitHub-backed via `@ux4/core/files`. Auto-commit to main; no branches surfaced in the editor (engineers branch via CLI if they want). localStorage stays as a session-state cache.
+- **Project initialization** in an empty repo (writes `uxflows.json` + directory skeleton + scaffolded `README.md`).
+- **Persistence switch** from localStorage to GitHub-backed via `@uxflows/core/files`. Auto-commit to main; no branches surfaced in the editor (engineers branch via CLI if they want). localStorage stays as a session-state cache.
 - **Inline schema validation** — extend the existing AJV pipeline to the per-file schemas. Errors render where the user is editing. Cross-file validation surfaces stale references inline (dangling capability ids, persona refs, flow gotos).
-- **`models/` schema + loader**: schemas for `models/*.json`, loader aggregation, project-default resolution. `models/defaults.json` carries `default` + optional `roles` map (agent / judge / user_simulation / authoring). Built-in providers (`anthropic`, `openai`, `google`) registered in `@ux4/core`. Simulate/chat panels keep BYOK Google in Phase 1; provider-adapter wiring lands in Phase 2 alongside script-side LLM dispatch.
+- **`models/` schema + loader**: schemas for `models/*.json`, loader aggregation, project-default resolution. `models/defaults.json` carries `default` + optional `roles` map (agent / judge / user_simulation / authoring). Built-in providers (`anthropic`, `openai`, `google`) registered in `@uxflows/core`. Simulate/chat panels keep BYOK Google in Phase 1; provider-adapter wiring lands in Phase 2 alongside script-side LLM dispatch.
 - **`agent.system_prompt_template`** — optional field on agent schema; codegen wraps the deterministic compiled content in the template's `{generated}` placeholder. Pulled in per Nikunj's request. Other placeholders (`{meta.name}`, `{meta.client}`, etc.) for convenience.
 - **`agent.default_model`** — optional field on agent schema; overrides project default for this agent's runs.
-- **`ux4.json` is minimal** — just `{ "$schema": "UX4://project/v0" }`. Agents implicit from filesystem (presence of `agents/` directory); compile targets are CLI flags; project name derived from directory; client lives in `agent.meta.client`.
+- **`uxflows.json` is minimal** — just `{ "$schema": "uxflows://project/v0" }`. Agents implicit from filesystem (presence of `agents/` directory); compile targets are CLI flags; project name derived from directory; client lives in `agent.meta.client`.
 - **Documentation**: file model, multi-agent project conventions, migration guide.
 
-**Runtime config (STT, TTS, voices, telephony, audio, barge-in, VAD) is explicitly out of UX4 scope.** Lives with the runner / Pipecat config / deployment infrastructure. UX4 declares semantic info (`meta.languages`, `meta.modes`); runner picks runtime knobs. Optional `runtime/` directory is post-MVP if customers demand it.
+**Runtime config (STT, TTS, voices, telephony, audio, barge-in, VAD) is explicitly out of uxflows scope.** Lives with the runner / Pipecat config / deployment infrastructure. uxflows declares semantic info (`meta.languages`, `meta.modes`); runner picks runtime knobs. Optional `runtime/` directory is post-MVP if customers demand it.
 
 **Anthropic CORS verification** — week 1 task. If browser-direct LLM calls are blocked, decide on workaround (thin proxy, companion Node process, etc.).
 
-**Deliverable:** user connects GitHub → opens or initializes a UX4 project (single-agent default; multi-agent via add-agent) → edits specs visually with shared resources at root and per-agent flows under `agents/<id>/` → saves → sees per-concern commits in GitHub. Simulate/chat panels continue working as in Phase 0 (BYOK Google); multi-provider lands with the testing path in Phase 2.
+**Deliverable:** user connects GitHub → opens or initializes a uxflows project (single-agent default; multi-agent via add-agent) → edits specs visually with shared resources at root and per-agent flows under `agents/<id>/` → saves → sees per-concern commits in GitHub. Simulate/chat panels continue working as in Phase 0 (BYOK Google); multi-provider lands with the testing path in Phase 2.
 
 ### Phase 2 — Testing surface (mid-August through October 2026)
 
@@ -145,7 +145,7 @@ The Python `uxflows-runner` is outside MVP's testing path — Awaaz runs it for 
 - Test cases / rubrics carry optional `model` field for per-file model pinning (reproducibility of regression tests; impartial judge model). Resolution chain: per-call CLI → env var → per-file `model` → `models.roles.<role>` → `models.default` → built-in.
 - Capability mocks paired with capabilities via filename prefix (`capabilities/<id>.<variant>.mock.json`). Project-level; reused across agents.
 - Comments: per-uuid files (`comments/<uuid>.comment.json`); additive, conflict-free. Anchor = `{ kind, agent_id?, id }`.
-- **Result schema (`UX4://result/v0`) is producer/consumer contract — additive-by-default.** Lives in `@ux4/core/src/schema/files/` alongside the input schemas (test-case, persona, rubric, mock). Strict on the load-bearing fields (`$schema`, `test_case_id`, `timestamp`, `transcript`); `additionalProperties: true` at top level so custom harnesses can add fields (`latency_ms`, `token_counts`, runner-only `flow_trace`, judge-only `judge_model`, etc.) without forking the schema. **Asymmetry vs input schemas is intentional**: inputs are sealed contracts, outputs are extensible records. The well-known fields are what the editor's result viewer renders; everything else rides along but isn't surfaced. Same posture as syslog vs request schema, or OpenTelemetry attributes vs span name. Well-known optional fields the editor surfaces: `agent_id`, `model`, `prompt_source` (pivot field), `capability_calls[]`, `final_variables{}`, `evaluator_results[]` (with `name` + either `passed` or `score` + free-form `notes`), `trials[]` (multi-trial mirror of top-level fields), `error`.
+- **Result schema (`uxflows://result/v0`) is producer/consumer contract — additive-by-default.** Lives in `@uxflows/core/src/schema/files/` alongside the input schemas (test-case, persona, rubric, mock). Strict on the load-bearing fields (`$schema`, `test_case_id`, `timestamp`, `transcript`); `additionalProperties: true` at top level so custom harnesses can add fields (`latency_ms`, `token_counts`, runner-only `flow_trace`, judge-only `judge_model`, etc.) without forking the schema. **Asymmetry vs input schemas is intentional**: inputs are sealed contracts, outputs are extensible records. The well-known fields are what the editor's result viewer renders; everything else rides along but isn't surfaced. Same posture as syslog vs request schema, or OpenTelemetry attributes vs span name. Well-known optional fields the editor surfaces: `agent_id`, `model`, `prompt_source` (pivot field), `capability_calls[]`, `final_variables{}`, `evaluator_results[]` (with `name` + either `passed` or `score` + free-form `notes`), `trials[]` (multi-trial mirror of top-level fields), `error`.
 
 **B. SimulatePanel extended (unified browser run surface):**
 
@@ -169,7 +169,7 @@ The Python `uxflows-runner` is outside MVP's testing path — Awaaz runs it for 
 
 - `run.py [--against prompt|endpoint] [--agent <id>] [--personas <glob>] [--evaluators <glob>] [--trials N] [--save-as-gold] <case-or-glob>` — runs one test case or many via glob. Default `--against prompt`: compiles system prompt, drives LLM through user turns, dispatches mocks, runs evaluators. `--against endpoint`: hits an existing agent endpoint (URL + auth via env vars `AGENT_ENDPOINT_URL`, `AGENT_ENDPOINT_TOKEN`), no mocks. Writes results to `tests/runs/<timestamp>-<label>/<test-case-id>.result.json`.
 - `--trials N` — run each test case N times (LLM outputs vary). Aggregates pass@k (probability of at least one success) and pass^k (probability of all N succeeding). Default N=1. Critical for any evaluator using LLM-judged rubrics where single-trial results are misleading. Output: result file gets a `trials: [...]` array; aggregate metrics (`pass_at_k`, `pass_caret_k`) per evaluator. Suite summary aggregates across test cases.
-- `validate.py <path>` — validates artifacts (file or directory) against schemas via Node wrapper around `@ux4/core/schema`.
+- `validate.py <path>` — validates artifacts (file or directory) against schemas via Node wrapper around `@uxflows/core/schema`.
 - Each script <150 lines with a documented header. Nikunj adapts with Claude Code.
 - File-path-based addressing throughout (no id-based CLI args). Personas / evaluators / test cases all referenced as paths or globs.
 - Multi-persona runs: `--personas tests/personas/*.persona.json` runs the test once per persona file matched.
@@ -182,14 +182,14 @@ The Python `uxflows-runner` is outside MVP's testing path — Awaaz runs it for 
 
 **F. Multi-provider LLM dispatch:**
 
-- Provider adapters (`anthropic`, `openai`, `google`, `openai-compatible`) in `@ux4/core/providers`.
+- Provider adapters (`anthropic`, `openai`, `google`, `openai-compatible`) in `@uxflows/core/providers`.
 - Env-var resolution for keys and base URLs.
 - Simulate and chat panels rewire to read from `models/` config.
 - Python scripts use the same provider abstractions via Node CLI.
 
 **G. Evaluator library:**
 
-- `tests/evaluators/*.py` — Python deterministic checks; built-ins vendored by `ux4-init-project`:
+- `tests/evaluators/*.py` — Python deterministic checks; built-ins vendored by `uxflows-init-project`:
   - `forbidden_phrases`
   - `required_phrases`
   - `max_turn_length`
@@ -232,7 +232,7 @@ The Python `uxflows-runner` is outside MVP's testing path — Awaaz runs it for 
 - **Production session import** — closes the design → production → regression loop without building observability infrastructure:
   - `python import_session.py <session_log>` — converts a captured runner event log into a `tests/cases/<auto-id>.test.json` with user turns extracted. Designer fills in evaluators afterward; can `--save-as-gold` to lock behavior.
   - `python eval_session.py <session_log> --evaluators <glob>` — runs evaluators directly against a captured transcript, no test case framing. "Evaluate this conversation."
-  - Format: runner-emitted event stream. UX4 parses it; doesn't define it.
+  - Format: runner-emitted event stream. uxflows parses it; doesn't define it.
 - **Deep validation: unreachable calculation exits** — slotted from Phase 1; pull in once pilot surfaces the need.
 - **Browser polish** based on actual use: scripts sheet row reorder if Awaaz hits it; result viewer refinements; canvas perf if 100+ flows lag.
 
@@ -244,7 +244,7 @@ The Python `uxflows-runner` is outside MVP's testing path — Awaaz runs it for 
 
 - **System prompt export polish** — Phase 0 codegen already exists; refine and document for the course. Lowest-friction path for course students (paste into Claude, OpenAI, or any LLM with system-prompt + tool-call support).
 - **Public tutorial docs** — walkthroughs of authoring → testing → export. Worked example end-to-end.
-- **Beta readiness** — auth/access flow for opening UX4 to public sign-ups (modest; users connect their own GitHub).
+- **Beta readiness** — auth/access flow for opening uxflows to public sign-ups (modest; users connect their own GitHub).
 
 Templates, onboarding UI, Pipecat compile remain deferred. They land when (a) the Awaaz pilot validates the loop and (b) the course launch surfaces real demand, not before.
 
@@ -253,7 +253,7 @@ Templates, onboarding UI, Pipecat compile remain deferred. They land when (a) th
 ## Critical decisions to verify or make early
 
 1. **Anthropic CORS policy for browser-side calls.** Verify week 1 of Phase 1. If blocked, decide on workaround.
-2. **`@ux4/core` codegen reuse from Python.** Python scripts shell out to a Node CLI (`ux4-compile --format prompt --agent <id>`). Node becomes a required dependency for the per-agent script environment alongside Python. Acceptable; Awaaz has both.
+2. **`@uxflows/core` codegen reuse from Python.** Python scripts shell out to a Node CLI (`uxflows-compile --format prompt --agent <id>`). Node becomes a required dependency for the per-agent script environment alongside Python. Acceptable; Awaaz has both.
 3. **API key storage in the browser.** Env vars on dev/scripts side. For the browser, paste-and-store-in-localStorage with a clear warning about origin-script exposure. Decide based on Awaaz's risk tolerance.
 4. **Mock dispatch in the system-prompt path.** Mocks aren't dispatched on graph exit transitions — they're dispatched when the LLM invokes a tool. The capability's `outputs` shape is the contract; mocks return objects matching it. The runner's exit-transition semantics aren't exercised in MVP (the fidelity gap tracked by TRANSLATION-POC). Unbound capability in spec mode → test fails (not silent default).
 5. **Scope collisions in multi-agent.** Same id at project + agent level = error in MVP, not silent override. Designer consolidates.
@@ -265,7 +265,7 @@ Each has been considered and deferred. Defers are pre-conditional, not aspiratio
 
 ### Gated on TRANSLATION-POC
 
-- **`ux4-compile --format pipecat`.** Pipecat as a runtime compile target.
+- **`uxflows-compile --format pipecat`.** Pipecat as a runtime compile target.
 - **Runner-based testing.** Mock-injection hook in `uxflows-runner/`, Python SDK `runner.run_test(...)`, scripts that exercise the *graph* not the system prompt.
 - **Conformance test suite** that asserts system-prompt-path and runner-path equivalence.
 - **First-class persona-driven test cases** as formal regression units. Currently persona-driven runs live in SimulatePanel for exploration; lock-as-test via capture-as-test-case. Becomes first-class when LLM-judge reproducibility is sufficient to treat them as regression.
@@ -274,23 +274,23 @@ Each has been considered and deferred. Defers are pre-conditional, not aspiratio
 
 - **Tests tab + schema-aware JSON editor in browser.** Designers edit testing artifacts in IDE / GitHub web UI for MVP; ship Tests tab if friction surfaces.
 - **Per-file-type rich form editors** (mock behavior-type forms, evaluator builder, rubric template highlighting). Phase 3+ if JSON-in-IDE doesn't suffice.
-- **Client-comment infrastructure for the share view.** Phase 3 share view has designer-authored `notes` rendered as context; interactive comments need either GitHub-account auth (loses non-tech clients) or a UX4-hosted proxy (breaks no-server-state). Decide post-pilot. Likely Cloudflare-Worker proxy posting to GitHub Issues.
+- **Client-comment infrastructure for the share view.** Phase 3 share view has designer-authored `notes` rendered as context; interactive comments need either GitHub-account auth (loses non-tech clients) or a uxflows-hosted proxy (breaks no-server-state). Decide post-pilot. Likely Cloudflare-Worker proxy posting to GitHub Issues.
 - **Result viewer comparison view** (side-by-side runs).
 - **Suite-level evaluators** ("apply this rubric to every test in the suite"). Cross-cutting concerns via documentation in MVP; first-class file type post-pilot if needed.
 
 ### Gated on broader-audience product expansion
 
-- **Hosted UX4 collaboration tier.** Real-time presence, live cursors, fine-grained per-entity permissions, server-managed state. For non-tech designer audience that finds Git friction prohibitive. Two-tier strategy: open Git tier (MVP) + hosted SaaS tier (paid, post-pilot). Same schema, same file model — different access surface.
+- **Hosted uxflows collaboration tier.** Real-time presence, live cursors, fine-grained per-entity permissions, server-managed state. For non-tech designer audience that finds Git friction prohibitive. Two-tier strategy: open Git tier (MVP) + hosted SaaS tier (paid, post-pilot). Same schema, same file model — different access surface.
 - **Cross-project analytics** ("eval pass rate across all my projects"). Hosted-tier feature.
 - **Server-side execution, comparison engine, regression detection automation.** Paid tier 2027.
 - **Templates / vertical templates** (banking, healthcare, insurance). Phase 4 ships course without templates; add when demand surfaces.
 - **Onboarding flow for first-time users.** Phase 4 ships without; Awaaz pilots don't need it.
 - **Multi-user organizations beyond GitHub's native collaboration.**
-- **Non-GitHub Git backends for browser editing** (GitLab, Gitea/Forgejo, self-hosted bare repos, raw SSH remotes). The file model and CLI are already Git-host-agnostic — only the browser editor is coupled to GitHub, via the ~15-call Octokit surface in [packages/core/src/files/github.ts](./packages/core/src/files/github.ts), all of which are GitHub REST mirrors of plain Git operations (no PRs, Issues, or Apps). Two viable swaps: (a) per-forge adapters (`@ux4/git-host` interface with `github` / `gitlab` / `gitea` impls — ~1 day each), or (b) one `isomorphic-git` implementation that works against any Git remote (requires a CORS proxy and an auth rework). Trigger: a concrete user (compliance-blocked customer, course participant on self-hosted Gitea, Awaaz extension to GitLab). Today's self-hosters use the CLI against their own Git host and skip the browser editor — that's the unblocked path; this entry is about closing the editor gap.
+- **Non-GitHub Git backends for browser editing** (GitLab, Gitea/Forgejo, self-hosted bare repos, raw SSH remotes). The file model and CLI are already Git-host-agnostic — only the browser editor is coupled to GitHub, via the ~15-call Octokit surface in [packages/core/src/files/github.ts](./packages/core/src/files/github.ts), all of which are GitHub REST mirrors of plain Git operations (no PRs, Issues, or Apps). Two viable swaps: (a) per-forge adapters (`@uxflows/git-host` interface with `github` / `gitlab` / `gitea` impls — ~1 day each), or (b) one `isomorphic-git` implementation that works against any Git remote (requires a CORS proxy and an auth rework). Trigger: a concrete user (compliance-blocked customer, course participant on self-hosted Gitea, Awaaz extension to GitLab). Today's self-hosters use the CLI against their own Git host and skip the browser editor — that's the unblocked path; this entry is about closing the editor gap.
 
 ### Gated on production-monitoring integration demand
 
-- **Integration with production monitoring / eval platforms** (LangSmith, Cekura, Maxim, runtime event stream consumers). Two directions: export UX4 evaluation results into their formats; import production data from them as test cases via session-import equivalents. Defer until pilot data shows which platforms Awaaz and broader audience actually use.
+- **Integration with production monitoring / eval platforms** (LangSmith, Cekura, Maxim, runtime event stream consumers). Two directions: export uxflows evaluation results into their formats; import production data from them as test cases via session-import equivalents. Defer until pilot data shows which platforms Awaaz and broader audience actually use.
 
 ### Gated on LLM-judge wiring
 
@@ -327,7 +327,7 @@ In order of dependency:
 4. **Browser user guide** — connect repo, init project (single or multi-agent), author specs, run SimulatePanel, view results, add comments.
 5. **Scripts user guide** — what each script does, environment setup (Python + Node), how to adapt with Claude Code, glob patterns for personas / evaluators / tests.
 6. **Library API reference** — generated from TS types with hand-written examples.
-7. **Course tutorial path** — Phase 4: walk a student from "open UX4, author flow, export system prompt" in 30 minutes.
+7. **Course tutorial path** — Phase 4: walk a student from "open uxflows, author flow, export system prompt" in 30 minutes.
 
 ## Success metrics
 
@@ -348,7 +348,7 @@ System-prompt-based testing is *good enough* for MVP, not equivalent to graph ex
 
 Multi-agent compilation: each agent compiles independently. Cross-agent references aren't allowed in MVP. Loader merges project ∪ agent ∪ flow per scope rule into the resolved compiled spec, which has the historical `{agent, flows}` shape — runtime unaware of multi-agent.
 
-GitHub is the system of record. UX4 has no opinion about user data persistence beyond "write files to the user's repo on save." If the user disconnects UX4, their work is intact.
+GitHub is the system of record. uxflows has no opinion about user data persistence beyond "write files to the user's repo on save." If the user disconnects uxflows, their work is intact.
 
 The Python scripts are reference implementations, not products. Don't grow them. If users need richer scripts, they adapt with AI coding assistance — that's the design.
 

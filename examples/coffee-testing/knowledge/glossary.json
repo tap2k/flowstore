@@ -1,5 +1,5 @@
 {
-  "$schema": "UX4://project-glossary/v0",
+  "$schema": "uxflows://project-glossary/v0",
   "glossary": [
     {
       "id": "gloss_0",

@@ -1,5 +1,5 @@
 {
-  "$schema": "UX4://test-case/v0",
+  "$schema": "uxflows://test-case/v0",
   "id": "walkaway",
   "name": "Customer leaves without ordering",
   "description": "Patron starts a conversation, then walks away. Agent should fire cap_log_walkaway and end politely.",

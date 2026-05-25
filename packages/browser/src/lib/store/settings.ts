@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import { BUILT_IN_MODELS, resolveEndpoint, wireModelId } from "@ux4/core/files/models";
-import type { EndpointId } from "@ux4/core/files/models";
-import type { ProviderId } from "@ux4/core/llm/types";
+import { BUILT_IN_MODELS, resolveEndpoint, wireModelId } from "@uxflows/core/files/models";
+import type { EndpointId } from "@uxflows/core/files/models";
+import type { ProviderId } from "@uxflows/core/llm/types";
 
 const KEY = "uxflows:settings:google_api_key";
 const OPENAI_KEY = "uxflows:settings:openai_api_key";
@@ -140,7 +140,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
 async function fetchAndSetGithubIdentity(pat: string): Promise<void> {
   try {
-    const { makeGitHubClient } = await import("@ux4/core/files/github");
+    const { makeGitHubClient } = await import("@uxflows/core/files/github");
     const client = makeGitHubClient(pat);
     const res = await client.rest.users.getAuthenticated();
     const login = res.data.login ?? "";

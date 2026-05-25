@@ -1,17 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSpecStore, type Selection } from "@/lib/store/spec";
-import type { Spec } from "@ux4/core/schema/v0";
+import type { Spec } from "@uxflows/core/schema/v0";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import {
   useSimulateStore,
   type SimulateMode,
   type TranscriptTurn,
 } from "@/lib/store/simulate";
-import { formatErrors, validateSpec } from "@ux4/core/validation/ajv";
-import { generateSystemPrompt } from "@ux4/core/codegen/promptGenerator";
-import type { RuntimeEvent } from "@ux4/core/runtime/eventTypes";
-import { formatEvent, formatValueTruncated } from "@ux4/core/runtime/formatEvent";
-import { translateBatchToEnglish } from "@ux4/core/runtime/translate";
+import { formatErrors, validateSpec } from "@uxflows/core/validation/ajv";
+import { generateSystemPrompt } from "@uxflows/core/codegen/promptGenerator";
+import type { RuntimeEvent } from "@uxflows/core/runtime/eventTypes";
+import { formatEvent, formatValueTruncated } from "@uxflows/core/runtime/formatEvent";
+import { translateBatchToEnglish } from "@uxflows/core/runtime/translate";
 import { ModelPicker } from "./ModelPicker";
 import { VariablesForm } from "./VariablesForm";
 import { CapabilityMocksForm } from "./CapabilityMocksForm";

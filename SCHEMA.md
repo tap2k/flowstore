@@ -1,6 +1,6 @@
-# UX4 Flows Schema
+# uxflows Flows Schema
 
-Canonical behavioral spec schema for conversational agents authored in UX4. The UX4 editor (this repo, `uxflows`) is the primary producer and home of the testing surface. The Python runner ([`../uxflows-runner/`](../uxflows-runner/)) is the canonical native execution consumer.
+Canonical behavioral spec schema for conversational agents authored in uxflows. The uxflows editor (this repo, `uxflows`) is the primary producer and home of the testing surface. The Python runner ([`../uxflows-runner/`](../uxflows-runner/)) is the canonical native execution consumer.
 
 **This document is the authoritative schema.** All producers and consumers defer to it. Schema-as-code (TypeBox) mirrors this document at [`packages/core/src/schema/v0.ts`](./packages/core/src/schema/v0.ts).
 
@@ -128,16 +128,16 @@ In memory and as a runtime artifact, a resolved spec has the shape:
 
 ```json
 {
-  "agent": { "$schema": "UX4://agent/v0", "id": "...", ... },
+  "agent": { "$schema": "uxflows://agent/v0", "id": "...", ... },
   "flows": [
-    { "$schema": "UX4://flow/v0", "id": "...", ... }
+    { "$schema": "uxflows://flow/v0", "id": "...", ... }
   ]
 }
 ```
 
 The agent envelope appears once at the `agent` key; all flows live in the `flows` array. The agent's `entry_flow_id` must reference one of the flows in that array. Any flow id referenced by an exit path's `goto` must exist in `flows` (unless `goto` is the reserved keyword `END` or `RETURN`).
 
-This resolved form is what the Python runner consumes and what the simulate panel hands to the runner. It is produced by `ux4-compile --format spec --agent <id>` from the decomposed source files; users do not hand-edit it. A second compile target, `ux4-compile --format prompt --agent <id>`, produces a monolithic system prompt + tool schemas (with `agent.system_prompt_template` wrapping if set) from the same sources for the testing path.
+This resolved form is what the Python runner consumes and what the simulate panel hands to the runner. It is produced by `uxflows-compile --format spec --agent <id>` from the decomposed source files; users do not hand-edit it. A second compile target, `uxflows-compile --format prompt --agent <id>`, produces a monolithic system prompt + tool schemas (with `agent.system_prompt_template` wrapping if set) from the same sources for the testing path.
 
 In multi-agent projects, the compiler merges across scope levels (project ∪ agent ∪ flow) per the rules in [FILE-MODEL.md § Scope levels](./FILE-MODEL.md#scope-levels-project--agent--flow). Each agent compiles to its own resolved spec independently; cross-agent references are not allowed.
 
@@ -147,7 +147,7 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
 
 ```json
 {
-  "$schema": "UX4://agent/v0",
+  "$schema": "uxflows://agent/v0",
   "id": "string",
   "version": "string",
 
@@ -238,7 +238,7 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
 - **`meta.languages`** — language codes supported by this agent. Drives translation columns.
 - **`meta.modes`** — channels (`voice` and/or `text`). Required, at least one. Drives the runner's I/O adapter.
 - **`chatbot_initiates`** — whether the agent sends the first message.
-- **`system_prompt_template`** — optional. Designer-authored wrapper for the codegen output, used by `ux4-compile --format prompt`. The string carries `{generated}` (the deterministic compiled content) plus convenience placeholders like `{meta.name}`, `{meta.client}`. Lets designers put hard rules or persona framing around the compiled spec without bleeding behavior concerns into other fields. Graph-native runtime targets ignore.
+- **`system_prompt_template`** — optional. Designer-authored wrapper for the codegen output, used by `uxflows-compile --format prompt`. The string carries `{generated}` (the deterministic compiled content) plus convenience placeholders like `{meta.name}`, `{meta.client}`. Lets designers put hard rules or persona framing around the compiled spec without bleeding behavior concerns into other fields. Graph-native runtime targets ignore.
 - **`default_model`** — optional. Overrides the project's default model for this agent's runs. Resolution chain (low to high): built-in default → `models/defaults.json.default` → `models/defaults.json.roles.<role>` → per-file `model` on test case / rubric / persona / agent.default_model → env var → per-call CLI override. See [FILE-MODEL.md § Models and providers](./FILE-MODEL.md#models-and-providers).
 - **`guardrails`** — cross-cutting behavioral invariants. Each is a stable `id` and a single `statement`. Conditional rules written inline as natural language; executable conditional routing belongs in interrupt flows, not guardrails.
 - **`business_goals`** — end-to-end outcome criteria for evaluation. Each entry has a stable `id`, a `name`, and a checkable criterion using the standard three methods. Distinct from `guardrails` (turn-by-turn invariants).
@@ -253,7 +253,7 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
 
 ```json
 {
-  "$schema": "UX4://flow/v0",
+  "$schema": "uxflows://flow/v0",
   "id": "string",
   "version": "string",
   "name": "string",
@@ -403,7 +403,7 @@ Forward-looking concepts surfaced by mapping the schema against runtimes or by d
 
 - **Structured `steps` field on a flow.** A richer authoring surface than flat `instructions` + `scripts`: ordered `turn` / `tool` / `call` steps with per-turn `condition` and `captures`, mid-conversation capability dispatch, and sub-flow invocation with input/output mapping. Reserved in the past as an optional field; removed pending real implementation pressure. When it lands, the open design questions are how `steps` interacts with the existing `instructions` / `scripts` (replace? augment?) and how `turn.utterances` relates to `flow.scripts`.
 - **Runtime hints (e.g., Pipecat).** Some runtimes need vendor-specific node configuration (Pipecat: `context_strategy`, `respond_immediately`, pre/post actions). These were briefly modeled as `flow.pipecat` but contradicted the "execution separate from spec" principle. The right home is an export-time sidecar keyed by flow id, not the spec itself. Revisit when an export to a hint-requiring runtime is concretely needed.
-- **Accumulator / reducer semantics on variables.** UX4 variables hold values; some runtimes (notably LangGraph state) let a variable accumulate across turns. If this becomes a real authoring need, the natural home is a field on the variable declaration.
+- **Accumulator / reducer semantics on variables.** uxflows variables hold values; some runtimes (notably LangGraph state) let a variable accumulate across turns. If this becomes a real authoring need, the natural home is a field on the variable declaration.
 - **Human-in-the-loop / mid-flow external pause.** Distinct from `type: "interrupt"` flows, which model user-initiated topic switches. This is "halt the run awaiting external approval, then resume." First-class flow-level concept, not a hint.
 - **Async vs sync interrupts.** Today an interrupt pivot is implicitly synchronous — it preempts the current turn. Multi-agent runtimes (e.g. Polaris-style constellations) also need *asynchronous* interrupts: a background trigger that injects context at the next turn rather than preempting. Natural shape is a field on the interrupt flow (e.g. `mode: "sync" | "async"`); blocker is specifying the firing trigger and lifecycle precisely enough to be more than a label. Defer until that spec is one sentence long.
 - **Optional intent catalog.** The `llm` method on conditions and captures already does zero-shot intent classification. If real authoring pain emerges (phrasing drift, observability needing stable intent names), an optional `agent.intents[]` catalog referenceable from `llm` conditions is the natural shape.
@@ -413,7 +413,7 @@ Forward-looking concepts surfaced by mapping the schema against runtimes or by d
 
 ## Changes to This Document
 
-This is the contract across all UX4 producers and consumers. Non-additive changes must be discussed before merging. When this document changes:
+This is the contract across all uxflows producers and consumers. Non-additive changes must be discussed before merging. When this document changes:
 
 1. Bump `$schema` version if structural.
 2. Update [`packages/core/src/schema/v0.ts`](./packages/core/src/schema/v0.ts) (TypeBox definitions) to match.

@@ -1,5 +1,5 @@
 {
-  "$schema": "UX4://test-case/v0",
+  "$schema": "uxflows://test-case/v0",
   "id": "order-fails-out-of-stock",
   "name": "Kitchen is out of oat milk — agent recovers gracefully",
   "description": "cap_place_order raises; agent should apologise, offer alternatives, and not lose the rest of the order.",

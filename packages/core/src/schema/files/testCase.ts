@@ -24,7 +24,7 @@ const Assertion = Type.Object(
 // reproducibility; resolution chain is documented in FILE-MODEL.md.
 export const TestCaseSchema = Type.Object(
   {
-    $schema: Type.Literal("UX4://test-case/v0"),
+    $schema: Type.Literal("uxflows://test-case/v0"),
     id: Type.String(),
     name: Type.Optional(Type.String()),
     description: Type.Optional(Type.String()),

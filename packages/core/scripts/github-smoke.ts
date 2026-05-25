@@ -1,19 +1,19 @@
 import { readFileSync } from "node:fs";
 import { Octokit } from "@octokit/rest";
-import { decomposeSpec, loadProject } from "@ux4/core/files";
+import { decomposeSpec, loadProject } from "@uxflows/core/files";
 import {
   readRepoToFileMap,
   writeFileMapToRepo,
   type GitHubLocation,
-} from "@ux4/core/files/github";
-import type { Spec } from "@ux4/core/schema/v0";
+} from "@uxflows/core/files/github";
+import type { Spec } from "@uxflows/core/schema/v0";
 
 // Round-trips a local single-file spec through a temporary branch in a real
 // GitHub repo, then reads it back and diffs. Cleans up the branch on success.
 //
-//   GH_TOKEN=ghp_xxx GH_REPO=owner/name GH_SPEC=path/to/spec.json npm -w @ux4/core run github-smoke
+//   GH_TOKEN=ghp_xxx GH_REPO=owner/name GH_SPEC=path/to/spec.json npm -w @uxflows/core run github-smoke
 //
-// Optional: GH_BRANCH (default: ux4-smoke-<unix-ts>)
+// Optional: GH_BRANCH (default: uxflows-smoke-<unix-ts>)
 //           GH_BASE   (default: main)
 // The PAT needs `contents:write` on the target repo.
 
@@ -31,7 +31,7 @@ if (!owner || !repo) {
   process.exit(2);
 }
 
-const branch = process.env.GH_BRANCH ?? `ux4-smoke-${Date.now()}`;
+const branch = process.env.GH_BRANCH ?? `uxflows-smoke-${Date.now()}`;
 const base = process.env.GH_BASE ?? "main";
 
 const source = JSON.parse(readFileSync(specPath, "utf8")) as Spec;
@@ -53,7 +53,7 @@ async function main() {
 
   const loc: GitHubLocation = { client, owner, repo, ref: branch };
   try {
-    const write = await writeFileMapToRepo(loc, fileMap, "UX4 smoke: write decomposed spec");
+    const write = await writeFileMapToRepo(loc, fileMap, "uxflows smoke: write decomposed spec");
     console.log(`  wrote ${Object.keys(fileMap).length} files → commit ${write.commitSha.slice(0, 7)}`);
 
     const read = await readRepoToFileMap(loc);

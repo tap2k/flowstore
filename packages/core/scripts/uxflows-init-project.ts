@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
-import { decomposeSpec } from "@ux4/core/files";
-import { writeFileMapToDirectory } from "@ux4/core/files/node";
-import type { Spec } from "@ux4/core/schema/v0";
+import { decomposeSpec } from "@uxflows/core/files";
+import { writeFileMapToDirectory } from "@uxflows/core/files/node";
+import type { Spec } from "@uxflows/core/schema/v0";
 
 interface Args {
   from?: string;
@@ -21,7 +21,7 @@ function parseArgs(argv: string[]): Args {
 
 const args = parseArgs(process.argv.slice(2));
 if (!args.from || !args.target) {
-  console.error("usage: ux4-init-project --from <spec.json> --target <dir>");
+  console.error("usage: uxflows-init-project --from <spec.json> --target <dir>");
   process.exit(2);
 }
 
