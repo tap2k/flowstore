@@ -1,6 +1,6 @@
 # flowstore MVP Plan
 
-The organizing vision and staged operational plan for flowstore. For the data-model contract see [SCHEMA.md](./SCHEMA.md); for the on-disk layout see [FILE-MODEL.md](./FILE-MODEL.md); for architectural rationale see [AGENTS.md](./AGENTS.md); for the translation/fidelity experiment that gates runner-based testing see [TRANSLATION-POC.md](./TRANSLATION-POC.md); for the systems view of the client-materials → spec → tests → targets loop and what would be required to make it self-optimizing see [docs/optimization-loop.md](./docs/optimization-loop.md); for the Phase 2 plan that consolidates the test-loop work (test-case dropdown + capture in SimulatePanel, run manifests, `final_variables` assertions, result viewer, rubric-driven judge evaluators) see [TESTING-LOOP-PLAN.md](./TESTING-LOOP-PLAN.md).
+The organizing vision and staged operational plan for flowstore. For the data-model contract see [SCHEMA.md](../SCHEMA.md); for the on-disk layout see [FILE-MODEL.md](../FILE-MODEL.md); for architectural rationale see [AGENTS.md](../AGENTS.md); for the translation/fidelity experiment that gates runner-based testing see [TRANSLATION-POC.md](./translation-poc.md); for the systems view of the client-materials → spec → tests → targets loop and what would be required to make it self-optimizing see [docs/optimization-loop.md](./optimization-loop.md); for the Phase 2 plan that consolidates the test-loop work (test-case dropdown + capture in SimulatePanel, run manifests, `final_variables` assertions, result viewer, rubric-driven judge evaluators) see [TESTING-LOOP-PLAN.md](./testing-loop-plan.md).
 
 ---
 
@@ -33,7 +33,7 @@ Landed on `main`:
 - **Latency display in SimulatePanel.** Wall-clock dispatch latency (prompt-mode LLM call + runner round-trip) renders below each agent bubble. Additive `latencyMs?` field on `TranscriptTurn`.
 - **Comments anchored to flows.** Per-uuid additive files at `comments/<uuid>.comment.json` (`flowstore://comment/v0`). Flat threading (no replies), resolve flips `resolved: true` rather than deleting (Git-shaped audit trail kept). `CommentsSection` lives at the bottom of `FlowInspector`; small amber unresolved-count badge on each flow node on the canvas. Writes use GitHub's Contents API (`PUT /contents/{path}`) so concurrent posts serialize cleanly — `mode: "create"` for new comments skips the existence probe, `mode: "update"` for resolve/reopen fetches the current blob sha. v1 anchor enum is `flow` only; broaden when designers ask. Author is hardcoded to `"user"` until a `gh api /user` echo lands on PAT save.
 
-Still ahead in Phase 2 (see [TESTING-LOOP-PLAN.md](./TESTING-LOOP-PLAN.md) for sequencing):
+Still ahead in Phase 2 (see [TESTING-LOOP-PLAN.md](./testing-loop-plan.md) for sequencing):
 - **O-1** `state_check` evaluator + `final_variables` assertions on the testing-script side. *Runner-deferred → currently no-op; revisit when runner is the testing path.*
 - **I-1 / I-2** Test-case dropdown + capture-as-test-case in SimulatePanel.
 - **O-2** Run manifest + inter-run diff.
@@ -55,11 +55,11 @@ flowstore is a **Behavioral IDE for Conversational Agents** — the open, Git-ba
 **Four coordinated surfaces over a single durable spec:**
 
 - **Visual authoring (browser editor).** Canvas-first authoring of one or many agents in a flowstore project. GitHub-backed persistence. Chat panel for LLM-assisted authoring, simulate panel for live exploration. Extended in Phase 2 for test-case loading, persona-driven runs, mock binding, and capture-as-test-case.
-- **Git-shaped collaboration (per-agent or multi-agent repos).** Decomposed by stakeholder concern per [FILE-MODEL.md](./FILE-MODEL.md). One repo can hold many agents (Tala with N purposes × M languages) with shared capabilities, guardrails, knowledge, personas, evaluators, and rubrics. Comments are first-class additive files anchored to spec entities.
+- **Git-shaped collaboration (per-agent or multi-agent repos).** Decomposed by stakeholder concern per [FILE-MODEL.md](../FILE-MODEL.md). One repo can hold many agents (Tala with N purposes × M languages) with shared capabilities, guardrails, knowledge, personas, evaluators, and rubrics. Comments are first-class additive files anchored to spec entities.
 - **Python testing surface (vendored scripts).** `run.py` drives test execution against compiled system prompts, deployed endpoints, or captured production sessions. Built-in evaluators + custom Python + LLM-judge rubrics. Personas as user-side system prompts; gold standards as reference transcripts. Vendored per agent repo so Nikunj adapts with Claude Code.
 - **Client share view (Phase 3).** Static read-only export to GitHub Pages — agency-client surface for spec walkthroughs without GitHub accounts.
 
-**Pluggable runtimes.** The spec is the durable artifact; runtimes are interchangeable consumers. Today's canonical runtime is the Python runner (Pipecat-on-the-runner for Awaaz's voice production). Pipecat-direct, LangGraph, OpenAI Agents SDK, hosted flowstore runtime — all post-MVP, gated on [TRANSLATION-POC.md](./TRANSLATION-POC.md) confirming behavioral fidelity. MVP testing runs against compiled system prompts, explicitly trading graph-execution fidelity for portability and zero-runtime-dependency iteration.
+**Pluggable runtimes.** The spec is the durable artifact; runtimes are interchangeable consumers. Today's canonical runtime is the Python runner (Pipecat-on-the-runner for Awaaz's voice production). Pipecat-direct, LangGraph, OpenAI Agents SDK, hosted flowstore runtime — all post-MVP, gated on [TRANSLATION-POC.md](./translation-poc.md) confirming behavioral fidelity. MVP testing runs against compiled system prompts, explicitly trading graph-execution fidelity for portability and zero-runtime-dependency iteration.
 
 GitHub is the system of record. flowstore holds no server-side state in the free tier. A hosted SaaS tier — for non-tech audiences who need real-time collaboration without Git fluency — is a coherent post-MVP product extension, not MVP scope.
 
@@ -114,7 +114,7 @@ The Python `flowstore-runner` is outside MVP's testing path — Awaaz runs it fo
 **Goal:** file model + multi-agent support + GitHub-backed authoring + multi-provider model config foundation + agent.system_prompt_template.
 
 - **Monorepo workspace setup**: split this repo into `@flowstore/core` (pure TS) and `@flowstore/browser` (Next.js).
-- **File model implementation** per [FILE-MODEL.md](./FILE-MODEL.md): id-indexed loader, per-file schemas in `@flowstore/core/schema`, cross-file reference resolution, validation against resolved spec, file-or-directory shape rule for collections.
+- **File model implementation** per [FILE-MODEL.md](../FILE-MODEL.md): id-indexed loader, per-file schemas in `@flowstore/core/schema`, cross-file reference resolution, validation against resolved spec, file-or-directory shape rule for collections.
 - **Multi-agent support**: `agents/<id>/` directory shape, three-level scope rules (project / agent / flow) for guardrails / variables / business-goals / FAQ, scope-aware loader and compilation, collision-as-error semantics. Single-agent projects stay flat; promote via `flowstore-init-project --add-agent <id>`.
 - **CLI migration script**: `flowstore-init-project --from <spec.json>` splits an existing single-file spec into the decomposed layout (defaults to single-agent shape).
 - **GitHub OAuth + Octokit file I/O**.
@@ -294,11 +294,11 @@ Each has been considered and deferred. Defers are pre-conditional, not aspiratio
 
 ### Gated on LLM-judge wiring
 
-- **Autonomous spec optimization.** The end-to-end loop (client materials → spec + tests → compiled prompt or runtime → diff matrix → revise spec) is structurally amenable to autonomous optimization because the spec is structured and the diff matrix is a real gradient. See [docs/optimization-loop.md](./docs/optimization-loop.md). Gated on LLM-judge rubrics being wired into the runner (substring-only assertions are too narrow a signal), plus run-level aggregation, mechanism categorization on red cells, and a typed spec-mutation API. Human-in-the-loop optimization works today; full autonomy is incremental once the judge is wired.
+- **Autonomous spec optimization.** The end-to-end loop (client materials → spec + tests → compiled prompt or runtime → diff matrix → revise spec) is structurally amenable to autonomous optimization because the spec is structured and the diff matrix is a real gradient. See [docs/optimization-loop.md](./optimization-loop.md). Gated on LLM-judge rubrics being wired into the runner (substring-only assertions are too narrow a signal), plus run-level aggregation, mechanism categorization on red cells, and a typed spec-mutation API. Human-in-the-loop optimization works today; full autonomy is incremental once the judge is wired.
 
 ### Schema and behavioral additions
 
-- **Steps editor**: structured turn sequencing, captures, per-turn conditions, utterance variations. Schema version bump when implementation pressure is real ([SCHEMA.md § Open Questions](./SCHEMA.md#open-questions)).
+- **Steps editor**: structured turn sequencing, captures, per-turn conditions, utterance variations. Schema version bump when implementation pressure is real ([SCHEMA.md § Open Questions](../SCHEMA.md#open-questions)).
 - **Schema additions**: `tool` step, `call` step, runtime hints. Schema version bumps.
 - **Accumulator / reducer semantics on variables, human-in-the-loop pause, async interrupts, intent catalog, turn budgets.** Open Questions in SCHEMA.md.
 - **Multi-agent capability isolation** (per-agent allowlist for which project-level capabilities the agent can use). Regulatory pressure trigger.
@@ -321,8 +321,8 @@ Each has been considered and deferred. Defers are pre-conditional, not aspiratio
 
 In order of dependency:
 
-1. **[FILE-MODEL.md](./FILE-MODEL.md)** — project conventions, on-disk layout, multi-agent shapes, scope rules.
-2. **[SCHEMA.md](./SCHEMA.md)** — spec data model.
+1. **[FILE-MODEL.md](../FILE-MODEL.md)** — project conventions, on-disk layout, multi-agent shapes, scope rules.
+2. **[SCHEMA.md](../SCHEMA.md)** — spec data model.
 3. **Per-file schema docs** — one per file type (capability declaration, capability mock, test case, persona, rubric, result, run manifest, comment, etc.).
 4. **Browser user guide** — connect repo, init project (single or multi-agent), author specs, run SimulatePanel, view results, add comments.
 5. **Scripts user guide** — what each script does, environment setup (Python + Node), how to adapt with Claude Code, glob patterns for personas / evaluators / tests.
@@ -344,7 +344,7 @@ In order of dependency:
 
 The schema is the durable artifact. The file model is the serialization. Don't modify the schema to accommodate file-layout concerns; if something feels like it belongs in the schema, the test is whether the Python runner needs it. If only the editor or scripts need it, it's a file-layout concern.
 
-System-prompt-based testing is *good enough* for MVP, not equivalent to graph execution. The fidelity gap is tracked by [TRANSLATION-POC.md](./TRANSLATION-POC.md). Don't paper over it.
+System-prompt-based testing is *good enough* for MVP, not equivalent to graph execution. The fidelity gap is tracked by [TRANSLATION-POC.md](./translation-poc.md). Don't paper over it.
 
 Multi-agent compilation: each agent compiles independently. Cross-agent references aren't allowed in MVP. Loader merges project ∪ agent ∪ flow per scope rule into the resolved compiled spec, which has the historical `{agent, flows}` shape — runtime unaware of multi-agent.
 

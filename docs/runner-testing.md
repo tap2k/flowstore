@@ -8,7 +8,7 @@ Goal: catch divergence between the system-prompt path and the runner path on
 the same cases, without changing the cases / mocks / vars files / assertions.
 The fidelity gap between the two paths is what MVP testing trades away in
 exchange for portability ([MVP-PLAN.md § Critical decisions to verify or make
-early](../MVP-PLAN.md#critical-decisions-to-verify-or-make-early), point 4);
+early](./mvp-plan.md#critical-decisions-to-verify-or-make-early), point 4);
 this is how you close it case-by-case when you need to.
 
 For the system-prompt path see [testing-from-scripts.md](testing-from-scripts.md);
@@ -194,7 +194,7 @@ What divergence looks like and what it means:
 - **Endpoint mode.** The runner can dispatch capabilities through real
   HTTP endpoints in production. Testing against a deployed agent endpoint
   is a separate path — `--against endpoint` mode in the MVP plan
-  ([MVP-PLAN.md § Phase 2-E](../MVP-PLAN.md#phase-2--testing-surface-mid-august-through-october-2026)).
+  ([MVP-PLAN.md § Phase 2-E](./mvp-plan.md#phase-2--testing-surface-mid-august-through-october-2026)).
 - **Run manifest.** `tests/runs/<dir>/manifest.json` carrying suite-level
   config isn't shipped yet. `run_runner.py` writes per-case `.result.json`
   files; aggregation lives in stdout and your shell pipeline.

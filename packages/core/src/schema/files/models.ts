@@ -18,7 +18,7 @@ const ModelEntry = Type.Object(
 );
 
 // Roles are conventional but open-ended; agent/judge/user_simulation/authoring
-// cover MVP-PLAN.md's named roles, additional roles allowed by extension.
+// cover the MVP plan's named roles, additional roles allowed by extension.
 const ModelsRoles = Type.Object(
   {
     agent: Type.Optional(Type.String()),

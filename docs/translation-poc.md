@@ -7,7 +7,7 @@
 > runner == translated dispatch on 6/6 live runs across L_HP1 (happy) and
 > L_HP2 (invalid policy). Zero intra-surface drift.
 >
-> See [FINDINGS.md](../flowstore-runner/experiments/langgraph_poc/FINDINGS.md).
+> See [FINDINGS.md](../flowstore-runner/docs/langgraph-poc-findings.md).
 > Live regression caught two bugs the synthetic harness couldn't: a
 > prompt-shape divergence (missing guardrails / example) and conversation
 > history dropped on exit-fire transitions. Both fixed in the translator.
@@ -18,7 +18,7 @@ This is a spike. Deliverable is *evidence*, not a shippable translator.
 
 ## Why
 
-The translation strategy laid out in [`TRANSLATIONS.md`](./TRANSLATIONS.md) names three structural classes of export targets. The strategic question — whether to invest meaningfully in graph-native translators as the short-term production path for spec-shaped agents — depends on behavioral fidelity holding in practice, not in theory.
+The translation strategy laid out in [`TRANSLATIONS.md`](../TRANSLATIONS.md) names three structural classes of export targets. The strategic question — whether to invest meaningfully in graph-native translators as the short-term production path for spec-shaped agents — depends on behavioral fidelity holding in practice, not in theory.
 
 LangGraph is chosen for this PoC because:
 
@@ -54,7 +54,7 @@ The PoC is falsifiable. The outcome should shape next-quarter investment; if it 
 - `flows` with entry/exit semantics → graph nodes.
 - `exit_paths` with `calculation` conditions → conditional edges via ported expression eval.
 - `exit_paths` with `llm` conditions → conditional edges via LLM-judgment helper.
-- `exit_path.actions` → capability invocation with output binding to state (per the capability-output binding decision in [RUNNER-PLAN.md](../flowstore-runner/RUNNER-PLAN.md)).
+- `exit_path.actions` → capability invocation with output binding to state (per the capability-output binding decision in [RUNNER-PLAN.md](../flowstore-runner/docs/runner-plan.md)).
 - `entry_condition` on flows → guards before node entry.
 - Per-flow system prompts composed from spec scripts + persona.
 - `agent.chatbot_initiates` → entry node sends opening turn.
@@ -170,7 +170,7 @@ Minimum four; an optional fifth if time allows.
 
 1. **Happy path** — full FNOL flow with valid policy, claim filed successfully.
 2. **Invalid policy** — `verify_policy` returns `{policy_active: False}`; route through the invalid-policy branch.
-3. **Capability failure** — `verify_policy` raises; `policy_active` stays undefined; downstream `var != True` branches fire correctly. Validates the "Failure → undefined" semantic from the [capability-output binding decision](../flowstore-runner/RUNNER-PLAN.md).
+3. **Capability failure** — `verify_policy` raises; `policy_active` stays undefined; downstream `var != True` branches fire correctly. Validates the "Failure → undefined" semantic from the [capability-output binding decision](../flowstore-runner/docs/runner-plan.md).
 4. **Missing capture** — user gives incomplete info mid-flow; flow re-prompts; eventually captures and proceeds. Validates capture loop behavior.
 5. **(Optional) Calculation branch** — exit path with a non-trivial expression (date comparison, multi-variable condition). Validates expression eval port.
 
@@ -214,7 +214,7 @@ Minimum four; an optional fifth if time allows.
 
 **Success looks like:** all 4 scenarios pass equivalence on flow path + final vars + final exit. Translator covers all FNOL features. Divergences, if any, are explainable and addressable.
 
-→ Generalize the translator to cover the full schema. Formalize the harness (golden trace generation, scenario authoring tooling). Begin Pipecat translator on the same IR. Update [`TRANSLATIONS.md`](./TRANSLATIONS.md) with concrete fidelity results.
+→ Generalize the translator to cover the full schema. Formalize the harness (golden trace generation, scenario authoring tooling). Begin Pipecat translator on the same IR. Update [`TRANSLATIONS.md`](../TRANSLATIONS.md) with concrete fidelity results.
 
 **Partial success looks like:** scenarios diverge on identifiable categories (e.g., `llm` conditions drift, `calculation` conditions hold). Specific gaps named.
 
@@ -222,7 +222,7 @@ Minimum four; an optional fifth if time allows.
 
 **Failure looks like:** scenarios diverge unpredictably with no clear pattern, or diverge in ways that require fundamental reshaping of either the translator or the runner.
 
-→ Reweight toward runner-as-production. Per [TRANSLATIONS.md](./TRANSLATIONS.md), the runner already absorbs Pipecat for voice; growing it for production becomes the dominant path. Translators stay escape-hatch for specific deals. Document what failed and why — the negative result is itself valuable evidence.
+→ Reweight toward runner-as-production. Per [TRANSLATIONS.md](../TRANSLATIONS.md), the runner already absorbs Pipecat for voice; growing it for production becomes the dominant path. Translators stay escape-hatch for specific deals. Document what failed and why — the negative result is itself valuable evidence.
 
 ---
 

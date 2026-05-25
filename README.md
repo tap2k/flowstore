@@ -1,6 +1,6 @@
 # flowstore
 
-The browser editor in **flowstore — a Behavioral IDE for Conversational Agents**. Authors conversation specs on a canvas, decomposes them into per-concern files in a Git repo, and pairs with a Python testing surface and a static client-share view. Specs conform to [SCHEMA.md](./SCHEMA.md); the on-disk layout is in [FILE-MODEL.md](./FILE-MODEL.md); the staged plan is in [MVP-PLAN.md](./MVP-PLAN.md).
+The browser editor in **flowstore — a Behavioral IDE for Conversational Agents**. Authors conversation specs on a canvas, decomposes them into per-concern files in a Git repo, and pairs with a Python testing surface and a static client-share view. Specs conform to [SCHEMA.md](./SCHEMA.md); the on-disk layout is in [FILE-MODEL.md](./FILE-MODEL.md); the staged plan is in [MVP-PLAN.md](./docs/mvp-plan.md).
 
 ## Run
 
@@ -31,14 +31,10 @@ npm workspaces monorepo (`packages/*`):
 
 ## Docs
 
-- [MVP-PLAN.md](./MVP-PLAN.md) — organizing vision and staged plan to the flowstore Browser MVP (Nov 2026).
 - [SCHEMA.md](./SCHEMA.md) — authoritative spec data model.
 - [FILE-MODEL.md](./FILE-MODEL.md) — how a flowstore project decomposes into files on disk.
 - [AGENTS.md](./AGENTS.md) — architecture, tech stack, design principles.
 - [TRANSLATIONS.md](./TRANSLATIONS.md) — runtime translation tables (Pipecat, LiveKit, LangGraph, Dialogflow CX, OpenAI Agents SDK).
-- [docs/optimization-loop.md](./docs/optimization-loop.md) — end-to-end view: client materials → spec + tests → targets → eval, and what would be needed for autonomous optimization.
-- [docs/test-driven-prompts.md](./docs/test-driven-prompts.md) — methodology for using the testing harness as a development loop.
-- [docs/testing-from-scripts.md](./docs/testing-from-scripts.md) — bring-your-own-script testing path; `flowstore-compile` CLI + file shapes engineers need to know.
 - [prompts/](./prompts/) — LLM prompts used in the loop: [AGENT-SPEC-PROMPT.txt](./prompts/AGENT-SPEC-PROMPT.txt) parses source material into spec JSON; [GOLD-EXTRACTION-PROMPT.txt](./prompts/GOLD-EXTRACTION-PROMPT.txt) extracts gold transcripts from source materials; [CASE-FROM-GOLD-PROMPT.txt](./prompts/CASE-FROM-GOLD-PROMPT.txt) derives test cases from gold transcripts.
 
 ## Stack

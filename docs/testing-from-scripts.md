@@ -4,7 +4,7 @@ Audience: an engineer who's never seen flowstore and wants to drive their own ag
 
 For *how to use this harness as a prompt-engineering development loop* (gold transcripts, A/B comparison, when to fix the spec vs the generator vs the assertions), see the sibling doc [test-driven-prompts.md](test-driven-prompts.md). This doc is the mechanics; that one is the methodology.
 
-For the broader project context see [MVP-PLAN.md](../MVP-PLAN.md); for the on-disk layout see [FILE-MODEL.md](../FILE-MODEL.md); for the spec data model see [SCHEMA.md](../SCHEMA.md).
+For the broader project context see [MVP-PLAN.md](./mvp-plan.md); for the on-disk layout see [FILE-MODEL.md](../FILE-MODEL.md); for the spec data model see [SCHEMA.md](../SCHEMA.md).
 
 ---
 
@@ -321,7 +321,7 @@ flowstore ships no evaluator framework today. When you add one:
 - Names resolve to either `tests/evaluators/<name>.py` (Python module exposing `evaluate(transcript, config, llm_client=None) -> EvaluatorResult`) or `tests/rubrics/<name>.rubric.json` (LLM-judge).
 - Results land in `result.evaluator_results[]` with at minimum `name` and either `passed` (boolean) or `score` (number).
 
-Built-in evaluators called out in the [Phase 2 plan](../MVP-PLAN.md#phase-2--testing-surface-mid-august-through-october-2026): `forbidden_phrases`, `required_phrases`, `max_turn_length`, `regex_match`, `state_check`, `tool_calls_check`. None are written yet. Write what you need; we'll converge on a shared library if it earns its keep across customers.
+Built-in evaluators called out in the [Phase 2 plan](./mvp-plan.md#phase-2--testing-surface-mid-august-through-october-2026): `forbidden_phrases`, `required_phrases`, `max_turn_length`, `regex_match`, `state_check`, `tool_calls_check`. None are written yet. Write what you need; we'll converge on a shared library if it earns its keep across customers.
 
 ---
 

@@ -10,7 +10,7 @@ Visual editor for flowstore behavioral specs. A Vite-built React SPA that author
 
 **flowstore — a Behavioral IDE for Conversational Agents.** flowstore owns the open, Git-backed development section of the agent pipeline: visual spec authoring, Git-shaped collaboration across stakeholders, structured testing, client sharing. Runtime execution (the Python runner today; Pipecat / LangGraph / etc. post-MVP) and production monitoring (handled by the runtime's event stream and dedicated eval/observability tools like LangSmith, Cekura, Maxim) are separate concerns. flowstore may integrate with production-monitoring tools post-pilot, but those integrations are not in MVP.
 
-The Phase 0 MVP (canvas-first single-file spec editor) shipped 2026-05-08. The organizing vision now is the **flowstore MVP** — GitHub-backed multi-agent projects (one client repo holds N agents like Tala's purpose × language combinations), the spec decomposed into per-concern files with project / agent / flow scope levels ([FILE-MODEL.md](./FILE-MODEL.md)), multi-provider model config, a testing surface that drives compiled system prompts via Python scripts vendored per agent, comments anchored to spec entities, and a static client share view. Target ship: November 2026 for Awaaz pilot; January 2027 for course launch. The staged plan is in [MVP-PLAN.md](./MVP-PLAN.md); read it before making architectural decisions. The rest of this document describes the current state.
+The Phase 0 MVP (canvas-first single-file spec editor) shipped 2026-05-08. The organizing vision now is the **flowstore MVP** — GitHub-backed multi-agent projects (one client repo holds N agents like Tala's purpose × language combinations), the spec decomposed into per-concern files with project / agent / flow scope levels ([FILE-MODEL.md](./FILE-MODEL.md)), multi-provider model config, a testing surface that drives compiled system prompts via Python scripts vendored per agent, comments anchored to spec entities, and a static client share view. Target ship: November 2026 for Awaaz pilot; January 2027 for course launch. The staged plan is in [MVP-PLAN.md](./docs/mvp-plan.md); read it before making architectural decisions. The rest of this document describes the current state.
 
 ## Product Context
 
@@ -22,7 +22,7 @@ flowstore is the **authoring** surface of the broader flowstore product (browser
 
 `../whatsupp2/` historically held the evaluation/simulation surface; its responsibilities are being subsumed into flowstore. Treat references to whatsupp2 in older docs as historical.
 
-Runner-based testing and Pipecat compilation are **post-MVP**, gated on [TRANSLATION-POC.md](./TRANSLATION-POC.md) confirming behavioral fidelity between the system-prompt path and graph-native runtimes. Production monitoring (real-time event stream consumption, dashboards, alerting) is **explicitly out of scope** for flowstore — the runtime emits events; LangSmith / Cekura / Maxim / similar tools consume them.
+Runner-based testing and Pipecat compilation are **post-MVP**, gated on [TRANSLATION-POC.md](./docs/translation-poc.md) confirming behavioral fidelity between the system-prompt path and graph-native runtimes. Production monitoring (real-time event stream consumption, dashboards, alerting) is **explicitly out of scope** for flowstore — the runtime emits events; LangSmith / Cekura / Maxim / similar tools consume them.
 
 The schema is the contract across flowstore and the runner. They all defer to [SCHEMA.md](./SCHEMA.md) in this repo.
 
@@ -140,7 +140,7 @@ If none of these apply, decomposing is busywork. The canvas makes nodes feel lik
 
 ## MVP Scope
 
-The end-to-end loop flowstore supports — see [docs/optimization-loop.md](./docs/optimization-loop.md) for the systems view and [MVP-PLAN.md](./MVP-PLAN.md) for phase timing:
+The end-to-end loop flowstore supports — see [docs/optimization-loop.md](./docs/optimization-loop.md) for the systems view and [MVP-PLAN.md](./docs/mvp-plan.md) for phase timing:
 
 1. **Ingest** — paste a system prompt and attach supporting docs (PDFs, spreadsheets, Word, Figma exports, plain text).
 2. **Parse** — a behavioral parser (LLM-assisted) converts inputs to a structured spec. Today this is [AGENT-SPEC-PROMPT.txt](./prompts/AGENT-SPEC-PROMPT.txt). The designer pastes source material in, gets the JSON, and pastes it into the editor's Import. An in-app "Parse with AI" using a user-provided API key is planned to skip the round-trip.
@@ -150,7 +150,7 @@ The end-to-end loop flowstore supports — see [docs/optimization-loop.md](./doc
 
 ## Related Docs in This Repo
 
-- [MVP-PLAN.md](./MVP-PLAN.md) — organizing vision and staged plan to the flowstore Browser MVP (Nov 2026). Read first.
+- [MVP-PLAN.md](./docs/mvp-plan.md) — organizing vision and staged plan to the flowstore Browser MVP (Nov 2026). Read first.
 - [SCHEMA.md](./SCHEMA.md) — authoritative spec data model.
 - [FILE-MODEL.md](./FILE-MODEL.md) — how a flowstore project decomposes into files on disk; the serialization contract for SCHEMA.md.
 - [TRANSLATIONS.md](./TRANSLATIONS.md) — runtime translation tables (Pipecat, LiveKit, LangGraph, OpenAI Agents SDK; import: Voiceflow, Botpress).

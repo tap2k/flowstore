@@ -2,7 +2,7 @@
 
 A description of the end-to-end loop flowstore enables today, what makes it candidate
 for self-optimization, and the concrete gaps an autonomous optimizer would hit
-right now. Reading order: [MVP-PLAN.md](../MVP-PLAN.md) for the product context,
+right now. Reading order: [MVP-PLAN.md](./mvp-plan.md) for the product context,
 [testing-from-scripts.md](testing-from-scripts.md) for the harness mechanics,
 [test-driven-prompts.md](test-driven-prompts.md) for the methodology this
 extends.
@@ -121,7 +121,7 @@ The contract is robust:
   reproducible across 3 trials at temperature 0. The worked example at
   [`examples/coffee-testing/`](../examples/coffee-testing/) demonstrates the
   full harness shape.
-- The same harness drives the runner / translator surfaces ([TRANSLATION-POC](../TRANSLATION-POC.md)
+- The same harness drives the runner / translator surfaces ([TRANSLATION-POC](./translation-poc.md)
   validated dispatch fidelity for the LangGraph target on 6/6 live runs).
 
 What is **not** robust enough for autonomous optimization without human review:
@@ -159,7 +159,7 @@ In rough order of value-per-effort:
 2. **Aggregate matrix as an artifact, not stdout.** A `manifest.json` per
    run-dir with pass-rate, pass@N, and per-assertion structured results. Lets
    an optimizer compare runs without re-parsing stdout. Already on the
-   [MVP-PLAN deferred list](../MVP-PLAN.md) under "Multi-trial aggregation".
+   [MVP-PLAN deferred list](./mvp-plan.md) under "Multi-trial aggregation".
 3. **Mechanism categorization on red cells.** Today a red cell is just "no."
    Categories the doc names today (assertion / vars / spec content / generator
    / model) are diagnosed by a human. If the runner can mark "no substring

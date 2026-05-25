@@ -4,7 +4,7 @@ The Phase 2 testing surface is on disk in pieces: test cases, personas, mocks, r
 
 This plan groups the work into the three parts of that loop. None of the items are large individually; the win is treating them as one push rather than six unrelated tickets.
 
-Reading order: [MVP-PLAN.md](./MVP-PLAN.md) Phase 2 §B/D/G for the product context this consolidates; [docs/test-driven-prompts.md](./docs/test-driven-prompts.md) for the methodology this enables; [docs/optimization-loop.md](./docs/optimization-loop.md) for the autonomous-iteration endgame this unblocks; [docs/runner-testing.md](./docs/runner-testing.md) for the harness mechanics. Where this plan mentions a "result file" it refers to the `flowstore://result/v0` schema described in [MVP-PLAN.md §A](./MVP-PLAN.md#a-file-types--loader).
+Reading order: [MVP-PLAN.md](./mvp-plan.md) Phase 2 §B/D/G for the product context this consolidates; [docs/test-driven-prompts.md](./test-driven-prompts.md) for the methodology this enables; [docs/optimization-loop.md](./optimization-loop.md) for the autonomous-iteration endgame this unblocks; [docs/runner-testing.md](./runner-testing.md) for the harness mechanics. Where this plan mentions a "result file" it refers to the `flowstore://result/v0` schema described in [MVP-PLAN.md §A](./mvp-plan.md#a-file-types--loader).
 
 ---
 
@@ -72,7 +72,7 @@ The rubric schema (`flowstore://rubric/v0`) is defined. The runner doesn't yet l
 
 The result schema already reserves `evaluator_results[]` with `name`, `passed`/`score`, and free-form `notes`, and a `judge_model` field so the judge is itself reproducible. The work is: rubric loader, judge prompt template, per-criterion LLM call (Gemini JSON mode is the natural fit here — same pattern as the contextVars/capabilityMocks generators), and result emission.
 
-Per [docs/optimization-loop.md](./docs/optimization-loop.md), this is the gating dependency for any autonomous optimizer. Without semantic evaluators the loop can't read its own report card.
+Per [docs/optimization-loop.md](./optimization-loop.md), this is the gating dependency for any autonomous optimizer. Without semantic evaluators the loop can't read its own report card.
 
 Size: ~3-5 days. Largest item in the plan.
 

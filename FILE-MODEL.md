@@ -4,7 +4,7 @@ How a flowstore project is laid out on disk. This is the **serialization contrac
 
 GitHub is the system of record. A flowstore project is a directory in a Git repo with the layout below. The browser editor reads and writes these files; the Python runner (and other consumers) load them. There is no other persistence layer in the free tier.
 
-For the broader vision this slots into, see [MVP-PLAN.md](./MVP-PLAN.md). For the design principles that govern what lives in the spec vs. outside it, see [AGENTS.md](./AGENTS.md).
+For the broader vision this slots into, see [MVP-PLAN.md](./docs/mvp-plan.md). For the design principles that govern what lives in the spec vs. outside it, see [AGENTS.md](./AGENTS.md).
 
 ---
 
@@ -275,7 +275,7 @@ Project-scope is file-shaped because it's potentially large + shared across many
 
 Both are conceptually evaluators (a test case references either uniformly). They live in separate directories because their lifecycles differ:
 
-- **`tests/evaluators/<name>.py`** — Python functions; deterministic checks; engineer-authored. Built-ins vendored by `flowstore-init-project`: `forbidden_phrases`, `required_phrases`, `max_turn_length`, `regex_match`, `state_check` (asserts expected key/value pairs in final variable state), `tool_calls_check` (asserts which capabilities were dispatched, with optional ordering + parameter constraints). See [MVP-PLAN.md § Evaluator library](./MVP-PLAN.md#phase-2--testing-surface-mid-august-through-october-2026) for config shapes.
+- **`tests/evaluators/<name>.py`** — Python functions; deterministic checks; engineer-authored. Built-ins vendored by `flowstore-init-project`: `forbidden_phrases`, `required_phrases`, `max_turn_length`, `regex_match`, `state_check` (asserts expected key/value pairs in final variable state), `tool_calls_check` (asserts which capabilities were dispatched, with optional ordering + parameter constraints). See [MVP-PLAN.md § Evaluator library](./docs/mvp-plan.md#phase-2--testing-surface-mid-august-through-october-2026) for config shapes.
 - **`tests/rubrics/<id>.rubric.json`** — declarative llm-judge criteria + prompt template; designer-authored.
 
 Test cases reference either by name:
@@ -421,7 +421,7 @@ Compilation merges across scope levels (project ∪ agent ∪ flow per entity), 
 - **`flowstore-compile --format spec --agent <id>`** — produces the resolved JSON document above for the specified agent (runtime-canonical shape). Consumed by the simulate panel, the Python runner, and any future runtime target.
 - **`flowstore-compile --format prompt --agent <id>`** — produces `{ system_prompt: <string>, tool_schemas: [...] }` via the codegen in [packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts). Consumed by testing scripts (drives an LLM directly) and as the lowest-friction export for "paste into Claude / OpenAI / any LLM" workflows. Honors `agent.system_prompt_template` if set.
 
-Both targets read the same source files. Single-agent projects can omit `--agent`. Pipecat compilation is **deferred post-MVP**, gated on [TRANSLATION-POC.md](./TRANSLATION-POC.md).
+Both targets read the same source files. Single-agent projects can omit `--agent`. Pipecat compilation is **deferred post-MVP**, gated on [TRANSLATION-POC.md](./docs/translation-poc.md).
 
 Test cases, mocks, rubrics, personas, run outputs, comments, and `models/*` are **not** compiled into the runtime artifact; they live alongside it as the testing and configuration surface.
 
@@ -462,4 +462,4 @@ The strategic value: one repo holds the whole project lifecycle — spec, tests,
 - Validation runs on the in-memory resolved spec, not file-by-file. A single file is valid against its own schema; only the resolved spec is checked against cross-file invariants (referenced ids exist, entry flow is reachable, scope collisions caught, etc.).
 - Comments are additive — adding a comment is always conflict-free. Resolution is also a new file (the resolving comment). Cascade-delete on entity removal handles orphans.
 - Commit boundaries should match concern boundaries. Editing a flow and adding a guardrail it references is two changes; commit separately so the diffs read cleanly.
-- The file model is the foundation Phase 1 of [MVP-PLAN.md](./MVP-PLAN.md) builds on.
+- The file model is the foundation Phase 1 of [MVP-PLAN.md](./docs/mvp-plan.md) builds on.
