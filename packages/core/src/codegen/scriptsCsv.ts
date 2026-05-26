@@ -6,8 +6,9 @@ import { csvSerialize, parseCsv } from "./csv";
 // CSV round-trip for a single flow's scripts. Schema:
 //   id,EN,ES,...
 // One row per script line, one column per language. Variations are intentionally
-// not emitted — they remain in the spec and are preserved on import (merge keeps
-// existing `variations` on each ScriptLine).
+// not emitted in the CSV — they ride in the paired `.flow.json` so translators
+// bulk-editing the CSV don't have to think about them. Variations survive the
+// round-trip via the merge base passed by the loader.
 
 function getLangText(line: ScriptLine, lang: string, defaultLang: string): string {
   const t = line.text;
@@ -54,7 +55,12 @@ export function mergeScriptsCsv(
   if (langCols.length === 0) throw new Error("CSV has no language columns");
 
   const defaultLang = defaultLanguage(languages);
-  const out: ScriptLine[] = (existing ?? []).map((l) => ({ ...l }));
+  // Existing entries may arrive from `.flow.json` without `text` (it lives in
+  // the CSV). Normalize so `text` is always a string; CSV cells overwrite below.
+  const out: ScriptLine[] = (existing ?? []).map((l) => ({
+    ...l,
+    text: l.text ?? "",
+  }));
   const byId = new Map(out.map((l, i) => [l.id, i]));
 
   for (let r = 1; r < rows.length; r++) {

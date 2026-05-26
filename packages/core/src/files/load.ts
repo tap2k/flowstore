@@ -102,7 +102,9 @@ export function loadProject(files: FileMap): LoadResult {
     const scriptsPath = `flows/${baseId}.scripts.csv`;
     const csv = files[scriptsPath];
     if (csv !== undefined) {
-      flow.scripts = mergeScriptsCsv(csv, [], languages);
+      // Pass the flow file's scripts as the merge base so per-script
+      // variations (kept in .flow.json) survive into the resolved spec.
+      flow.scripts = mergeScriptsCsv(csv, flow.scripts, languages);
     }
     flows.push(flow);
   }

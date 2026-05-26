@@ -1,4 +1,4 @@
-import type { Spec, Flow, Agent } from "@flowstore/core/schema/v0";
+import type { Spec, Flow, Agent, ScriptLine } from "@flowstore/core/schema/v0";
 import { flowToScriptsCsv } from "@flowstore/core/codegen/scriptsCsv";
 import { tableToCsv } from "@flowstore/core/codegen/knowledgeCsv";
 import type { FileMap } from "./types";
@@ -58,11 +58,20 @@ function buildAgentFile(agent: Agent): Agent {
   return next;
 }
 
-// Flow file is the flow record with scripts removed (scripts live in the
-// paired .scripts.csv). Everything else stays.
-function buildFlowFile(flow: Flow): Omit<Flow, "scripts"> {
-  const { scripts: _scripts, ...rest } = flow;
-  return rest;
+// Flow file holds per-script metadata (id + optional variations); text lives
+// in the paired .scripts.csv since translators bulk-edit it. Variations stay
+// here because the CSV's flat shape can't carry per-language arrays.
+function buildFlowFile(flow: Flow): Omit<Flow, "scripts"> & {
+  scripts?: Array<{ id: string; variations?: ScriptLine["variations"] }>;
+} {
+  const { scripts, ...rest } = flow;
+  if (!scripts || scripts.length === 0) return rest;
+  const slim = scripts.map(({ id, variations }) => {
+    const entry: { id: string; variations?: ScriptLine["variations"] } = { id };
+    if (variations !== undefined) entry.variations = variations;
+    return entry;
+  });
+  return { ...rest, scripts: slim };
 }
 
 function scaffoldReadme(spec: Spec, opts: DecomposeOptions): string {
