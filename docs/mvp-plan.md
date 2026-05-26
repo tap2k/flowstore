@@ -21,7 +21,7 @@ Landed on `main`:
   - `github-init` CLI — push an existing single-file spec into a real repo (same library path as in-editor init).
 - **1d** `flowstore-init-project --from <spec.json> --target <dir>` CLI + `round-trip` / `round-trip-disk` verification scripts. Same decomposition library powers the editor's GitHub init path.
 - **1g** `models/` schema + loader. `flowstore://models/v0` defines `{ models, default, roles }` with free-form string keys (no `providers` map, no `kind` enum — schemas validate shape, not value membership). Loader merges `models/*.json` files; `resolveModel` walks the precedence chain (built-in default → project default → role → agent default → override). Built-in data carries the four currently supported Google models (Gemini 2.5 / 3.x preview). No runtime consumer yet — Simulate/chat panels stay BYOK Google in Phase 1; provider-adapter wiring lands in Phase 2.
-- **1h** `agent.system_prompt_template` + `agent.default_model` on the agent schema. Codegen wraps the deterministic body via the template's `{generated}` placeholder plus convenience `{meta.name}`, `{meta.client}`, `{meta.purpose}`, `{meta.tone}` substitutions; unknown placeholders are left literal. `agent.default_model` slots into the `resolveModel` precedence chain between project role and explicit override.
+- **1h** `agent.default_model` on the agent schema. Slots into the `resolveModel` precedence chain between project role and explicit override. (An earlier sibling, `agent.system_prompt_template`, was shipped and later removed once it became clear it was export-time decoration on one target rather than spec behavior — no specs used it.)
 - **1f** Per-file AJV validation in the loader for `flowstore.json`, `models/*.json`, `knowledge/glossary.json`, `knowledge/tables/<id>.meta.json` — errors flow through `LoadError[]`. New `KnowledgeTableMetaSchema` (flowstore://knowledge-table/v0). `validateGraph` extended with an optional `modelIds` set so callers can flag `agent.default_model` referencing an unknown model id. Existing canvas inline display (per-flow red border + tooltip, per-edge red stroke) continues to surface dangling references unchanged.
 
 **Phase 1 closed.** Phase 2 (testing surface, comments, etc.) begins from here.
@@ -111,7 +111,7 @@ The Python `flowstore-runner` is outside MVP's testing path — Awaaz runs it fo
 
 ### Phase 1 — Foundation (June through August 2026)
 
-**Goal:** file model + multi-agent support + GitHub-backed authoring + multi-provider model config foundation + agent.system_prompt_template.
+**Goal:** file model + multi-agent support + GitHub-backed authoring + multi-provider model config foundation.
 
 - **Monorepo workspace setup**: split this repo into `@flowstore/core` (pure TS) and `@flowstore/browser` (Next.js).
 - **File model implementation** per [FILE-MODEL.md](../FILE-MODEL.md): id-indexed loader, per-file schemas in `@flowstore/core/schema`, cross-file reference resolution, validation against resolved spec, file-or-directory shape rule for collections.
@@ -122,12 +122,11 @@ The Python `flowstore-runner` is outside MVP's testing path — Awaaz runs it fo
 - **Persistence switch** from localStorage to GitHub-backed via `@flowstore/core/files`. Auto-commit to main; no branches surfaced in the editor (engineers branch via CLI if they want). localStorage stays as a session-state cache.
 - **Inline schema validation** — extend the existing AJV pipeline to the per-file schemas. Errors render where the user is editing. Cross-file validation surfaces stale references inline (dangling capability ids, persona refs, flow gotos).
 - **`models/` schema + loader**: schemas for `models/*.json`, loader aggregation, project-default resolution. `models/defaults.json` carries `default` + optional `roles` map (agent / judge / user_simulation / authoring). Built-in providers (`anthropic`, `openai`, `google`) registered in `@flowstore/core`. Simulate/chat panels keep BYOK Google in Phase 1; provider-adapter wiring lands in Phase 2 alongside script-side LLM dispatch.
-- **`agent.system_prompt_template`** — optional field on agent schema; codegen wraps the deterministic compiled content in the template's `{generated}` placeholder. Pulled in per Nikunj's request. Other placeholders (`{meta.name}`, `{meta.client}`, etc.) for convenience.
 - **`agent.default_model`** — optional field on agent schema; overrides project default for this agent's runs.
 - **`flowstore.json` is minimal** — just `{ "$schema": "flowstore://project/v0" }`. Agents implicit from filesystem (presence of `agents/` directory); compile targets are CLI flags; project name derived from directory; client lives in `agent.meta.client`.
 - **Documentation**: file model, multi-agent project conventions, migration guide.
 
-**Runtime config (STT, TTS, voices, telephony, audio, barge-in, VAD) is explicitly out of flowstore scope.** Lives with the runner / Pipecat config / deployment infrastructure. flowstore declares semantic info (`meta.languages`, `meta.modes`); runner picks runtime knobs. Optional `runtime/` directory is post-MVP if customers demand it.
+**Runtime config (STT, TTS, voices, telephony, audio, barge-in, VAD, transport choice) is explicitly out of flowstore scope.** Lives with the runner / Pipecat config / deployment infrastructure. flowstore declares semantic info (e.g. `meta.languages`); runner picks runtime knobs. Optional `runtime/` directory is post-MVP if customers demand it.
 
 **Anthropic CORS verification** — week 1 task. If browser-direct LLM calls are blocked, decide on workaround (thin proxy, companion Node process, etc.).
 

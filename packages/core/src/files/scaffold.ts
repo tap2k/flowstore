@@ -13,7 +13,6 @@ export function scaffoldNewProject(opts: { name: string; id?: string }): Spec {
       meta: {
         name: opts.name,
         purpose: "",
-        modes: ["text"],
       },
       chatbot_initiates: true,
       entry_flow_id: "welcome",

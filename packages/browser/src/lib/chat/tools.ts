@@ -103,10 +103,6 @@ const AgentPatchSchema: JSONSchema = {
         purpose: { type: "string" },
         client: { type: "string" },
         languages: { type: "array", items: { type: "string" } },
-        modes: {
-          type: "array",
-          items: { type: "string", enum: ["voice", "text"] },
-        },
       },
     },
     chatbot_initiates: { type: "boolean" },

@@ -36,11 +36,11 @@ Outside the translation taxonomy entirely, **native consumption** interprets the
 
 ### Generic Config Bundle
 
-A minimal, target-agnostic export format that any LLM agent platform can consume: composed system prompt + JSON tool schemas for capabilities + behavioral sidecar (persona, voice/model recommendations, modes, knowledge, eval metadata). No runtime graph; flow boundaries collapse to prose ordering and exit-path conditions to routing guidance in the prompt. Lossy by design — the value is breadth of platform coverage at near-zero translator cost on top of the existing prompt generator.
+A minimal, target-agnostic export format that any LLM agent platform can consume: composed system prompt + JSON tool schemas for capabilities + behavioral sidecar (persona, voice/model recommendations, knowledge, eval metadata). No runtime graph; flow boundaries collapse to prose ordering and exit-path conditions to routing guidance in the prompt. Lossy by design — the value is breadth of platform coverage at near-zero translator cost on top of the existing prompt generator.
 
 | flowstore Artifact | Config Bundle Output |
 |---|---|
-| agent meta | Bundle metadata (name, default language, modes, persona summary) |
+| agent meta | Bundle metadata (name, default language, persona summary) |
 | flow descriptions, ordering | System prompt sections ordered by entry flow → follow-on flows |
 | turn (agent), turn (user) | Prompt scaffolding |
 | turn condition / exit_path (any method) | Routing guidance in prose |

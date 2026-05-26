@@ -217,15 +217,13 @@ Each step is more expensive than the last (in both engineering time and blast ra
 
 ## Comparing prompts (A/B)
 
-The harness supports running the same test case against two different system prompts with everything else held constant (tool schemas, user turns, mocks, model). Three apples-to-apples comparisons worth running:
+The harness supports running the same test case against two different system prompts with everything else held constant (tool schemas, user turns, mocks, model). Two apples-to-apples comparisons worth running:
 
 1. **flowstore-compiled vs hand-authored** — the migration check. Are we losing behavior the source prompt had? Are we *gaining* behavior (e.g. guardrail compliance the source missed)?
 
 2. **flowstore-compiled vs flowstore-compiled, generator-improved** — the regression check. Does the generator change improve targeted cases without regressing others?
 
-3. **flowstore-compiled vs flowstore with `agent.system_prompt_template`** — the designer-wrapper check. Does adding the customer's preferred persona framing on top of the deterministic body break anything?
-
-All three are runnable today with `--system-prompt` (for hand-authored) and `--system-prompt-extras` (for placeholder dialects). Pair runs via `--label` and diff the result-dir contents.
+Both are runnable today with `--system-prompt` (for hand-authored) and `--system-prompt-extras` (for placeholder dialects). Pair runs via `--label` and diff the result-dir contents.
 
 ---
 

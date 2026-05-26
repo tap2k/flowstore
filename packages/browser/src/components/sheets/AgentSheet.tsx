@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
-import type { Agent, Mode } from "@flowstore/core/schema/v0";
+import type { Agent } from "@flowstore/core/schema/v0";
 import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
 import { Field, inputClass } from "@/components/inspector/primitives";
 import { SingleFlowPicker } from "@/components/inspector/FlowPicker";
@@ -52,14 +52,6 @@ export function AgentSheet({ onClose }: { onClose: () => void }) {
           languages={agent.meta.languages ?? []}
           onChange={(langs) =>
             patch({ meta: { ...agent.meta, languages: langs.length ? langs : undefined } })
-          }
-        />
-      </Field>
-      <Field label="Channels">
-        <ModesEditor
-          modes={agent.meta.modes}
-          onChange={(modes) =>
-            patch({ meta: { ...agent.meta, modes } })
           }
         />
       </Field>
@@ -121,31 +113,3 @@ function LanguagesEditor({
   );
 }
 
-const ALL_MODES: Mode[] = ["voice", "text"];
-
-function ModesEditor({
-  modes,
-  onChange,
-}: {
-  modes: Mode[];
-  onChange: (modes: Mode[]) => void;
-}) {
-  function toggle(m: Mode) {
-    onChange(modes.includes(m) ? modes.filter((x) => x !== m) : [...modes, m]);
-  }
-
-  return (
-    <div className="flex gap-3">
-      {ALL_MODES.map((m) => (
-        <label key={m} className="flex items-center gap-1.5 text-xs text-zinc-700">
-          <input
-            type="checkbox"
-            checked={modes.includes(m)}
-            onChange={() => toggle(m)}
-          />
-          {m}
-        </label>
-      ))}
-    </div>
-  );
-}

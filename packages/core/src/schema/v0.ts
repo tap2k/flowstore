@@ -123,8 +123,6 @@ const CapabilitySchema = Type.Object(
   strict
 );
 
-const Mode = Type.Union([Type.Literal("voice"), Type.Literal("text")]);
-
 const AgentMetaSchema = Type.Object(
   {
     name: Type.String(),
@@ -132,7 +130,6 @@ const AgentMetaSchema = Type.Object(
     client: Type.Optional(Type.String()),
     tone: Type.Optional(Type.String()),
     languages: Type.Optional(Type.Array(Type.String())),
-    modes: Type.Array(Mode, { minItems: 1 }),
   },
   strict
 );
@@ -228,7 +225,6 @@ export const AgentSchema = Type.Object(
     version: Type.Optional(Type.String()),
     meta: AgentMetaSchema,
     chatbot_initiates: Type.Optional(Type.Boolean()),
-    system_prompt_template: Type.Optional(Type.String()),
     default_model: Type.Optional(Type.String()),
     variables: Type.Optional(Type.Record(Type.String(), VariableDeclSchema)),
     guardrails: Type.Optional(Type.Array(GuardrailSchema)),
@@ -388,7 +384,6 @@ export type Method = Static<typeof Method>;
 export type VariableType = Static<typeof VariableType>;
 export type FlowType = Static<typeof FlowType>;
 export type CapabilityKind = Static<typeof CapabilityKind>;
-export type Mode = Static<typeof Mode>;
 export type VariableDecl = Static<typeof VariableDeclSchema>;
 export type Guardrail = Static<typeof GuardrailSchema>;
 export type BusinessGoal = Static<typeof BusinessGoalSchema>;

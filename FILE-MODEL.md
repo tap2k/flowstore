@@ -61,7 +61,7 @@ Same loader handles both. The resolved compiled spec has the same shape regardle
 project/
 ├── README.md                                # user-authored narrative; not loaded
 ├── flowstore.json                                 # project manifest — minimal: { "$schema": "flowstore://project/v0" }
-├── agent.json                               # meta (incl. client, tone, system_prompt_template), modes, languages, chatbot_initiates, entry_flow_id, optional agent-scope guardrails/business-goals/variables/knowledge
+├── agent.json                               # meta (incl. client, tone), languages, chatbot_initiates, entry_flow_id, optional agent-scope guardrails/business-goals/variables/knowledge
 ├── models/                                  # multi-provider config
 │   ├── frontier.json
 │   ├── self-hosted.json
@@ -125,8 +125,8 @@ project/
 ├── scripts/
 └── agents/
     ├── 30day-past-due-hindi/
-    │   ├── agent.json                       # meta (incl. client, tone, system_prompt_template),
-    │   │                                    # languages, modes, entry_flow_id,
+    │   ├── agent.json                       # meta (incl. client, tone),
+    │   │                                    # languages, entry_flow_id,
     │   │                                    # optional agent-scope guardrails/business-goals/variables/knowledge inline
     │   ├── flows/                           # agent-specific flows (the main collection graph)
     │   │   ├── <id>.flow.json
@@ -172,7 +172,7 @@ Three scope levels exist in a multi-agent project. Not every entity supports all
 
 | Entity | Project | Agent | Flow | Notes |
 |---|---|---|---|---|
-| **Agent meta** (name, modes, languages, `entry_flow_id`) | — | ✓ | — | Necessarily per-agent. |
+| **Agent meta** (name, languages, `entry_flow_id`) | — | ✓ | — | Necessarily per-agent. |
 | **Flows** | ✓ | ✓ | — | Project-level flows are shared across agents (e.g., interrupts like `verify_identity`, `handle_wrong_person`). Agent-level flows are agent-specific. Resolution is agent-first, project-fallback. |
 | **Per-flow scripts CSV** | ✓ | ✓ | ✓ | Lives next to its flow file. Project-level flow → project-level scripts (shared verbatim across agents). Agent-level flow → agent-level scripts. |
 | **Capabilities** | ✓ | — | — | Backend APIs are project-shared. Per-agent capability declarations: post-MVP. |
@@ -259,7 +259,7 @@ Two collections use CSV + paired meta JSON:
 | File | Contents |
 |---|---|
 | `flowstore.json` | Project manifest. Minimal: `{ "$schema": "flowstore://project/v0" }`. |
-| `agent.json` | Per-agent envelope: `meta` (name, purpose, client, tone, languages, modes), `chatbot_initiates`, `entry_flow_id`, optional `system_prompt_template`, optional `default_model`, plus optional agent-scope `guardrails[]` / `business_goals[]` / `variables{}` / `knowledge.faq[]` inline. At project root in single-agent; under `agents/<id>/` in multi-agent. |
+| `agent.json` | Per-agent envelope: `meta` (name, purpose, client, tone, languages), `chatbot_initiates`, `entry_flow_id`, optional `default_model`, plus optional agent-scope `guardrails[]` / `business_goals[]` / `variables{}` / `knowledge.faq[]` inline. At project root in single-agent; under `agents/<id>/` in multi-agent. |
 
 ### Scope collections — physical layout
 
@@ -381,7 +381,7 @@ Roles are optional. Unset role → falls back to `default`. Per-file `model` fie
 5. Env var (`flowstore_AGENT_MODEL`, `flowstore_JUDGE_MODEL`, etc.)
 6. Per-call CLI override (`--model`, `--agent-model`, `--judge-model`, `--user-sim-model`)
 
-**Runtime config (STT, TTS, voices, telephony, audio, barge-in, VAD) is explicitly out of scope for flowstore.** Those live with the runner / Pipecat config / deployment infrastructure. flowstore declares semantic info (`meta.languages`, `meta.modes`); the runner picks appropriate runtime knobs. Per "execution separate from spec" — see [SCHEMA.md § Execution Separate From Spec](./SCHEMA.md#execution-separate-from-spec).
+**Runtime config (STT, TTS, voices, telephony, audio, barge-in, VAD, transport choice) is explicitly out of scope for flowstore.** Those live with the runner / Pipecat config / deployment infrastructure. flowstore declares semantic info (e.g. `meta.languages`); the runner picks appropriate runtime knobs. Per "execution separate from spec" — see [SCHEMA.md § Execution Separate From Spec](./SCHEMA.md#execution-separate-from-spec).
 
 ---
 
@@ -419,7 +419,7 @@ Compilation merges across scope levels (project ∪ agent ∪ flow per entity), 
 **Two compile output formats in MVP:**
 
 - **`flowstore-compile --format spec --agent <id>`** — produces the resolved JSON document above for the specified agent (runtime-canonical shape). Consumed by the simulate panel, the Python runner, and any future runtime target.
-- **`flowstore-compile --format prompt --agent <id>`** — produces `{ system_prompt: <string>, tool_schemas: [...] }` via the codegen in [packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts). Consumed by testing scripts (drives an LLM directly) and as the lowest-friction export for "paste into Claude / OpenAI / any LLM" workflows. Honors `agent.system_prompt_template` if set.
+- **`flowstore-compile --format prompt --agent <id>`** — produces `{ system_prompt: <string>, tool_schemas: [...] }` via the codegen in [packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts). Consumed by testing scripts (drives an LLM directly) and as the lowest-friction export for "paste into Claude / OpenAI / any LLM" workflows.
 
 Both targets read the same source files. Single-agent projects can omit `--agent`. Pipecat compilation is **deferred post-MVP**, gated on [TRANSLATION-POC.md](./docs/translation-poc.md).
 

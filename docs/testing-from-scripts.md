@@ -52,7 +52,7 @@ Flags:
 
 | Flag | Required? | Notes |
 |---|---|---|
-| `--format prompt` | yes (or `spec`) | Emits `{system_prompt: string, tool_schemas: [...]}`. Honors `agent.system_prompt_template`. |
+| `--format prompt` | yes (or `spec`) | Emits `{system_prompt: string, tool_schemas: [...]}`. |
 | `--format spec` | yes (or `prompt`) | Emits the resolved `{agent, flows}` JSON. Same shape the runner consumes. |
 | `--agent <id>` | required in multi-agent projects | Selects which agent to compile. Single-agent projects accept the flag but ignore it. |
 | `--out <path>` | no | Writes to file. Default: stdout. |
@@ -310,8 +310,6 @@ python scripts/run.py tests/cases/happy-path-latte.test.json \
 ```
 
 Then diff `tests/runs/<ts>-flowstore/happy-path-latte.result.json` against `tests/runs/<ts>-handauth/happy-path-latte.result.json`. Same user turns, same mocks, same model, same tool schemas — the only variable is the prose.
-
-**One nuance.** If `agent.system_prompt_template` is set, codegen wraps the compiled body in the template's `{generated}` placeholder. So a designer can keep their hand-authored persona framing or hard-rules preamble at the top and let flowstore fill in the structured body. That's a third comparison point worth running: bare flowstore vs. hand-authored-wrapper × flowstore vs. fully hand-authored.
 
 ## Evaluator placeholder
 

@@ -47,8 +47,7 @@ V0 SCHEMA
       "purpose": "one-sentence description",
       "client": "string (optional)",
       "tone": "one short phrase describing voice/register (optional)",
-      "languages": ["EN", "es-MX", "..."] /* optional */,
-      "modes": ["voice", "text"]
+      "languages": ["EN", "es-MX", "..."] /* optional */
     },
     "chatbot_initiates": true,
     "variables": {
@@ -160,13 +159,6 @@ Don't invent codes. If only one language is implied and not labeled,
 use the ISO 639 two-letter code ("Hindi" → "hi", "Spanish" → "es").
 Use BCP-47 only if the source specifies a region ("Mexican Spanish"
 → "es-MX").
-
-Modes: `agent.meta.modes` is required, with at least one of "voice"
-or "text". "voice" = phone or browser-mic; "text" = chat (web,
-WhatsApp, SMS, etc.). Infer from the source — IVR / call-center /
-phone-script material is "voice"; chatbot / messaging / WhatsApp
-material is "text". If the source clearly serves both, include both.
-Default to ["voice"] when unclear.
 
 Methods (used in conditions, assigns, captures):
 - "llm" — semantic understanding by the model. Plain-language

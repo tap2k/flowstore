@@ -203,11 +203,6 @@ Three cases worth being explicit about:
    encodes routing decisions or guardrails the source docs don't, the parser
    should ingest the prompt alongside the docs. AGENT-SPEC-PROMPT accepts
    free-form source material; a system prompt is just more source material.
-3. **As a wrapper kept around the compiled spec.** `agent.system_prompt_template`
-   lets a designer keep the customer's persona framing or hard-rules preamble
-   as a wrapper, with `{generated}` filled in by the deterministic codegen.
-   The A/B becomes three-way: bare flowstore vs. wrapper × flowstore vs. fully
-   hand-authored.
 
 For optimization, (1) is the most load-bearing — it gives the optimizer a
 non-trivial baseline to beat, which is more honest than measuring against an

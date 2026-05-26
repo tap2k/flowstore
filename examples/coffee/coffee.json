@@ -10,10 +10,6 @@
       "tone": "Conversational, the way a real barista talks.",
       "languages": [
         "en-US"
-      ],
-      "modes": [
-        "voice",
-        "text"
       ]
     },
     "chatbot_initiates": true,

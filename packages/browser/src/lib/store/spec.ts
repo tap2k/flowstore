@@ -5,7 +5,7 @@ import { genId } from "@flowstore/core/ids";
 import { isPlainObject } from "./scopedStorage";
 
 // One-level deep merge: nested plain objects merge, arrays/primitives replace.
-// Keeps partial patches like `{ meta: { name } }` from wiping sibling fields like `meta.modes`.
+// Keeps partial patches like `{ meta: { name } }` from wiping sibling fields like `meta.languages`.
 function mergePatch<T extends object>(base: T, patch: Partial<T>): T {
   const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
   for (const [k, v] of Object.entries(patch)) {
@@ -56,7 +56,7 @@ function blankFlow(id: string): Flow {
 function blankAgent(entryFlowId: string): Agent {
   return {
     id: genId("agent"),
-    meta: { name: "Untitled", purpose: "", languages: ["EN"], modes: ["voice"] },
+    meta: { name: "Untitled", purpose: "", languages: ["EN"] },
     entry_flow_id: entryFlowId,
   };
 }

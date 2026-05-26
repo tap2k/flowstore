@@ -34,21 +34,7 @@ export function generateSystemPrompt(
   ].filter(Boolean);
 
   const rendered = sections.join("\n\n---\n\n").trim() + "\n";
-  const withVars = vars ? substituteVars(rendered, vars) : rendered;
-
-  // Optional designer wrapper: agent.system_prompt_template wraps the
-  // deterministic body via `{generated}` plus convenience `{meta.*}` placeholders.
-  // Unknown placeholders are left literal (matches substituteVars convention).
-  const template = spec.agent.system_prompt_template;
-  if (!template) return withVars;
-  const meta = spec.agent.meta ?? {};
-  return substituteVars(template, {
-    generated: withVars,
-    "meta.name": meta.name,
-    "meta.client": meta.client,
-    "meta.purpose": meta.purpose,
-    "meta.tone": meta.tone,
-  });
+  return vars ? substituteVars(rendered, vars) : rendered;
 }
 
 interface RenderCtx {
@@ -97,9 +83,6 @@ function renderRole(spec: Spec): string {
   lines.push(`You are ${meta.name}.`);
   if (meta.purpose) lines.push(meta.purpose);
   if (meta.client) lines.push(`This is on behalf of ${meta.client}.`);
-  if (meta.modes?.length) {
-    lines.push(`Channel: ${meta.modes.join(", ")}.`);
-  }
   if (meta.tone) lines.push(`Tone: ${meta.tone}`);
   return lines.join(" ");
 }
