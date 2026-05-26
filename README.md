@@ -31,6 +31,7 @@ npm workspaces monorepo (`packages/*`):
 
 ## Docs
 
+- [docs/getting-started.md](./docs/getting-started.md) — first pass through the core loop: author a spec, simulate it, export a system prompt.
 - [SCHEMA.md](./SCHEMA.md) — authoritative spec data model.
 - [FILE-MODEL.md](./FILE-MODEL.md) — how a flowstore project decomposes into files on disk.
 - [AGENTS.md](./AGENTS.md) — architecture, tech stack, design principles.
