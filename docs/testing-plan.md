@@ -198,11 +198,10 @@ The trigger to start editor work: the schema additions have been in real use for
 | 3 | **O-1** `state_assertions[]` | core + Python | ½ day | New `state_assertions[]` slot on `test-case/v0`: `{variable, equals?, matches?, is_set?}` over `result.final_variables` | End-state checks for capability-bound flows (the load-bearing mechanic Tala / FNOL need) |
 | 4 | **Per-case diff CLI** | Python | ½ day | — | "What changed between yesterday's run and today's?" without a manifest — a script over paired result files |
 | 5 | **T-D** Decision test shape | core + Python | 1 day (after design call) | NEW: either `flowstore://decision-test/v0` file type or `kind: "decision"` discriminator on `test-case/v0` (open question — see decisions below) | Cheap per-routing-decision testing; matches `flow.exit_paths[].condition` 1:1; dramatically lowers per-input cost |
-| 6 | **D-1** LLM-call logging in results | Python (runner + script driver) + tiny core change | ½ day | Top-level `additionalProperties: true` flip on `flowstore://run/result/v0`; `llm_calls[]` shape documented as a *convention* (not a schema slot) — see schema-changes section | Answers "what did the model actually see at the turn that misbehaved?" — today result files have transcript + capability_calls + final_variables but nothing about prompt content. Especially load-bearing on the runner path where prompts swap per flow transition |
 
-Phase A is roughly ~3 days of work plus the T-D design call. Lands the testing shape against awaaz-dpd31 with no editor dependencies.
+Phase A is roughly ~2.5 days of work plus the T-D design call. Lands the testing shape against awaaz-dpd31 with no editor dependencies.
 
-**D-1 detail.** Default off — opt-in via `include_llm_calls: true` on the test case OR `--include-llm-calls` on the run. Always-on across the suite would bloat result files ~10× (prompts dominate by size, mostly redundant across calls). The auto-on-failure variant (`auto_log_on_failure: true`) is a possible follow-up if opt-in friction bites. Privacy note: logged prompts contain customer knowledge (rate cards, FAQ, compliance language); result files carrying them shouldn't ship in demos or public CI artifacts without scrubbing. Posture: `llm_calls[]` is a documented *convention* not a schema-bound field — promote to a schema slot only if multiple consumers depend on its shape and need validation.
+**Prompt-content debugging — sidecar pattern, not a result-schema field.** "What did the model actually see at the turn that misbehaved?" is a real diagnostic need (especially on the runner path where prompts swap per flow transition). Resolved out-of-band: the runner emits an `LLMCalled` event into its existing event stream (alongside `flow_entered`, `capability_invoked`, etc.). For test runs, point `FLOWSTORE_EVENT_LOG_DIR` at the run dir and the events land as a sidecar `*.jsonl` artifact correlated by `session_id`. The result viewer (Phase B O-3) reads both result + sidecar events. No `result/v0` schema change needed — keeps runtime artifacts lean and aligns with the "authored vs runtime artifacts have different contract postures" principle. Runner implementation lives in the flowstore-runner repo (event schema + `_run_inference` hook + a second env var `FLOWSTORE_LOG_LLM_CALLS` to gate prompt-payload cost independently); for script-driver mode, the static system prompt is recoverable by re-running `flowstore-compile` with the case's `vars_file` — no instrumentation needed.
 
 ### Phase B — editor surface (after Phase A settles)
 
@@ -213,7 +212,7 @@ Wait for Phase A to soak. Then build all four together as one coherent feature (
 | 7 | **I-1** Test-case panel — list / view / edit / save / delete | 2 days | Full CRUD against `tests/cases/*.test.json`; lives in the editor sidebar alongside the existing inspectors |
 | 8 | **I-2** Capture-as-test-case button | ½ day | Finished-transcript → new `test-case/v0` in I-1's list, with empty assertions for the designer to fill |
 | 9 | **I-3** "Run this case" + progress | 1 day | One-click run from the panel; surfaces progress; navigates to the result view on completion |
-| 10 | **O-3** Result viewer | 1 day | Read-only render of one `result/v0` file in the transcript surface; per-assertion pass/fail, `final_variables`, `capability_calls`, model/prompt metadata. Renders D-1's `llm_calls[]` per turn when present — click a turn to see the system prompt the model saw |
+| 10 | **O-3** Result viewer | 1 day | Read-only render of one `result/v0` file in the transcript surface; per-assertion pass/fail, `final_variables`, `capability_calls`, model/prompt metadata. When a sidecar `*.jsonl` event log is present in the run dir (runner-driven tests with `FLOWSTORE_LOG_LLM_CALLS=true`), correlate `LLMCalled` events with turns — click a turn to see the system prompt the model saw |
 
 Phase B totals ~4.5 days. Bundled, not piecemeal — splitting risks half-built editor states where the panel exists but can't run, or capture lands cases the panel can't render.
 
@@ -251,7 +250,7 @@ Concurrent with Phase A: split the flat `flowstore://<type>/v0` URI space into f
 |---|---|---|
 | `flowstore://spec/` | `agent`, `flow`, `knowledge-table`, `project-glossary`, `models`, `project` (flowstore.json) | The runtime contract. An implementer of a flowstore-compatible runtime must support all of these. Strict additivity. |
 | `flowstore://test/` | `case` (was `test-case`), `gold`, `persona`, `rubric`, `mock` (was `capability-mock`), `decision-test` (T-D, future) | Authored test artifacts. Optional for a runtime; required for the testing surface. Strict additivity. |
-| `flowstore://run/` | `result`, `run-manifest` (future) | Runtime observation artifacts. Strict on the core observation shape; **permissive at the top level for debug/instrumentation extensions** (D-1's `llm_calls[]`, future tracing fields). |
+| `flowstore://run/` | `result`, `run-manifest` (future) | Runtime observation artifacts. Strict on the core observation shape; **permissive at the top level for debug/instrumentation extensions**. Prompt-content debugging is handled out-of-band via the runner's event stream (see runner-emitted `LLMCalled` events as a sidecar), not via a result-schema field. |
 | `flowstore://meta/` | `comment`, future coverage / suite-config | Project annotation. Not spec, not test, not run. |
 
 **Renames worth doing in the same pass:**
@@ -341,32 +340,11 @@ prefix_turns: Type.Array(Type.String()),  // user turns to set up the state
 branches: Type.Array(DecisionBranch),     // many inputs to test at this point
 ```
 
-### `flowstore://run/result/v0` — top-level posture flip + D-1 convention
+### `flowstore://run/result/v0` — top-level posture flip
 
-**Schema change**: flip top-level `additionalProperties` from `false` to `true`. The core *observation* shape (`transcript`, `capability_calls`, `final_variables`, `evaluator_results`, `trials`) stays strict; debug / instrumentation fields at the top level ride along as conventions, not schema-bound members. This matches the cross-cutting principle below (runtime artifacts vs authored content).
+**Schema change**: flip top-level `additionalProperties` from `false` to `true`. The core *observation* shape (`transcript`, `capability_calls`, `final_variables`, `evaluator_results`, `trials`) stays strict; future debug / instrumentation fields at the top level ride along as conventions, not schema-bound members. Matches the cross-cutting principle below (authored vs runtime artifacts).
 
-**D-1 `llm_calls[]` is a convention, not a schema field.** Documented shape, no `Type.Object` slot in the schema; producers (runner + script driver) emit it under the convention; consumers (result viewer, diff tool, future optimizer) read-if-present. Promote to a schema field later if and only if multiple consumers depend on its shape and we need validation.
-
-Convention shape (referenced — not in the schema file):
-
-```ts
-// On result.trials[].* (and top-level for single-trial cases), as a top-level field:
-llm_calls?: Array<{
-  turn_index: number;                  // which agent turn this call produced
-  timestamp: string;
-  system_prompt: string;               // the prompt as the LLM saw it
-  user_turns_context: Array<{ role: string; content: string }>;
-  response_text: string;
-  tool_calls?: unknown[];
-  prompt_source_flow_id?: string;      // runner path only — which flow's prompt was active
-  model?: string;
-  elapsed_ms?: number;
-}>;
-
-// Emitted only when test case has `include_llm_calls: true` OR the run was
-// invoked with `--include-llm-calls`. Default off — always-on across the suite
-// would bloat result files ~10× (prompts dominate by size, mostly redundant).
-```
+No `llm_calls[]` slot — prompt-content debugging lives in the runner's event stream as `LLMCalled` events, written as a sidecar `*.jsonl` artifact when `FLOWSTORE_EVENT_LOG_DIR` is pointed at the run dir. The result viewer correlates by `session_id`.
 
 Decision tests will also add a `branches[]` array under `evaluator_results` (or equivalent) describing per-branch verdicts when the implementation lands.
 
@@ -375,7 +353,7 @@ Decision tests will also add a `branches[]` array under `evaluator_results` (or 
 ## Cross-cutting principles
 
 - **Tags as the convention carrier.** Provenance, decision-test grouping, suite filtering — all ride on `tags[]` rather than forking the schema. A `tags[]` value with a colon-prefixed namespace (`src:`, `kind:`, `priority:`) is the lightweight convention; promote to a structured field only when a consumer earns it.
-- **Authored vs runtime artifacts have different contract postures.** Authored content (spec/* and test/* — flows, agent, cases, golds, personas, rubrics, mocks) is reviewed in PRs, versioned with the project, and lives under strict schemas: `additionalProperties: false` at the top, additive evolution. Runtime artifacts (run/* — results, future manifests) are emitted by runs, large, and naturally accrete debug fields; they commit only to a core *observation* shape (transcript, capability_calls, final_variables, evaluator_results) with `additionalProperties: true` at the top so instrumentation extensions (`llm_calls`, future tracing) ride along as conventions. Promote a convention to a schema slot only when multiple consumers need shape validation.
+- **Authored vs runtime artifacts have different contract postures.** Authored content (spec/* and test/* — flows, agent, cases, golds, personas, rubrics, mocks) is reviewed in PRs, versioned with the project, and lives under strict schemas: `additionalProperties: false` at the top, additive evolution. Runtime artifacts (run/* — results, future manifests) are emitted by runs, large, and naturally accrete debug fields; they commit only to a core *observation* shape (transcript, capability_calls, final_variables, evaluator_results) with `additionalProperties: true` at the top so future instrumentation extensions ride along as conventions, and producer-specific debug data (e.g. the runner's per-call `LLMCalled` events) lives in producer-native sidecar streams instead of being shoehorned into the shared schema. Promote a convention to a schema slot only when multiple consumers need shape validation.
 - **Additive-by-default schema evolution.** Within the strict portions, new fields ride along without breaking older readers; removed fields require a coordinated bump.
 - **Two-driver parity.** Every test shape works against both the system-prompt path and the runner path. The runner path is authoritative for `final_variables`; the system-prompt path is authoritative for "what would this prompt do without graph enforcement."
 - **LLM-agnostic deliverables.** Test-case files, rubric files, prompt extractor files name no specific provider. Reference scripts use Gemini today because that's what awaaz-dpd31 uses; the prompt extractors are LLM-agnostic by design.
