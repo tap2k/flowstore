@@ -2,16 +2,18 @@
 
 A first pass through flowstore's core loop: **author a spec → simulate it → export a system prompt.** Reads in about ten minutes; the worked path runs in two or three.
 
-This guide stays on the single-spec authoring surface. The Git-backed multi-agent layout and the Python testing harness are a deliberate next step, not part of this guide — see [What's next](#whats-next).
+## Open the editor
 
-## Run the editor
+The easiest way in is the hosted editor at [create.flowstore.org](https://create.flowstore.org) — nothing to install. It runs entirely in your browser and autosaves to `localStorage`, so your spec survives a refresh; there's no account or server in the loop.
+
+To run it locally instead — for contributing, or working offline:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. The editor autosaves to `localStorage`, so your spec survives a refresh; there's no account or server in the loop.
+Then open http://127.0.0.1:5173.
 
 Two of the steps below — the **Assistant** and **Run** (simulate) — call an LLM with your own key. Open **Settings** (gear icon, top right) and paste a key for whichever provider you use: Google, OpenAI, or OpenRouter. Keys live in `localStorage` only. Authoring on the canvas and every export work with no key at all.
 
@@ -83,9 +85,9 @@ For returning to work that already lives in Git or on disk. A brand-new user won
 
 ## Simulate it
 
-With a spec loaded and an LLM key set, click **Run** (top-right of the canvas) to open the **Simulate** panel and chat with your agent. The chat runs against the system prompt compiled from the spec you're editing, and the canvas highlights the active flow and the last exit path taken as the conversation moves — so you watch routing happen live.
+With a spec loaded and an LLM key set, click **Run** (top-right of the canvas) to open the **Simulate** panel and chat with your agent. By default this runs in **prompt mode**: the chat goes against the system prompt compiled from the spec you're editing, so you're testing exactly what you'd export.
 
-(If you've pointed a **Runner URL** at a paired `flowstore-runner` in Settings, Run can drive that instead. That's an advanced path; the default prompt-mode simulation needs only your LLM key.)
+If you point a **Runner URL** at a paired `flowstore-runner` in Settings, Run drives the runner instead. Because the runner emits a routing event stream, the canvas then highlights the active flow and the last exit path taken as the conversation moves — so you watch routing happen live. That live highlighting is a runner-mode feature; prompt mode needs only your LLM key.
 
 ## Export
 
