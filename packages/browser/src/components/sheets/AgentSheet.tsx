@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
 import type { Agent } from "@flowstore/core/schema/v0";
-import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
 import { Field, inputClass } from "@/components/inspector/primitives";
 import { SingleFlowPicker } from "@/components/inspector/FlowPicker";
 import { SheetShell } from "./SheetShell";
@@ -60,20 +59,6 @@ export function AgentSheet({ onClose }: { onClose: () => void }) {
           selected={agent.entry_flow_id || null}
           onChange={(id) => patch({ entry_flow_id: id ?? "" })}
         />
-      </Field>
-      <Field label="Default model">
-        <select
-          className={inputClass}
-          value={agent.default_model ?? ""}
-          onChange={(e) => patch({ default_model: e.target.value || undefined })}
-        >
-          <option value="">— use project / built-in default —</option>
-          {Object.entries(BUILT_IN_MODELS.models).map(([id, m]) => (
-            <option key={id} value={id}>
-              {m.name ?? id}
-            </option>
-          ))}
-        </select>
       </Field>
       <label className="flex items-center gap-2 text-xs text-zinc-700">
         <input

@@ -77,9 +77,11 @@ Notes are scoped to flows and exit paths only. Comments on guardrails, capabilit
 
 ### Execution Separate From Spec
 
-Endpoint, headers, and runtime model live in a separate `execution` object outside the spec. Sharing or exporting a spec must not leak credentials or deployment details.
+Credentials, endpoints, headers, and other deployment-environment details live in a separate `execution` object outside the spec. Sharing or exporting a spec must not leak credentials or deployment details.
 
-`chatbot_initiates` lives *inside* the spec because it describes agent behavior, not hosting.
+The line is "does this travel with the spec across deployments?" — not "does this name a runtime concern at all." Portable authoring intent stays in the spec even when it touches the runtime, because it survives across environments and carries no secret. `chatbot_initiates` is the canonical example: agent behavior (who speaks first), not hosting.
+
+Model selection — including any per-agent override — is **execution**, not spec. The deployment-side runner reads a sibling `execution.json` (or equivalent) to decide which model dispatches each agent. Spec stays model-agnostic; execution config maps abstract agent identity to provider+wire-id+key. Wire ids, API keys, endpoint URLs, region-specific routing, telephony / STT / TTS / voice / VAD config all belong there too.
 
 ---
 
@@ -161,8 +163,6 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
 
   "chatbot_initiates": "boolean",
 
-  "default_model": "string (optional; overrides project models/defaults.json default for this agent)",
-
   "guardrails": [
     { "id": "string", "statement": "string" }
   ],
@@ -235,7 +235,6 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
 - **`meta.tone`** — optional one-phrase voice/register descriptor (e.g. "warm and conversational, like a real barista"). Appended to the synthesized role line. Voice only — behavioral rules go in `guardrails`.
 - **`meta.languages`** — language codes supported by this agent. Drives translation columns.
 - **`chatbot_initiates`** — whether the agent sends the first message.
-- **`default_model`** — optional. Overrides the project's default model for this agent's runs. Resolution chain (low to high): built-in default → `models/defaults.json.default` → `models/defaults.json.roles.<role>` → per-file `model` on test case / rubric / persona / agent.default_model → env var → per-call CLI override. See [FILE-MODEL.md § Models and providers](./FILE-MODEL.md#models-and-providers).
 - **`guardrails`** — cross-cutting behavioral invariants. Each is a stable `id` and a single `statement`. Conditional rules written inline as natural language; executable conditional routing belongs in interrupt flows, not guardrails.
 - **`business_goals`** — end-to-end outcome criteria for evaluation. Each entry has a stable `id`, a `name`, and a checkable criterion using the standard three methods. Distinct from `guardrails` (turn-by-turn invariants).
 - **`capabilities`** — declared catalog of external integrations. Each entry has an `id` (editor-generated), a `name` (snake_case, runtime dispatch identifier), a `description` (when/why), a `kind` (`retrieval` or `function`), optional `inputs`, and optional `outputs`. Endpoints, headers, and credentials live in the execution layer, not the spec.
@@ -407,6 +406,7 @@ Forward-looking concepts surfaced by mapping the schema against runtimes or by d
 - **Async vs sync interrupts.** Today an interrupt pivot is implicitly synchronous — it preempts the current turn. Multi-agent runtimes (e.g. Polaris-style constellations) also need *asynchronous* interrupts: a background trigger that injects context at the next turn rather than preempting. Natural shape is a field on the interrupt flow (e.g. `mode: "sync" | "async"`); blocker is specifying the firing trigger and lifecycle precisely enough to be more than a label. Defer until that spec is one sentence long.
 - **Optional intent catalog.** The `llm` method on conditions and captures already does zero-shot intent classification. If real authoring pain emerges (phrasing drift, observability needing stable intent names), an optional `agent.intents[]` catalog referenceable from `llm` conditions is the natural shape.
 - **Turn budgets (formerly `flow.max_turns`).** Endless-loop protection for flows that might re-ask without progress. Previously a `max_turns` integer on Flow with a convention that "the first unconditional non-RETURN exit fires on exhaust" — convention-mediated coupling between a field and an exit path, dropped because zero specs used it. Two design shapes worth considering when this returns: (a) **typed on the exit path** — `exit_path.max_turns: number?` makes the firing exit explicit (matches Voiceflow / Botpress / Twilio Studio prior art); (b) **reserved variable in calculation grammar** — `_turn_count` per-flow-frame counter, composable with other conditions like `_turn_count >= 3 and not verified` (matches LangGraph's state+conditional-edge pattern). (b) is more powerful; (a) is more ergonomic for the simple budget case. Picking should wait for a concrete authoring use case to surface the tradeoff.
+- **Per-flow / per-agent model dispatch.** Model selection lives in the deployment-side `execution.json` today, not in the spec — so per-agent and per-flow model preferences are runner-side config questions, not schema questions. The schema concern only re-emerges if it turns out designers genuinely need *portable* per-flow model pinning that travels with the spec (i.e. a designer's "this flow was authored against Opus" intent that should follow the spec across deployments). Two precedents to watch: LangGraph's per-node LLM dispatch (computational nodes, not conversational), and the multi-agent-with-handoff pattern in OpenAI Agents / CrewAI / AutoGen (each agent its own model, which `execution.json` already covers per agent). **Hard blocker even if the schema question matures:** the Python runner is single-model, single-provider today (Pipecat's `LLMService` is constructed once per pipeline at one model). Per-flow switching needs multi-provider plumbing + a mechanism to swap or route between `LLMService` instances at flow transitions (re-priming context, paying cache-invalidation cost). The unit of dispatch (per-flow vs. per-capability vs. per-turn) should be decided once runtime costs are visible, not before. Substitutes available today: split into multi-agent (clean model boundary at the agent level, but cross-agent referencing is restricted), or push the heavy work into a capability whose execution config carries its own model (works when the heavy work is *post*-LLM; doesn't help when the conversational LLM itself is what needs more horsepower at this stage). Revisit once the runner has multi-provider dispatch landed and a concrete spec exercises the portability case.
 
 ---
 

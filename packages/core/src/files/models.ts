@@ -146,28 +146,3 @@ export function loadModelsConfig(
   return merged;
 }
 
-export interface ResolveOptions {
-  role?: ModelRole;
-  // agent.default_model — sits between project role and explicit override per
-  // FILE-MODEL.md § Model selection resolution order.
-  agentDefault?: string;
-  // Explicit override (env var / CLI flag / per-file `model` field on a test
-  // case, rubric, or persona). Highest precedence.
-  override?: string;
-}
-
-// Walks the precedence chain low-to-high: built-in default -> project default
-// -> project role -> agent.default_model -> override. Returns null if nothing
-// resolves.
-export function resolveModel(
-  project: ResolvedModelsConfig | null,
-  opts: ResolveOptions = {},
-): string | null {
-  if (opts.override) return opts.override;
-  if (opts.agentDefault) return opts.agentDefault;
-  if (opts.role && project?.roles?.[opts.role]) return project.roles[opts.role] ?? null;
-  if (project?.default) return project.default;
-  if (opts.role && BUILT_IN_MODELS.roles?.[opts.role]) return BUILT_IN_MODELS.roles[opts.role] ?? null;
-  if (BUILT_IN_MODELS.default) return BUILT_IN_MODELS.default;
-  return null;
-}

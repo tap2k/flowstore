@@ -259,7 +259,7 @@ Two collections use CSV + paired meta JSON:
 | File | Contents |
 |---|---|
 | `flowstore.json` | Project manifest. Minimal: `{ "$schema": "flowstore://project/v0" }`. |
-| `agent.json` | Per-agent envelope: `meta` (name, purpose, client, tone, languages), `chatbot_initiates`, `entry_flow_id`, optional `default_model`, plus optional agent-scope `guardrails[]` / `business_goals[]` / `variables{}` / `knowledge.faq[]` inline. At project root in single-agent; under `agents/<id>/` in multi-agent. |
+| `agent.json` | Per-agent envelope: `meta` (name, purpose, client, tone, languages), `chatbot_initiates`, `entry_flow_id`, plus optional agent-scope `guardrails[]` / `business_goals[]` / `variables{}` / `knowledge.faq[]` inline. At project root in single-agent; under `agents/<id>/` in multi-agent. |
 
 ### Scope collections — physical layout
 
@@ -377,7 +377,7 @@ Roles are optional. Unset role → falls back to `default`. Per-file `model` fie
 1. Built-in default in `@flowstore/core`
 2. Project `models/defaults.json` `default`
 3. Project `models/defaults.json` `roles.<role>` (agent / judge / user_simulation / authoring)
-4. Per-file `model` field (in test case / rubric / persona / agent)
+4. Per-file `model` field (in test case / rubric / persona)
 5. Env var (`flowstore_AGENT_MODEL`, `flowstore_JUDGE_MODEL`, etc.)
 6. Per-call CLI override (`--model`, `--agent-model`, `--judge-model`, `--user-sim-model`)
 
