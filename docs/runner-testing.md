@@ -11,9 +11,11 @@ exchange for portability ([MVP-PLAN.md § Critical decisions to verify or make
 early](./mvp-plan.md#critical-decisions-to-verify-or-make-early), point 4);
 this is how you close it case-by-case when you need to.
 
-For the system-prompt path see [testing-from-scripts.md](testing-from-scripts.md);
-for the methodology see [test-driven-prompts.md](test-driven-prompts.md); for
-the systems view see [optimization-loop.md](optimization-loop.md).
+For the canonical framework overview (units of testing, current state, plan)
+see [testing-plan.md](testing-plan.md). For the system-prompt path see
+[testing-from-scripts.md](testing-from-scripts.md); for the methodology see
+[test-driven-prompts.md](test-driven-prompts.md); for the systems view see
+[optimization-loop.md](optimization-loop.md).
 
 ---
 

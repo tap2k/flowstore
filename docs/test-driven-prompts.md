@@ -1,6 +1,6 @@
 # Test-driven prompt engineering
 
-Audience: anyone authoring or iterating on a flowstore agent — designers, prompt authors, engineers. This doc is the methodology for *using* the testing harness as a development loop. For the harness mechanics (file shapes, runner CLI, mock dispatch) see [testing-from-scripts.md](testing-from-scripts.md).
+Audience: anyone authoring or iterating on a flowstore agent — designers, prompt authors, engineers. This doc is the methodology for *using* the testing harness as a development loop. For the canonical framework overview (units of testing, current state, plan) see [testing-plan.md](testing-plan.md); for the harness mechanics (file shapes, runner CLI, mock dispatch) see [testing-from-scripts.md](testing-from-scripts.md).
 
 The shorter version: **write the conversations you want before the prompt that produces them, then iterate the spec / generator / runtime until the harness goes green.** The full version is below.
 
