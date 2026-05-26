@@ -21,7 +21,9 @@ export const RubricSchema = Type.Object(
     criteria: Type.String(),
     scale: Scale,
     prompt_template: Type.String(),
-    model: Type.Optional(Type.String()),
+    // null = no per-rubric pin; fall back to the run's judge model. The
+    // explicit null is conventional — `Optional` alone wouldn't accept it.
+    model: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   },
   { additionalProperties: false },
 );

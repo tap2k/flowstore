@@ -17,23 +17,38 @@ const Assertion = Type.Object(
   { additionalProperties: false },
 );
 
-// Test case = scripted user turns + which evaluators run + how to mock
-// capabilities for this run. Evaluator names resolve in both
-// tests/evaluators/<name>.py and tests/rubrics/<name>.rubric.json — the
-// loader picks whichever matches. Per-file `model` field pins the model for
-// reproducibility; resolution chain is documented in FILE-MODEL.md.
+// Test case = scripted user turns OR a persona-driven conversation + which
+// evaluators run + how to mock capabilities. Two shapes share this file type
+// because both are discovered the same way; the runner script branches on
+// presence of persona_id. Cases must carry one of user_turns or persona_id
+// (enforced in the runner, not the schema).
+//
+// Evaluator names resolve in both tests/evaluators/<name>.py and
+// tests/rubrics/<name>.rubric.json — the loader picks whichever matches.
+// Per-file `model` field pins the model for reproducibility; resolution chain
+// is documented in FILE-MODEL.md.
 export const TestCaseSchema = Type.Object(
   {
     $schema: Type.Literal("flowstore://test-case/v0"),
     id: Type.String(),
     name: Type.Optional(Type.String()),
     description: Type.Optional(Type.String()),
-    user_turns: Type.Array(Type.String()),
+    user_turns: Type.Optional(Type.Array(Type.String())),
     mock_bindings: Type.Optional(MockBindings),
     evaluators: Type.Optional(Type.Array(Type.String())),
     assertions: Type.Optional(Type.Array(Assertion)),
     persona_id: Type.Optional(Type.String()),
+    // Cap on persona-driven runs so a derailed conversation can't loop forever.
+    // Ignored for scripted cases (user_turns is the implicit cap).
+    max_turns: Type.Optional(Type.Integer({ minimum: 1 })),
+    // Reference to tests/gold/<gold_id>.gold.json — consumed by gold-comparing
+    // rubrics (the {gold_standard} placeholder in rubric.prompt_template).
+    gold_id: Type.Optional(Type.String()),
     model: Type.Optional(Type.String()),
+    // Language code (e.g. "ES", "EN") for multilingual specs. Required when
+    // spec.meta.languages declares >1 language; the runner script fails loud
+    // if absent rather than guessing the first declared language.
+    language: Type.Optional(Type.String()),
     // Path (project-relative) to a JSON file of {placeholder: value} to inject
     // into the compiled prompt for this case. Makes the case self-describing —
     // suite runners can pick up the right variable bundle without out-of-band

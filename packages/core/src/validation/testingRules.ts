@@ -72,6 +72,28 @@ export function validateTesting(
     } else {
       testIds.add(t.id);
     }
+    // Shape discriminator: a case is either scripted (user_turns) or
+    // persona-driven (persona_id), never both, never neither.
+    const hasTurns = Array.isArray(t.user_turns);
+    const hasPersona = typeof t.persona_id === "string";
+    if (!hasTurns && !hasPersona) {
+      issues.push({
+        at: { kind: "test_case", id: t.id },
+        message: "must have user_turns (scripted) or persona_id (persona-driven)",
+      });
+    }
+    if (hasTurns && hasPersona) {
+      issues.push({
+        at: { kind: "test_case", id: t.id },
+        message: "must not have both user_turns and persona_id — pick one shape",
+      });
+    }
+    if (t.max_turns !== undefined && hasTurns) {
+      issues.push({
+        at: { kind: "test_case", id: t.id },
+        message: "max_turns is only meaningful for persona-driven cases; user_turns is its own implicit cap",
+      });
+    }
     if (t.persona_id && !personaIds.has(t.persona_id)) {
       issues.push({
         at: { kind: "test_case", id: t.id },
