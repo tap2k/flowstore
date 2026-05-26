@@ -49,6 +49,7 @@ A minimal, target-agnostic export format that any LLM agent platform can consume
 | turn capture (`direct`) | Hardcoded value in prompt |
 | capability (`kind: function`) | JSON tool schema with typed parameters |
 | capability (`kind: retrieval`) | JSON tool schema; retrieval semantics described in `description` |
+| flow `retrieve_on_turn` | Prompt-injection hint in flow's prompt section ("Before answering, the platform should call these retrieval tools and prepend results"); not a structural primitive, so the bundle reduces to instructions for the deploying team |
 | variables | Tool parameter / return type schemas |
 | guardrails | Prompt constraints section |
 | persona | Prompt persona section |
@@ -74,6 +75,7 @@ Pipecat uses a node-graph architecture. Each flowstore flow maps to a Pipecat no
 | turn capture (`direct`) | `SetSlot` with literal value |
 | capability (`kind: function`) | Custom action / function processor (MCP integration when bound, HTTP call otherwise) |
 | capability (`kind: retrieval`) | Context aggregation step |
+| flow `retrieve_on_turn` | Pre-LLM processor on the flow's node that fires the named retrieval capabilities and appends their `context` outputs to the LLM's `task_messages` — mirrors the runner's auto-injection |
 | tool step (references capability) | Function invocation in flow logic |
 | exit-path action (references capability) | Function invocation on the originating node's terminal transition |
 | call | Flow transition via `FlowManager` |
@@ -102,6 +104,7 @@ LiveKit uses an instruction-and-tool architecture. The entire agent spec generat
 | turn capture (`direct`) | Hardcoded value in instructions |
 | capability (`kind: function`) | `FunctionTool` definition (MCP connection or HTTP call resolved at execution time) |
 | capability (`kind: retrieval`) | `FunctionTool` with retrieval logic |
+| flow `retrieve_on_turn` | Pre-LLM hook fires the named retrievals and prepends results into the LiveKit agent's instructions for the current turn |
 | tool step (references capability) | `FunctionTool` invocation in instructions |
 | exit-path action (references capability) | `FunctionTool` invoked at flow terminal state |
 | call | Sub-instructions section |
@@ -127,6 +130,7 @@ LangGraph uses a graph-based execution model architecturally closest to flowstor
 | turn capture (`direct`) | Direct state assignment |
 | capability (`kind: function`) | `ToolNode` with typed parameters |
 | capability (`kind: retrieval`) | `Retriever` node |
+| flow `retrieve_on_turn` | Pre-LLM node in the flow's subgraph that runs the named retrievers and writes the concatenated context into a `retrieved_context` state field the flow's LLM-call node reads when building the prompt |
 | tool step (references capability) | `ToolNode` invocation |
 | exit-path action (references capability) | Terminal-node side effect (post-state-update) |
 | call step | Subgraph invocation |
@@ -156,6 +160,7 @@ Dialogflow CX is graph-based: flows contain pages, pages contain parameters and 
 | turn capture (`direct`) | Parameter default value |
 | capability (`kind: function`) | Webhook (HTTP) fulfillment |
 | capability (`kind: retrieval`) | Data Store handler / Generator with grounding |
+| flow `retrieve_on_turn` | Page-level Data Store query bound to fire on entry; results grounded into the Generator's response for that page |
 | tool step (references capability) | Page-level webhook invocation |
 | exit-path action (references capability) | Transition fulfillment webhook |
 | call | Flow transition route |
@@ -184,6 +189,7 @@ Behavioral spec fields (personas, eval metadata) map to Generator/Playbook syste
 | turn capture (`direct`) | Hardcoded value in instructions |
 | capability (`kind: function`) | `FunctionTool` definition (MCP or HTTP resolved at execution time) |
 | capability (`kind: retrieval`) | `FunctionTool` with retrieval logic |
+| flow `retrieve_on_turn` | Pre-LLM hook (e.g. via a `BeforeAgentLLM` callback or wrapping the agent's run loop) fires the named retrievals and prepends results to that turn's instructions |
 | tool step (references capability) | `FunctionTool` invocation |
 | exit-path action (references capability) | `FunctionTool` invoked before terminating or handing off |
 | exit_path (`llm`) | Routing guidance in instructions |

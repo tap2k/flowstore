@@ -212,6 +212,11 @@ export const FlowSchema = Type.Object(
     example: Type.Optional(Type.String()),
     knowledge: Type.Optional(FlowKnowledgeSchema),
     variables: Type.Optional(Type.Record(Type.String(), VariableDeclSchema)),
+    // Capability ids fired pre-LLM each turn this flow is active. Outputs
+    // bind to the variable bag and the first declared output's text is
+    // auto-injected into the system prompt as a "Retrieved context" block.
+    // Runner enforces: each id must reference a kind:"retrieval" capability.
+    retrieve_on_turn: Type.Optional(Type.Array(Type.String())),
   },
   strict
 );

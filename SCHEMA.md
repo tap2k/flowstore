@@ -320,7 +320,9 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
       "description": "string",
       "values": ["literal", "..."]
     }
-  }
+  },
+
+  "retrieve_on_turn": ["<capability_id>"]
 }
 ```
 
@@ -343,6 +345,7 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
 - **`example`** — optional plain-text transcript illustrating intended behavior. Annotation-only.
 - **`knowledge.faq`** — flow-scoped FAQ entries. Same shape as agent-level.
 - **`variables`** — optional flow-scoped variable declarations. Same shape as agent-level.
+- **`retrieve_on_turn`** — array of `agent.capabilities[].id` values, each referencing a capability with `kind: "retrieval"`. Fires sequentially **pre-LLM each turn this flow is active**, with capability inputs resolved from variable scope (same rule as exit-path actions). Outputs bind to the variable bag (so retrieved values can be referenced via `{var}` substitution if useful); additionally, the first declared output's text is auto-injected into the system prompt as a `Retrieved context:` block above the flow sections. Validator rejects ids that don't exist or that reference `kind: "function"`. Empty/unset = no auto-fire on this flow. This is what makes the `kind: "retrieval"` distinction runtime-meaningful — without `retrieve_on_turn`, retrieval dispatches identically to function.
 
 ---
 
