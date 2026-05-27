@@ -30,8 +30,8 @@ try {
     process.exit(1);
   }
 
-  const a = JSON.parse(JSON.stringify(sortFlowsById(source)));
-  const b = JSON.parse(JSON.stringify(sortFlowsById(resolved)));
+  const a = JSON.parse(JSON.stringify(sortById(source)));
+  const b = JSON.parse(JSON.stringify(sortById(resolved)));
   const diff = deepDiff(a, b, []);
   if (diff.length > 0) {
     console.error("FAIL: disk round-trip diff (first 20):");
@@ -44,8 +44,8 @@ try {
   // Normalize source the same way so the codegen sees identical input on both
   // sides — what we're asserting is that the resolved spec compiles to the
   // same prompt as the source, given the canonical flow order.
-  const promptSrc = generateSystemPrompt(sortFlowsById(source));
-  const promptLoaded = generateSystemPrompt(sortFlowsById(resolved));
+  const promptSrc = generateSystemPrompt(sortById(source));
+  const promptLoaded = generateSystemPrompt(sortById(resolved));
   if (promptSrc !== promptLoaded) {
     console.error("FAIL: system prompt differs after round-trip");
     console.error(`source length: ${promptSrc.length}, loaded length: ${promptLoaded.length}`);
@@ -58,8 +58,11 @@ try {
   rmSync(tmp, { recursive: true, force: true });
 }
 
-function sortFlowsById(spec: Spec): Spec {
-  return { ...spec, flows: [...spec.flows].sort((a, b) => a.id.localeCompare(b.id)) };
+function sortById(spec: Spec): Spec {
+  const agent = spec.agent.capabilities
+    ? { ...spec.agent, capabilities: [...spec.agent.capabilities].sort((a, b) => a.id.localeCompare(b.id)) }
+    : spec.agent;
+  return { ...spec, agent, flows: [...spec.flows].sort((a, b) => a.id.localeCompare(b.id)) };
 }
 
 function deepDiff(a: unknown, b: unknown, path: string[]): string[] {

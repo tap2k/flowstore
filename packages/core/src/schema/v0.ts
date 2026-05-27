@@ -36,7 +36,7 @@ const CapabilityKind = Type.Union([
   Type.Literal("function"),
 ]);
 
-const VariableDeclSchema = Type.Object(
+export const VariableDeclSchema = Type.Object(
   {
     type: Type.Optional(VariableType),
     description: Type.Optional(Type.String()),
@@ -45,7 +45,7 @@ const VariableDeclSchema = Type.Object(
   strict
 );
 
-const GuardrailSchema = Type.Object(
+export const GuardrailSchema = Type.Object(
   {
     id: Type.String(),
     statement: Type.String(),
@@ -53,7 +53,7 @@ const GuardrailSchema = Type.Object(
   strict
 );
 
-const BusinessGoalSchema = Type.Object(
+export const BusinessGoalSchema = Type.Object(
   {
     id: Type.String(),
     name: Type.String(),
@@ -63,7 +63,7 @@ const BusinessGoalSchema = Type.Object(
   strict
 );
 
-const FaqEntrySchema = Type.Object(
+export const FaqEntrySchema = Type.Object(
   {
     id: Type.String(),
     question: Type.String(),
@@ -111,7 +111,7 @@ const KnowledgeSchema = Type.Object(
   strict
 );
 
-const CapabilitySchema = Type.Object(
+export const CapabilitySchema = Type.Object(
   {
     id: Type.String(),
     name: Type.String(),

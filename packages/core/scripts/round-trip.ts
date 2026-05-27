@@ -24,9 +24,10 @@ if (!resolved) {
 
 // Normalize: drop undefined fields, plain objects only, key-order-independent
 // deep equality. Flow order is presentational (lookup is by id, not index),
-// so sort both sides by id before comparing.
-const normalizedSource = normalize(sortFlowsById(source));
-const normalizedResolved = normalize(sortFlowsById(resolved));
+// so sort both sides by id before comparing. Capabilities decompose to one
+// file each and reload in filename (= id) order, so sort them too.
+const normalizedSource = normalize(sortById(source));
+const normalizedResolved = normalize(sortById(resolved));
 
 const diff = deepDiff(normalizedSource, normalizedResolved, []);
 if (diff.length === 0) {
@@ -43,8 +44,11 @@ function normalize(v: unknown): unknown {
   return JSON.parse(JSON.stringify(v));
 }
 
-function sortFlowsById(spec: Spec): Spec {
-  return { ...spec, flows: [...spec.flows].sort((a, b) => a.id.localeCompare(b.id)) };
+function sortById(spec: Spec): Spec {
+  const agent = spec.agent.capabilities
+    ? { ...spec.agent, capabilities: [...spec.agent.capabilities].sort((a, b) => a.id.localeCompare(b.id)) }
+    : spec.agent;
+  return { ...spec, agent, flows: [...spec.flows].sort((a, b) => a.id.localeCompare(b.id)) };
 }
 
 function deepDiff(a: unknown, b: unknown, path: string[]): string[] {

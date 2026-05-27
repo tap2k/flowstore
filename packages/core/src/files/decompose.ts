@@ -11,11 +11,51 @@ export interface DecomposeOptions {
 
 export function decomposeSpec(spec: Spec, opts: DecomposeOptions = {}): FileMap {
   const out: FileMap = {};
+  const agent = spec.agent;
 
   out["flowstore.json"] = stringifyJson(PROJECT_MANIFEST);
-  out["agent.json"] = stringifyJson(buildAgentFile(spec.agent));
+  out["agent.json"] = stringifyJson(buildAgentFile(agent));
 
-  const glossary = spec.agent.knowledge?.glossary;
+  // Project-scope collections promoted out of agent.json into their own files
+  // (FILE-MODEL § "Scope collections — physical layout"). The loader merges
+  // them back; round-trip is exact modulo collection ordering.
+  if (agent.guardrails && agent.guardrails.length > 0) {
+    out["guardrails.json"] = stringifyJson({
+      $schema: "flowstore://spec/guardrails/v0",
+      guardrails: agent.guardrails,
+    });
+  }
+
+  if (agent.business_goals && agent.business_goals.length > 0) {
+    out["business-goals.json"] = stringifyJson({
+      $schema: "flowstore://spec/business-goals/v0",
+      business_goals: agent.business_goals,
+    });
+  }
+
+  if (agent.variables && Object.keys(agent.variables).length > 0) {
+    out["variables.json"] = stringifyJson({
+      $schema: "flowstore://spec/variables/v0",
+      variables: agent.variables,
+    });
+  }
+
+  for (const capability of agent.capabilities ?? []) {
+    out[`capabilities/${capability.id}.capability.json`] = stringifyJson({
+      $schema: "flowstore://spec/capability/v0",
+      ...capability,
+    });
+  }
+
+  const faq = agent.knowledge?.faq;
+  if (faq && faq.length > 0) {
+    out["knowledge/faq.json"] = stringifyJson({
+      $schema: "flowstore://spec/faq/v0",
+      faq,
+    });
+  }
+
+  const glossary = agent.knowledge?.glossary;
   if (glossary && glossary.length > 0) {
     out["knowledge/glossary.json"] = stringifyJson({
       $schema: "flowstore://spec/project-glossary/v0",
@@ -23,7 +63,7 @@ export function decomposeSpec(spec: Spec, opts: DecomposeOptions = {}): FileMap 
     });
   }
 
-  for (const table of spec.agent.knowledge?.tables ?? []) {
+  for (const table of agent.knowledge?.tables ?? []) {
     const { rows: _rows, ...meta } = table;
     out[`knowledge/tables/${table.id}.meta.json`] = stringifyJson({
       $schema: "flowstore://spec/knowledge-table/v0",
@@ -32,7 +72,7 @@ export function decomposeSpec(spec: Spec, opts: DecomposeOptions = {}): FileMap 
     out[`knowledge/tables/${table.id}.csv`] = tableToCsv(table);
   }
 
-  const languages = spec.agent.meta.languages ?? [];
+  const languages = agent.meta.languages ?? [];
   for (const flow of spec.flows) {
     out[`flows/${flow.id}.flow.json`] = stringifyJson(buildFlowFile(flow));
     if (flow.scripts && flow.scripts.length > 0) {
@@ -45,17 +85,25 @@ export function decomposeSpec(spec: Spec, opts: DecomposeOptions = {}): FileMap 
   return out;
 }
 
-// Agent envelope, minus what's promoted out to project-scope files (glossary,
-// tables). knowledge.faq stays inline as agent-scope.
+// Agent envelope, minus everything promoted to its own file: guardrails,
+// business goals, variables, capabilities, and all of knowledge (faq,
+// glossary, tables). What remains is the bare envelope — meta, entry flow,
+// and the who-speaks-first flag.
 function buildAgentFile(agent: Agent): Agent {
-  const next: Agent = { ...agent };
-  const faq = agent.knowledge?.faq;
-  if (faq && faq.length > 0) {
-    next.knowledge = { faq };
-  } else {
-    delete (next as { knowledge?: unknown }).knowledge;
-  }
-  return next;
+  const {
+    guardrails: _guardrails,
+    business_goals: _businessGoals,
+    capabilities: _capabilities,
+    variables: _variables,
+    knowledge: _knowledge,
+    ...rest
+  } = agent;
+  void _guardrails;
+  void _businessGoals;
+  void _capabilities;
+  void _variables;
+  void _knowledge;
+  return rest as Agent;
 }
 
 // Flow file holds per-script metadata (id + optional variations); text lives
@@ -84,9 +132,11 @@ function scaffoldReadme(spec: Spec, opts: DecomposeOptions): string {
     "Authored in flowstore. Spec files are decomposed under this directory:",
     "",
     "- `flowstore.json` — project manifest",
-    "- `agent.json` — agent envelope",
+    "- `agent.json` — agent envelope (meta, entry flow)",
+    "- `guardrails.json`, `business-goals.json`, `variables.json` — project-scope collections",
+    "- `capabilities/` — capability declarations (`.capability.json`) + test mocks (`.mock.json`)",
+    "- `knowledge/` — FAQ, glossary, and tables",
     "- `flows/` — per-flow behavior (`.flow.json`) + utterances (`.scripts.csv`)",
-    "- `knowledge/` — project-scope glossary and tables",
     "",
     "See the flowstore file-model docs for the on-disk layout.",
     "",
