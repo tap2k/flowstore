@@ -117,6 +117,7 @@ V0 SCHEMA
             "expression": "string (for an always-fires exit use { method: \"direct\", expression: \"true\" })",
             "method": "llm | calculation | direct"
           },
+          "max_turns": 3 /* optional turn-budget escape; mutually exclusive with condition. See TURN BUDGETS */,
           "assigns": {
             "<variable_name>": {
               "method": "llm | calculation | direct",
@@ -201,6 +202,25 @@ that move-on path is the omitted-condition fallback and the specific
 cases are the conditional exits listed before it; it is NOT a
 `{ "method": "direct", "expression": "true" }` exit. Reserve
 `{direct, true}` for the genuinely sibling-less case.
+
+TURN BUDGETS
+
+When the source caps how many times the agent retries before giving
+up — "after 3 failed verification attempts, escalate to a human",
+"ask for the date up to twice, then move on", "if they don't confirm
+after two tries, end the call" — model the cap as a dedicated exit
+with `max_turns: <N>` and no `condition`. The runtime counts agent
+turns spent in the flow and fires this exit deterministically once
+the budget is reached; its `goto` is the escape target (the
+human-handoff flow, the next flow, END). `max_turns` and `condition`
+are mutually exclusive on the same exit — express "retry until X OR
+budget runs out" as two sibling exits: the conditional one (the
+success/branch case) listed first, the `max_turns` budget-fallback
+last. Only emit `max_turns` when the source states an actual numeric
+cap; do NOT synthesize a budget for a flow the source lets retry
+indefinitely. Don't model a cap as an `llm` condition like "the
+customer has failed several times" — the runtime LLM can't reliably
+count turns, which is the whole reason the budget exists.
 
 Assigns: `assigns[var]` is exactly two fields, `method` and `value`.
 `value` is required, interpreted by `method`:

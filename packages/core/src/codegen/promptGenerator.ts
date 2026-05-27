@@ -130,7 +130,22 @@ function renderFlowRoutingInline(flow: Flow, flowNames: Map<string, string>): st
   const lines: string[] = [];
   for (const ep of exits) {
     const target = renderInlineTarget(ep, flowNames);
-    if (ep.condition) {
+    if (ep.max_turns !== undefined) {
+      // Turn-budget escape. The runtime dispatcher counts agent turns per flow
+      // frame and fires this deterministically — the agent cannot reliably
+      // self-count, so we attribute it to the runtime rather than phrasing it
+      // as an instruction the model should execute (matches the Python
+      // prompt_builder, which hides max_turns from the LLM entirely). It is
+      // rendered at all only so this human-facing artifact (preview / export)
+      // documents that the budget exists. Crucially, do NOT fall through to
+      // the "Otherwise" branch — a budget exit has no condition because it is
+      // turn-gated, not because it is a catch-all, and rendering it as an
+      // unconditional fallback inverts its meaning.
+      const t = ep.max_turns === 1 ? "turn" : "turns";
+      lines.push(
+        `   - Turn-budget escape (runtime-enforced): if no other exit fires within ${ep.max_turns} ${t} in this flow, ${target}.`,
+      );
+    } else if (ep.condition) {
       lines.push(`   - ${renderConditionClause(ep.condition)}, ${target}.`);
     } else {
       lines.push(`   - Otherwise, ${target}.`);

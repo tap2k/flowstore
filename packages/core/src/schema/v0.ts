@@ -168,6 +168,13 @@ const ExitPathSchema = Type.Object(
     id: Type.String(),
     goto: Type.String({ minLength: 1 }),
     condition: Type.Optional(ConditionSchema),
+    // Turn-budget escape: fire this exit unconditionally once the flow's
+    // active frame has taken `max_turns` agent turns without another exit
+    // matching. Deterministic loop protection (matches Voiceflow / Botpress /
+    // Twilio Studio per-widget retry caps). Mutually exclusive with
+    // `condition` — a budget exit is turn-gated, not condition-gated; the
+    // graph validator rejects an exit carrying both.
+    max_turns: Type.Optional(Type.Integer({ minimum: 1 })),
     notes: Type.Optional(Type.String()),
     assigns: Type.Optional(Type.Record(Type.String(), AssignValueSchema)),
     actions: Type.Optional(Type.Array(ExitPathActionSchema)),

@@ -50,6 +50,12 @@ export function validateGraph(spec: Spec): GraphIssue[] {
           message: `goto "${xp.goto}" does not match any flow`,
         });
       }
+      if (xp.max_turns !== undefined && xp.condition) {
+        issues.push({
+          at: { kind: "edge", flowId: f.id, exitPathId: xp.id },
+          message: "max_turns and condition are mutually exclusive on the same exit_path",
+        });
+      }
       for (const action of xp.actions ?? []) {
         if (!capabilityIds.has(action.capability_id)) {
           issues.push({
