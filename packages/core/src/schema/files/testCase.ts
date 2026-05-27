@@ -54,6 +54,14 @@ export const TestCaseSchema = Type.Object(
     // suite runners can pick up the right variable bundle without out-of-band
     // mapping. CLI --vars-file still wins when explicitly passed.
     vars_file: Type.Optional(Type.String()),
+    // Free-form labels for suite filtering and grouping. Suite runners accept
+    // a `--tag <name>` filter that includes only cases carrying that tag.
+    // Colon-prefixed namespaces are the lightweight convention for richer
+    // metadata: "src:gold:<id>" / "src:session:<id>" / "src:bug:<id>" /
+    // "src:authored" for provenance; bare tags for routing buckets
+    // ("negotiation", "after-grace", "wrong-number"). Promote a convention
+    // to a structured field only when a consumer earns it.
+    tags: Type.Optional(Type.Array(Type.String())),
   },
   { additionalProperties: false },
 );
