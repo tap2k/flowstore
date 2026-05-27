@@ -143,6 +143,10 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const busy = status === "thinking" || status === "starting";
   const ended = status === "ended";
   const ready = status === "ready";
+  // After a failed turn the session is still alive, so let the user type and
+  // retry. Start failures have no session, so the input isn't rendered at all
+  // (EmptyState's "Start session" handles that retry instead).
+  const canSend = ready || status === "error";
 
   async function startSession() {
     const current = useSpecStore.getState().spec;
@@ -199,10 +203,13 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   }
 
   async function onSend() {
-    if (!input.trim() || busy || ended || !ready) return;
+    if (!input.trim() || busy || ended || !canSend) return;
     const text = input;
     setInput("");
     await send(text);
+    // A failed turn rolls itself back in the store and leaves status "error".
+    // Put the text back so the user can fix and resend without retyping.
+    if (useSimulateStore.getState().status === "error") setInput(text);
   }
 
   function onForkTurn(turnIndex: number, originalText: string) {
@@ -287,7 +294,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     if (status === "starting") return "starting…";
     if (status === "thinking") return "thinking…";
     if (status === "ended") return "ended";
-    if (status === "error") return error ?? "error";
+    if (status === "error") return "error";
     if (status === "ready") return "ready";
     return "idle";
   })();
@@ -337,16 +344,16 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       </div>
 
       <div className="flex items-center gap-2 border-b border-zinc-200 px-4 py-1.5 text-[11px]">
-        <div className="flex overflow-hidden rounded border border-zinc-200">
-          <ModeButton current={mode} value="prompt" disabled={hasSession} onClick={setMode}>
-            Prompt
-          </ModeButton>
-          {runnerUrl && (
+        {runnerUrl && (
+          <div className="flex overflow-hidden rounded border border-zinc-200">
+            <ModeButton current={mode} value="prompt" disabled={hasSession} onClick={setMode}>
+              Prompt
+            </ModeButton>
             <ModeButton current={mode} value="runner" disabled={hasSession} onClick={setMode}>
               Runner
             </ModeButton>
-          )}
-        </div>
+          </div>
+        )}
         <ModelPicker
           value={model}
           onChange={setSimulateAgentModel}
@@ -468,8 +475,18 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       </div>
 
       {error && status === "error" && (
-        <div className="border-t border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-800">
-          {error}
+        <div className="flex items-start justify-between gap-2 border-t border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-800">
+          <span>{error}</span>
+          {hasSession && (
+            <button
+              onClick={onReset}
+              disabled={busy}
+              title="End this session and start fresh against the same spec."
+              className="shrink-0 rounded border border-red-300 bg-white px-2 py-0.5 text-red-700 hover:bg-red-100 disabled:opacity-40"
+            >
+              Reset
+            </button>
+          )}
         </div>
       )}
 
@@ -494,7 +511,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKey}
             placeholder="Type as the user… (⌘↵ to send)"
-            disabled={busy || !ready}
+            disabled={busy || !canSend}
             rows={3}
             className="w-full resize-none rounded border border-zinc-300 p-2 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
           />
@@ -513,7 +530,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             )}
             <button
               onClick={onSend}
-              disabled={busy || !ready || !input.trim()}
+              disabled={busy || !canSend || !input.trim()}
               className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
             >
               Send

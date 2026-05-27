@@ -177,21 +177,23 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         </p>
       </div>
 
-      <div className="space-y-2 pt-3">
-        <label className="text-xs font-medium text-zinc-700">Runner URL</label>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={runnerUrl}
-            onChange={(e) => setRunnerUrlInput(e.target.value)}
-            placeholder={DEFAULT_RUNNER_URL}
-            className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400"
-          />
+      {import.meta.env.VITE_DEV === "1" && (
+        <div className="space-y-2 pt-3">
+          <label className="text-xs font-medium text-zinc-700">Runner URL</label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={runnerUrl}
+              onChange={(e) => setRunnerUrlInput(e.target.value)}
+              placeholder={DEFAULT_RUNNER_URL}
+              className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            />
+          </div>
+          <p className="text-[11px] text-zinc-500">
+            Endpoint for the Python runner backing Simulate&apos;s runner mode.
+          </p>
         </div>
-        <p className="text-[11px] text-zinc-500">
-          Endpoint for the Python runner backing Simulate&apos;s runner mode.
-        </p>
-      </div>
+      )}
 
       <div className="flex items-center justify-end gap-2 pt-2">
         <button

@@ -572,8 +572,10 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         const creds = readLlmCreds("agent");
         if (!creds.provider || !creds.apiKey) {
           set({
+            transcript,
             status: "error",
             error: `Prompt-mode turn needs a ${creds.endpointLabel} API key in Settings.`,
+            autoRun: false,
           });
           return;
         }
@@ -612,9 +614,13 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           status: "ready",
         });
       } catch (e) {
+        // Roll back the optimistic user turn (see the runner branch) and stop
+        // the persona loop.
         set({
+          transcript,
           status: "error",
           error: e instanceof Error ? e.message : "Turn failed.",
+          autoRun: false,
         });
       }
       return;
@@ -650,9 +656,14 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         ...(ended ? { autoRun: false } : {}),
       });
     } catch (e) {
+      // Roll back the optimistic user turn so the transcript reflects what the
+      // runner actually saw, and the panel can restore it to the input for a
+      // clean retry. Stop the persona loop — it can't proceed from an error.
       set({
+        transcript,
         status: "error",
         error: e instanceof Error ? e.message : "Turn failed.",
+        autoRun: false,
       });
     }
   },
