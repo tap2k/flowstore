@@ -17,6 +17,40 @@ const Assertion = Type.Object(
   { additionalProperties: false },
 );
 
+// Cheap-predicate assertion over the WHOLE transcript (agent turns
+// only). Complements per-turn `assertions[]` (which can miss leaks
+// that happen on an unwatched turn) and rubrics (which are expensive
+// and non-deterministic). Operators (kind):
+//   substring             — pattern appears (must_appear true) or doesn't
+//                           (must_appear false) somewhere in the agent
+//                           transcript; case-insensitive
+//   regex                 — same but pattern is a regex; case-sensitive
+//                           by default (use (?i) for case-insensitive)
+//   count                 — substring count (case-insensitive) falls in
+//                           [min_occurrences, max_occurrences]; either
+//                           bound is optional
+//   must_terminate_within — agent emitted at most max_turns turns
+//                           (catches runaway / infinite loops in
+//                           persona-driven runs)
+// must_appear defaults to true. Required fields per kind enforced in
+// the runner, not the schema.
+const TranscriptAssertion = Type.Object(
+  {
+    kind: Type.Union([
+      Type.Literal("substring"),
+      Type.Literal("regex"),
+      Type.Literal("count"),
+      Type.Literal("must_terminate_within"),
+    ]),
+    pattern: Type.Optional(Type.String()),
+    must_appear: Type.Optional(Type.Boolean()),
+    min_occurrences: Type.Optional(Type.Integer({ minimum: 0 })),
+    max_occurrences: Type.Optional(Type.Integer({ minimum: 0 })),
+    max_turns: Type.Optional(Type.Integer({ minimum: 1 })),
+  },
+  { additionalProperties: false },
+);
+
 // End-state assertion over result.final_variables. One assertion per
 // {variable} check. Exactly one of equals / matches / is_set must be
 // provided — enforced in the runner script, not in the schema (typebox
@@ -59,6 +93,7 @@ export const TestCaseSchema = Type.Object(
     evaluators: Type.Optional(Type.Array(Type.String())),
     assertions: Type.Optional(Type.Array(Assertion)),
     state_assertions: Type.Optional(Type.Array(StateAssertion)),
+    transcript_assertions: Type.Optional(Type.Array(TranscriptAssertion)),
     persona_id: Type.Optional(Type.String()),
     // Cap on persona-driven runs so a derailed conversation can't loop forever.
     // Ignored for scripted cases (user_turns is the implicit cap).
