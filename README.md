@@ -1,6 +1,8 @@
 # flowstore
 
-The browser editor in **flowstore — a Behavioral IDE for Conversational Agents**. Authors conversation specs on a canvas, decomposes them into per-concern files in a Git repo, and pairs with a Python testing surface and a static client-share view. Specs conform to [SCHEMA.md](./SCHEMA.md); the on-disk layout is in [FILE-MODEL.md](./FILE-MODEL.md).
+The browser editor in **flowstore — a Behavioral IDE for Conversational Agents**. Authors conversation specs on a canvas, decomposes them into per-concern files in a Git repo, and compiles a system prompt as a pure function of the spec. Specs conform to [SCHEMA.md](./SCHEMA.md); the on-disk layout is in [FILE-MODEL.md](./FILE-MODEL.md).
+
+**Try it:** the hosted editor at [create.flowstore.org](https://create.flowstore.org) — nothing to install, runs in your browser.
 
 ## Run
 
@@ -26,7 +28,7 @@ npm workspaces monorepo (`packages/*`):
 - Multilingual scripts with spreadsheet round-trip for external translators.
 - Ajv + graph-rule validation surfaced inline during authoring.
 - Deterministic system-prompt codegen.
-- LLM-assisted spec authoring (bring your own Google API key).
+- LLM-assisted spec authoring (bring your own LLM API key — Google, OpenAI, or OpenRouter).
 - Simulate panel — chat against a generated system prompt, or against a paired runtime with live canvas highlighting.
 
 ## Docs
@@ -40,8 +42,12 @@ npm workspaces monorepo (`packages/*`):
 ## Examples
 
 - [`examples/coffee`](./examples/coffee) — a minimal single-file spec; the ten-minute introduction.
-- **`flowstore-example-fnol`** — the comprehensive worked example (Northwind FNOL insurance-intake agent), maintained as its own repository. Exercises every flow type and every test type, full file-model decomposition, multilingual scripts, and a self-contained Python testing harness. It compiles against any flowstore checkout via its `FLOWSTORE_COMPILE_CMD` override, and carries the gold-standard extraction prompt (`prompts/GOLD-EXTRACTION-PROMPT.txt`) that previously lived here.
+- [`flowstore-example-fnol`](https://github.com/tap2k/flowstore-example-fnol) — the comprehensive worked example (Northwind FNOL insurance-intake agent), maintained as its own repository. Exercises every flow type and every test type, full file-model decomposition, multilingual scripts, and a self-contained Python testing harness. It compiles against any flowstore checkout via its `FLOWSTORE_COMPILE_CMD` override, and carries the gold-standard extraction prompt (`prompts/GOLD-EXTRACTION-PROMPT.txt`) that previously lived here.
 
 ## Stack
 
 Vite 7 · React 19 · TypeScript · Tailwind v4 · `@xyflow/react`
+
+## License
+
+MIT — see [LICENSE](./LICENSE).

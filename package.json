@@ -2,6 +2,8 @@
   "name": "flowstore",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
+  "author": "Tapan Parikh <tparikh@gmail.com>",
   "workspaces": [
     "packages/*"
   ],

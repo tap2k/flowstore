@@ -8,7 +8,7 @@ Canonical behavioral spec schema for conversational agents authored in flowstore
 
 ## The Model in 30 Seconds
 
-A spec is a graph of **flows** connected by **exit paths**. Each exit path has a `when` condition and a `goto` destination. `goto` is one of:
+A spec is a graph of **flows** connected by **exit paths**. Each exit path has a `condition` and a `goto` destination. `goto` is one of:
 
 - **another flow's id** — transition into that flow.
 - **`END`** — terminate the conversation.
@@ -40,7 +40,7 @@ Nodes = flows
 - Exit paths
 
 Edges = exit paths
-- `when` condition (how/when this exit is taken)
+- `condition` (how/when this exit is taken)
 - `goto` destination (`<flow_id>` | `"END"` | `"RETURN"`)
 - Assigns (variables produced on exit)
 - Actions (capability references fired on this exit)
@@ -87,7 +87,7 @@ Model selection — including any per-agent override — is **execution**, not s
 
 ## Three Methods
 
-Three methods apply uniformly wherever a value is determined or a condition is checked — in conditions (entry, exit `when`) and in assigns.
+Three methods apply uniformly wherever a value is determined or a condition is checked — in conditions (entry, exit `condition`) and in assigns.
 
 - **`llm`** — Semantic understanding. The LLM reads conversation content and judges or extracts. Probabilistic. Used when the answer requires understanding meaning.
 - **`calculation`** — Deterministic computation. Evaluates a Python-like expression over known variable values. Pattern matching over string structure is a subtype (`method: "calculation"` with optional `pattern` field).
@@ -327,7 +327,7 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
 - **`type`** — flow's category label. `happy` / `sad` / `off` / `utility` describe the role of the flow in the conversation (success path, failure path, off-topic handler, helper). `interrupt` is structurally distinct: an interrupt flow is **globally callable** — any flow may pivot into it when its `entry_condition` matches at any turn. The other four types carry no structural meaning beyond canvas color/badge.
 - **`instructions`** — behavioral prose directing the LLM: what to do, how to behave, what to ask. Compiles into a system prompt fragment for this flow.
 - **`entry_condition`** — required iff `type === "interrupt"`. For interrupts, this is the trigger phrase/intent the runtime checks every turn to decide whether to pivot. Non-interrupt flows are entered via their incoming `goto` edges and have no entry condition.
-- **`exit_paths`** — how the flow ends. Each has a `when` (`condition`) and a `goto` destination.
+- **`exit_paths`** — how the flow ends. Each has a `condition` and a `goto` destination.
 - **`exit_paths[].goto`** — one of:
   - **a flow id** — transition into that flow. If the destination has any `goto: "RETURN"` exit, the runtime pushes a call frame on entry.
   - **`"END"`** — terminate the conversation.
@@ -418,5 +418,5 @@ This is the contract across all flowstore producers and consumers. Non-additive 
 
 1. Bump `$schema` version if structural.
 2. Update [`packages/core/src/schema/v0.ts`](./packages/core/src/schema/v0.ts) (TypeBox definitions) to match.
-3. Update the example spec at [`public/coffee.json`](./public/coffee.json).
+3. Update the example spec at [`examples/coffee/coffee.json`](./examples/coffee/coffee.json).
 4. Notify affected consumers (any runtime or repo consuming the compiled artifact) when the change affects them.

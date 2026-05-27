@@ -370,7 +370,7 @@ Roles are optional. Unset role → falls back to `default`. Per-file `model` fie
 
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, custom `*_KEY` per provider — secrets.
 - `<base_url_env>` — redirect a provider's base URL.
-- `flowstore_DEFAULT_MODEL` — override project default for one shell.
+- `FLOWSTORE_DEFAULT_MODEL` — override project default for one shell.
 - Per-call `--model` flag, per-test-case `model` field — highest precedence.
 
 **Model selection resolution order**, low to high:
@@ -378,7 +378,7 @@ Roles are optional. Unset role → falls back to `default`. Per-file `model` fie
 2. Project `models/defaults.json` `default`
 3. Project `models/defaults.json` `roles.<role>` (agent / judge / user_simulation / authoring)
 4. Per-file `model` field (in test case / rubric / persona)
-5. Env var (`flowstore_AGENT_MODEL`, `flowstore_JUDGE_MODEL`, etc.)
+5. Env var (`FLOWSTORE_AGENT_MODEL`, `FLOWSTORE_JUDGE_MODEL`, etc.)
 6. Per-call CLI override (`--model`, `--agent-model`, `--judge-model`, `--user-sim-model`)
 
 **Runtime config (STT, TTS, voices, telephony, audio, barge-in, VAD, transport choice) is explicitly out of scope for flowstore.** Those live with the runtime / Pipecat config / deployment infrastructure. flowstore declares semantic info (e.g. `meta.languages`); the runtime picks appropriate runtime knobs. Per "execution separate from spec" — see [SCHEMA.md § Execution Separate From Spec](./SCHEMA.md#execution-separate-from-spec).

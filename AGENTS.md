@@ -48,8 +48,8 @@ The canvas is the canonical editing surface. Text views are entry and export onl
 - **Vite 7** (SPA, static build via `vite build`), React 19, TypeScript
 - **Tailwind v4** (`@tailwindcss/vite` plugin, no config file)
 - **`@xyflow/react`** — canvas
-- *(just-in-time)* **`zustand`** — shared editor state, when `useState` gets painful
-- *(just-in-time)* **`@sinclair/typebox` + `ajv` + `ajv-formats`** — schema-as-code + runtime validation, when import/export lands
+- **`zustand`** — shared editor state
+- **`@sinclair/typebox` + `ajv` + `ajv-formats`** — schema-as-code + runtime validation
 - **localStorage** for autosave; local-first; no server persistence in MVP
 
 Don't add infrastructure before the need. The design doc's MVP discipline is the rule.
@@ -77,7 +77,7 @@ npm workspaces monorepo. `@flowstore/core` is pure TS (files, schema, codegen, p
     /schema/                        TypeBox schema (mirrors SCHEMA.md)
     /codegen/                       export targets (system prompt today; later Pipecat, LiveKit, etc.)
     /validation/                    Ajv validators + graph rules
-    /llm/                           provider dispatch + types (providers/google.ts today)
+    /llm/                           provider dispatch + types (providers/: google, openai, openai-compatible)
     /runtime/                       conversation-simulation primitives (mocks, persona, transcript, …)
 /packages/browser/                  @flowstore/browser (the Vite-built React SPA)
   /package.json
@@ -95,7 +95,7 @@ npm workspaces monorepo. `@flowstore/core` is pure TS (files, schema, codegen, p
       /chat/                        chat-panel store-mutating tools (browser-only)
     /styles/                        globals.css, Tailwind
   /public/                          static assets served as-is (favicon.ico)
-/examples/                          demo specs (coffee/, fnol/) — loaded via the editor's file picker, not served as runtime URLs
+/examples/                          demo specs (coffee/) — loaded via the editor's file picker, not served as runtime URLs
 ```
 
 To iterate on a codegen target: edit the generator under `packages/core/src/codegen/`, re-run `npm run preview-prompt -- <absolute-path-to-spec>.json`, diff against expected.
@@ -159,7 +159,7 @@ npm install
 npm run dev
 ```
 
-Opens at http://localhost:3000.
+Opens at http://127.0.0.1:5173.
 
 ## Style
 

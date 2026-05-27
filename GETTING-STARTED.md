@@ -24,7 +24,7 @@ A **spec** is the whole behavioral definition of one agent — a single JSON obj
 **The graph**
 
 - **Flows** are the nodes. A flow is a unit of conversational behavior — "greet the caller", "take the order", "confirm and close". Each carries behavioral instructions (prose), optional per-language scripts, and a **type** label: `happy`, `sad`, `off`, `utility`, or `interrupt`. The labels are organizational except `interrupt`, which is structural — an interrupt flow is globally callable, any flow can pivot to it when its entry condition matches. One flow is the **entry flow** where conversations begin.
-- **Exit paths** are the edges. Each has a **`when`** condition (when this exit is taken) and a **`goto`** destination: another flow's id, `END` (terminate the conversation), or `RETURN` (return to the flow that called this one). A flow that has any `RETURN` exit is *callable* — entering it pushes a call frame. That's the entire routing model; routing lives on the exit paths, never on standalone edges.
+- **Exit paths** are the edges. Each has a **`condition`** (when this exit is taken) and a **`goto`** destination: another flow's id, `END` (terminate the conversation), or `RETURN` (return to the flow that called this one). A flow that has any `RETURN` exit is *callable* — entering it pushes a call frame. That's the entire routing model; routing lives on the exit paths, never on standalone edges.
 
 **The agent envelope** holds everything outside the graph, reached from the toolbar buttons:
 
@@ -34,7 +34,7 @@ A **spec** is the whole behavioral definition of one agent — a single JSON obj
 - **Capabilities** — the tools the agent can call (functions and retrieval).
 - **Variables** — session state. Variables are spontaneous: referencing one anywhere makes it exist. You only declare a variable (in the Variables sheet) when you want to pin a `type` or description onto it.
 
-**Three methods** show up wherever a value is computed or a condition is checked (`when`, entry conditions, assigns): `llm` (semantic judgment), `calculation` (a deterministic Python-like expression over variables), and `direct` (a literal). Keep this in mind when you write exit conditions.
+**Three methods** show up wherever a value is computed or a condition is checked (exit `condition`, entry conditions, assigns): `llm` (semantic judgment), `calculation` (a deterministic Python-like expression over variables), and `direct` (a literal). Keep this in mind when you write exit conditions.
 
 **Export** is deterministic codegen: the spec flattens into one monolithic **system prompt** plus tool schemas. That artifact is what you paste into Claude, OpenAI, or any LLM runtime — and what the simulator runs against.
 
@@ -49,7 +49,7 @@ There are four ways in. If you're brand new, start with **the Assistant** (faste
 No API key needed, and the most direct way to internalize the model.
 
 1. Add a flow node on the canvas. Select it to open the **flow inspector** — set its name, type, and instructions.
-2. Drag from one flow to another to create an **exit path**, then select the edge to open the **edge inspector** and set its `when` condition and `goto` (another flow, `END`, or `RETURN`).
+2. Drag from one flow to another to create an **exit path**, then select the edge to open the **edge inspector** and set its `condition` and `goto` (another flow, `END`, or `RETURN`).
 3. Fill in the envelope from the toolbar as needed: **Agent** meta, **Guardrails**, **Capabilities**, **Knowledge**, **Variables**.
 
 Validation runs continuously and surfaces inline, so the canvas tells you when a reference dangles or an exit goes nowhere.
@@ -101,6 +101,7 @@ Open the **Export** dropdown:
 
 You've done author → simulate → export. From here:
 
+- [`flowstore-example-fnol`](https://github.com/tap2k/flowstore-example-fnol) — the full worked example: a decomposed multi-flow agent with the complete testing harness (gold transcripts, cases, mocks, rubrics, personas).
 - [FILE-MODEL.md](./FILE-MODEL.md) — how a project decomposes into files on disk, single- and multi-agent.
 - [SCHEMA.md](./SCHEMA.md) — the authoritative spec data model.
 - [AGENTS.md](./AGENTS.md) — architecture, principles, and where flowstore sits in the broader product.
