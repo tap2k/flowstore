@@ -32,13 +32,17 @@ can produce, that neither a hand-written prompt nor an off-the-shelf agent runti
 ## New vs. wheel
 
 **Rent (don't rebuild):** the agent/tool loop, streaming + voice transport, tool dispatch,
-tracing, basic guardrail hooks. Text: an agent SDK or a thin provider-SDK harness. Voice:
-LiveKit / Pipecat / a Realtime session. The graph runner's original sin was hand-rolling a
-runtime (a turn-by-turn driver) instead of renting one.
+tracing, basic guardrail hooks — and the **fast guard LLM** itself (it's just a small model you
+call). Text: an agent SDK or a thin provider-SDK harness. Voice: LiveKit / Pipecat / a Realtime
+session. The graph runner's original sin was hand-rolling a runtime (a turn-by-turn driver)
+instead of renting one.
 
 **Build (the defensible, new part — and what flowstore-compile already is):** the
-spec→(monolith + manifest) compile, data-gated guardrails, and the parity contract. Be the
-compiler + governance layer on top of a rented runtime; don't build another runtime.
+spec→(monolith + manifest) compile, **data-gates + the compiled guard-LLM policy** (the routing
+of one declarative guardrail to the right enforcer), and the parity contract. You rent the guard
+*model*; you build the *compiler* that decides what to withhold, what to steer, and what to hand
+the guard model. Be the compiler + governance layer on top of a rented runtime; don't build
+another runtime.
 
 ## Compiler features this implies
 
@@ -51,11 +55,25 @@ Each is tied to something the study actually hit.
    → reasoning + governance. (Everything below populates it.)
 
 ### Guardrails & information flow (the differentiator, and the voice answer)
-2. **Guardrails as compiled data-gates, not prose.** `no_disclosure_before_identity` compiles
-   to `withhold: [total_due_amount, loan_due_date] until: identity_confirmed`. The model doesn't
-   receive the value until allowed → it *can't* leak it. Robust on voice, where you can't
-   un-speak. Authors still write declarative guardrails; the compiler emits both a **soft**
-   prompt constraint and the **hard** data-gate.
+2. **Guardrails compile to three coordinated mechanisms — heavy policy stays *off* the main
+   prompt.** One declarative guardrail; the compiler routes it to the right enforcer:
+   - **data-gate** (hard, pre-generation, deterministic, **0 inference**): specific-value
+     non-disclosure. `no_disclosure_before_identity` → `withhold: [total_due_amount,
+     loan_due_date] until: identity_confirmed`. The model never receives the value until allowed
+     → it *can't* leak it. The only **real-time prevention on voice** (you can't un-speak).
+   - **light proactive steer, kept in the prompt** (prevents drift, cheap): behavioral priors
+     like tone / no-threats. Kept deliberately *light* — that's the anti-bloat line, **not**
+     "remove them": proactive steering is what *prevents*, and it demonstrably holds (tone stayed
+     ~5/5 across the hostile/red-team personas in the study).
+   - **fast guard LLM** (reactive, beside the main pathway, not in its prompt): the heavy /
+     contextual / auditable policy — *in-path* gate for **text** (block or rewrite before send),
+     *out-of-path* monitor + flag for **voice** (can't block the stream, but the violation lands
+     in the audit trail). This is where bulk policy logic lives instead of bloating the monolith;
+     its policy can itself be compiled from the declarative guardrails.
+
+   Why three and not one: **prevention** (data-gate + proactive steer) and **detection** (guard
+   LLM) are complementary, and on **voice prevention beats detection** because detection is
+   post-hoc. A guard LLM alone can't carry the prevention half on voice.
 3. **Variable availability/visibility as a first-class field** (e.g. `available_after:
    identity_confirmed`). Generalizes the scoped values-block; drives #2. Information-flow
    control compiled from the spec.
