@@ -330,20 +330,25 @@ LLM configuration lives in `models/`. Each file is a partial config; the loader 
   }
 }
 
-// models/self-hosted.json
+// models/self-hosted.json — a private / self-hosted model is just a models
+// entry on the `openai-compatible` endpoint; per-entry extras (base_url_env,
+// api_key_env, …) ride on the entry itself. There is no separate providers map.
 {
   "$schema": "flowstore://spec/models/v0",
-  "providers": {
-    "my-vllm": {
-      "kind": "openai-compatible",
+  "models": {
+    "llama-70b": {
+      "endpoint": "openai-compatible",
+      "model_id": "llama3.3:70b",
       "base_url_env": "MY_VLLM_URL",
       "base_url_default": "http://localhost:8000/v1",
       "api_key_env": "MY_VLLM_KEY"
+    },
+    "qwen-72b": {
+      "endpoint": "openai-compatible",
+      "model_id": "qwen2.5:72b",
+      "base_url_env": "MY_VLLM_URL",
+      "api_key_env": "MY_VLLM_KEY"
     }
-  },
-  "models": {
-    "llama-70b": { "endpoint": "my-vllm", "model_id": "llama3.3:70b" },
-    "qwen-72b":  { "endpoint": "my-vllm", "model_id": "qwen2.5:72b" }
   }
 }
 
@@ -352,7 +357,7 @@ LLM configuration lives in `models/`. Each file is a partial config; the loader 
   "$schema": "flowstore://spec/models/v0",
   "default": "claude-sonnet-4-5",
   "roles": {
-    "agent": "claude-sonnet-4-5",          // OPTIONAL — overrides default for agent execution
+    "agent": "claude-sonnet-4-5",          // OPTIONAL — model that plays the agent when running tests
     "judge": "gpt-5",                       // OPTIONAL — for llm-judge rubrics (impartiality)
     "user_simulation": "claude-haiku-4-5", // OPTIONAL — cheaper model for LLM-as-user
     "authoring": "claude-sonnet-4-5"       // OPTIONAL — chat panel for spec editing
@@ -362,9 +367,11 @@ LLM configuration lives in `models/`. Each file is a partial config; the loader 
 
 Roles are optional. Unset role → falls back to `default`. Per-file `model` field on test cases / rubrics / personas / agent overrides for that file; env vars and CLI flags override at higher precedence.
 
-**Endpoint resolution.** Each model's `endpoint` field is a string referencing a named provider — always. Built-in providers (`anthropic`, `openai`, `google`) ship inside `@flowstore/core`. Custom providers declared in the `providers` map of any models file. One form, one mental model.
+`models/` is the project's model **catalog** (which models exist, including private/self-hosted) plus model selection **for the testing and authoring surface** — the `agent` / `judge` / `user_simulation` / `authoring` roles pick which model plays each part when you run tests or edit locally. The model an agent runs on **in production is not set here**: each agent owns that at its execution/deployment layer (e.g. the runner's `FLOWSTORE_LLM_MODEL` or a per-request `model`), per [SCHEMA.md § Execution Separate From Spec](./SCHEMA.md#execution-separate-from-spec). The spec itself stays model-agnostic.
 
-**Provider kinds:** `anthropic`, `openai`, `google`, `openai-compatible` (Ollama / vLLM / OpenRouter / Together / self-hosted — long-tail catchall).
+**Endpoint resolution.** A model entry's `endpoint` names the provider adapter that dispatches it. It is **optional** — when absent, the loader infers it from the id prefix (`gemini*` → `google`, `gpt*` / `o*` → `openai`, `anthropic/*` → `openrouter`); ambiguous bare ids (`claude-`, `llama-`) need an explicit `endpoint`.
+
+**Built-in endpoints** (ship in `@flowstore/core`): `google`, `openai`, `openrouter`, and `openai-compatible` — the catchall for Ollama / vLLM / Together / any self-hosted or long-tail provider (supply `base_url`/`api_key_env` on the entry, as in the self-hosted example above). There is **no native `anthropic` endpoint**: browser-direct Anthropic calls fail CORS, so Claude routes through `openrouter` with a `model_id` like `anthropic/claude-opus-4.7`.
 
 **Personal variation through env vars** (no per-developer config file):
 
