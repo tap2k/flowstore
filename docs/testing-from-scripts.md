@@ -245,9 +245,9 @@ Unknown fields are tolerated on transcript turns and capability calls (`addition
 
 ---
 
-## A minimum `run.py` example
+## A minimum `run_scripted.py` example
 
-A complete, runnable example lives at [examples/coffee-testing/scripts/run.py](../examples/coffee-testing/scripts/run.py) (~170 lines, Gemini-based to match the project default). Read it top-to-bottom; the structure is:
+A complete, runnable example lives at [examples/coffee-testing/scripts/run_scripted.py](../examples/coffee-testing/scripts/run_scripted.py) (~170 lines, Gemini-based to match the project default). Read it top-to-bottom; the structure is:
 
 1. Parse CLI args (test case path, optional `--system-prompt` override, optional `--label`).
 2. Shell out to `flowstore-compile --format prompt` to get `{system_prompt, tool_schemas}`.
@@ -282,7 +282,7 @@ A subtle but important distinction. Each capability in `agent.json` has both:
 - **`id`** (e.g., `cap_place_order`) — the editor-generated stable reference. Mocks key on this. Test cases' `mock_bindings` key on this. Filename uses this (`<id>.<variant>.mock.json`).
 - **`name`** (e.g., `place_order`) — the snake_case **runtime dispatch identifier**. This is what `flowstore-compile --format prompt` emits in `tool_schemas[].name`, and what the LLM provider returns when the model tool-calls.
 
-Your script needs to translate. Build a `name → id` map once from `agent.json.capabilities[]`, then translate the LLM's tool name to the capability id before looking up mocks. The worked example at [examples/coffee-testing/scripts/run.py](../examples/coffee-testing/scripts/run.py) shows the pattern.
+Your script needs to translate. Build a `name → id` map once from `agent.json.capabilities[]`, then translate the LLM's tool name to the capability id before looking up mocks. The worked example at [examples/coffee-testing/scripts/run_scripted.py](../examples/coffee-testing/scripts/run_scripted.py) shows the pattern.
 
 For consistency, the `result.capability_calls[].capability` field should also be the id, not the name — so evaluators can pivot on a stable identifier regardless of LLM-provider naming quirks.
 
@@ -301,10 +301,10 @@ The example script supports both via flags:
 
 ```bash
 # Default — flowstore-compiled prompt
-python scripts/run.py tests/cases/happy-path-latte.test.json --label flowstore
+python scripts/run_scripted.py tests/cases/happy-path-latte.test.json --label flowstore
 
 # Same test, hand-authored prompt
-python scripts/run.py tests/cases/happy-path-latte.test.json \
+python scripts/run_scripted.py tests/cases/happy-path-latte.test.json \
   --system-prompt /path/to/existing-prompt.txt \
   --label handauth
 ```

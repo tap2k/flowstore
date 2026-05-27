@@ -55,7 +55,7 @@ flowstore is a **Behavioral IDE for Conversational Agents** — the open, Git-ba
 
 - **Visual authoring (browser editor).** Canvas-first authoring of one or many agents in a flowstore project. GitHub-backed persistence. Chat panel for LLM-assisted authoring, simulate panel for live exploration. Extended in Phase 2 for test-case loading, persona-driven runs, mock binding, and capture-as-test-case.
 - **Git-shaped collaboration (per-agent or multi-agent repos).** Decomposed by stakeholder concern per [FILE-MODEL.md](../FILE-MODEL.md). One repo can hold many agents (Tala with N purposes × M languages) with shared capabilities, guardrails, knowledge, personas, evaluators, and rubrics. Comments are first-class additive files anchored to spec entities.
-- **Python testing surface (vendored scripts).** `run.py` drives test execution against compiled system prompts, deployed endpoints, or captured production sessions. Built-in evaluators + custom Python + LLM-judge rubrics. Personas as user-side system prompts; gold standards as reference transcripts. Vendored per agent repo so Nikunj adapts with Claude Code.
+- **Python testing surface (vendored scripts).** `run_scripted.py` drives test execution against compiled system prompts, deployed endpoints, or captured production sessions. Built-in evaluators + custom Python + LLM-judge rubrics. Personas as user-side system prompts; gold standards as reference transcripts. Vendored per agent repo so Nikunj adapts with Claude Code.
 - **Client share view (Phase 3).** Static read-only export to GitHub Pages — agency-client surface for spec walkthroughs without GitHub accounts.
 
 **Pluggable runtimes.** The spec is the durable artifact; runtimes are interchangeable consumers. Today's canonical runtime is the Python runner (Pipecat-on-the-runner for Awaaz's voice production). Pipecat-direct, LangGraph, OpenAI Agents SDK, hosted flowstore runtime — all post-MVP, gated on [TRANSLATION-POC.md](./translation-poc.md) confirming behavioral fidelity. MVP testing runs against compiled system prompts, explicitly trading graph-execution fidelity for portability and zero-runtime-dependency iteration.
@@ -164,7 +164,7 @@ The Python `flowstore-runner` is outside MVP's testing path — Awaaz runs it fo
 
 **D. Python scripts (vendored per-agent repo):**
 
-- `run.py [--against prompt|endpoint] [--agent <id>] [--personas <glob>] [--evaluators <glob>] [--trials N] [--save-as-gold] <case-or-glob>` — runs one test case or many via glob. Default `--against prompt`: compiles system prompt, drives LLM through user turns, dispatches mocks, runs evaluators. `--against endpoint`: hits an existing agent endpoint (URL + auth via env vars `AGENT_ENDPOINT_URL`, `AGENT_ENDPOINT_TOKEN`), no mocks. Writes results to `tests/runs/<timestamp>-<label>/<test-case-id>.result.json`.
+- `run_scripted.py [--against prompt|endpoint] [--agent <id>] [--personas <glob>] [--evaluators <glob>] [--trials N] [--save-as-gold] <case-or-glob>` — runs one test case or many via glob. Default `--against prompt`: compiles system prompt, drives LLM through user turns, dispatches mocks, runs evaluators. `--against endpoint`: hits an existing agent endpoint (URL + auth via env vars `AGENT_ENDPOINT_URL`, `AGENT_ENDPOINT_TOKEN`), no mocks. Writes results to `tests/runs/<timestamp>-<label>/<test-case-id>.result.json`.
 - `--trials N` — run each test case N times (LLM outputs vary). Aggregates pass@k (probability of at least one success) and pass^k (probability of all N succeeding). Default N=1. Critical for any evaluator using LLM-judged rubrics where single-trial results are misleading. Output: result file gets a `trials: [...]` array; aggregate metrics (`pass_at_k`, `pass_caret_k`) per evaluator. Suite summary aggregates across test cases.
 - `validate.py <path>` — validates artifacts (file or directory) against schemas via Node wrapper around `@flowstore/core/schema`.
 - Each script <150 lines with a documented header. Nikunj adapts with Claude Code.
@@ -199,7 +199,7 @@ The Python `flowstore-runner` is outside MVP's testing path — Awaaz runs it fo
 
 **H. Gold-standard workflow:**
 
-- `run.py --save-as-gold <case>` writes the run's transcript to `tests/gold-standards/<test_case_id>.gold.json`.
+- `run_scripted.py --save-as-gold <case>` writes the run's transcript to `tests/gold-standards/<test_case_id>.gold.json`.
 - Rubrics whose prompt template references `{gold_standard}` auto-load from the gold standards directory at evaluation time.
 - Gold standards editable thereafter — they're just JSON files (fix typos, refine reference behavior).
 - No separate evaluator type; gold standards are an input to rubrics, not a parallel mechanism.

@@ -92,7 +92,7 @@ project/
 │       ├── manifest.json
 │       └── <test-case-id>.result.json
 └── scripts/                                 # Python; vendored by flowstore-init-project; user adapts with Claude Code
-    ├── run.py                               # runs one case or many (glob)
+    ├── run_scripted.py                               # runs one case or many (glob)
     └── validate.py
 ```
 

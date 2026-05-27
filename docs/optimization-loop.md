@@ -46,7 +46,7 @@ extends.
   │      still come from the spec)   │
   └────────┬─────────────────────────┘
            │
-           │  run.py × N trials per case
+           │  run_scripted.py × N trials per case
            │  (same cases, same mocks, same model — vary only the target)
            ▼
   ┌─────────────────────────────────┐
@@ -213,7 +213,7 @@ abstract quality target.
 ## Honest assessment
 
 The *contract* is robust enough to support autonomous optimization. The
-*automation* layer is thin — `run.py` is ~150 lines, the matrix is stdout,
+*automation* layer is thin — `run_scripted.py` is ~150 lines, the matrix is stdout,
 evaluators are stubs — and that's intentional for MVP (Nikunj adapts scripts
 with Claude Code). An autonomous optimizer would have to either work within
 those thin tools or build the missing layer.

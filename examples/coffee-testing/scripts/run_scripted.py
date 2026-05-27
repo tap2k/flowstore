@@ -6,11 +6,11 @@ framework, and result-handling needs.
 
 Usage:
   cd examples/coffee-testing
-  python scripts/run.py tests/cases/happy-path-latte.test.json
+  python scripts/run_scripted.py tests/cases/happy-path-latte.test.json
 
   # Compare a hand-authored prompt against the flowstore-compiled one,
   # against the same test case and tool schemas:
-  python scripts/run.py tests/cases/happy-path-latte.test.json \
+  python scripts/run_scripted.py tests/cases/happy-path-latte.test.json \
     --system-prompt /path/to/your-prompt.txt \
     --label nikunj-handauth
 

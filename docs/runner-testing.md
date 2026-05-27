@@ -19,10 +19,10 @@ see [testing-plan.md](testing-plan.md). For the system-prompt path see
 
 ---
 
-## How this differs from `run.py`
+## How this differs from `run_scripted.py`
 
 ```
-run.py (system-prompt path)              run_runner.py (runner path)
+run_scripted.py (system-prompt path)              run_runner.py (runner path)
 ───────────────────────────              ───────────────────────────
 flowstore-compile --format prompt              flowstore-compile --format spec
         ↓                                       ↓
@@ -134,7 +134,7 @@ system-prompt path captures from in-loop tool calls.
 
 ```bash
 # Same test, system-prompt path
-python scripts/run.py tests/cases/happy-within-grace.test.json --label prompt
+python scripts/run_scripted.py tests/cases/happy-within-grace.test.json --label prompt
 
 # Same test, runner path (runner must be running locally at $RUNNER_URL)
 python scripts/run_runner.py tests/cases/happy-within-grace.test.json --label runner
@@ -206,8 +206,8 @@ What divergence looks like and what it means:
 ## Worked example
 
 The worked-example shape: ~150 lines, HTTP-only, drop-in replacement for
-`run.py` in any project that already follows the BYO-script pattern. Mirror
-the structure of [`examples/coffee-testing/scripts/run.py`](../examples/coffee-testing/scripts/run.py)
+`run_scripted.py` in any project that already follows the BYO-script pattern. Mirror
+the structure of [`examples/coffee-testing/scripts/run_scripted.py`](../examples/coffee-testing/scripts/run_scripted.py)
 — same arg parsing, same `vars_file` handling, same assertion evaluator,
 same result-file shape — and swap the per-turn LLM call for a POST to
 `/api/chat/turn`.

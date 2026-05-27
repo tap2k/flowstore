@@ -76,7 +76,7 @@ Distilled here; the long version with anti-patterns and when-red-what-to-change 
 
 ```
 gold transcript ─┐
-                 ├─▶ test case (assertions) ─▶ run.py (N trials) ─▶ pass@N matrix ─▶ ship / diagnose
+                 ├─▶ test case (assertions) ─▶ run_scripted.py (N trials) ─▶ pass@N matrix ─▶ ship / diagnose
 spec / generator ┘
 ```
 
@@ -85,7 +85,7 @@ Five phases. The first time you do them for a new agent: 1 → 5 in order. After
 1. **Gold transcripts.** Verbatim example conversations from customer-provided docs (best), production recordings (next best), or hand-authored (bootstrap). Stored as `tests/gold/<id>.gold.json`. Extract from messy customer sources via [prompts/GOLD-EXTRACTION-PROMPT.txt](../prompts/GOLD-EXTRACTION-PROMPT.txt).
 2. **Derive test cases.** A gold is the source of truth; a test case is the executable extraction (user turns + per-turn assertions). Stored as `tests/cases/<id>.test.json`. Derive mechanically via [prompts/CASE-FROM-GOLD-PROMPT.txt](../prompts/CASE-FROM-GOLD-PROMPT.txt); awaaz-dpd31 wraps this in [`scripts/derive_cases.py`](../../awaaz-dpd31/scripts/derive_cases.py).
 3. **Compile.** `flowstore-compile --format prompt` for the system-prompt path; `--format spec` for the runner path. Variable substitution via `--vars-file`.
-4. **Run with N trials.** `python scripts/run.py <case>.test.json --trials 3`. Result files land under `tests/runs/<ts>-<label>/`.
+4. **Run with N trials.** `python scripts/run_scripted.py <case>.test.json --trials 3`. Result files land under `tests/runs/<ts>-<label>/`.
 5. **Read the matrix, decide.** PASS (N/N) → ship. PART → flaky, diagnose. FAIL → mechanism bug. Cheapest-first investigation order: assertion → vars → spec content → spec variables → prompt generator → model.
 
 ### Key disciplines
@@ -164,11 +164,11 @@ Sibling repo at `~/dev/whatsupp/awaaz-dpd31/`. Built and running as of 2026-05-2
 - **18 test cases** (`tests/cases/`) covering happy / negotiation / after-grace / broken-PTP / wrong-number / relative-answered / stop-calling, plus 6 persona-driven stress cases (BAU compliant, broken-PTP defensive, hostile-evasive, red-team confused-stalling, red-team fake-authority, red-team social-engineer).
 - **23 golds** (`tests/gold/`) extracted from customer Gold-standard docx.
 - **6 personas**, **4 rubrics** (`no_pii_before_identity`, `outcome_matches_gold`, `routing_held`, `tone_maintained`).
-- **`scripts/run.py`** — system-prompt driver, mock dispatch, substring assertions, multi-trial.
+- **`scripts/run_scripted.py`** — system-prompt driver, mock dispatch, substring assertions, multi-trial.
 - **`scripts/run_persona.py`** — persona-driven LLM-as-user driver.
 - **`scripts/derive_cases.py`** — wraps `CASE-FROM-GOLD-PROMPT.txt` to derive cases from golds.
 - **`scripts/_judge.py`** — rubric judge runner; resolves `gold_id` → gold transcript → `{gold_standard}` substitution.
-- **`scripts/suite_3.sh`** — multi-trial suite invocation.
+- **`scripts/run_suite.sh`** — multi-trial suite invocation.
 - **3 runs** under `tests/runs/` (`20260526T041234Z-smoke`, `20260526T041825Z-smoke2`, `20260526T043408Z-runner`).
 
 The `derive_cases.py` + `_judge.py` + `outcome_matches_gold` rubric collectively represent the gold-derived-cases + gold-comparison-grading pipeline working end-to-end against a real customer scenario.
@@ -193,7 +193,7 @@ The trigger to start editor work: the schema additions have been in real use for
 
 | # | Item | Where | Size | Schema delta | Unlocks |
 |---|------|-------|------|--------------|---------|
-| 1 | **N-2** `tags[]` on test-case | core + Python | 1 hr | `tags: string[]` on `test-case/v0`; `--tag` filter in `run.py` | Routing-bucket filtering; carrier for provenance conventions; carrier for decision-test prefix sharing |
+| 1 | **N-2** `tags[]` on test-case | core + Python | 1 hr | `tags: string[]` on `test-case/v0`; `--tag` filter in `run_scripted.py` | Routing-bucket filtering; carrier for provenance conventions; carrier for decision-test prefix sharing |
 | 2 | **T-P** `transcript_assertions[]` | core + Python | ½ day | New `transcript_assertions[]` slot on `test-case/v0`: regex / substring / count / must_terminate_within over the whole transcript | Cheap structured guardrail checks complementary to rubrics |
 | 3 | **O-1** `state_assertions[]` | core + Python | ½ day | New `state_assertions[]` slot on `test-case/v0`: `{variable, equals?, matches?, is_set?}` over `result.final_variables` | End-state checks for capability-bound flows (the load-bearing mechanic Tala / FNOL need) |
 | 4 | **Per-case diff CLI** | Python | ½ day | — | "What changed between yesterday's run and today's?" without a manifest — a script over paired result files |
@@ -230,7 +230,7 @@ This isn't great. It's deliberately *just barely good enough* so we don't build 
 - **T-C coverage manifest.** No consumer yet. Build when an optimizer reads "where to invest."
 - **Provenance as a structured field.** `tags[]` (N-2) carries it by convention (`tags: ["src:gold:<id>"]`, `tags: ["src:session:<id>"]`). Promote to a structured field if a fast filter consumer emerges.
 - **Persona / rubric / gold editing UI.** Designers hand-edit JSON via Claude Code. Build editor surfaces when the pilot surfaces specific friction; the schemas are small enough that JSON-editing isn't the dealbreaker.
-- **Suite-level run from the editor.** Today the suite runs from `scripts/suite_3.sh` in the project repo. Bringing this into the editor needs the run manifest (deferred) to render aggregate results coherently.
+- **Suite-level run from the editor.** Today the suite runs from `scripts/run_suite.sh` in the project repo. Bringing this into the editor needs the run manifest (deferred) to render aggregate results coherently.
 - **Inter-run diff in the editor.** The per-case diff CLI (Phase A item 4) covers the cheap version; an editor-side diff viewer is downstream of both the manifest and O-3.
 - **Voice-mode silence semantics.** `User: ""` scenarios in customer goldens (silence / VAD timeout) are voice-mode concerns. Out of scope for the text-mode harness; covered by the runner's voice surface when that path matures.
 - **Endpoint mode.** Running the harness against a deployed agent endpoint (alongside or instead of the prompt-driven model). On Phase 2 plan; not blocked, just not prioritized.

@@ -40,7 +40,7 @@ The mechanics differ from code TDD in two important ways:
                        │
                        ▼
                 ┌──────────────┐
-                │  run.py      │
+                │  run_scripted.py      │
                 │  N trials    │
                 └──────┬───────┘
                        │
@@ -109,7 +109,7 @@ A gold is the source of truth; a **test case** is the executable extraction. The
 }
 ```
 
-The case is what `run.py` executes. The gold is what reviewers compare against to argue about whether the *assertions* themselves are right. Keep both.
+The case is what `run_scripted.py` executes. The gold is what reviewers compare against to argue about whether the *assertions* themselves are right. Keep both.
 
 **You can hand-author from the gold, or use [`CASE-FROM-GOLD-PROMPT.txt`](../prompts/CASE-FROM-GOLD-PROMPT.txt)** to derive cases mechanically from `gold + compiled spec`: distinctive substring assertions drawn from the actual flow scripts, negative assertions seeded from `agent.guardrails`. The pattern is ~30 lines of Python — load each gold, bundle with the derivation prompt + compiled spec, call a model, write `tests/cases/gold-<id>.test.json`. Review the substring choices for ambiguous scenarios — the LLM picks reasonable defaults but routing-distinctive language sometimes needs a human eye.
 
@@ -132,13 +132,13 @@ This step is the layer you'll iterate on most often once the cases exist. Three 
 
 ```bash
 # Single case, N trials
-python examples/<project>/scripts/run.py \
+python examples/<project>/scripts/run_scripted.py \
   examples/<project>/tests/cases/happy-within-grace.test.json \
   --vars-file examples/<project>/tests/vars.bau.json \
   --trials 3 --label flowstore
 
 # Same case, hand-authored prompt — for A/B against the flowstore-compiled version
-python examples/<project>/scripts/run.py \
+python examples/<project>/scripts/run_scripted.py \
   examples/<project>/tests/cases/happy-within-grace.test.json \
   --vars-file examples/<project>/tests/vars.bau.json \
   --system-prompt ~/customer/their-prompt.txt \

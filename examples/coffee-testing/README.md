@@ -25,7 +25,7 @@ coffee-testing/
 │   ├── personas/distracted-customer.persona.json
 │   └── rubrics/empathy_on_failure.rubric.json  LLM-judge rubric used by case #2
 └── scripts/
-    ├── run.py                              ← ~150 lines; the contract end-to-end
+    ├── run_scripted.py                              ← ~150 lines; the contract end-to-end
     └── requirements.txt
 ```
 
@@ -33,7 +33,7 @@ Every file carries a `$schema` URI; flowstore validates them on load.
 
 ## Run it
 
-The example uses **Gemini** (`gemini-2.5-flash` by default) — matches the rest of the project: [BUILT_IN_MODELS](../../packages/core/src/files/models.ts) ships Gemini entries, the editor's Simulate panel is BYOK Google, the runner uses Vertex Gemini. Swap providers in your own script by editing the SDK calls in [`scripts/run.py`](scripts/run.py); the file shapes (`test.json`, `mock.json`, `result.json`) are provider-neutral.
+The example uses **Gemini** (`gemini-2.5-flash` by default) — matches the rest of the project: [BUILT_IN_MODELS](../../packages/core/src/files/models.ts) ships Gemini entries, the editor's Simulate panel is BYOK Google, the runner uses Vertex Gemini. Swap providers in your own script by editing the SDK calls in [`scripts/run_scripted.py`](scripts/run_scripted.py); the file shapes (`test.json`, `mock.json`, `result.json`) are provider-neutral.
 
 From the **flowstore monorepo root** (so the `npm -w @flowstore/core` workspace resolves):
 
@@ -45,7 +45,7 @@ pip install -r examples/coffee-testing/scripts/requirements.txt
 export GOOGLE_API_KEY=...   # or GEMINI_API_KEY
 
 # 3. Run any of the three test cases
-python examples/coffee-testing/scripts/run.py \
+python examples/coffee-testing/scripts/run_scripted.py \
   examples/coffee-testing/tests/cases/happy-path-latte.test.json
 ```
 
@@ -63,12 +63,12 @@ Use case: you have an existing system prompt for the same agent and want to A/B-
 
 ```bash
 # Default — flowstore compiles agent.json + flows into the system prompt.
-python examples/coffee-testing/scripts/run.py \
+python examples/coffee-testing/scripts/run_scripted.py \
   examples/coffee-testing/tests/cases/happy-path-latte.test.json \
   --label flowstore
 
 # Same test, your hand-authored prompt — tool schemas still come from the spec.
-python examples/coffee-testing/scripts/run.py \
+python examples/coffee-testing/scripts/run_scripted.py \
   examples/coffee-testing/tests/cases/happy-path-latte.test.json \
   --system-prompt /path/to/your-prompt.txt \
   --label handauth
@@ -86,16 +86,16 @@ npm -w @flowstore/core run --silent flowstore-compile -- \
 
 ## How it works, in one paragraph
 
-`run.py` shells out to `flowstore-compile --format prompt` to get `{system_prompt, tool_schemas}` from the decomposed spec. Then it walks the test case's `user_turns`, calling the Anthropic API with the compiled prompt + tools. When the model invokes a tool, the script looks up `(capability_id, variant)` in the test case's `mock_bindings`, finds the matching `<id>.<variant>.mock.json`, and either returns its `behavior.returns` or raises with `behavior.error`. Every assistant text turn and tool call lands in `transcript[]` / `capability_calls[]`. After the user turns are exhausted (or the inner tool-call budget trips), the script writes a `result.json` matching `flowstore://run/result/v0`.
+`run_scripted.py` shells out to `flowstore-compile --format prompt` to get `{system_prompt, tool_schemas}` from the decomposed spec. Then it walks the test case's `user_turns`, calling the Anthropic API with the compiled prompt + tools. When the model invokes a tool, the script looks up `(capability_id, variant)` in the test case's `mock_bindings`, finds the matching `<id>.<variant>.mock.json`, and either returns its `behavior.returns` or raises with `behavior.error`. Every assistant text turn and tool call lands in `transcript[]` / `capability_calls[]`. After the user turns are exhausted (or the inner tool-call budget trips), the script writes a `result.json` matching `flowstore://run/result/v0`.
 
 That's the entire loop. Evaluators are not run (the `evaluator_results` array is left empty). When you add evaluators, write whatever framework you want — the result file is the only contract.
 
 ## What this example is **not**
 
-- **Not a framework.** `run.py` is one script. Yours can look completely different — different LLM provider, different evaluator framework, multi-trial loops, endpoint-mode against a deployed agent, gold-standard capture. Nothing here is canonical except the *file shapes*.
+- **Not a framework.** `run_scripted.py` is one script. Yours can look completely different — different LLM provider, different evaluator framework, multi-trial loops, endpoint-mode against a deployed agent, gold-standard capture. Nothing here is canonical except the *file shapes*.
 - **Not exhaustive.** Coffee has two capabilities. A real spec might have twenty, retrieval-typed capabilities (you'd handle `kind: retrieval` identically — both are tool calls), or capabilities with declared `outputs` that bind into variable scope (then `final_variables` in the result starts to matter).
 - **Not multilingual.** Coffee is `en-US` only. For multi-language specs, pass `--language <code>` to `flowstore-compile`.
-- **Not validated against rubrics.** The `empathy_on_failure` rubric is present but unused by `run.py` — adding LLM-judge evaluation is the next step Nikunj writes on his own.
+- **Not validated against rubrics.** The `empathy_on_failure` rubric is present but unused by `run_scripted.py` — adding LLM-judge evaluation is the next step Nikunj writes on his own.
 
 ## What to read next
 
