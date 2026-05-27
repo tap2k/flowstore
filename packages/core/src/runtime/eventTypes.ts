@@ -1,5 +1,5 @@
-// Mirror of flowstore-runner/src/flowstore_runner/events/schema.py.
-// Keep in sync when the runner adds/changes event types.
+// Mirror of the runtime's event schema.
+// Keep in sync when the runtime adds/changes event types.
 
 export type EventMethod = "llm" | "calculation" | "direct" | "capability";
 

@@ -38,7 +38,7 @@ A **spec** is the whole behavioral definition of one agent — a single JSON obj
 
 **Export** is deterministic codegen: the spec flattens into one monolithic **system prompt** plus tool schemas. That artifact is what you paste into Claude, OpenAI, or any LLM runtime — and what the simulator runs against.
 
-For the authoritative data model, see [SCHEMA.md](../SCHEMA.md); its "The Model in 30 Seconds" section is the short version of the above.
+For the authoritative data model, see [SCHEMA.md](./SCHEMA.md); its "The Model in 30 Seconds" section is the short version of the above.
 
 ## Create your first spec
 
@@ -70,7 +70,7 @@ You can also paste an existing system prompt and ask it to build the spec from t
 
 Use this when you already have raw material — an analyst's script, a process doc, an existing system prompt, a spreadsheet — and want a spec from it in one shot.
 
-1. Open [`prompts/AGENT-SPEC-PROMPT.txt`](../prompts/AGENT-SPEC-PROMPT.txt). It instructs an LLM to read your material and emit a v0 spec as a single JSON object.
+1. Open [`AGENT-SPEC-PROMPT.txt`](./AGENT-SPEC-PROMPT.txt). It instructs an LLM to read your material and emit a v0 spec as a single JSON object.
 2. Paste that prompt plus your source material into an external LLM (Claude, Gemini, etc.). Copy the JSON it returns.
 3. In flowstore, click the **Import** icon, paste the JSON into the box, and choose **Parse & import**. The import is a mechanical, schema-validated parse — no LLM runs in the app — so a malformed object is rejected with errors rather than silently loaded.
 
@@ -87,7 +87,7 @@ For returning to work that already lives in Git or on disk. A brand-new user won
 
 With a spec loaded and an LLM key set, click **Run** (top-right of the canvas) to open the **Simulate** panel and chat with your agent. By default this runs in **prompt mode**: the chat goes against the system prompt compiled from the spec you're editing, so you're testing exactly what you'd export.
 
-If you point a **Runner URL** at a paired `flowstore-runner` in Settings, Run drives the runner instead. Because the runner emits a routing event stream, the canvas then highlights the active flow and the last exit path taken as the conversation moves — so you watch routing happen live. That live highlighting is a runner-mode feature; prompt mode needs only your LLM key.
+If you point a **Runner URL** at a paired runtime in Settings, Run drives that runtime instead. Because the runtime emits a routing event stream, the canvas then highlights the active flow and the last exit path taken as the conversation moves — so you watch routing happen live. That live highlighting is a runner-mode feature; prompt mode needs only your LLM key.
 
 ## Export
 
@@ -99,9 +99,8 @@ Open the **Export** dropdown:
 
 ## What's next
 
-You've done author → simulate → export. The deeper loop — decomposing a spec into a Git repo and running structured tests against the compiled prompt — has its own worked example:
+You've done author → simulate → export. From here:
 
-- [`examples/coffee-testing/`](../examples/coffee-testing/README.md) — the Bluebird Coffee agent decomposed, with test cases, capability mocks, and a ~150-line Python runner. Reads in ten minutes, runs in two.
-- [FILE-MODEL.md](../FILE-MODEL.md) — how a project decomposes into files on disk, single- and multi-agent.
-- [SCHEMA.md](../SCHEMA.md) — the authoritative spec data model.
-- [AGENTS.md](../AGENTS.md) — architecture, principles, and where flowstore sits in the broader product.
+- [FILE-MODEL.md](./FILE-MODEL.md) — how a project decomposes into files on disk, single- and multi-agent.
+- [SCHEMA.md](./SCHEMA.md) — the authoritative spec data model.
+- [AGENTS.md](./AGENTS.md) — architecture, principles, and where flowstore sits in the broader product.

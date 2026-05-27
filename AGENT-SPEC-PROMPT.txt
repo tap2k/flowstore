@@ -376,7 +376,7 @@ exit path.
 
 If the source has an FAQ block, populate `agent.knowledge.faq` and
 stop there — do NOT model FAQ answering as a separate interrupt.
-The runner already injects `agent.knowledge.faq` into every flow's
+The compiled prompt already includes `agent.knowledge.faq` in every flow's
 system prompt; the agent answers inline. An FAQ answer is a
 knowledge lookup, not a stateful detour, and wrapping it in an
 interrupt creates routing misfires and no-match hallucinations.
@@ -488,7 +488,7 @@ the source warrants it.
   placing the order", "one or two sentences") → `guardrails`.
   Per-stage behavior → flow `instructions`. Facts → `knowledge`
   (FAQ, glossary, tables). Tools → `capabilities`. There is no
-  agent-level free-text prompt field — the runner synthesizes the
+  agent-level free-text prompt field — the compiler synthesizes the
   role line from `meta`, and the rendered prompt is built from the
   structured fields. The test for tone vs. guardrail: is the clause
   describing how the agent *sounds* (tone), or what the agent must

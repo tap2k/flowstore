@@ -2,9 +2,9 @@
 
 How a flowstore project is laid out on disk. This is the **serialization contract** for the schema defined in [SCHEMA.md](./SCHEMA.md): the schema defines the data model; this document defines how that model is split across files in a user's GitHub repo.
 
-GitHub is the system of record. A flowstore project is a directory in a Git repo with the layout below. The browser editor reads and writes these files; the Python runner (and other consumers) load them. There is no other persistence layer in the free tier.
+GitHub is the system of record. A flowstore project is a directory in a Git repo with the layout below. The browser editor reads and writes these files; a runtime (and other consumers) load them. There is no other persistence layer in the free tier.
 
-For the broader vision this slots into, see [MVP-PLAN.md](./docs/mvp-plan.md). For the design principles that govern what lives in the spec vs. outside it, see [AGENTS.md](./AGENTS.md).
+For the design principles that govern what lives in the spec vs. outside it, see [AGENTS.md](./AGENTS.md).
 
 ---
 
@@ -98,7 +98,7 @@ project/
 
 ## Layout — multi-agent variant
 
-When a project holds multiple agents (e.g., one Tala-India project with purpose × language agents), the shape promotes. **`tests/` splits between two roots**: shared testing infrastructure (personas, evaluators, rubrics) stays at project `tests/`; agent-scoped (cases, gold-standards, runs) lives under each `agents/<id>/tests/`. **`flows/` may also live at both scopes**: shared flows (typically interrupts like `verify_identity`, `handle_wrong_person`, `request_callback`) at project root; agent-specific flows under each `agents/<id>/flows/`.
+When a project holds multiple agents (e.g., one project with purpose × language agents), the shape promotes. **`tests/` splits between two roots**: shared testing infrastructure (personas, evaluators, rubrics) stays at project `tests/`; agent-scoped (cases, gold-standards, runs) lives under each `agents/<id>/tests/`. **`flows/` may also live at both scopes**: shared flows (typically interrupts like `verify_identity`, `handle_wrong_person`, `request_callback`) at project root; agent-specific flows under each `agents/<id>/flows/`.
 
 ```
 project/
@@ -275,7 +275,7 @@ Project-scope is file-shaped because it's potentially large + shared across many
 
 Both are conceptually evaluators (a test case references either uniformly). They live in separate directories because their lifecycles differ:
 
-- **`tests/evaluators/<name>.py`** — Python functions; deterministic checks; engineer-authored. Built-ins vendored by `flowstore-init-project`: `forbidden_phrases`, `required_phrases`, `max_turn_length`, `regex_match`, `state_check` (asserts expected key/value pairs in final variable state), `tool_calls_check` (asserts which capabilities were dispatched, with optional ordering + parameter constraints). See [MVP-PLAN.md § Evaluator library](./docs/mvp-plan.md#phase-2--testing-surface-mid-august-through-october-2026) for config shapes.
+- **`tests/evaluators/<name>.py`** — Python functions; deterministic checks; engineer-authored. Built-ins vendored by `flowstore-init-project`: `forbidden_phrases`, `required_phrases`, `max_turn_length`, `regex_match`, `state_check` (asserts expected key/value pairs in final variable state), `tool_calls_check` (asserts which capabilities were dispatched, with optional ordering + parameter constraints).
 - **`tests/rubrics/<id>.rubric.json`** — declarative llm-judge criteria + prompt template; designer-authored.
 
 Test cases reference either by name:
@@ -381,7 +381,7 @@ Roles are optional. Unset role → falls back to `default`. Per-file `model` fie
 5. Env var (`flowstore_AGENT_MODEL`, `flowstore_JUDGE_MODEL`, etc.)
 6. Per-call CLI override (`--model`, `--agent-model`, `--judge-model`, `--user-sim-model`)
 
-**Runtime config (STT, TTS, voices, telephony, audio, barge-in, VAD, transport choice) is explicitly out of scope for flowstore.** Those live with the runner / Pipecat config / deployment infrastructure. flowstore declares semantic info (e.g. `meta.languages`); the runner picks appropriate runtime knobs. Per "execution separate from spec" — see [SCHEMA.md § Execution Separate From Spec](./SCHEMA.md#execution-separate-from-spec).
+**Runtime config (STT, TTS, voices, telephony, audio, barge-in, VAD, transport choice) is explicitly out of scope for flowstore.** Those live with the runtime / Pipecat config / deployment infrastructure. flowstore declares semantic info (e.g. `meta.languages`); the runtime picks appropriate runtime knobs. Per "execution separate from spec" — see [SCHEMA.md § Execution Separate From Spec](./SCHEMA.md#execution-separate-from-spec).
 
 ---
 
@@ -418,10 +418,10 @@ Compilation merges across scope levels (project ∪ agent ∪ flow per entity), 
 
 **Two compile output formats in MVP:**
 
-- **`flowstore-compile --format spec --agent <id>`** — produces the resolved JSON document above for the specified agent (runtime-canonical shape). Consumed by the simulate panel, the Python runner, and any future runtime target.
+- **`flowstore-compile --format spec --agent <id>`** — produces the resolved JSON document above for the specified agent (runtime-canonical shape). Consumed by the simulate panel, a paired runtime, and any future runtime target.
 - **`flowstore-compile --format prompt --agent <id>`** — produces `{ system_prompt: <string>, tool_schemas: [...] }` via the codegen in [packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts). Consumed by testing scripts (drives an LLM directly) and as the lowest-friction export for "paste into Claude / OpenAI / any LLM" workflows.
 
-Both targets read the same source files. Single-agent projects can omit `--agent`. Pipecat compilation is **deferred post-MVP**, gated on [TRANSLATION-POC.md](./docs/translation-poc.md).
+Both targets read the same source files. Single-agent projects can omit `--agent`. Pipecat compilation is **deferred post-MVP**.
 
 Test cases, mocks, rubrics, personas, run outputs, comments, and `models/*` are **not** compiled into the runtime artifact; they live alongside it as the testing and configuration surface.
 
@@ -462,4 +462,4 @@ The strategic value: one repo holds the whole project lifecycle — spec, tests,
 - Validation runs on the in-memory resolved spec, not file-by-file. A single file is valid against its own schema; only the resolved spec is checked against cross-file invariants (referenced ids exist, entry flow is reachable, scope collisions caught, etc.).
 - Comments are additive — adding a comment is always conflict-free. Resolution is also a new file (the resolving comment). Cascade-delete on entity removal handles orphans.
 - Commit boundaries should match concern boundaries. Editing a flow and adding a guardrail it references is two changes; commit separately so the diffs read cleanly.
-- The file model is the foundation Phase 1 of [MVP-PLAN.md](./docs/mvp-plan.md) builds on.
+- The file model is the serialization foundation the editor and any runtime build on.

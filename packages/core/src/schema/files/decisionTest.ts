@@ -28,8 +28,7 @@ const DecisionBranch = Type.Object(
 // than full conversation tests because the prefix is shared.
 //
 // Maps 1:1 to flow.exit_paths[].condition — each exit condition is a
-// classifier worth testing against many inputs. See
-// docs/testing-plan.md → "Three units of testing → Decision tests".
+// classifier worth testing against many inputs.
 //
 // Authoring shape:
 //   - prefix_turns[] is user inputs that get the conversation to the

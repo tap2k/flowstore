@@ -17,7 +17,7 @@ export interface TurnResponse {
 export class RunnerUnreachableError extends Error {
   constructor(baseUrl: string) {
     super(
-      `Runner unreachable at ${baseUrl} — start it with \`cd ../flowstore-runner && uv run flowstore-runner serve\`, or change the URL in Settings.`,
+      `Runner unreachable at ${baseUrl} — start your runtime server, or change the URL in Settings.`,
     );
     this.name = "RunnerUnreachableError";
   }

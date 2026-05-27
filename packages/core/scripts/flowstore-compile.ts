@@ -101,7 +101,7 @@ function loadSpec(input: string): Spec {
 // Capability declarations carry variable names only. To make a JSON Schema
 // tool definition useful, look up the variable's declared type on the agent;
 // fall back to "string" when undeclared (matches generated-code default in
-// other targets — see TRANSLATIONS.md).
+// other targets).
 function variableType(
   varName: string,
   agentVars: Record<string, VariableDecl> | undefined,
