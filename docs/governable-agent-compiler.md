@@ -53,6 +53,18 @@ Each is tied to something the study actually hit.
    `--format spec`. Add a manifest the supervisor consumes — data-gates, deterministic steps,
    transition semantics, interrupt priorities, the control-channel schema. One source of truth
    → reasoning + governance. (Everything below populates it.)
+1b. **Compile the monolith with an explicit cache boundary** (stable prefix ‖ volatile suffix).
+   Partition the prompt: **stable** (graph, identity, flows, guardrail priors — *cached across
+   sessions*) before the boundary; **volatile** (current variable values released by data-gates,
+   temporal context, the active-flow hint, recovery context, conditional steers — *assembled
+   per turn*) after it. This is what Anthropic's `SYSTEM_PROMPT_DYNAMIC_BOUNDARY` does (stable
+   cached globally, session/turn state per call), and it's the per-turn `append` the supervisor
+   already does — just made cache-aware. The **compiler advantage**: it can place the boundary
+   *optimally* by classifying each section as never- / per-session- / per-turn-volatile from the
+   spec (static analysis), where a hand-coded prompt assembler places it ad hoc. Big cost +
+   latency win, and disproportionately so for **voice** (latency-critical). Keep the volatile
+   suffix *small* to maximize cache reuse. (Note: modular/dynamic prompt assembly is becoming
+   table stakes — this and #1 are the moat, not "we do dynamic prompts.")
 
 ### Guardrails & information flow (the differentiator, and the voice answer)
 2. **Guardrails compile to three coordinated mechanisms — heavy policy stays *off* the main
@@ -64,7 +76,12 @@ Each is tied to something the study actually hit.
    - **light proactive steer, kept in the prompt** (prevents drift, cheap): behavioral priors
      like tone / no-threats. Kept deliberately *light* — that's the anti-bloat line, **not**
      "remove them": proactive steering is what *prevents*, and it demonstrably holds (tone stayed
-     ~5/5 across the hostile/red-team personas in the study).
+     ~5/5 across the hostile/red-team personas in the study). Steers should be **conditional and
+     compiled, not static prose** — emitted into the volatile suffix only when a session signal
+     holds (late hour, high iteration count, repeated tool errors), so the model never reads a
+     guard that doesn't apply. And **feed errors forward**: when a turn fails (the runner already
+     emits an `Error` event), fold a "don't retry X" recovery steer into the *next* turn's suffix
+     — observable *and* actionable.
    - **fast guard LLM** (reactive, beside the main pathway, not in its prompt): the heavy /
      contextual / auditable policy — *in-path* gate for **text** (block or rewrite before send),
      *out-of-path* monitor + flag for **voice** (can't block the stream, but the violation lands
@@ -115,10 +132,11 @@ Each is tied to something the study actually hit.
 
 The throughline — **#1 manifest + #2 data-gates + #3 variable availability** — is the
 defensible core and directly solves the compliance/voice problem (and the scoping was already
-prototyped by hand on the runner). Then **#4/#5 deterministic steps + slot typing** (closes the
-terminator gap, small) and **#8 validation** (cheap, high-leverage). **#6 transition_style** is
-the deepest win but depends on the supervisor consuming the manifest, so it lands after the
-supervisor exists.
+prototyped by hand on the runner). Pair it with **#1b the cache boundary** — cheap, and the
+cost/latency payoff (especially voice) is immediate. Then **#4/#5 deterministic steps + slot
+typing** (closes the terminator gap, small) and **#8 validation** (cheap, high-leverage).
+**#6 transition_style** is the deepest win but depends on the supervisor consuming the manifest,
+so it lands after the supervisor exists.
 
 ## The one-line pitch
 
