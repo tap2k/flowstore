@@ -1,5 +1,5 @@
 {
-  "$schema": "flowstore://test-case/v0",
+  "$schema": "flowstore://test/case/v0",
   "id": "happy-path-latte",
   "name": "Customer orders a large oat-milk latte — happy path",
   "description": "Straightforward order that fires cap_place_order with a complete drink spec.",

@@ -1,6 +1,6 @@
 {
   "agent": {
-    "$schema": "flowstore://agent/v0",
+    "$schema": "flowstore://spec/agent/v0",
     "id": "agent_bluebird_coffee",
     "version": "0.1.0",
     "meta": {
@@ -238,7 +238,7 @@
   },
   "flows": [
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "flow_greet",
       "version": "0.1.0",
       "name": "Greet & route",
@@ -299,7 +299,7 @@
       ]
     },
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "flow_coffee_order",
       "version": "0.1.0",
       "name": "Coffee order",
@@ -356,7 +356,7 @@
       ]
     },
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "flow_tea_order",
       "version": "0.1.0",
       "name": "Tea order",
@@ -405,7 +405,7 @@
       ]
     },
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "flow_confirm",
       "version": "0.1.0",
       "name": "Confirm & place",
@@ -475,7 +475,7 @@
       ]
     },
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "int_menu",
       "version": "0.1.0",
       "name": "Interrupt — what's on the menu",

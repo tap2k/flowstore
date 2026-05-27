@@ -70,7 +70,7 @@ export const useCommentsStore = create<CommentsState>((set, get) => ({
     if (!trimmed) throw new Error("Comment body is empty.");
     const loc = getLocationOrThrow();
     const comment: Comment = {
-      $schema: "flowstore://comment/v0",
+      $schema: "flowstore://meta/comment/v0",
       id: newCommentId(),
       anchor,
       author: currentAuthor(),

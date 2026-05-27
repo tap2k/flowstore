@@ -86,7 +86,7 @@ npm -w @flowstore/core run --silent flowstore-compile -- \
 
 ## How it works, in one paragraph
 
-`run.py` shells out to `flowstore-compile --format prompt` to get `{system_prompt, tool_schemas}` from the decomposed spec. Then it walks the test case's `user_turns`, calling the Anthropic API with the compiled prompt + tools. When the model invokes a tool, the script looks up `(capability_id, variant)` in the test case's `mock_bindings`, finds the matching `<id>.<variant>.mock.json`, and either returns its `behavior.returns` or raises with `behavior.error`. Every assistant text turn and tool call lands in `transcript[]` / `capability_calls[]`. After the user turns are exhausted (or the inner tool-call budget trips), the script writes a `result.json` matching `flowstore://result/v0`.
+`run.py` shells out to `flowstore-compile --format prompt` to get `{system_prompt, tool_schemas}` from the decomposed spec. Then it walks the test case's `user_turns`, calling the Anthropic API with the compiled prompt + tools. When the model invokes a tool, the script looks up `(capability_id, variant)` in the test case's `mock_bindings`, finds the matching `<id>.<variant>.mock.json`, and either returns its `behavior.returns` or raises with `behavior.error`. Every assistant text turn and tool call lands in `transcript[]` / `capability_calls[]`. After the user turns are exhausted (or the inner tool-call budget trips), the script writes a `result.json` matching `flowstore://run/result/v0`.
 
 That's the entire loop. Evaluators are not run (the `evaluator_results` array is left empty). When you add evaluators, write whatever framework you want — the result file is the only contract.
 

@@ -1,6 +1,6 @@
 {
   "agent": {
-    "$schema": "flowstore://agent/v0",
+    "$schema": "flowstore://spec/agent/v0",
     "id": "agent_northwind_fnol",
     "version": "0.1.0",
     "meta": {
@@ -326,7 +326,7 @@
   },
   "flows": [
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "flow_safety_triage",
       "version": "0.1.0",
       "name": "Safety triage",
@@ -366,7 +366,7 @@
       ]
     },
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "flow_defer_emergency",
       "version": "0.1.0",
       "name": "Defer for emergency",
@@ -411,7 +411,7 @@
       ]
     },
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "flow_identify",
       "version": "0.1.0",
       "name": "Identify policyholder",
@@ -442,7 +442,7 @@
       ]
     },
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "flow_route_verified",
       "version": "0.1.0",
       "name": "Route on verification",
@@ -469,7 +469,7 @@
       ]
     },
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "flow_policy_not_found",
       "version": "0.1.0",
       "name": "Policy not found",
@@ -525,7 +525,7 @@
       ]
     },
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "flow_incident_details",
       "version": "0.1.0",
       "name": "Incident details",
@@ -561,7 +561,7 @@
       ]
     },
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "flow_vehicle_info",
       "version": "0.1.0",
       "name": "Vehicle info",
@@ -597,7 +597,7 @@
       ]
     },
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "flow_other_party_info",
       "version": "0.1.0",
       "name": "Other party info",
@@ -625,7 +625,7 @@
       ]
     },
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "flow_photos",
       "version": "0.1.0",
       "name": "Photos commitment",
@@ -649,7 +649,7 @@
       ]
     },
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "flow_review_and_file",
       "version": "0.1.0",
       "name": "Review & file claim",
@@ -707,7 +707,7 @@
       ]
     },
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "flow_schedule_adjuster",
       "version": "0.1.0",
       "name": "Schedule adjuster callback",
@@ -746,7 +746,7 @@
       ]
     },
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "int_human_handoff",
       "version": "0.1.0",
       "name": "Interrupt — talk to a person",
@@ -773,7 +773,7 @@
       ]
     },
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "int_policy_question",
       "version": "0.1.0",
       "name": "Interrupt — policy / coverage question",
@@ -812,7 +812,7 @@
       ]
     },
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "int_calming",
       "version": "0.1.0",
       "name": "Interrupt — calm the caller",
@@ -855,7 +855,7 @@
       ]
     },
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "int_cancel_claim",
       "version": "0.1.0",
       "name": "Interrupt — cancel / never mind",

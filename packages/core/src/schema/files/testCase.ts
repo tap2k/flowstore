@@ -29,7 +29,7 @@ const Assertion = Type.Object(
 // is documented in FILE-MODEL.md.
 export const TestCaseSchema = Type.Object(
   {
-    $schema: Type.Literal("flowstore://test-case/v0"),
+    $schema: Type.Literal("flowstore://test/case/v0"),
     id: Type.String(),
     name: Type.Optional(Type.String()),
     description: Type.Optional(Type.String()),

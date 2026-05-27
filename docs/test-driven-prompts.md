@@ -56,11 +56,11 @@ Five phases, each with a concrete artifact. The phases below are the order you d
 
 ### Phase 1 — gold transcripts
 
-A **gold** is a verbatim example conversation. It is *not* a rule about what the agent should do (that's the spec); it's a captured trajectory through whatever rules apply. Stored as `tests/gold/<id>.gold.json` matching `flowstore://gold/v0`.
+A **gold** is a verbatim example conversation. It is *not* a rule about what the agent should do (that's the spec); it's a captured trajectory through whatever rules apply. Stored as `tests/gold/<id>.gold.json` matching `flowstore://test/gold/v0`.
 
 ```json
 {
-  "$schema": "flowstore://gold/v0",
+  "$schema": "flowstore://test/gold/v0",
   "id": "happy_path_basic",
   "name": "Basic happy path",
   "scenario": "BAU borrower confirms identity, names a reason, commits to pay today.",
@@ -89,11 +89,11 @@ cat prompts/GOLD-EXTRACTION-PROMPT.txt customer-source.txt | \
 
 ### Phase 2 — derive test cases from golds
 
-A gold is the source of truth; a **test case** is the executable extraction. The case carries the user side of the gold's turns plus assertions over what the agent must (or must not) say in response. Stored as `tests/cases/<id>.test.json` matching `flowstore://test-case/v0`.
+A gold is the source of truth; a **test case** is the executable extraction. The case carries the user side of the gold's turns plus assertions over what the agent must (or must not) say in response. Stored as `tests/cases/<id>.test.json` matching `flowstore://test/case/v0`.
 
 ```json
 {
-  "$schema": "flowstore://test-case/v0",
+  "$schema": "flowstore://test/case/v0",
   "id": "happy-within-grace",
   "user_turns": [
     "Hola, bien gracias",

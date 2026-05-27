@@ -60,7 +60,7 @@ Same loader handles both. The resolved compiled spec has the same shape regardle
 ```
 project/
 ├── README.md                                # user-authored narrative; not loaded
-├── flowstore.json                                 # project manifest — minimal: { "$schema": "flowstore://project/v0" }
+├── flowstore.json                                 # project manifest — minimal: { "$schema": "flowstore://spec/project/v0" }
 ├── agent.json                               # meta (incl. client, tone), languages, chatbot_initiates, entry_flow_id, optional agent-scope guardrails/business-goals/variables/knowledge
 ├── models/                                  # multi-provider config
 │   ├── frontier.json
@@ -103,7 +103,7 @@ When a project holds multiple agents (e.g., one Tala-India project with purpose 
 ```
 project/
 ├── README.md
-├── flowstore.json                                 # minimal — { "$schema": "flowstore://project/v0" }
+├── flowstore.json                                 # minimal — { "$schema": "flowstore://spec/project/v0" }
 ├── models/                                  # shared
 ├── guardrails.json                          # project-level (cross-agent)
 ├── business-goals.json                      # project-level
@@ -148,7 +148,7 @@ All `.json` files carry a `$schema` URI under `flowstore://...`. All entries car
 
 ```json
 {
-  "$schema": "flowstore://project/v0"
+  "$schema": "flowstore://spec/project/v0"
 }
 ```
 
@@ -258,7 +258,7 @@ Two collections use CSV + paired meta JSON:
 
 | File | Contents |
 |---|---|
-| `flowstore.json` | Project manifest. Minimal: `{ "$schema": "flowstore://project/v0" }`. |
+| `flowstore.json` | Project manifest. Minimal: `{ "$schema": "flowstore://spec/project/v0" }`. |
 | `agent.json` | Per-agent envelope: `meta` (name, purpose, client, tone, languages), `chatbot_initiates`, `entry_flow_id`, plus optional agent-scope `guardrails[]` / `business_goals[]` / `variables{}` / `knowledge.faq[]` inline. At project root in single-agent; under `agents/<id>/` in multi-agent. |
 
 ### Scope collections — physical layout
@@ -295,7 +295,7 @@ Per-uuid additive files at project root (`comments/<uuid>.comment.json`). Each c
 
 ```json
 {
-  "$schema": "flowstore://comment/v0",
+  "$schema": "flowstore://meta/comment/v0",
   "id": "c-2026-05-21-a8f3",
   "anchor": {
     "kind": "flow",                      // closed enum (TypeBox schema): flow | exit_path | capability | guardrail | business_goal | variable | faq | glossary | table | persona | rubric | evaluator | test_case | mock
@@ -322,7 +322,7 @@ LLM configuration lives in `models/`. Each file is a partial config; the loader 
 ```json
 // models/frontier.json
 {
-  "$schema": "flowstore://models/v0",
+  "$schema": "flowstore://spec/models/v0",
   "models": {
     "claude-sonnet-4-5": { "endpoint": "anthropic", "model_id": "claude-sonnet-4-5" },
     "gpt-5":             { "endpoint": "openai",    "model_id": "gpt-5" },
@@ -332,7 +332,7 @@ LLM configuration lives in `models/`. Each file is a partial config; the loader 
 
 // models/self-hosted.json
 {
-  "$schema": "flowstore://models/v0",
+  "$schema": "flowstore://spec/models/v0",
   "providers": {
     "my-vllm": {
       "kind": "openai-compatible",
@@ -349,7 +349,7 @@ LLM configuration lives in `models/`. Each file is a partial config; the loader 
 
 // models/defaults.json
 {
-  "$schema": "flowstore://models/v0",
+  "$schema": "flowstore://spec/models/v0",
   "default": "claude-sonnet-4-5",
   "roles": {
     "agent": "claude-sonnet-4-5",          // OPTIONAL — overrides default for agent execution
@@ -433,7 +433,7 @@ Test cases, mocks, rubrics, personas, run outputs, comments, and `models/*` are 
 
 Each file's `$schema` field carries the version. The schema doc ([SCHEMA.md](./SCHEMA.md)) is the contract for `agent` and `flow` shapes; this doc is the contract for the file layout itself.
 
-When the file model changes structurally, the project manifest's `$schema` URI bumps. The browser editor and scripts load older versions through a migration pass; the canonical form is always the latest. Initial version: `flowstore://project/v0`.
+When the file model changes structurally, the project manifest's `$schema` URI bumps. The browser editor and scripts load older versions through a migration pass; the canonical form is always the latest. Initial version: `flowstore://spec/project/v0`.
 
 ---
 

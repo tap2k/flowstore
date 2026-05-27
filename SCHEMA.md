@@ -130,9 +130,9 @@ In memory and as a runtime artifact, a resolved spec has the shape:
 
 ```json
 {
-  "agent": { "$schema": "flowstore://agent/v0", "id": "...", ... },
+  "agent": { "$schema": "flowstore://spec/agent/v0", "id": "...", ... },
   "flows": [
-    { "$schema": "flowstore://flow/v0", "id": "...", ... }
+    { "$schema": "flowstore://spec/flow/v0", "id": "...", ... }
   ]
 }
 ```
@@ -149,7 +149,7 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
 
 ```json
 {
-  "$schema": "flowstore://agent/v0",
+  "$schema": "flowstore://spec/agent/v0",
   "id": "string",
   "version": "string",
 
@@ -248,7 +248,7 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
 
 ```json
 {
-  "$schema": "flowstore://flow/v0",
+  "$schema": "flowstore://spec/flow/v0",
   "id": "string",
   "version": "string",
   "name": "string",

@@ -117,7 +117,7 @@ loop user_turns                          loop user_turns
   → look up mock by capability id          → runner dispatches mock for you
   → translate tool name → id               → events expose flow + variable state
        ↓                                        ↓
-flowstore://result/v0                    flowstore://result/v0
+flowstore://run/result/v0                    flowstore://run/result/v0
 ```
 
 **Use the system-prompt path** for portability (works against any provider's tool-use API) and for grading prompt quality in isolation. **Use the runner path** when you need the real graph executor (variable bindings, structural exits, event stream) and authoritative `final_variables` in results.
@@ -126,12 +126,12 @@ Run both against the same cases to detect divergence — the runner's structural
 
 ### File shapes (one-line each)
 
-- `flowstore://test-case/v0` — scripted user turns OR persona-driven, plus mock bindings + assertions + evaluator references.
-- `flowstore://gold/v0` — verbatim reference transcript for a scenario.
-- `flowstore://persona/v0` — user-side system prompt for LLM-as-user exploration.
-- `flowstore://capability-mock/v0` — `(capability_id, variant)` → what to return when the agent tool-calls.
-- `flowstore://rubric/v0` — LLM-judge criterion with prompt template; `{transcript}`, `{criteria}`, `{gold_standard}` substitution.
-- `flowstore://result/v0` — per-case run output: transcript, capability_calls, final_variables, evaluator_results.
+- `flowstore://test/case/v0` — scripted user turns OR persona-driven, plus mock bindings + assertions + evaluator references.
+- `flowstore://test/gold/v0` — verbatim reference transcript for a scenario.
+- `flowstore://test/persona/v0` — user-side system prompt for LLM-as-user exploration.
+- `flowstore://test/mock/v0` — `(capability_id, variant)` → what to return when the agent tool-calls.
+- `flowstore://test/rubric/v0` — LLM-judge criterion with prompt template; `{transcript}`, `{criteria}`, `{gold_standard}` substitution.
+- `flowstore://run/result/v0` — per-case run output: transcript, capability_calls, final_variables, evaluator_results.
 
 The `id` in each file must match the basename. `additionalProperties: false` on top-level objects to keep the schema as contract.
 

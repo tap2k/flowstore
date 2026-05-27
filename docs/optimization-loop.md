@@ -91,7 +91,7 @@ restructures the problem:
 3. **Comparison baselines are first-class.** The same harness that runs the
    flowstore-compiled prompt runs the legacy prompt under identical conditions. An
    optimizer always has a baseline to beat, not just an abstract quality target.
-4. **The result file is the contract.** `flowstore://result/v0` carries transcripts,
+4. **The result file is the contract.** `flowstore://run/result/v0` carries transcripts,
    tool calls, final variables, and evaluator results in a stable shape — any
    optimizer reads the same thing the human reads.
 5. **Run-dir naming is pivotable.** `tests/runs/<ts>-<label>/` lets paired runs
@@ -108,8 +108,8 @@ optimizer that converges and one that wanders.
 
 The contract is robust:
 
-- File shapes pinned via `$schema` URIs (`flowstore://test-case/v0`,
-  `flowstore://result/v0`, `flowstore://capability-mock/v0`, etc.); the editor and loader
+- File shapes pinned via `$schema` URIs (`flowstore://test/case/v0`,
+  `flowstore://run/result/v0`, `flowstore://test/mock/v0`, etc.); the editor and loader
   reject malformed files.
 - Tool-schema-from-spec is enforced by `flowstore-compile --format prompt`; you
   can't accidentally A/B two prompts with different capability surfaces.
@@ -130,7 +130,7 @@ What is **not** robust enough for autonomous optimization without human review:
   failures ("model said the right thing in different words") and reward literal
   mimicry. An optimizer that's only graded on substring matches will converge
   on prompts that maximize substring hits, which is not the goal.
-- **No LLM-judge wiring yet.** `flowstore://rubric/v0` is specced; the runner doesn't
+- **No LLM-judge wiring yet.** `flowstore://test/rubric/v0` is specced; the runner doesn't
   evaluate them. Until it does, the assertion vocabulary can't express
   semantic criteria like "acknowledge the customer's hardship and offer an
   alternative" without smuggling the criterion into substring matches.

@@ -268,7 +268,7 @@ prompt_source = (
 )
 
 result: dict[str, Any] = {
-    "$schema": "flowstore://result/v0",
+    "$schema": "flowstore://run/result/v0",
     "test_case_id": case["id"],
     "timestamp": now.isoformat(),
     "agent_id": "agent_bluebird_coffee",

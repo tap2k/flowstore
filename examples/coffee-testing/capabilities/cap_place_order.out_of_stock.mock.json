@@ -1,5 +1,5 @@
 {
-  "$schema": "flowstore://capability-mock/v0",
+  "$schema": "flowstore://test/mock/v0",
   "capability_id": "cap_place_order",
   "variant": "out_of_stock",
   "description": "Kitchen is out of one of the requested ingredients. Agent must recover.",

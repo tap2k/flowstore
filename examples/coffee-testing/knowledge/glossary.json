@@ -1,5 +1,5 @@
 {
-  "$schema": "flowstore://project-glossary/v0",
+  "$schema": "flowstore://spec/project-glossary/v0",
   "glossary": [
     {
       "id": "gloss_0",

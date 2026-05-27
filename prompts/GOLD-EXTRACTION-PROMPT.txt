@@ -36,7 +36,7 @@ V0 SCHEMA
   "agent_id": "agent_<snake_case>",  // matches the spec being graded; best-guess if not stated
   "golds": [
     {
-      "$schema": "flowstore://gold/v0",
+      "$schema": "flowstore://test/gold/v0",
       "id": "<snake_case_slug_derived_from_section_label>",
       "name": "Human-readable label (verbatim from source if labelled)",
       "scenario": "Free-text one-sentence summary of what this conversation exercises (your synthesis, not from source).",

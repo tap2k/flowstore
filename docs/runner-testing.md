@@ -36,7 +36,7 @@ loop user_turns                          loop user_turns
   → look up mock                           → runner dispatched the mock for us
   → call again                             → next turn
         ↓                                       ↓
-flowstore://result/v0                          flowstore://result/v0
+flowstore://run/result/v0                          flowstore://run/result/v0
 ```
 
 Same input files (test case, vars, mocks). Same output schema. Two things
@@ -94,7 +94,7 @@ The test case shape is the same:
 
 ```json
 {
-  "$schema": "flowstore://test-case/v0",
+  "$schema": "flowstore://test/case/v0",
   "id": "happy-within-grace",
   "user_turns": ["Hola, bien gracias", "Sí, soy yo", "Sí, puedo pagar mañana sin problema"],
   "assertions": [
@@ -114,7 +114,7 @@ dispatch; assertions still grade the agent's reply text per turn.
 
 ## What changes in the result file
 
-Same `flowstore://result/v0` shape. Two pivotable fields:
+Same `flowstore://run/result/v0` shape. Two pivotable fields:
 
 - **`prompt_source`** — set to `"runner"` (or `"runner@<runner-version>"`)
   instead of `"flowstore-compile"`. This is the field the editor's result viewer

@@ -38,7 +38,7 @@ const CommentAnchor = Type.Object(
 
 export const CommentSchema = Type.Object(
   {
-    $schema: Type.Literal("flowstore://comment/v0"),
+    $schema: Type.Literal("flowstore://meta/comment/v0"),
     id: Type.String(),
     anchor: CommentAnchor,
     author: Type.String(),

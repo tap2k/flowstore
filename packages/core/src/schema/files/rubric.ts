@@ -15,7 +15,7 @@ const Scale = Type.Object(
 
 export const RubricSchema = Type.Object(
   {
-    $schema: Type.Literal("flowstore://rubric/v0"),
+    $schema: Type.Literal("flowstore://test/rubric/v0"),
     id: Type.String(),
     name: Type.Optional(Type.String()),
     criteria: Type.String(),

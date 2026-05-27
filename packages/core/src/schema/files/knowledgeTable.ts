@@ -14,7 +14,7 @@ const TableField = Type.Object(
 // against `structure[].field` at row-parse time in parseTableRowsCsv.
 export const KnowledgeTableMetaSchema = Type.Object(
   {
-    $schema: Type.Literal("flowstore://knowledge-table/v0"),
+    $schema: Type.Literal("flowstore://spec/knowledge-table/v0"),
     id: Type.String(),
     name: Type.String(),
     purpose: Type.Optional(Type.String()),

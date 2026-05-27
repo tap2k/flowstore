@@ -8,7 +8,7 @@ export function scaffoldNewProject(opts: { name: string; id?: string }): Spec {
   const id = opts.id ?? `agent_${slug(opts.name)}`;
   return {
     agent: {
-      $schema: "flowstore://agent/v0",
+      $schema: "flowstore://spec/agent/v0",
       id,
       meta: {
         name: opts.name,
@@ -19,7 +19,7 @@ export function scaffoldNewProject(opts: { name: string; id?: string }): Spec {
     },
     flows: [
       {
-        $schema: "flowstore://flow/v0",
+        $schema: "flowstore://spec/flow/v0",
         id: "welcome",
         name: "Welcome",
         type: "happy",

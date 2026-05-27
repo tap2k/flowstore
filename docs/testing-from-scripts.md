@@ -93,13 +93,13 @@ Output of `--format prompt`:
 
 All carry a `$schema` URI and a stable `id`. flowstore validates these on load; the editor refuses to commit invalid files.
 
-### `tests/cases/<id>.test.json` — `flowstore://test-case/v0`
+### `tests/cases/<id>.test.json` — `flowstore://test/case/v0`
 
 A scripted set of user turns + which mocks to use + which evaluators to run.
 
 ```json
 {
-  "$schema": "flowstore://test-case/v0",
+  "$schema": "flowstore://test/case/v0",
   "id": "happy-path-large-coffee",
   "name": "Customer orders a large coffee — happy path",
   "user_turns": [
@@ -128,13 +128,13 @@ Fields:
 
 The file's `id` must match the basename (`happy-path-large-coffee.test.json` → `id: "happy-path-large-coffee"`).
 
-### `tests/personas/<id>.persona.json` — `flowstore://persona/v0`
+### `tests/personas/<id>.persona.json` — `flowstore://test/persona/v0`
 
 A user-side system prompt for LLM-as-user exploration. Minimal by design.
 
 ```json
 {
-  "$schema": "flowstore://persona/v0",
+  "$schema": "flowstore://test/persona/v0",
   "id": "irritated-frequent-flyer",
   "name": "Irritated frequent flyer",
   "system_prompt": "You are a frequent customer who has had three bad experiences in a row...",
@@ -143,13 +143,13 @@ A user-side system prompt for LLM-as-user exploration. Minimal by design.
 }
 ```
 
-### `capabilities/<capability_id>.<variant>.mock.json` — `flowstore://capability-mock/v0`
+### `capabilities/<capability_id>.<variant>.mock.json` — `flowstore://test/mock/v0`
 
 What a mocked capability should return when the agent tool-calls it during a test run.
 
 ```json
 {
-  "$schema": "flowstore://capability-mock/v0",
+  "$schema": "flowstore://test/mock/v0",
   "capability_id": "process_payment",
   "variant": "success",
   "behavior": {
@@ -163,7 +163,7 @@ Or for the failure case:
 
 ```json
 {
-  "$schema": "flowstore://capability-mock/v0",
+  "$schema": "flowstore://test/mock/v0",
   "capability_id": "process_payment",
   "variant": "decline",
   "behavior": {
@@ -177,13 +177,13 @@ Or for the failure case:
 
 The filename must match `<capability_id>.<variant>` from the body — flowstore checks this on load.
 
-### `tests/rubrics/<id>.rubric.json` — `flowstore://rubric/v0`
+### `tests/rubrics/<id>.rubric.json` — `flowstore://test/rubric/v0`
 
 Declarative LLM-judge criterion. Your evaluator framework runs the judge model with `prompt_template` (substituting `{transcript}`, `{criteria}`, and optionally `{gold_standard}`) and reads back a score in `scale.min..scale.max`.
 
 ```json
 {
-  "$schema": "flowstore://rubric/v0",
+  "$schema": "flowstore://test/rubric/v0",
   "id": "empathy_for_payment_failure",
   "name": "Empathy when payment fails",
   "criteria": "The agent acknowledges the customer's frustration and offers an alternative.",
@@ -193,13 +193,13 @@ Declarative LLM-judge criterion. Your evaluator framework runs the judge model w
 }
 ```
 
-### `tests/runs/<timestamp>-<label>/<test_case_id>.result.json` — `flowstore://result/v0`
+### `tests/runs/<timestamp>-<label>/<test_case_id>.result.json` — `flowstore://run/result/v0`
 
 **The contract**. Your script writes this. The editor reads it. Field-by-field:
 
 ```json
 {
-  "$schema": "flowstore://result/v0",
+  "$schema": "flowstore://run/result/v0",
   "test_case_id": "happy-path-large-coffee",
   "timestamp": "2026-06-15T14:32:11Z",
   "agent_id": "coffee",
@@ -254,7 +254,7 @@ A complete, runnable example lives at [examples/coffee-testing/scripts/run.py](.
 3. Load mocks from `capabilities/*.mock.json`, indexed by `(capability_id, variant)`.
 4. Build a `capability.name → capability.id` translation map (the LLM tool-calls return the runtime *name*; mocks key on *id*).
 5. Walk `user_turns`. For each turn: call the model, capture text into `transcript`, dispatch any function calls through the mock map (capturing into `capability_calls`), loop until no more tool calls.
-6. Write a `flowstore://result/v0` result file under `tests/runs/<ts>-<label>/`.
+6. Write a `flowstore://run/result/v0` result file under `tests/runs/<ts>-<label>/`.
 
 That's the entire shape. Adapt to your provider, your evaluator framework, your tracking concerns. The provider-specific surface (SDK calls, function-call response shape, tool-schema field name) is contained in steps 2 and 5; everything else is provider-neutral.
 
@@ -329,7 +329,7 @@ Things that aren't pinned yet. Push back if you have strong opinions; we'd rathe
 
 - **Multi-trial result shape.** `result.trials[]` mirrors the top-level shape. Aggregate metrics (pass@k, pass^k) land on the suite-level run manifest, not the per-case result. Run manifest schema isn't shipped yet.
 - **Run manifest** (`tests/runs/<dir>/manifest.json`) — not yet defined. Carries run-level config (which evaluator glob, which model, `--against prompt|endpoint`, trial count) + per-test-case result paths. Schema lands when a real run loop wants it.
-- **Rubric template variables.** `{transcript}`, `{criteria}`, `{gold_standard}` are the conventional names; nothing enforces them. Pinning this is a `flowstore://rubric/v0` clarification, not a breaking change.
+- **Rubric template variables.** `{transcript}`, `{criteria}`, `{gold_standard}` are the conventional names; nothing enforces them. Pinning this is a `flowstore://test/rubric/v0` clarification, not a breaking change.
 - **Endpoint-mode result shape.** Should an endpoint-mode result note the endpoint URL? Probably yes (for audit), with the URL captured in `run_manifest` not the per-case result. Tabled.
 - **Evaluator file format for rubrics + Python.** Python evaluators are flat files; rubrics are JSON. The convention for "this name resolves to a Python file or a JSON file, prefer the Python one if both exist" is documented but not enforced by code yet.
 

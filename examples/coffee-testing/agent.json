@@ -1,5 +1,5 @@
 {
-  "$schema": "flowstore://agent/v0",
+  "$schema": "flowstore://spec/agent/v0",
   "id": "agent_bluebird_coffee",
   "version": "0.1.0",
   "meta": {

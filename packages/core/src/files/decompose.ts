@@ -3,7 +3,7 @@ import { flowToScriptsCsv } from "@flowstore/core/codegen/scriptsCsv";
 import { tableToCsv } from "@flowstore/core/codegen/knowledgeCsv";
 import type { FileMap } from "./types";
 
-const PROJECT_MANIFEST = { $schema: "flowstore://project/v0" } as const;
+const PROJECT_MANIFEST = { $schema: "flowstore://spec/project/v0" } as const;
 
 export interface DecomposeOptions {
   projectName?: string;
@@ -18,7 +18,7 @@ export function decomposeSpec(spec: Spec, opts: DecomposeOptions = {}): FileMap 
   const glossary = spec.agent.knowledge?.glossary;
   if (glossary && glossary.length > 0) {
     out["knowledge/glossary.json"] = stringifyJson({
-      $schema: "flowstore://project-glossary/v0",
+      $schema: "flowstore://spec/project-glossary/v0",
       glossary,
     });
   }
@@ -26,7 +26,7 @@ export function decomposeSpec(spec: Spec, opts: DecomposeOptions = {}): FileMap 
   for (const table of spec.agent.knowledge?.tables ?? []) {
     const { rows: _rows, ...meta } = table;
     out[`knowledge/tables/${table.id}.meta.json`] = stringifyJson({
-      $schema: "flowstore://knowledge-table/v0",
+      $schema: "flowstore://spec/knowledge-table/v0",
       ...meta,
     });
     out[`knowledge/tables/${table.id}.csv`] = tableToCsv(table);

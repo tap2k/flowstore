@@ -40,7 +40,7 @@ V0 SCHEMA
 
 {
   "agent": {
-    "$schema": "flowstore://agent/v0",
+    "$schema": "flowstore://spec/agent/v0",
     "id": "agent_<snake_case>",
     "meta": {
       "name": "string",
@@ -100,7 +100,7 @@ V0 SCHEMA
   },
   "flows": [
     {
-      "$schema": "flowstore://flow/v0",
+      "$schema": "flowstore://spec/flow/v0",
       "id": "<snake_case>",
       "name": "Human-readable",
       "type": "happy | sad | off | utility | interrupt",

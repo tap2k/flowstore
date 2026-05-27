@@ -1,5 +1,5 @@
 {
-  "$schema": "flowstore://flow/v0",
+  "$schema": "flowstore://spec/flow/v0",
   "id": "flow_tea_order",
   "version": "0.1.0",
   "name": "Tea order",

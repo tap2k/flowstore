@@ -52,7 +52,7 @@ const Trial = Type.Object(
 
 export const ResultSchema = Type.Object(
   {
-    $schema: Type.Literal("flowstore://result/v0"),
+    $schema: Type.Literal("flowstore://run/result/v0"),
     test_case_id: Type.String(),
     timestamp: Type.String(),
     agent_id: Type.Optional(Type.String()),
