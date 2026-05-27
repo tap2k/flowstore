@@ -17,6 +17,27 @@ const Assertion = Type.Object(
   { additionalProperties: false },
 );
 
+// End-state assertion over result.final_variables. One assertion per
+// {variable} check. Exactly one of equals / matches / is_set must be
+// provided — enforced in the runner script, not in the schema (typebox
+// can't express exactly-one-of cleanly across heterogeneous operand
+// types). Semantics:
+//   equals  — strict equality (Python ==) against the bound value
+//   matches — regex against str(value); useful for opaque ids like "claim_abc123"
+//   is_set  — true: variable must be bound to any non-None value;
+//             false: variable must be absent or bound to None
+// Only the runner path populates final_variables today; state_assertions[]
+// against a system-prompt run fail loud rather than silently pass.
+const StateAssertion = Type.Object(
+  {
+    variable: Type.String(),
+    equals: Type.Optional(Type.Unknown()),
+    matches: Type.Optional(Type.String()),
+    is_set: Type.Optional(Type.Boolean()),
+  },
+  { additionalProperties: false },
+);
+
 // Test case = scripted user turns OR a persona-driven conversation + which
 // evaluators run + how to mock capabilities. Two shapes share this file type
 // because both are discovered the same way; the runner script branches on
@@ -37,6 +58,7 @@ export const TestCaseSchema = Type.Object(
     mock_bindings: Type.Optional(MockBindings),
     evaluators: Type.Optional(Type.Array(Type.String())),
     assertions: Type.Optional(Type.Array(Assertion)),
+    state_assertions: Type.Optional(Type.Array(StateAssertion)),
     persona_id: Type.Optional(Type.String()),
     // Cap on persona-driven runs so a derailed conversation can't loop forever.
     // Ignored for scripted cases (user_turns is the implicit cap).
