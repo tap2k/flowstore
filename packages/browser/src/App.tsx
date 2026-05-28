@@ -230,6 +230,50 @@ export function App() {
   );
 }
 
+// Header pill — amber dot + "Unsaved changes" when there's pending work,
+// muted "Saved · 12s ago" otherwise. Tick re-renders every 15s so the
+// relative time stays roughly fresh without per-frame work.
+function SaveStatePill() {
+  const spec = useSpecStore((s) => s.spec);
+  const isDirty = useDirtyStore((s) => s.isDirty);
+  const lastSavedAt = useDirtyStore((s) => s.lastSavedAt);
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!lastSavedAt) return;
+    const id = setInterval(() => setTick((t) => t + 1), 15_000);
+    return () => clearInterval(id);
+  }, [lastSavedAt]);
+
+  if (!spec) return null;
+  if (isDirty) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200">
+        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+        Unsaved changes
+      </span>
+    );
+  }
+  if (lastSavedAt) {
+    return (
+      <span className="text-[11px] text-zinc-500">
+        Saved · {timeAgo(lastSavedAt)}
+      </span>
+    );
+  }
+  return null;
+}
+
+function timeAgo(t: number): string {
+  const s = Math.floor((Date.now() - t) / 1000);
+  if (s < 5) return "just now";
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return new Date(t).toLocaleDateString();
+}
+
 function SparklesIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
