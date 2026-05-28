@@ -371,7 +371,7 @@ Roles are optional. Unset role → falls back to `default`. Per-file `model` fie
 
 **Endpoint resolution.** A model entry's `endpoint` names the provider adapter that dispatches it. It is **optional** — when absent, the loader infers it from the id prefix (`gemini*` → `google`, `gpt*` / `o*` → `openai`, `anthropic/*` → `openrouter`); ambiguous bare ids (`claude-`, `llama-`) need an explicit `endpoint`.
 
-**Built-in endpoints** (ship in `@flowstore/core`): `google`, `openai`, `openrouter`, and `openai-compatible` — the catchall for Ollama / vLLM / Together / any self-hosted or long-tail provider (supply `base_url`/`api_key_env` on the entry, as in the self-hosted example above). There is **no native `anthropic` endpoint**: browser-direct Anthropic calls fail CORS, so Claude routes through `openrouter` with a `model_id` like `anthropic/claude-opus-4.7`.
+**Built-in endpoints** (ship in `@flowstore/core`): `google`, `openai`, `openrouter`, and `openai-compatible` — the catchall for Ollama / vLLM / Together / any self-hosted or long-tail provider (supply `base_url`/`api_key_env` on the entry, as in the self-hosted example above). There is **no native `anthropic` endpoint**: browser-direct Anthropic calls fail CORS, so Claude routes through `openrouter` with a `model_id` like `anthropic/claude-opus-4.8`.
 
 **Personal variation through env vars** (no per-developer config file):
 

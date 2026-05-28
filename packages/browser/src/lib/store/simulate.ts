@@ -779,8 +779,8 @@ function readLlmCreds(role: SimulateRole): {
   return {
     apiKey: dispatch.apiKey,
     // wireModel — the actual id sent to the API. Differs from the catalog
-    // key for entries that set model_id (e.g. claude-opus-4.7 →
-    // anthropic/claude-opus-4.7 for OpenRouter).
+    // key for entries that set model_id (e.g. claude-opus-4.8 →
+    // anthropic/claude-opus-4.8 for OpenRouter).
     model: dispatch.wireModel,
     provider: dispatch.provider,
     baseUrl: dispatch.baseUrl,
