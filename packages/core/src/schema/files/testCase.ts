@@ -72,6 +72,26 @@ const StateAssertion = Type.Object(
   { additionalProperties: false },
 );
 
+// Deterministic assertion over result.capability_calls[]: did the agent invoke
+// a given capability? This is the direct check authors previously had to fake
+// with a transcript_assertion on whatever string a mock's return value leaked
+// into the agent's prose (brittle, and silent when the agent paraphrases).
+//   invoked true  — capability fired at least once
+//   invoked false — capability never fired (e.g. no claim filed mid-emergency)
+// `capability` is the capability id (matches CapabilityCall.capability), not the
+// runtime tool name. Unlike state_assertions, capability_calls is populated on
+// BOTH the compiled-prompt and runner targets (the prompt harness dispatches
+// mocks itself, the runner reports them), so these evaluate on either path.
+// `invoked` defaults true. Count / params-subset checks are deliberately
+// omitted until a case needs them.
+const CapabilityAssertion = Type.Object(
+  {
+    capability: Type.String(),
+    invoked: Type.Optional(Type.Boolean()),
+  },
+  { additionalProperties: false },
+);
+
 // Test case = scripted user turns OR a persona-driven conversation + which
 // evaluators run + how to mock capabilities. Two shapes share this file type
 // because both are discovered the same way; the runner script branches on
@@ -94,6 +114,7 @@ export const TestCaseSchema = Type.Object(
     assertions: Type.Optional(Type.Array(Assertion)),
     state_assertions: Type.Optional(Type.Array(StateAssertion)),
     transcript_assertions: Type.Optional(Type.Array(TranscriptAssertion)),
+    capability_assertions: Type.Optional(Type.Array(CapabilityAssertion)),
     persona_id: Type.Optional(Type.String()),
     // Cap on persona-driven runs so a derailed conversation can't loop forever.
     // Ignored for scripted cases (user_turns is the implicit cap).

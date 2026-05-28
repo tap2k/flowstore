@@ -6,15 +6,28 @@ const MockBindings = Type.Record(Type.String(), Type.String());
 
 // One branch of a decision test: "given the prefix-state, what does the
 // agent do when the user says <user_input>?". Substring assertions are
-// the v0 verdict mechanism. `expected_class` is informational (route /
-// flow / intent label the author expected) — not asserted by v0 runners
-// but useful for downstream filtering and reporting.
+// the v0 verdict mechanism; capability_assertions[] additionally check
+// whether the branch fired (or refrained from firing) a capability call
+// — useful when the routing exit is "silent" (e.g. cap_transfer_to_human
+// with no narration). Same `{capability, invoked?}` shape as on test/case/v0;
+// duplicated inline to match the MockBindings convention in this file.
+// `expected_class` is informational (route / flow / intent label the author
+// expected) — not asserted by v0 runners but useful for downstream filtering.
+const CapabilityAssertion = Type.Object(
+  {
+    capability: Type.String(),
+    invoked: Type.Optional(Type.Boolean()),
+  },
+  { additionalProperties: false },
+);
+
 const DecisionBranch = Type.Object(
   {
     user_input: Type.String(),
     expected_class: Type.Optional(Type.String()),
     must_contain: Type.Optional(Type.Array(Type.String())),
     must_not_contain: Type.Optional(Type.Array(Type.String())),
+    capability_assertions: Type.Optional(Type.Array(CapabilityAssertion)),
     notes: Type.Optional(Type.String()),
   },
   { additionalProperties: false },
@@ -35,8 +48,9 @@ const DecisionBranch = Type.Object(
 //     state under test. The opening agent turn (when chatbot_initiates)
 //     is implicit.
 //   - branches[] is the matrix to test at that point.
-//   - assertions are per-branch (must_contain / must_not_contain). No
-//     per-turn / state / transcript assertions in v0 — decision tests
+//   - assertions are per-branch (must_contain / must_not_contain on the
+//     reply text, plus capability_assertions on calls fired by that reply).
+//     No per-turn / state / transcript assertions in v0 — decision tests
 //     are scoped to "the agent's immediate response to the branch input".
 //
 // Execution: v0 runners replay the prefix once per branch as fresh

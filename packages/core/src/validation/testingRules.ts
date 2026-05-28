@@ -16,6 +16,7 @@ export interface TestingIssue {
 //   - mock.capability_id refers to a known capability
 //   - test_case.persona_id refers to a known persona
 //   - test_case.mock_bindings.<capability_id> refers to an existing mock variant
+//   - test_case.capability_assertions[].capability refers to a known capability
 //   - test_case.evaluators[] — name resolution requires Python eval-file
 //     enumeration we don't have here; skip in v0
 //   - duplicate ids within each collection
@@ -113,6 +114,14 @@ export function validateTesting(
         issues.push({
           at: { kind: "test_case", id: t.id },
           message: `mock_bindings["${capId}"] = "${variant}" — no matching ${capId}.${variant}.mock.json`,
+        });
+      }
+    }
+    for (const ca of t.capability_assertions ?? []) {
+      if (spec && !capabilityIds.has(ca.capability)) {
+        issues.push({
+          at: { kind: "test_case", id: t.id },
+          message: `capability_assertions refers to unknown capability "${ca.capability}"`,
         });
       }
     }
