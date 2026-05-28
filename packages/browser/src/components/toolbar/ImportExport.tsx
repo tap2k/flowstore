@@ -12,8 +12,9 @@ import { KnowledgeSheet } from "@/components/sheets/KnowledgeSheet";
 import { GitHubOpenModal } from "@/components/toolbar/GitHubOpenModal";
 import { GitHubProjectControls } from "@/components/toolbar/GitHubProjectControls";
 import { generateSystemPrompt } from "@flowstore/core/codegen/promptGenerator";
-import { decomposeSpec, loadProject } from "@flowstore/core/files";
+import { decomposeSpec, decomposeTestingArtifacts, loadProject } from "@flowstore/core/files";
 import { useCommentsStore } from "@/lib/store/comments";
+import { useTestsStore } from "@/lib/store/tests";
 import { useUiStore } from "@/lib/store/ui";
 import type { FileMap } from "@flowstore/core/files/types";
 import { makeZip, readZip } from "@flowstore/core/files/zip";
@@ -217,7 +218,10 @@ export function ImportExportToolbar({
   async function exportZip() {
     if (!spec) return;
     const name = sanitizeFilename(spec.agent.id || "spec");
-    const fileMap = decomposeSpec(spec);
+    const fileMap = {
+      ...decomposeSpec(spec),
+      ...decomposeTestingArtifacts(useTestsStore.getState().toTestingArtifacts()),
+    };
     const blob = await makeZip(fileMap);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -466,7 +470,7 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
   }
 
   function loadFileMap(files: FileMap, emptyMessage: string) {
-    const { spec, comments, errors: loadErrors } = loadProject(files);
+    const { spec, comments, testingArtifacts, errors: loadErrors } = loadProject(files);
     if (!spec) {
       setErrors(
         loadErrors.length > 0
@@ -476,6 +480,7 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
       return;
     }
     useCommentsStore.getState().setAll(comments);
+    useTestsStore.getState().setAll(testingArtifacts);
     handleParsed(spec);
   }
 

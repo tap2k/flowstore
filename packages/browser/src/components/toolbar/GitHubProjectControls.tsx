@@ -9,8 +9,10 @@ import {
   readRepoToFileMap,
   writeFileMapToRepo,
 } from "@flowstore/core/files/github";
-import { decomposeSpec, loadProject } from "@flowstore/core/files";
+import { decomposeSpec, decomposeTestingArtifacts, loadProject } from "@flowstore/core/files";
 import { useCommentsStore } from "@/lib/store/comments";
+import { useTestsStore } from "@/lib/store/tests";
+import { toSlug } from "@/lib/slug";
 import { useDirtyStore } from "@/lib/store/dirty";
 
 const iconButtonClass =
@@ -142,7 +144,10 @@ export function GitHubProjectControls({
     setError(null);
     try {
       const client = makeGitHubClient(pat);
-      const fileMap = decomposeSpec(spec);
+      const fileMap = {
+        ...decomposeSpec(spec),
+        ...decomposeTestingArtifacts(useTestsStore.getState().toTestingArtifacts()),
+      };
       // Skip the optimistic concurrency check the *first* time we save
       // after a save-to-new-repo. Account-installed GitHub Apps and
       // GitHub's own deferred finalization can drift HEAD on brand-new
@@ -195,7 +200,7 @@ export function GitHubProjectControls({
         repo: location.repo,
         ref: location.ref,
       });
-      const { spec: loaded, comments, errors } = loadProject(files);
+      const { spec: loaded, comments, testingArtifacts, errors } = loadProject(files);
       if (!loaded) {
         setError(errors.map((e) => e.message).join("; ") || "Refresh failed");
         return;
@@ -203,6 +208,7 @@ export function GitHubProjectControls({
       setSpec(loaded);
       setCommitSha(commitSha);
       useCommentsStore.getState().setAll(comments);
+      useTestsStore.getState().setAll(testingArtifacts);
       // Refresh reloaded the spec from GitHub — local matches remote, so
       // we're not dirty. Don't stamp lastSavedAt; this wasn't a save.
       useDirtyStore.getState().setDirty(false);
@@ -230,7 +236,10 @@ export function GitHubProjectControls({
         ref: `refs/heads/${branchName}`,
         sha: sourceRef.data.object.sha,
       });
-      const fileMap = decomposeSpec(spec);
+      const fileMap = {
+        ...decomposeSpec(spec),
+        ...decomposeTestingArtifacts(useTestsStore.getState().toTestingArtifacts()),
+      };
       const res = await writeFileMapToRepo(
         { client, owner: location.owner, repo: location.repo, ref: branchName },
         fileMap,
@@ -468,13 +477,7 @@ interface NewBranchModalProps {
 // instead silently slugify — accept any input, show a live preview of the
 // branch name we'll actually create, and never block on validation.
 function toBranchSlug(name: string): string {
-  return (
-    name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9._-]+/g, "-")
-      .replace(/^[-.]+|[-.]+$/g, "") || "draft"
-  );
+  return toSlug(name, "draft");
 }
 
 function NewBranchModal({ baseBranch, saving, onCancel, onSubmit }: NewBranchModalProps) {

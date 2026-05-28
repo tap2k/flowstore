@@ -9,7 +9,8 @@ import {
   tagRepoTopic,
   writeFileMapToRepo,
 } from "@flowstore/core/files/github";
-import { decomposeSpec } from "@flowstore/core/files";
+import { decomposeSpec, decomposeTestingArtifacts } from "@flowstore/core/files";
+import { useTestsStore } from "@/lib/store/tests";
 import { useDirtyStore } from "@/lib/store/dirty";
 
 interface SaveToNewRepoModalProps {
@@ -70,7 +71,10 @@ export function SaveToNewRepoModal({ onClose, onOpenSettings }: SaveToNewRepoMod
     try {
       const client = makeGitHubClient(pat);
       const created = await createRepo(client, { name: slug, private: isPrivate });
-      const fileMap = decomposeSpec(spec);
+      const fileMap = {
+        ...decomposeSpec(spec),
+        ...decomposeTestingArtifacts(useTestsStore.getState().toTestingArtifacts()),
+      };
       const res = await writeFileMapToRepo(
         { client, owner: created.owner, repo: created.repo, ref: created.defaultBranch },
         fileMap,

@@ -9,6 +9,7 @@ import {
 } from "@flowstore/core/files/github";
 import { loadProject } from "@flowstore/core/files";
 import { useCommentsStore } from "@/lib/store/comments";
+import { useTestsStore } from "@/lib/store/tests";
 import { useDirtyStore } from "@/lib/store/dirty";
 import { scaffoldNewProject } from "@flowstore/core/files/scaffold";
 
@@ -129,7 +130,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
         }
         throw e;
       }
-      const { spec, comments, errors } = loadProject(files);
+      const { spec, comments, testingArtifacts, errors } = loadProject(files);
       if (!spec) {
         // Repo has commits (e.g., README only) but no flowstore project — offer init.
         // If load errors look structural (malformed flowstore files), surface them so
@@ -156,6 +157,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
         repo.canAdmin,
       );
       useCommentsStore.getState().setAll(comments);
+      useTestsStore.getState().setAll(testingArtifacts);
       // Just-loaded from GitHub — local matches remote, not dirty. Don't
       // stamp lastSavedAt; this wasn't a save by the user.
       useDirtyStore.getState().setDirty(false);
@@ -174,6 +176,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
     setSpec(scaffold);
     setLoaded({ owner: repo.owner, repo: repo.repo, ref: branch }, commitSha);
     useCommentsStore.getState().setAll([]);
+    useTestsStore.getState().clear();
     onClose();
   }
 
