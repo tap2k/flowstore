@@ -368,9 +368,10 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       </div>
 
       {spec && <VariablesForm spec={spec} disabled={busy || ready} />}
-      {spec && mode === "runner" && (
-        <CapabilityMocksForm spec={spec} disabled={busy || ready} />
-      )}
+      {/* Both modes: runner sends mocks server-side; prompt mode resolves them
+          as tool-call results. The form self-hides when the spec has no
+          mockable capabilities. */}
+      {spec && <CapabilityMocksForm spec={spec} disabled={busy || ready} />}
 
       {hasSession && mode === "prompt" && specChanged && (
         <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">

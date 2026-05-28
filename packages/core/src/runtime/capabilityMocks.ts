@@ -1,4 +1,5 @@
 import type { Capability, Spec, VariableDecl } from "@flowstore/core/schema/v0";
+import type { ToolDefinition } from "@flowstore/core/llm/types";
 
 export interface MockableOutput {
   name: string;
@@ -10,6 +11,56 @@ export interface MockableCapability {
   capabilityId: string;
   description?: string;
   outputs: MockableOutput[];
+}
+
+// JSON-schema fragment for a single capability input, derived from its declared
+// variable type. Unknown/undeclared types fall back to string.
+function jsonSchemaForDecl(decl?: VariableDecl): Record<string, unknown> {
+  const schema: Record<string, unknown> =
+    decl?.type === "number"
+      ? { type: "number" }
+      : decl?.type === "boolean"
+        ? { type: "boolean" }
+        : decl?.type === "enum"
+          ? { type: "string", ...(decl.values?.length ? { enum: decl.values } : {}) }
+          : { type: "string" };
+  if (decl?.description) schema.description = decl.description;
+  return schema;
+}
+
+// Capabilities exposed to the LLM as tools in prompt mode. Both kinds are
+// included: prompt mode has no dispatcher, so the model is the de-facto router
+// and must trigger retrieval too for it to stay contextual. The tool name is
+// the capability name (the key mock_returns and capability events use), so a
+// call resolves straight back to its mock. Output-less capabilities are still
+// exposed (pure side-effect functions) and resolve to {}.
+export function buildCapabilityTools(spec: Spec | null): ToolDefinition[] {
+  if (!spec) return [];
+  const caps = (spec.agent.capabilities ?? []) as Capability[];
+  return caps.map((cap) => {
+    const inputs = cap.inputs ?? [];
+    const properties: Record<string, unknown> = {};
+    for (const name of inputs) properties[name] = jsonSchemaForDecl(lookupDecl(spec, name));
+    return {
+      name: cap.name,
+      description: cap.description,
+      parameters: {
+        type: "object",
+        properties,
+        ...(inputs.length ? { required: inputs } : {}),
+      },
+    };
+  });
+}
+
+// Resolves a capability call (by name) to its mocked outputs, or {} when no mock
+// is set / the capability has no outputs. mock_returns is keyed by capability
+// name → { outputName: value }, the same shape the mocks form produces.
+export function resolveMockedCall(
+  capabilityName: string,
+  mockReturns: Record<string, Record<string, unknown>>,
+): Record<string, unknown> {
+  return mockReturns[capabilityName] ?? {};
 }
 
 function lookupDecl(spec: Spec, outputName: string): VariableDecl | undefined {

@@ -7,10 +7,14 @@ import {
   sendTurn as apiSendTurn,
   startSession as apiStartSession,
 } from "@flowstore/core/runtime/textClient";
-import { sendPromptTurn } from "@flowstore/core/runtime/promptClient";
+import { sendPromptTurn, type CapabilityInvocation } from "@flowstore/core/runtime/promptClient";
 import { generatePersonaTurn } from "@flowstore/core/runtime/personaClient";
 import { generateSystemPrompt } from "@flowstore/core/codegen/promptGenerator";
-import { cleanMockReturns } from "@flowstore/core/runtime/capabilityMocks";
+import {
+  buildCapabilityTools,
+  cleanMockReturns,
+  resolveMockedCall,
+} from "@flowstore/core/runtime/capabilityMocks";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { useUiStore } from "@/lib/store/ui";
 import { createScopedJsonStorage, isPlainObject } from "@/lib/store/scopedStorage";
@@ -32,6 +36,34 @@ export type SimulateMode = "runner" | "prompt";
 // is true in prompt mode. The Gemini API requires at least one user content;
 // the system prompt is what shapes the actual greeting.
 const PROMPT_MODE_BEGIN = "[begin]";
+
+// Transcript events for the capability calls a prompt-mode turn made, so mocked
+// tool calls show in the timeline the same way runner-mode capability calls do.
+function capabilityEvents(
+  invocations: CapabilityInvocation[],
+  sessionId: string,
+): RuntimeEvent[] {
+  const out: RuntimeEvent[] = [];
+  for (const inv of invocations) {
+    const ts = new Date().toISOString();
+    out.push({
+      type: "capability_invoked",
+      capability_name: inv.name,
+      args: inv.args,
+      session_id: sessionId,
+      ts,
+    });
+    out.push({
+      type: "capability_returned",
+      capability_name: inv.name,
+      result: inv.result,
+      error: null,
+      session_id: sessionId,
+      ts,
+    });
+  }
+  return out;
+}
 
 export interface StartArgs {
   mode: SimulateMode;
@@ -454,13 +486,15 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
             model,
             provider,
             baseUrl,
+            tools: buildCapabilityTools(spec),
+            resolveTool: (call) => resolveMockedCall(call.name, get().mockReturns),
           });
           const latencyMs = Math.round(performance.now() - t0);
           const agentTurn: TranscriptTurn = {
             role: "agent",
             text: res.text,
             ts: Date.now(),
-            events: [],
+            events: capabilityEvents(res.invocations, sessionId),
             latencyMs,
           };
           set({
@@ -550,6 +584,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       traversedFlowIds,
       variables,
       systemPrompt,
+      specSnapshot,
     } = get();
     if (!sessionId) return;
     if (status === "thinking" || status === "starting" || status === "ended") return;
@@ -589,6 +624,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           model: creds.model,
           provider: creds.provider,
           baseUrl: creds.baseUrl,
+          tools: buildCapabilityTools(specSnapshot),
+          resolveTool: (call) => resolveMockedCall(call.name, get().mockReturns),
         });
         const latencyMs = Math.round(performance.now() - t0);
         // Empty text means Gemini returned STOP with no parts — the model is
@@ -606,7 +643,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           role: "agent",
           text: res.text,
           ts: Date.now(),
-          events: [],
+          events: capabilityEvents(res.invocations, sessionId),
           latencyMs,
         };
         set({
