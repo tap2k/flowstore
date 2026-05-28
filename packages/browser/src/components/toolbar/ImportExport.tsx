@@ -14,6 +14,7 @@ import { GitHubProjectControls } from "@/components/toolbar/GitHubProjectControl
 import { generateSystemPrompt } from "@flowstore/core/codegen/promptGenerator";
 import { decomposeSpec, loadProject } from "@flowstore/core/files";
 import { useCommentsStore } from "@/lib/store/comments";
+import { useUiStore } from "@/lib/store/ui";
 import type { FileMap } from "@flowstore/core/files/types";
 import { makeZip, readZip } from "@flowstore/core/files/zip";
 import {
@@ -184,7 +185,9 @@ export function ImportExportToolbar({
   const clearGithubProject = useGithubProjectStore((s) => s.clear);
   const [importOpen, setImportOpen] = useState(false);
   const [githubOpen, setGithubOpen] = useState(false);
-  const [openSheet, setOpenSheet] = useState<null | "agent" | "variables" | "guardrails" | "business_goals" | "capabilities" | "knowledge">(null);
+  // Sheet-open state lives in the ui store so the Prompt panel can open sheets too.
+  const openSheet = useUiStore((s) => s.openSheet);
+  const setOpenSheet = useUiStore((s) => s.setOpenSheet);
   const [error, setError] = useState<string | null>(null);
 
   // --- Export dropdown -----------------------------------------------------

@@ -12,6 +12,7 @@ import { generatePersonaTurn } from "@flowstore/core/runtime/personaClient";
 import { generateSystemPrompt } from "@flowstore/core/codegen/promptGenerator";
 import { cleanMockReturns } from "@flowstore/core/runtime/capabilityMocks";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
+import { useUiStore } from "@/lib/store/ui";
 import { createScopedJsonStorage, isPlainObject } from "@/lib/store/scopedStorage";
 import type { ChatUsage, ProviderId } from "@flowstore/core/llm/types";
 
@@ -81,7 +82,6 @@ interface SimulateState {
   personaTurnsLeft: number;
 
   setMode: (mode: SimulateMode) => void;
-  setSystemPrompt: (prompt: string | null) => void;
   start: (args: StartArgs) => Promise<void>;
   send: (userText: string) => Promise<void>;
   reset: () => Promise<void>;
@@ -183,8 +183,6 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     if (get().sessionId) return; // mode is frozen during an active session
     set({ mode });
   },
-
-  setSystemPrompt: (prompt) => set({ systemPrompt: prompt }),
 
   hydrateContextVars: (agentId) => {
     const current = get();
@@ -403,7 +401,10 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
 
   start: async (args) => {
     const { mode, spec, apiKey, model, provider, baseUrl, language } = args;
-    const { contextVars, mockReturns, systemPrompt: existingOverride } = get();
+    const { contextVars, mockReturns } = get();
+    // The editable prompt override is produced by the Prompt panel and lives in
+    // the ui store; use it if present, else compile fresh from the spec.
+    const existingOverride = useUiStore.getState().promptOverride;
     const cleanedMocks = cleanMockReturns(mockReturns, spec);
     set({
       mode,

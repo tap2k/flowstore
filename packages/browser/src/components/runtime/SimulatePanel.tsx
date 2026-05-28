@@ -8,7 +8,6 @@ import {
   type TranscriptTurn,
 } from "@/lib/store/simulate";
 import { formatErrors, validateSpec } from "@flowstore/core/validation/ajv";
-import { generateSystemPrompt } from "@flowstore/core/codegen/promptGenerator";
 import type { RuntimeEvent } from "@flowstore/core/runtime/eventTypes";
 import { formatEvent, formatValueTruncated } from "@flowstore/core/runtime/formatEvent";
 import { translateBatchToEnglish } from "@flowstore/core/runtime/translate";
@@ -48,7 +47,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const lastUsage = useSimulateStore((s) => s.lastUsage);
   const error = useSimulateStore((s) => s.error);
   const setMode = useSimulateStore((s) => s.setMode);
-  const setSystemPrompt = useSimulateStore((s) => s.setSystemPrompt);
   const start = useSimulateStore((s) => s.start);
   const send = useSimulateStore((s) => s.send);
   const reset = useSimulateStore((s) => s.reset);
@@ -62,7 +60,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
 
   const [input, setInput] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[] | null>(null);
-  const [promptOpen, setPromptOpen] = useState(false);
   const [translations, setTranslations] = useState<Map<number, string>>(new Map());
   const [showTranslated, setShowTranslated] = useState(false);
   const [translating, setTranslating] = useState(false);
@@ -275,21 +272,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
 
   const hasSession = sessionId !== null;
   const specChanged = specSnapshot !== null && spec !== null && spec !== specSnapshot;
-  const generatedPrompt =
-    mode === "prompt" && spec
-      ? generateSystemPrompt(spec, contextVars, { language })
-      : null;
-  const previewPrompt =
-    mode === "prompt" ? (systemPrompt ?? generatedPrompt) : null;
-  const promptEdited =
-    mode === "prompt" &&
-    previewPrompt !== null &&
-    generatedPrompt !== null &&
-    previewPrompt !== generatedPrompt;
-
-  function onRegeneratePrompt() {
-    setSystemPrompt(hasSession ? generatedPrompt : null);
-  }
   const subtitle = (() => {
     if (status === "starting") return "starting…";
     if (status === "thinking") return "thinking…";
@@ -393,55 +375,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       {hasSession && mode === "prompt" && specChanged && (
         <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
           Spec changed since session start. Reset to re-render the system prompt.
-        </div>
-      )}
-
-      {previewPrompt && (
-        <div className="border-b border-zinc-200 bg-zinc-50/50">
-          <div className="flex items-center justify-between gap-2 px-4 py-2 text-[11px] text-zinc-600">
-            <button
-              type="button"
-              onClick={() => setPromptOpen((o) => !o)}
-              className="flex flex-1 items-center text-left hover:text-zinc-900"
-            >
-              <span className="mr-1 text-zinc-400">{promptOpen ? "▾" : "▸"}</span>
-              System prompt
-              <span
-                className={`ml-1 ${promptEdited ? "text-amber-700" : "text-zinc-400"}`}
-              >
-                {promptEdited ? "edited · " : ""}
-                {previewPrompt.length.toLocaleString()} chars
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={onRegeneratePrompt}
-              disabled={!promptEdited}
-              title="Discard edits and regenerate the prompt from the current spec."
-              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-            >
-              Regenerate
-            </button>
-            <button
-              type="button"
-              onClick={() => navigator.clipboard.writeText(previewPrompt)}
-              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50"
-              title="Copy the rendered system prompt to clipboard."
-            >
-              Copy
-            </button>
-          </div>
-          {promptOpen && (
-            <div className="px-4 pb-3">
-              <textarea
-                value={previewPrompt}
-                onChange={(e) => setSystemPrompt(e.target.value)}
-                rows={12}
-                spellCheck={false}
-                className="block max-h-64 w-full resize-y overflow-auto whitespace-pre-wrap rounded border border-zinc-200 bg-white p-2 font-mono text-[10px] leading-snug text-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-400"
-              />
-            </div>
-          )}
         </div>
       )}
 

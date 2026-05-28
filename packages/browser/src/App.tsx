@@ -6,6 +6,7 @@ import { ImportExportToolbar } from "@/components/toolbar/ImportExport";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { SimulatePanel } from "@/components/runtime/SimulatePanel";
+import { SystemPromptPanel } from "@/components/runtime/SystemPromptPanel";
 import { useSpecStore } from "@/lib/store/spec";
 import {
   clearSavedSpec,
@@ -31,6 +32,7 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [simulateOpen, setSimulateOpen] = useState(false);
+  const [promptOpen, setPromptOpen] = useState(false);
 
   useEffect(() => startSpecPersistence(), []);
 
@@ -101,6 +103,16 @@ export function App() {
           <div className="relative flex-1 min-w-0">
             <Canvas />
             <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+              {spec && !promptOpen && (
+                <button
+                  onClick={() => setPromptOpen(true)}
+                  title="Prompt — inspect the compiled system prompt"
+                  className="flex items-center gap-1.5 rounded-full bg-white border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
+                >
+                  <PromptIcon />
+                  Prompt
+                </button>
+              )}
               {spec && (hasLlmKey || runnerUrl) && !simulateOpen && (
                 <button
                   onClick={() => setSimulateOpen(true)}
@@ -124,6 +136,7 @@ export function App() {
           </div>
           <FlowInspector />
           <EdgeInspector />
+          <SystemPromptPanel open={promptOpen} onClose={() => setPromptOpen(false)} />
           <SimulatePanel
             open={simulateOpen}
             onClose={() => setSimulateOpen(false)}
@@ -153,6 +166,16 @@ function SparklesIcon() {
       <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z" />
       <path d="M19 14l.75 2.25L22 17l-2.25.75L19 20l-.75-2.25L16 17l2.25-.75z" />
       <path d="M5 14l.5 1.5L7 16l-1.5.5L5 18l-.5-1.5L3 16l1.5-.5z" />
+    </svg>
+  );
+}
+
+function PromptIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <line x1="4" y1="12" x2="14" y2="12" />
+      <line x1="4" y1="18" x2="18" y2="18" />
     </svg>
   );
 }

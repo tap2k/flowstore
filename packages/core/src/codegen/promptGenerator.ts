@@ -13,28 +13,131 @@ import {
   defaultLanguage,
 } from "@flowstore/core/schema/v0";
 
+// A segment maps a [start, end) range of the compiled text back to the spec
+// entity that produced it. `runtimeContext` is derived from variable *values*
+// rather than a single editable entity, so consumers treat it as un-linkable.
+export type PromptSource =
+  | { kind: "role" }
+  | { kind: "runtimeContext" }
+  | { kind: "guardrails" }
+  | { kind: "flow"; flowId: string; name: string }
+  | { kind: "interrupt"; flowId: string; name: string }
+  | { kind: "knowledge" };
+
+export interface PromptSegment {
+  start: number; // inclusive offset into text
+  end: number; // exclusive
+  source: PromptSource;
+}
+
+export interface CompiledPrompt {
+  text: string;
+  segments: PromptSegment[];
+}
+
+const SECTION_SEP = "\n\n---\n\n";
+const BLOCK_SEP = "\n\n";
+
 // Capabilities are intentionally not rendered here. The naked prompt has no
 // tools to call; when tool-use is wired in, capabilities should be passed as a
 // structured tool schema to the model API, not described in prose.
+//
+// Compiles the system prompt together with parallel source segments.
+// Substitution happens per-block *before* offsets are recorded, so a {var}
+// whose value differs in length from its placeholder cannot shift the offsets
+// of later segments. `text` is byte-for-byte identical to the legacy
+// concatenation, so generateSystemPrompt is a thin wrapper over it.
+export function compileSystemPrompt(
+  spec: Spec,
+  vars?: Record<string, unknown>,
+  opts?: { language?: string },
+): CompiledPrompt {
+  const defaultLang = defaultLanguage(spec.agent.meta.languages);
+  const lang = opts?.language ?? defaultLang;
+  const ctx: RenderCtx = { lang, defaultLang };
+  const sub = (t: string) => (vars ? substituteVars(t, vars) : t);
+
+  type Group =
+    | { type: "single"; source: PromptSource; text: string }
+    | { type: "multi"; leadText: string; items: { source: PromptSource; text: string }[] };
+
+  const groups: Group[] = [];
+  const pushSingle = (source: PromptSource, text: string) => {
+    if (text) groups.push({ type: "single", source, text });
+  };
+
+  pushSingle({ kind: "role" }, renderRole(spec));
+  pushSingle({ kind: "runtimeContext" }, renderRuntimeContext(spec, vars));
+  pushSingle({ kind: "guardrails" }, renderGuardrails(spec));
+
+  const fg = flowsGroup(spec, ctx);
+  if (fg) {
+    groups.push({
+      type: "multi",
+      leadText: fg.leadText,
+      items: fg.items.map((it) => ({
+        source: { kind: "flow", flowId: it.flowId, name: it.name },
+        text: it.text,
+      })),
+    });
+  }
+
+  const ig = interruptsGroup(spec, ctx);
+  if (ig) {
+    groups.push({
+      type: "multi",
+      leadText: ig.leadText,
+      items: ig.items.map((it) => ({
+        source: { kind: "interrupt", flowId: it.flowId, name: it.name },
+        text: it.text,
+      })),
+    });
+  }
+
+  pushSingle({ kind: "knowledge" }, renderKnowledge(spec, ctx));
+
+  // Assemble, recording a segment per block. Top-level groups are joined by
+  // SECTION_SEP; the per-flow/per-interrupt blocks inside a multi group are
+  // joined by BLOCK_SEP, and the group's lead text (e.g. "FLOW OF CALL: …")
+  // folds into the first block's segment. Separators are not part of any
+  // segment.
+  let body = "";
+  const segments: PromptSegment[] = [];
+  groups.forEach((g, gi) => {
+    if (gi > 0) body += SECTION_SEP;
+    if (g.type === "single") {
+      const start = body.length;
+      body += sub(g.text);
+      segments.push({ start, end: body.length, source: g.source });
+    } else {
+      const lead = sub(g.leadText);
+      g.items.forEach((item, ii) => {
+        if (ii > 0) body += BLOCK_SEP;
+        const start = body.length;
+        if (ii === 0 && lead) body += lead + BLOCK_SEP;
+        body += sub(item.text);
+        segments.push({ start, end: body.length, source: item.source });
+      });
+    }
+  });
+
+  // Legacy parity: the old generator trimmed the joined body and appended a
+  // trailing newline. Renderers emit no leading/trailing whitespace, so the
+  // trim is a no-op on offsets; clamp ends defensively in case a spec changes.
+  const text = body.trim() + "\n";
+  const clamped = segments
+    .map((s) => ({ ...s, end: Math.min(s.end, text.length) }))
+    .filter((s) => s.end > s.start);
+
+  return { text, segments: clamped };
+}
+
 export function generateSystemPrompt(
   spec: Spec,
   vars?: Record<string, unknown>,
   opts?: { language?: string },
 ): string {
-  const defaultLang = defaultLanguage(spec.agent.meta.languages);
-  const lang = opts?.language ?? defaultLang;
-  const ctx = { lang, defaultLang };
-  const sections = [
-    renderRole(spec),
-    renderRuntimeContext(spec, vars),
-    renderGuardrails(spec),
-    renderFlows(spec, ctx),
-    renderInterrupts(spec, ctx),
-    renderKnowledge(spec, ctx),
-  ].filter(Boolean);
-
-  const rendered = sections.join("\n\n---\n\n").trim() + "\n";
-  return vars ? substituteVars(rendered, vars) : rendered;
+  return compileSystemPrompt(spec, vars, opts).text;
 }
 
 interface RenderCtx {
@@ -95,19 +198,32 @@ function renderGuardrails(spec: Spec): string {
   return lines.join("\n");
 }
 
-function renderFlows(spec: Spec, ctx: RenderCtx): string {
+interface RenderedBlock {
+  flowId: string;
+  name: string;
+  text: string;
+}
+
+// Returns the "FLOW OF CALL:" lead text plus one block per conversational
+// flow, in routing order. compileSystemPrompt joins them with BLOCK_SEP, which
+// reproduces the legacy single-string output byte-for-byte.
+function flowsGroup(
+  spec: Spec,
+  ctx: RenderCtx,
+): { leadText: string; items: RenderedBlock[] } | null {
   const entry = spec.agent.entry_flow_id;
   const conversational = spec.flows.filter((f) => f.type !== "interrupt" && f.type !== "utility");
-  if (!conversational.length) return "";
+  if (!conversational.length) return null;
 
   const ordered = orderFlows(conversational, entry);
   const flowNames = new Map(ordered.map((f) => [f.id, f.name || f.id]));
-  const lines = ["FLOW OF CALL:"];
+  const leadLines = ["FLOW OF CALL:"];
   if (entry && flowNames.has(entry)) {
-    lines.push(`Begin with: ${flowNames.get(entry)}.`);
+    leadLines.push(`Begin with: ${flowNames.get(entry)}.`);
   }
-  ordered.forEach((flow, i) => {
-    lines.push(`\n${i + 1}. ${flow.name || flow.id}${flow.id === entry ? " (entry)" : ""}`);
+
+  const items = ordered.map((flow, i) => {
+    const lines = [`${i + 1}. ${flow.name || flow.id}${flow.id === entry ? " (entry)" : ""}`];
     const instructions = flow.instructions ?? "";
     if (instructions.trim()) {
       lines.push(`   ${instructions.trim().split("\n").join("\n   ")}`);
@@ -120,8 +236,10 @@ function renderFlows(spec: Spec, ctx: RenderCtx): string {
     if (knowledge) lines.push(knowledge);
     const routing = renderFlowRoutingInline(flow, flowNames);
     if (routing) lines.push(routing);
+    return { flowId: flow.id, name: flow.name || flow.id, text: lines.join("\n") };
   });
-  return lines.join("\n");
+
+  return { leadText: leadLines.join("\n"), items };
 }
 
 function renderFlowRoutingInline(flow: Flow, flowNames: Map<string, string>): string {
@@ -229,13 +347,16 @@ function renderFlowKnowledge(flow: Flow, ctx: RenderCtx): string {
   return lines.join("\n");
 }
 
-function renderInterrupts(spec: Spec, ctx: RenderCtx): string {
+function interruptsGroup(
+  spec: Spec,
+  ctx: RenderCtx,
+): { leadText: string; items: RenderedBlock[] } | null {
   const interrupts = spec.flows.filter((f) => f.type === "interrupt");
-  if (!interrupts.length) return "";
+  if (!interrupts.length) return null;
   const flowNames = new Map(spec.flows.map((f) => [f.id, f.name || f.id]));
-  const lines = ["INTERRUPTS (fire at any point):"];
-  interrupts.forEach((flow, i) => {
-    lines.push(`\n${i + 1}. ${flow.name || flow.id}`);
+
+  const items = interrupts.map((flow, i) => {
+    const lines = [`${i + 1}. ${flow.name || flow.id}`];
     const trigger = flow.entry_condition;
     if (trigger) {
       lines.push(`   Trigger: ${renderConditionPlain(trigger)}`);
@@ -250,8 +371,10 @@ function renderInterrupts(spec: Spec, ctx: RenderCtx): string {
     if (knowledge) lines.push(knowledge);
     const routing = renderFlowRoutingInline(flow, flowNames);
     if (routing) lines.push(routing);
+    return { flowId: flow.id, name: flow.name || flow.id, text: lines.join("\n") };
   });
-  return lines.join("\n");
+
+  return { leadText: "INTERRUPTS (fire at any point):", items };
 }
 
 function renderKnowledge(spec: Spec, ctx: RenderCtx): string {
