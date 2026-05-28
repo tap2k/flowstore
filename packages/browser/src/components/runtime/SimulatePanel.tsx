@@ -16,6 +16,7 @@ import { VariablesForm } from "./VariablesForm";
 import { CapabilityMocksForm } from "./CapabilityMocksForm";
 import { PersonaForm } from "./PersonaForm";
 import { PersonasPanel } from "./PersonasPanel";
+import { TestsPanel } from "./TestsPanel";
 import { useUiStore } from "@/lib/store/ui";
 import { useTestsStore } from "@/lib/store/tests";
 import type { TestCase } from "@flowstore/core/schema/files/testCase";
@@ -416,7 +417,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
 
       {openSimulateTab === "personas" && <PersonasPanel />}
 
-      {openSimulateTab === "tests" && <TestsTabPlaceholder />}
+      {openSimulateTab === "tests" && <TestsPanel />}
 
       {openSimulateTab === "simulate" && (
         <>
@@ -595,50 +596,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         </>
       )}
     </aside>
-  );
-}
-
-function TestsTabPlaceholder() {
-  const cases = useTestsStore((s) => s.cases);
-  const captureContext = useTestsStore((s) => s.captureContext);
-  const justCaptured =
-    captureContext != null
-      ? cases.find((c) => c.id === captureContext.caseId) ?? null
-      : null;
-  return (
-    <div className="flex-1 overflow-auto p-4 text-[11px] text-zinc-600 space-y-3">
-      {justCaptured && (
-        <div className="rounded border border-amber-200 bg-amber-50 p-3">
-          <div className="font-medium text-amber-900">
-            Captured: {justCaptured.name || justCaptured.id}
-          </div>
-          <div className="mt-1 text-[10px] text-amber-800">
-            Saved to{" "}
-            <code>tests/cases/{justCaptured.id}.test.json</code> with{" "}
-            {justCaptured.user_turns?.length ?? 0} scripted user turns.
-            The case editor + assertion authoring surface lands in a follow-up
-            commit; until then, hand-edit the file via Claude Code or the
-            GitHub web UI.
-          </div>
-        </div>
-      )}
-      <div className="text-zinc-500">
-        Tests tab — case library + editor lands in a follow-up commit. Saved
-        cases ({cases.length}):
-      </div>
-      {cases.length === 0 ? (
-        <div className="text-zinc-400 italic">no cases yet</div>
-      ) : (
-        <ul className="space-y-1">
-          {cases.map((c) => (
-            <li key={c.id} className="font-mono text-[11px] text-zinc-700">
-              {c.id}
-              {c.name && <span className="ml-2 text-zinc-500">{c.name}</span>}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
   );
 }
 
