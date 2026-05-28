@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import type { Spec } from "@flowstore/core/schema/v0";
+import type { CapabilityMock } from "@flowstore/core/schema/files/capabilityMock";
 import { useSimulateStore } from "@/lib/store/simulate";
+import { useTestsStore } from "@/lib/store/tests";
 import {
   collectMockableCapabilities,
   type MockableCapability,
@@ -27,6 +29,7 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
     (s) => s.clearMockReturnsForCapability,
   );
   const clearMockReturns = useSimulateStore((s) => s.clearMockReturns);
+  const mocksByCapability = useTestsStore((s) => s.mocksByCapability);
   // ✨ Generate uses Gemini structured output (responseSchema) — Google-only.
   // Force a Gemini model regardless of the chatModel picker.
   const apiKey = useSettingsStore((s) => s.googleApiKey);
@@ -87,16 +90,34 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
           </div>
         )}
 
-        {capabilities.map((cap) => (
-          <CapabilityBlock
-            key={cap.capabilityName}
-            cap={cap}
-            values={mockReturns[cap.capabilityName] ?? {}}
-            disabled={disabled || generating}
-            onChange={(outName, v) => setMockOutput(cap.capabilityName, outName, v)}
-            onClear={() => clearMockReturnsForCapability(cap.capabilityName)}
-          />
-        ))}
+        {capabilities.map((cap) => {
+          const savedForCap = (mocksByCapability[cap.capabilityId] ?? []).filter(
+            (m) => m.behavior.kind === "static",
+          );
+          return (
+            <CapabilityBlock
+              key={cap.capabilityName}
+              cap={cap}
+              values={mockReturns[cap.capabilityName] ?? {}}
+              savedMocks={savedForCap}
+              disabled={disabled || generating}
+              onChange={(outName, v) => setMockOutput(cap.capabilityName, outName, v)}
+              onClear={() => clearMockReturnsForCapability(cap.capabilityName)}
+              onLoadSaved={(mock) => {
+                // Static-only path (filtered above). Replace the in-memory
+                // mockReturns for this capability with the saved mock's
+                // returns object — keys should match output names.
+                if (mock.behavior.kind !== "static") return;
+                const returns = mock.behavior.returns;
+                if (typeof returns !== "object" || returns === null) return;
+                setMockReturns({
+                  ...mockReturns,
+                  [cap.capabilityName]: returns as Record<string, unknown>,
+                });
+              }}
+            />
+          );
+        })}
       </div>
     </CollapsibleGenerateSection>
   );
@@ -105,17 +126,27 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
 interface CapabilityBlockProps {
   cap: MockableCapability;
   values: Record<string, unknown>;
+  savedMocks: CapabilityMock[];
   disabled: boolean;
   onChange: (outputName: string, value: unknown) => void;
   onClear: () => void;
+  onLoadSaved: (mock: CapabilityMock) => void;
 }
 
-function CapabilityBlock({ cap, values, disabled, onChange, onClear }: CapabilityBlockProps) {
+function CapabilityBlock({
+  cap,
+  values,
+  savedMocks,
+  disabled,
+  onChange,
+  onClear,
+  onLoadSaved,
+}: CapabilityBlockProps) {
   const filledHere = Object.keys(values).filter((k) => values[k] !== undefined).length;
 
   return (
     <div className="rounded border border-zinc-200 bg-white">
-      <div className="flex items-center justify-between border-b border-zinc-100 px-2 py-1.5">
+      <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-2 py-1.5">
         <div className="min-w-0">
           <div className="text-[11px] font-mono text-zinc-800 truncate">{cap.capabilityName}</div>
           {cap.description && (
@@ -124,17 +155,42 @@ function CapabilityBlock({ cap, values, disabled, onChange, onClear }: Capabilit
             </div>
           )}
         </div>
-        {filledHere > 0 && (
-          <button
-            type="button"
-            onClick={onClear}
-            disabled={disabled}
-            className="ml-2 rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-50 disabled:opacity-40"
-            title="Clear values for this capability."
-          >
-            clear
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          {savedMocks.length > 0 && (
+            <select
+              defaultValue=""
+              onChange={(e) => {
+                const v = e.target.value;
+                e.target.value = "";
+                if (v === "") return;
+                const m = savedMocks.find((mock) => mock.variant === v);
+                if (m) onLoadSaved(m);
+              }}
+              disabled={disabled}
+              title="Hydrate this capability's mock returns from a saved file."
+              className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-50 disabled:opacity-40"
+            >
+              <option value="">load saved…</option>
+              {savedMocks.map((m) => (
+                <option key={m.variant} value={m.variant}>
+                  {m.variant}
+                  {m.description ? ` — ${m.description}` : ""}
+                </option>
+              ))}
+            </select>
+          )}
+          {filledHere > 0 && (
+            <button
+              type="button"
+              onClick={onClear}
+              disabled={disabled}
+              className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-50 disabled:opacity-40"
+              title="Clear values for this capability."
+            >
+              clear
+            </button>
+          )}
+        </div>
       </div>
       <div className="space-y-2 px-2 py-2">
         {cap.outputs.map((out) => (
