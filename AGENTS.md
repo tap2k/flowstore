@@ -140,7 +140,7 @@ If none of these apply, decomposing is busywork. The canvas makes nodes feel lik
 The end-to-end loop flowstore supports:
 
 1. **Ingest** — paste a system prompt and attach supporting docs (PDFs, spreadsheets, Word, Figma exports, plain text).
-2. **Parse** — a behavioral parser (LLM-assisted) converts inputs to a structured spec. Today this is [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt). The designer pastes source material in, gets the JSON, and pastes it into the editor's Import. An in-app "Parse with AI" using a user-provided API key is planned to skip the round-trip.
+2. **Parse** — a behavioral parser (LLM-assisted) converts inputs to a structured spec, driven by [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt). Two ways to run it: in-app (attach source files in the Assistant and click **Build from source**, which runs that exact prompt against your configured model and loads the validated spec), or the manual round-trip (paste the prompt plus source material into an external LLM, then paste the JSON it returns into the editor's Import).
 3. **Review and configure** — user reviews the parsed spec on the canvas, edits inline.
 4. **Test** — compile spec to system prompt (or graph-native runtime); run test cases through it; diff against assertions and against legacy / baseline prompts.
 5. **Share** — internal findings report + client-facing shareable document. (Post-MVP flowstore surface.)

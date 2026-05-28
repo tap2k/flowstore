@@ -70,11 +70,15 @@ You can also paste an existing system prompt and ask it to build the spec from t
 
 Use this when you already have raw material — an analyst's script, a process doc, an existing system prompt, a spreadsheet — and want a spec from it in one shot.
 
+**In-app (recommended).** Open the Assistant (sparkles button), click **Attach** (or drop files onto the panel) to add your source material, then click **Build from source**. The Assistant runs [`AGENT-SPEC-PROMPT.txt`](./AGENT-SPEC-PROMPT.txt) against your configured model, validates the result against the v0 schema, and loads it onto the canvas — replacing the current spec after a confirm. Attach text files (`.txt`, `.md`, `.json`, `.yaml`, `.csv`, …); for PDF/Word/Figma, copy the text out first. Needs an LLM key in Settings.
+
+**Manual round-trip.** No key in the app, or want to use a model you haven't configured:
+
 1. Open [`AGENT-SPEC-PROMPT.txt`](./AGENT-SPEC-PROMPT.txt). It instructs an LLM to read your material and emit a v0 spec as a single JSON object.
 2. Paste that prompt plus your source material into an external LLM (Claude, Gemini, etc.). Copy the JSON it returns.
 3. In flowstore, click the **Import** icon, paste the JSON into the box, and choose **Parse & import**. The import is a mechanical, schema-validated parse — no LLM runs in the app — so a malformed object is rejected with errors rather than silently loaded.
 
-This is the *declarative* import path: it also accepts hand-written JSON or YAML that matches the schema.
+The Import path is the *declarative* one: it also accepts hand-written JSON or YAML that matches the schema.
 
 ### 4. Open an existing project
 

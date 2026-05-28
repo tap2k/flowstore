@@ -5,6 +5,7 @@ import { useSimulateStore, type TranscriptTurn } from "@/lib/store/simulate";
 import { chat } from "@flowstore/core/llm/dispatch";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { findTool, toolDefinitions } from "@/lib/chat/tools";
+import { parseSourceToSpec, type SourceFile } from "@/lib/chat/specParse";
 import { systemPrompt } from "@flowstore/core/llm/prompts";
 import { formatErrors, validateSpec } from "@flowstore/core/validation/ajv";
 import type { ChatMessage } from "@flowstore/core/llm/types";
@@ -32,19 +33,107 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [parsing, setParsing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<SourceFile[]>([]);
+  const [dragOver, setDragOver] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, busy]);
+  }, [messages, busy, parsing]);
 
   if (!open) return null;
 
+  const working = busy || parsing;
+
+  async function addFiles(list: FileList | null) {
+    if (!list || list.length === 0) return;
+    const read = await Promise.all(
+      Array.from(list).map(async (f) => ({ name: f.name, content: await f.text() })),
+    );
+    // De-dupe by name (re-dropping a file replaces the older copy).
+    setAttachments((prev) => {
+      const byName = new Map(prev.map((a) => [a.name, a]));
+      for (const r of read) byName.set(r.name, r);
+      return Array.from(byName.values());
+    });
+  }
+
+  function removeAttachment(name: string) {
+    setAttachments((prev) => prev.filter((a) => a.name !== name));
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    if (working) return;
+    void addFiles(e.dataTransfer.files);
+  }
+
+  // The AGENT-SPEC-PROMPT wrapper: build a fresh spec from the attached source
+  // material in one shot, in-editor (vs. round-tripping through an external LLM).
+  async function buildFromSource() {
+    if (working) return;
+    if (attachments.length === 0) {
+      setError("Attach source files first — build-from-source reads them to author the spec.");
+      return;
+    }
+    if (!provider) {
+      setError(`No provider configured for "${model}". Add an explicit endpoint in models config.`);
+      return;
+    }
+    if (!apiKey) {
+      setError(`Add a ${providerLabel(dispatch.endpoint)} API key in Settings first.`);
+      return;
+    }
+    if (useSpecStore.getState().spec && !window.confirm("Replace the current spec with one built from these sources?")) {
+      return;
+    }
+    setError(null);
+
+    const names = attachments.map((a) => a.name);
+    const count = attachments.length;
+    setMessages((m) => [
+      ...m,
+      { role: "user", content: `Build a spec from source: ${names.join(", ")}` },
+    ]);
+    setParsing(true);
+    try {
+      const res = await parseSourceToSpec(
+        provider,
+        apiKey,
+        dispatch.wireModel,
+        attachments,
+        input.trim(),
+        { baseUrl: dispatch.baseUrl },
+      );
+      if (!res.ok) {
+        setError(res.errors?.length ? `${res.error}\n${res.errors.join("\n")}` : res.error);
+        return;
+      }
+      useSpecStore.getState().setSpec(res.spec);
+      setAttachments([]);
+      setInput("");
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          content: `Built a spec from ${count} source file${count === 1 ? "" : "s"}. Review it on the canvas, then ask me to refine it.`,
+        },
+      ]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Build from source failed.");
+    } finally {
+      setParsing(false);
+    }
+  }
+
   async function send() {
     const text = input.trim();
-    if (!text || busy) return;
+    if (!text || working) return;
     if (!provider) {
       setError(`No provider configured for "${model}". Add an explicit endpoint in models config.`);
       return;
@@ -56,11 +145,13 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
     setError(null);
     setInput("");
 
+    const attached = attachments;
+    setAttachments([]);
     const initialSpec = useSpecStore.getState().spec;
     const sim = useSimulateStore.getState();
     let history: ChatMessage[] = [
       ...messages,
-      { role: "user", content: buildUserContent(text, initialSpec, sim) },
+      { role: "user", content: buildUserContent(text, initialSpec, sim, attached) },
     ];
     setMessages(history);
     setBusy(true);
@@ -138,6 +229,7 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
 
   function clearChat() {
     setMessages([]);
+    setAttachments([]);
     setError(null);
   }
 
@@ -149,7 +241,19 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
   }
 
   return (
-    <aside className="flex flex-col h-full w-[380px] border-l border-zinc-200 bg-white">
+    <aside
+      className={`relative flex flex-col h-full w-[380px] border-l bg-white ${
+        dragOver ? "border-zinc-700" : "border-zinc-200"
+      }`}
+      onDragOver={(e) => { e.preventDefault(); if (!working) setDragOver(true); }}
+      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
+      onDrop={onDrop}
+    >
+      {dragOver && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-zinc-50/90 border-2 border-dashed border-zinc-400 text-xs font-medium text-zinc-600">
+          Drop files to attach
+        </div>
+      )}
       <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2">
         <div>
           <div className="text-sm font-semibold text-zinc-900">Assistant</div>
@@ -186,6 +290,9 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
         {busy && (
           <div className="text-xs text-zinc-500 italic">thinking…</div>
         )}
+        {parsing && (
+          <div className="text-xs text-zinc-500 italic">building spec from source…</div>
+        )}
       </div>
 
       {error && (
@@ -195,26 +302,86 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
       )}
 
       <div className="border-t border-zinc-200 p-2">
+        {attachments.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1">
+            {attachments.map((a) => (
+              <span
+                key={a.name}
+                className="inline-flex max-w-full items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-700"
+                title={a.name}
+              >
+                <PaperclipIcon />
+                <span className="truncate max-w-[180px]">{a.name}</span>
+                <button
+                  onClick={() => removeAttachment(a.name)}
+                  disabled={working}
+                  className="text-zinc-400 hover:text-zinc-700 disabled:opacity-40"
+                  aria-label={`Remove ${a.name}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKey}
           placeholder={apiKey ? "Describe a change… (⌘↵ to send)" : "Add your API key in Settings to start."}
-          disabled={busy || !apiKey}
+          disabled={working || !apiKey}
           rows={3}
           className="w-full resize-none rounded border border-zinc-300 p-2 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
         />
-        <div className="mt-1 flex justify-end">
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".txt,.md,.markdown,.json,.yaml,.yml,.csv,.tsv,.text,text/*"
+          onChange={(e) => { void addFiles(e.target.files); e.target.value = ""; }}
+          className="hidden"
+        />
+        <div className="mt-1 flex items-center justify-between">
           <button
-            onClick={send}
-            disabled={busy || !input.trim() || !apiKey}
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={working || !apiKey}
+            title="Attach source files"
+            aria-label="Attach files"
+            className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-40"
           >
-            Send
+            <PaperclipIcon />
+            Attach
           </button>
+          <div className="flex items-center gap-1.5">
+            {attachments.length > 0 && (
+              <button
+                onClick={buildFromSource}
+                disabled={working || !apiKey}
+                title="Build a fresh spec from the attached source material"
+                className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
+              >
+                Build from source
+              </button>
+            )}
+            <button
+              onClick={send}
+              disabled={working || !input.trim() || !apiKey}
+              className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+            >
+              Send
+            </button>
+          </div>
         </div>
       </div>
     </aside>
+  );
+}
+
+function PaperclipIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </svg>
   );
 }
 
@@ -260,6 +427,11 @@ function EmptyHint({
         <li>&ldquo;Add a guardrail that we never ask for credit card numbers.&rdquo;</li>
         <li>&ldquo;Split flow_greet into greet + collect_name.&rdquo;</li>
       </ul>
+      <p>
+        Or <strong>attach</strong> source files (a script, process doc, FAQ) and
+        either reference them in chat, or click <strong>Build from source</strong>{" "}
+        to generate a whole spec from them.
+      </p>
     </div>
   );
 }
@@ -332,17 +504,28 @@ function buildUserContent(
   userText: string,
   spec: Spec | null,
   sim: SimContext,
+  attachments: SourceFile[],
 ): string {
   const specBlock = spec
     ? `<spec>\n${JSON.stringify(spec, null, 2)}\n</spec>`
     : `<spec>(empty — no spec loaded yet)</spec>`;
   const simBlock = sim.sessionId ? `\n\n${renderSimBlock(sim)}` : "";
-  return `${specBlock}${simBlock}\n\n${userText}`;
+  const filesBlock =
+    attachments.length > 0
+      ? `\n\n<files>\n${attachments
+          .map((f) => `<file name=${JSON.stringify(f.name)}>\n${f.content}\n</file>`)
+          .join("\n\n")}\n</files>`
+      : "";
+  // A short, human-readable attachment line survives stripSpec so the sent
+  // bubble shows what was attached; the <files> block above is for the model.
+  const note =
+    attachments.length > 0 ? `📎 ${attachments.map((f) => f.name).join(", ")}\n\n` : "";
+  return `${specBlock}${simBlock}${filesBlock}\n\n${note}${userText}`;
 }
 
 function stripSpec(content: string): string {
   // Hide injected context blocks from the user view so the bubble shows just their words.
-  const markers = ["</simulation>", "</spec>"];
+  const markers = ["</files>", "</simulation>", "</spec>"];
   let idx = -1;
   let markerLen = 0;
   for (const m of markers) {
