@@ -588,8 +588,10 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     } = get();
     if (!sessionId) return;
     if (status === "thinking" || status === "starting" || status === "ended") return;
+    // Empty user text is allowed — sent verbatim so designers can see how
+    // each model actually reacts to no input (GPT replies; Gemini returns no
+    // text). No rewriting, no magic markers.
     const trimmed = userText.trim();
-    if (!trimmed) return;
     const userTurn: TranscriptTurn = {
       role: "user",
       text: trimmed,
@@ -628,17 +630,10 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           resolveTool: (call) => resolveMockedCall(call.name, get().mockReturns),
         });
         const latencyMs = Math.round(performance.now() - t0);
-        // Empty text means Gemini returned STOP with no parts — the model is
-        // signaling the conversation is over. Skip the empty agent bubble and
-        // end the session.
-        if (!res.text) {
-          set({
-            lastUsage: res.usage ?? null,
-            status: "ended",
-            autoRun: false,
-          });
-          return;
-        }
+        // Empty text is shown as-is — different models behave differently on
+        // empty user input (GPT typically replies; Gemini returns no text).
+        // The designer needs to see that, not have us hide it or guess
+        // end-of-conversation.
         const agentTurn: TranscriptTurn = {
           role: "agent",
           text: res.text,

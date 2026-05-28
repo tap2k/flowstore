@@ -200,7 +200,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   }
 
   async function onSend() {
-    if (!input.trim() || busy || ended || !canSend) return;
+    if (busy || ended || !canSend) return;
     const text = input;
     setInput("");
     await send(text);
@@ -464,7 +464,8 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             )}
             <button
               onClick={onSend}
-              disabled={busy || !canSend || !input.trim()}
+              disabled={busy || !canSend}
+              title={input.trim() ? "Send" : "Send empty user message"}
               className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
             >
               Send
@@ -607,6 +608,9 @@ function TurnView({
   const canFork = !!onFork && role === "user" && !isOpener;
 
   if (role === "user") {
+    // Empty input is sent verbatim — render a muted placeholder so the empty
+    // bubble doesn't look broken, while making clear the model saw nothing.
+    const isEmpty = text === "";
     return (
       <div className="space-y-1">
         <div className="group flex justify-end items-start gap-1.5">
@@ -621,7 +625,7 @@ function TurnView({
             </button>
           )}
           <div className="max-w-[85%] rounded-lg bg-zinc-900 px-3 py-2 text-sm text-white whitespace-pre-wrap">
-            {shown}
+            {isEmpty ? <span className="italic text-zinc-400">(empty user message)</span> : shown}
           </div>
         </div>
         {events.map((ev, i) => (
@@ -646,11 +650,9 @@ function TurnView({
       {preEvents.map((ev, i) => (
         <EventLine key={`pre-${i}`} ev={ev} spec={spec} />
       ))}
-      {text && (
-        <div className="rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-900 whitespace-pre-wrap">
-          {shown}
-        </div>
-      )}
+      <div className="rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-900 whitespace-pre-wrap">
+        {text ? shown : <span className="italic text-zinc-400">(no text returned)</span>}
+      </div>
       {turn.latencyMs !== undefined && (
         <div className="text-[10px] text-zinc-400">{formatLatency(turn.latencyMs)}</div>
       )}
