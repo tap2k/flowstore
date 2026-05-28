@@ -5,6 +5,7 @@ import type { CapabilityMock } from "@flowstore/core/schema/files/capabilityMock
 import type { Rubric } from "@flowstore/core/schema/files/rubric";
 import type { Gold } from "@flowstore/core/schema/files/gold";
 import type { TestingArtifacts } from "@flowstore/core/files";
+import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
 import { useDirtyStore } from "./dirty";
 import { toSlug } from "@/lib/slug";
 
@@ -20,12 +21,25 @@ import { toSlug } from "@/lib/slug";
 // scope). Rubrics aren't edited in v1 — held here so the case editor's
 // `evaluators` reference list can validate against existing ids.
 
+// When the user captures a Simulate transcript as a test case, the Tests
+// tab editor needs the full agent+user transcript to show as a read-only
+// reference (so they can author assertions against what they actually
+// saw). This lives in-memory only — the just-captured transcript isn't
+// re-derived from the case file after a reload. captureContext.caseId
+// pins the reference to the specific case so reopening another case
+// doesn't see stale capture data.
+export interface CaptureContext {
+  caseId: string;
+  transcript: TranscriptTurn[];
+}
+
 export interface TestsState {
   cases: TestCase[];
   golds: Gold[];
   personas: Persona[];
   mocksByCapability: Record<string, CapabilityMock[]>;
   rubrics: Rubric[];
+  captureContext: CaptureContext | null;
 
   setAll: (artifacts: TestingArtifacts) => void;
   clear: () => void;
@@ -42,6 +56,16 @@ export interface TestsState {
   savePersona: (persona: Persona) => void;
   deletePersona: (id: string) => void;
   uniquePersonaId: (base: string) => string;
+
+  // Case + Gold CRUD — same shape and dirty semantics as persona.
+  saveCase: (testCase: TestCase) => void;
+  deleteCase: (id: string) => void;
+  uniqueCaseId: (base: string) => string;
+
+  saveGold: (gold: Gold) => void;
+  uniqueGoldId: (base: string) => string;
+
+  setCaptureContext: (ctx: CaptureContext | null) => void;
 }
 
 function indexMocks(mocks: CapabilityMock[]): Record<string, CapabilityMock[]> {
@@ -58,6 +82,7 @@ export const useTestsStore = create<TestsState>((set, get) => ({
   personas: [],
   mocksByCapability: {},
   rubrics: [],
+  captureContext: null,
 
   setAll: (artifacts) => {
     set({
@@ -66,6 +91,7 @@ export const useTestsStore = create<TestsState>((set, get) => ({
       personas: artifacts.personas,
       mocksByCapability: indexMocks(artifacts.capabilityMocks),
       rubrics: artifacts.rubrics,
+      captureContext: null,
     });
   },
 
@@ -76,6 +102,7 @@ export const useTestsStore = create<TestsState>((set, get) => ({
       personas: [],
       mocksByCapability: {},
       rubrics: [],
+      captureContext: null,
     });
   },
 
@@ -111,16 +138,54 @@ export const useTestsStore = create<TestsState>((set, get) => ({
     useDirtyStore.getState().setDirty(true);
   },
 
-  uniquePersonaId: (base) => {
-    const slug = toSlug(base, "persona");
-    const personas = get().personas;
-    if (!personas.some((p) => p.id === slug)) return slug;
-    for (let n = 2; n < 1000; n++) {
-      const candidate = `${slug}-${n}`;
-      if (!personas.some((p) => p.id === candidate)) return candidate;
-    }
-    // Pathological: 1000 personas all named the same. Fall back to a
-    // timestamp so we always make progress instead of looping.
-    return `${slug}-${Date.now()}`;
+  uniquePersonaId: (base) => uniqueId(get().personas, base, "persona"),
+
+  saveCase: (testCase) => {
+    set((s) => {
+      const i = s.cases.findIndex((c) => c.id === testCase.id);
+      const next =
+        i === -1
+          ? [...s.cases, testCase]
+          : s.cases.map((c, idx) => (idx === i ? testCase : c));
+      return { cases: next };
+    });
+    useDirtyStore.getState().setDirty(true);
+  },
+
+  deleteCase: (id) => {
+    set((s) => ({ cases: s.cases.filter((c) => c.id !== id) }));
+    useDirtyStore.getState().setDirty(true);
+  },
+
+  uniqueCaseId: (base) => uniqueId(get().cases, base, "case"),
+
+  saveGold: (gold) => {
+    set((s) => {
+      const i = s.golds.findIndex((g) => g.id === gold.id);
+      const next =
+        i === -1 ? [...s.golds, gold] : s.golds.map((g, idx) => (idx === i ? gold : g));
+      return { golds: next };
+    });
+    useDirtyStore.getState().setDirty(true);
+  },
+
+  uniqueGoldId: (base) => uniqueId(get().golds, base, "gold"),
+
+  setCaptureContext: (ctx) => {
+    set({ captureContext: ctx });
   },
 }));
+
+function uniqueId<T extends { id: string }>(
+  items: T[],
+  base: string,
+  fallback: string,
+): string {
+  const slug = toSlug(base, fallback);
+  if (!items.some((it) => it.id === slug)) return slug;
+  for (let n = 2; n < 1000; n++) {
+    const candidate = `${slug}-${n}`;
+    if (!items.some((it) => it.id === candidate)) return candidate;
+  }
+  return `${slug}-${Date.now()}`;
+}
