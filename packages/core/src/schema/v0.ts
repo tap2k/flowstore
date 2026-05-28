@@ -238,6 +238,8 @@ export const AgentSchema = Type.Object(
     capabilities: Type.Optional(Type.Array(CapabilitySchema)),
     knowledge: Type.Optional(KnowledgeSchema),
     entry_flow_id: Type.String(),
+    // Author-facing annotation. Not included in the compiled system prompt.
+    notes: Type.Optional(Type.String()),
   },
   strict
 );

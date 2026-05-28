@@ -68,6 +68,14 @@ export function AgentSheet({ onClose }: { onClose: () => void }) {
         />
         The agent sends the first message
       </label>
+      <Field label="Notes">
+        <textarea
+          className={`${inputClass} resize-y min-h-[60px]`}
+          value={agent.notes ?? ""}
+          onChange={(e) => patch({ notes: e.target.value || undefined })}
+          placeholder="Author-facing only. Not included in the compiled system prompt."
+        />
+      </Field>
     </SheetShell>
   );
 }
