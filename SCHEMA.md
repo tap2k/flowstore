@@ -375,13 +375,20 @@ Both the agent envelope and individual flows accept an optional `variables` dict
     "variable_name": {
       "type": "string | number | boolean | enum",
       "description": "string",
-      "values": ["literal", "..."]
+      "values": ["literal", "..."],
+      "visible_when": "boolean expression over other variables"
     }
   }
 }
 ```
 
 Declarations are optional but load-bearing for export quality: untyped variables default to `string` in every codegen target.
+
+### `visible_when` (data gate)
+
+A deterministic boolean expression over other variables. When set, the variable's value is **withheld from the compiled prompt's volatile suffix until the expression evaluates true** — the runtime/supervisor evaluates it per turn and injects the value only after the gate clears. This is the prevention mechanism for "don't disclose X before Y" guardrails (PII-before-identity, balance-before-auth). Grammar is the same as exit-path `condition` expressions evaluated with `method: "calculation"`; LLM-evaluated visibility is intentionally not supported (would defeat the prevention guarantee).
+
+Example: `total_due_amount.visible_when: "identity_confirmed"` — the model never sees the value until `identity_confirmed` is true, so it cannot leak it. Compile-time lint: if the gating variable is reachable via an `assigns[].method: "llm"` path, the compiler warns — hard gates should be cleared by tool outputs or deterministic assigns, not by model self-assertion.
 
 ---
 

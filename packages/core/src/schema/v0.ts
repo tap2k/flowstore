@@ -41,6 +41,11 @@ export const VariableDeclSchema = Type.Object(
     type: Type.Optional(VariableType),
     description: Type.Optional(Type.String()),
     values: Type.Optional(Type.Array(Type.String())),
+    // Boolean expression over the variable bag. When set, the value is
+    // withheld from the compiled prompt's volatile suffix until the
+    // expression evaluates true. Deterministic-calculation grammar only —
+    // no LLM-evaluated visibility (would defeat the prevention guarantee).
+    visible_when: Type.Optional(Type.String()),
   },
   strict
 );

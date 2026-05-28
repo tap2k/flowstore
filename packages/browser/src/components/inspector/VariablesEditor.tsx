@@ -11,6 +11,7 @@ interface Row {
   type: VariableType | "";
   description: string;
   values: string;
+  visibleWhen: string;
 }
 
 interface VariablesEditorProps {
@@ -25,6 +26,7 @@ function rowsFrom(variables: Record<string, VariableDecl> | undefined): Row[] {
     type: decl.type ?? "",
     description: decl.description ?? "",
     values: decl.values?.join(", ") ?? "",
+    visibleWhen: decl.visible_when ?? "",
   }));
 }
 
@@ -40,6 +42,7 @@ function rowsTo(rows: Row[]): Record<string, VariableDecl> | undefined {
       const parsed = r.values.split(",").map((s) => s.trim()).filter(Boolean);
       if (parsed.length > 0) decl.values = parsed;
     }
+    if (r.visibleWhen.trim()) decl.visible_when = r.visibleWhen.trim();
     out[r.name.trim()] = decl;
   }
   return out;
@@ -116,12 +119,28 @@ export function VariablesEditor({ variables, onChange }: VariablesEditorProps) {
               placeholder="values: foo, bar, baz"
             />
           )}
+          {import.meta.env.VITE_DEV === "1" && (
+            <input
+              className={inputClass}
+              value={row.visibleWhen}
+              onChange={(e) =>
+                commit(
+                  rows.map((r, j) => (j === i ? { ...r, visibleWhen: e.target.value } : r))
+                )
+              }
+              placeholder='visible_when: e.g. identity_confirmed and consent == "full"'
+              title="Data gate: value is withheld from the prompt until this expression is true. Same grammar as exit-path conditions (== != > < and/or/not over variables and literals)."
+            />
+          )}
         </div>
       ))}
       <button
         type="button"
         onClick={() =>
-          commit([...rows, { name: "", type: "string", description: "", values: "" }])
+          commit([
+            ...rows,
+            { name: "", type: "string", description: "", values: "", visibleWhen: "" },
+          ])
         }
         className="text-xs text-zinc-600 hover:text-zinc-900 underline"
       >
