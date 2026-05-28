@@ -64,9 +64,30 @@ export function ShareModal({ onClose }: ShareModalProps) {
     setError(null);
     try {
       const client = makeGitHubClient(pat);
-      await addCollaborator(client, location.owner, location.repo, username, newRole);
+      const isNewInvite = await addCollaborator(
+        client,
+        location.owner,
+        location.repo,
+        username,
+        newRole,
+      );
       setNewUser("");
-      await refresh();
+      if (isNewInvite) {
+        // listInvitations lags the addCollaborator response by a beat —
+        // a refresh here would return the pre-add list and the user
+        // would think nothing happened. Insert optimistically with a
+        // sentinel negative id so it can't collide with real ids; the
+        // next reopen reconciles with truth.
+        setInvitations((prev) =>
+          prev.some((p) => p.invitee.toLowerCase() === username.toLowerCase())
+            ? prev
+            : [...prev, { id: -Date.now(), invitee: username, permission: newRole }],
+        );
+      } else {
+        // Already a collaborator (permission updated in place) — refresh
+        // now to pick up the new role label.
+        await refresh();
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -81,7 +102,9 @@ export function ShareModal({ onClose }: ShareModalProps) {
     try {
       const client = makeGitHubClient(pat);
       await removeCollaborator(client, location.owner, location.repo, username);
-      await refresh();
+      // Drop from local state immediately — listCollaborators sometimes
+      // lags the delete and a refresh here would briefly re-show the row.
+      setCollaborators((prev) => prev.filter((c) => c.login !== username));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -93,23 +116,49 @@ export function ShareModal({ onClose }: ShareModalProps) {
     setError(null);
     try {
       const client = makeGitHubClient(pat);
-      await cancelInvitation(client, location.owner, location.repo, invitationId);
-      await refresh();
+      // Optimistic placeholders carry a negative sentinel id — GitHub
+      // doesn't know them. Resolve to the real invitation id via
+      // listInvitations before calling cancel. If the lookup turns up
+      // nothing the invite was never created (or already gone), so we
+      // just drop the local row.
+      let realId = invitationId;
+      if (realId < 0) {
+        const invs = await listInvitations(client, location.owner, location.repo);
+        const match = invs.find(
+          (i) => i.invitee.toLowerCase() === invitee.toLowerCase(),
+        );
+        if (!match) {
+          setInvitations((prev) => prev.filter((p) => p.id !== invitationId));
+          return;
+        }
+        realId = match.id;
+      }
+      await cancelInvitation(client, location.owner, location.repo, realId);
+      // Drop from local state immediately — both the placeholder id and
+      // the resolved real id, since either could be in the list depending
+      // on whether listInvitations had caught up yet.
+      setInvitations((prev) =>
+        prev.filter((p) => p.id !== invitationId && p.id !== realId),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
   }
 
+  const hasAnyone = collaborators.length > 0 || invitations.length > 0;
+
   return (
     <Shell onClose={onClose}>
-      <h2 className="text-lg font-semibold text-zinc-900 mb-1">
-        Share {location ? <span className="font-mono text-sm">{location.repo}</span> : "project"}
+      <h2 className="text-lg font-semibold text-zinc-900">
+        Share{" "}
+        {location ? (
+          <span className="font-mono text-sm text-zinc-600">{location.repo}</span>
+        ) : (
+          "project"
+        )}
       </h2>
-      <p className="text-[11px] text-zinc-500 mb-3">
-        People need a GitHub account to be added.
-      </p>
 
-      <div className="flex gap-2">
+      <div className="mt-4 flex gap-2">
         <input
           type="text"
           value={newUser}
@@ -141,20 +190,30 @@ export function ShareModal({ onClose }: ShareModalProps) {
         <p className="mt-2 text-[11px] text-red-700">{error}</p>
       )}
 
-      <div className="mt-4">
-        <h3 className="text-xs font-medium text-zinc-700 mb-1">People with access</h3>
+      {/* One unified people list — accepted collaborators and pending
+          invites distinguished by the "· invite pending" suffix rather
+          than a separate section header. */}
+      <div className="mt-5">
         {loading ? (
           <p className="text-[11px] text-zinc-500">Loading…</p>
+        ) : !hasAnyone ? (
+          <p className="text-[11px] text-zinc-500">No collaborators yet.</p>
         ) : (
-          <ul className="space-y-1">
+          <ul className="divide-y divide-zinc-100">
+            {/* Fixed-width role and action columns so values align
+                vertically across rows regardless of label length. */}
             {collaborators.map((c) => (
-              <li key={c.login} className="flex items-center justify-between text-sm">
-                <span className="text-zinc-800">
+              <li key={c.login} className="flex items-center py-1.5 text-sm">
+                <span className="flex-1 truncate text-zinc-800">
                   @{c.login}
-                  {c.login === selfLogin && <span className="ml-1 text-[11px] text-zinc-500">(you)</span>}
+                  {c.login === selfLogin && (
+                    <span className="ml-1 text-[11px] text-zinc-500">(you)</span>
+                  )}
                 </span>
-                <span className="flex items-center gap-2">
-                  <span className="text-[11px] text-zinc-500">{labelForPermission(c.permission)}</span>
+                <span className="ml-3 w-28 text-right text-[11px] text-zinc-500">
+                  {labelForPermission(c.permission)}
+                </span>
+                <span className="ml-3 w-14 text-right">
                   {c.login !== selfLogin && (
                     <button
                       onClick={() => void remove(c.login)}
@@ -166,21 +225,19 @@ export function ShareModal({ onClose }: ShareModalProps) {
                 </span>
               </li>
             ))}
-          </ul>
-        )}
-      </div>
-
-      {invitations.length > 0 && (
-        <div className="mt-4">
-          <h3 className="text-xs font-medium text-zinc-700 mb-1">Pending invites</h3>
-          <ul className="space-y-1">
             {invitations.map((inv) => (
-              <li key={inv.id} className="flex items-center justify-between text-sm">
-                <span className="text-zinc-800">@{inv.invitee}</span>
-                <span className="flex items-center gap-2">
-                  <span className="text-[11px] text-zinc-500">
-                    {labelForPermission(inv.permission)} · invite pending
-                  </span>
+              <li
+                key={`inv-${inv.id}`}
+                className="flex items-center py-1.5 text-sm"
+              >
+                <span className="flex-1 truncate text-zinc-800">
+                  @{inv.invitee}
+                  <span className="ml-1 text-[11px] text-amber-700">· invite pending</span>
+                </span>
+                <span className="ml-3 w-28 text-right text-[11px] text-zinc-500">
+                  {labelForPermission(inv.permission)}
+                </span>
+                <span className="ml-3 w-14 text-right">
                   <button
                     onClick={() => void cancel(inv.id, inv.invitee)}
                     className="text-[11px] text-zinc-500 hover:text-red-700"
@@ -191,13 +248,17 @@ export function ShareModal({ onClose }: ShareModalProps) {
               </li>
             ))}
           </ul>
-        </div>
-      )}
+        )}
+      </div>
 
-      <div className="flex justify-end gap-2 pt-4">
+      <p className="mt-5 text-[11px] text-zinc-400">
+        People need a GitHub account to be added.
+      </p>
+
+      <div className="mt-3 flex justify-end">
         <button
           onClick={onClose}
-          className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
+          className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
         >
           Done
         </button>

@@ -26,7 +26,14 @@ interface RepoSummary {
   // collaborator / org-read access. Propagates into githubProject.canWrite
   // so the editor knows up front that Save needs to route to "Save a copy."
   canWrite: boolean;
+  // Repo topics returned by listForAuthenticatedUser. Powers the
+  // "flowstore-only" default filter — flowstore projects stamp the
+  // `flowstore` topic at create time so they show up here without
+  // probing each repo for agent.json.
+  topics: string[];
 }
+
+const FLOWSTORE_TOPIC = "flowstore";
 
 interface BranchSummary {
   name: string;
@@ -67,6 +74,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
           repo: r.name,
           default_branch: r.default_branch,
           canWrite: r.permissions?.push ?? false,
+          topics: r.topics ?? [],
         }));
         setRepos(summaries);
       })
@@ -206,11 +214,17 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
               className="mt-1 w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
             >
               <option value={-1}>— select —</option>
-              {(repos ?? []).map((r, i) => (
-                <option key={r.full_name} value={i}>
-                  {r.full_name}
-                </option>
-              ))}
+              {/* Strict filter to repos tagged `flowstore`. To bring an
+                  existing repo into the list, add the topic on github.com
+                  (repo → About sidebar ⚙ → Topics). */}
+              {(repos ?? [])
+                .map((r, i) => ({ r, i }))
+                .filter(({ r }) => r.topics.includes(FLOWSTORE_TOPIC))
+                .map(({ r, i }) => (
+                  <option key={r.full_name} value={i}>
+                    {r.full_name}
+                  </option>
+                ))}
             </select>
           )}
         </div>
