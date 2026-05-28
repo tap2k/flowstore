@@ -17,6 +17,7 @@ import {
 } from "@/lib/store/persistence";
 import { loadSavedSettings, useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
+import { startDirtyTracking, useDirtyStore } from "@/lib/store/dirty";
 import { validateSpec } from "@flowstore/core/validation/ajv";
 
 export function App() {
@@ -52,6 +53,48 @@ export function App() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setHydrating(false);
   }, [setSpec]);
+
+  // Start tracking edits as "dirty" only after initial hydration — otherwise
+  // the loadSavedSpec setSpec at boot would itself count as an edit and the
+  // pill would mislead the user about save state on first paint.
+  useEffect(() => {
+    if (hydrating) return;
+    return startDirtyTracking();
+  }, [hydrating]);
+
+  // Cmd/Ctrl+S: routes by current state. Connected + writable is handled by
+  // GitHubProjectControls (which has access to its own doSave); local /
+  // read-only mode opens the save-to-new-repo modal (= "Save a copy" in the
+  // read-only case). Both handlers are global window listeners with
+  // mutually-exclusive guards, so only one acts per key press.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key !== "s" && e.key !== "S") return;
+      const sp = useSpecStore.getState().spec;
+      if (!sp) return;
+      const loc = useGithubProjectStore.getState().location;
+      const cw = useGithubProjectStore.getState().canWrite;
+      if (loc && cw) return; // GitHubProjectControls handles writable mode
+      e.preventDefault();
+      setSaveRepoOpen(true);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Native "Leave site?" prompt when there are unsaved edits — last-line
+  // crash safety. Browsers ignore custom strings now; the prompt itself is
+  // the value.
+  useEffect(() => {
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      if (!useDirtyStore.getState().isDirty) return;
+      e.preventDefault();
+      e.returnValue = "";
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
 
   useEffect(() => {
     document.title = spec ? `flowstore — ${spec.agent.meta.name}` : "flowstore";
@@ -107,7 +150,8 @@ export function App() {
               </div>
             ) : null}
           </div>
-          <div className="ml-auto flex items-center gap-4">
+          <div className="ml-auto flex items-center gap-3">
+            <SaveStatePill />
             <ImportExportToolbar
               onOpenSettings={() => setSettingsOpen(true)}
               onSaveToGitHub={() => setSaveRepoOpen(true)}

@@ -10,6 +10,7 @@ import {
   writeFileMapToRepo,
 } from "@flowstore/core/files/github";
 import { decomposeSpec } from "@flowstore/core/files";
+import { useDirtyStore } from "@/lib/store/dirty";
 
 interface SaveToNewRepoModalProps {
   onClose: () => void;
@@ -80,6 +81,7 @@ export function SaveToNewRepoModal({ onClose, onOpenSettings }: SaveToNewRepoMod
         { owner: created.owner, repo: created.repo, ref: created.defaultBranch },
         res.commitSha,
       );
+      useDirtyStore.getState().markSaved();
       onClose();
     } catch (e) {
       if (isRepoNameTaken(e)) {

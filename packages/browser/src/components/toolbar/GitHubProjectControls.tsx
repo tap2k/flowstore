@@ -11,6 +11,7 @@ import {
 } from "@flowstore/core/files/github";
 import { decomposeSpec, loadProject } from "@flowstore/core/files";
 import { useCommentsStore } from "@/lib/store/comments";
+import { useDirtyStore } from "@/lib/store/dirty";
 
 const iconButtonClass =
   "rounded-md border border-zinc-200 p-1.5 text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 disabled:hover:bg-transparent";
@@ -129,6 +130,7 @@ export function GitHubProjectControls({
         opts,
       );
       setCommitSha(res.commitSha);
+      useDirtyStore.getState().markSaved();
     } catch (e) {
       if (e instanceof ConflictError) {
         setConflictRemoteSha(e.actual ?? "");
@@ -167,6 +169,9 @@ export function GitHubProjectControls({
       setSpec(loaded);
       setCommitSha(commitSha);
       useCommentsStore.getState().setAll(comments);
+      // Refresh reloaded the spec from GitHub — local matches remote, so
+      // we're not dirty. Don't stamp lastSavedAt; this wasn't a save.
+      useDirtyStore.getState().setDirty(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -201,6 +206,7 @@ export function GitHubProjectControls({
         { owner: location.owner, repo: location.repo, ref: branchName },
         res.commitSha,
       );
+      useDirtyStore.getState().markSaved();
       setNewBranchOpen(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
