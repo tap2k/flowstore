@@ -15,6 +15,8 @@ import { ModelPicker } from "./ModelPicker";
 import { VariablesForm } from "./VariablesForm";
 import { CapabilityMocksForm } from "./CapabilityMocksForm";
 import { PersonaForm } from "./PersonaForm";
+import { PersonasPanel } from "./PersonasPanel";
+import { useUiStore } from "@/lib/store/ui";
 
 interface SimulatePanelProps {
   open: boolean;
@@ -57,6 +59,8 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const autoRun = useSimulateStore((s) => s.autoRun);
   const autoStepping = useSimulateStore((s) => s.autoStepping);
   const autoStep = useSimulateStore((s) => s.autoStep);
+  const openSimulateTab = useUiStore((s) => s.openSimulateTab);
+  const setOpenSimulateTab = useUiStore((s) => s.setOpenSimulateTab);
 
   const [input, setInput] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[] | null>(null);
@@ -325,6 +329,28 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         </div>
       </div>
 
+      <div className="flex border-b border-zinc-200 text-[11px]">
+        <TabButton active={openSimulateTab === "simulate"} onClick={() => setOpenSimulateTab("simulate")}>
+          Simulate
+        </TabButton>
+        <TabButton active={openSimulateTab === "tests"} onClick={() => setOpenSimulateTab("tests")}>
+          Tests
+        </TabButton>
+        <TabButton active={openSimulateTab === "personas"} onClick={() => setOpenSimulateTab("personas")}>
+          Personas
+        </TabButton>
+      </div>
+
+      {openSimulateTab === "personas" && <PersonasPanel />}
+
+      {openSimulateTab === "tests" && (
+        <div className="flex-1 overflow-auto px-4 py-6 text-center text-[11px] text-zinc-500">
+          Tests tab — list + editor for test cases lands here in a follow-up commit.
+        </div>
+      )}
+
+      {openSimulateTab === "simulate" && (
+        <>
       <div className="flex items-center gap-2 border-b border-zinc-200 px-4 py-1.5 text-[11px]">
         {runnerUrl && (
           <div className="flex overflow-hidden rounded border border-zinc-200">
@@ -497,7 +523,33 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           </div>
         </div>
       )}
+        </>
+      )}
     </aside>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 px-3 py-1.5 text-center ${
+        active
+          ? "border-b-2 border-zinc-900 font-medium text-zinc-900"
+          : "border-b-2 border-transparent text-zinc-500 hover:text-zinc-900"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 

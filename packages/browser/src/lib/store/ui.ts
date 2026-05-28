@@ -26,6 +26,13 @@ interface UiState {
 
   openSheet: SheetKind | null;
   setOpenSheet: (sheet: SheetKind | null) => void;
+
+  // Active tab inside the Run pill's SimulatePanel. "simulate" is the
+  // existing live-simulate body; "tests" and "personas" are the new test
+  // surfaces. Tab state is panel-local (not URL-routed) — closing and
+  // reopening Run resets to simulate.
+  openSimulateTab: "simulate" | "tests" | "personas";
+  setOpenSimulateTab: (tab: "simulate" | "tests" | "personas") => void;
 }
 
 export const useUiStore = create<UiState>((set) => ({
@@ -39,4 +46,7 @@ export const useUiStore = create<UiState>((set) => ({
 
   openSheet: null,
   setOpenSheet: (sheet) => set({ openSheet: sheet }),
+
+  openSimulateTab: "simulate",
+  setOpenSimulateTab: (tab) => set({ openSimulateTab: tab }),
 }));
