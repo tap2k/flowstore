@@ -21,6 +21,7 @@ import { useUiStore } from "@/lib/store/ui";
 import { useTestsStore } from "@/lib/store/tests";
 import type { TestCase } from "@flowstore/core/schema/files/testCase";
 import type { Gold } from "@flowstore/core/schema/files/gold";
+import { evaluateCaseAgainstTranscript, type CaseVerdicts } from "@/lib/caseVerdicts";
 
 interface SimulatePanelProps {
   open: boolean;
@@ -70,6 +71,18 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const uniqueCaseId = useTestsStore((s) => s.uniqueCaseId);
   const uniqueGoldId = useTestsStore((s) => s.uniqueGoldId);
   const setCaptureContext = useTestsStore((s) => s.setCaptureContext);
+  const allCases = useTestsStore((s) => s.cases);
+  const activeCaseId = useSimulateStore((s) => s.activeCaseId);
+  const setActiveCaseId = useSimulateStore((s) => s.setActiveCaseId);
+  const activeCase = activeCaseId
+    ? allCases.find((c) => c.id === activeCaseId) ?? null
+    : null;
+  const [isRunning, setIsRunning] = useState(false);
+  const verdicts: CaseVerdicts = evaluateCaseAgainstTranscript(
+    activeCase,
+    transcript,
+    !isRunning && transcript.length > 0,
+  );
 
   const [input, setInput] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[] | null>(null);
@@ -184,6 +197,32 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     await reset();
     setInput("");
     setValidationErrors(null);
+  }
+
+  async function runActiveCase() {
+    if (!activeCase || isRunning) return;
+    setIsRunning(true);
+    try {
+      if (hasSession) await reset();
+      await startSession();
+      // startSession may have errored (no spec / no key); bail if so.
+      if (useSimulateStore.getState().status === "error") return;
+      if (activeCase.user_turns && activeCase.user_turns.length > 0) {
+        for (const turn of activeCase.user_turns) {
+          const s = useSimulateStore.getState().status;
+          if (s === "ended" || s === "error") break;
+          await send(turn);
+        }
+      } else if (activeCase.persona_id) {
+        // Persona-driven: kick the existing autoRun loop. The persona
+        // prompt was already loaded into the buffer by Open in Sim ▶;
+        // we just enable autoRun and let the existing autoStep machinery
+        // play through.
+        useSimulateStore.getState().setAutoRun(true);
+      }
+    } finally {
+      setIsRunning(false);
+    }
   }
 
   function onCaptureCase() {
@@ -421,6 +460,17 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
 
       {openSimulateTab === "simulate" && (
         <>
+      {activeCase && (
+        <ActiveCaseStrip
+          testCase={activeCase}
+          isRunning={isRunning}
+          hasSession={hasSession}
+          busy={busy}
+          verdicts={verdicts}
+          onRun={() => void runActiveCase()}
+          onUnload={() => setActiveCaseId(null)}
+        />
+      )}
       <div className="flex items-center gap-2 border-b border-zinc-200 px-4 py-1.5 text-[11px]">
         {runnerUrl && (
           <div className="flex overflow-hidden rounded border border-zinc-200">
@@ -489,18 +539,69 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             onOpenSettings={onOpenSettings}
           />
         )}
-        {transcript.map((t, i) => (
-          <TurnView
-            key={i}
-            turn={t}
-            index={i}
-            spec={spec}
-            displayText={showTranslated ? translations.get(t.ts) : undefined}
-            onFork={mode === "prompt" ? onForkTurn : undefined}
-          />
-        ))}
+        {transcript.map((t, i) => {
+          // Per-turn assertions index against the agent-only subsequence
+          // (turn 1 = first agent turn). Compute the agent index of this
+          // turn so we can pull matching verdicts to render inline.
+          const agentIndex =
+            t.role === "agent"
+              ? transcript.slice(0, i + 1).filter((x) => x.role === "agent").length
+              : null;
+          const turnVerdicts =
+            activeCase && agentIndex !== null
+              ? (activeCase.assertions ?? [])
+                  .map((a, idx) => ({
+                    assertion: a,
+                    verdict: verdicts.perTurn.find((v) => v.index === idx),
+                  }))
+                  .filter((row) => row.assertion.turn === agentIndex)
+              : [];
+          return (
+            <div key={i} className="space-y-1">
+              <TurnView
+                turn={t}
+                index={i}
+                spec={spec}
+                displayText={showTranslated ? translations.get(t.ts) : undefined}
+                onFork={mode === "prompt" ? onForkTurn : undefined}
+              />
+              {turnVerdicts.map((row, ri) => {
+                const v = row.verdict;
+                const pending = v?.verdict === "pending" || !v;
+                const ok = v?.verdict === "pass";
+                return (
+                  <div
+                    key={`v-${ri}`}
+                    className={`ml-6 text-[10px] ${
+                      pending
+                        ? "text-zinc-400"
+                        : ok
+                          ? "text-emerald-700"
+                          : "text-red-700"
+                    }`}
+                  >
+                    {pending ? "…" : ok ? "✓" : "✗"}{" "}
+                    {row.assertion.must_contain && row.assertion.must_contain.length > 0 && (
+                      <span>contains "{row.assertion.must_contain.join(`", "`)}"</span>
+                    )}
+                    {row.assertion.must_not_contain && row.assertion.must_not_contain.length > 0 && (
+                      <span>
+                        {row.assertion.must_contain ? " · " : ""}
+                        ¬contains "{row.assertion.must_not_contain.join(`", "`)}"
+                      </span>
+                    )}
+                    {v?.reason && <span className="text-zinc-500"> — {v.reason}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
         {busy && hasSession && (
           <div className="text-xs text-zinc-500 italic">thinking…</div>
+        )}
+        {activeCase && hasSession && transcript.length > 0 && (
+          <CaseSummaryBlock testCase={activeCase} verdicts={verdicts} />
         )}
       </div>
 
@@ -596,6 +697,145 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         </>
       )}
     </aside>
+  );
+}
+
+function ActiveCaseStrip({
+  testCase,
+  isRunning,
+  hasSession,
+  busy,
+  verdicts,
+  onRun,
+  onUnload,
+}: {
+  testCase: TestCase;
+  isRunning: boolean;
+  hasSession: boolean;
+  busy: boolean;
+  verdicts: CaseVerdicts;
+  onRun: () => void;
+  onUnload: () => void;
+}) {
+  const totalAssertions =
+    (testCase.assertions?.length ?? 0) +
+    (testCase.transcript_assertions?.length ?? 0) +
+    (testCase.state_assertions?.length ?? 0) +
+    (testCase.evaluators?.length ?? 0);
+  return (
+    <div className="border-b border-zinc-200 bg-amber-50/60 px-3 py-1.5 text-[11px]">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="truncate text-[11px] font-medium text-zinc-900">
+            Active case: {testCase.name || testCase.id}
+          </div>
+          <div className="truncate text-[10px] text-zinc-600">
+            {testCase.persona_id
+              ? `persona · ${testCase.persona_id}`
+              : `scripted · ${testCase.user_turns?.length ?? 0} turns`}{" "}
+            · {totalAssertions} assertion{totalAssertions === 1 ? "" : "s"}
+            {hasSession && verdicts.evaluable > 0 && (
+              <>
+                {" · "}
+                <span className="font-mono">
+                  {verdicts.passed}/{verdicts.evaluable}
+                </span>{" "}
+                {verdicts.failed > 0 ? "✗" : verdicts.pending > 0 ? "…" : "✓"}
+              </>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onRun}
+            disabled={isRunning || busy}
+            className="rounded bg-zinc-900 px-2 py-1 text-[11px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+            title="Run this case against the current spec."
+          >
+            {isRunning ? "Running…" : hasSession ? "↻ Re-run case" : "▶ Run case"}
+          </button>
+          <button
+            type="button"
+            onClick={onUnload}
+            disabled={isRunning}
+            className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+            title="Unload the active case binding (variables/persona/mocks stay loaded)."
+          >
+            × Unload
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CaseSummaryBlock({
+  testCase,
+  verdicts,
+}: {
+  testCase: TestCase;
+  verdicts: CaseVerdicts;
+}) {
+  if (verdicts.evaluable === 0 && (testCase.state_assertions?.length ?? 0) === 0)
+    return null;
+  const status =
+    verdicts.failed > 0 ? "FAIL" : verdicts.pending > 0 ? "RUNNING" : "PASS";
+  const color =
+    status === "FAIL"
+      ? "border-red-200 bg-red-50 text-red-900"
+      : status === "PASS"
+        ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+        : "border-amber-200 bg-amber-50 text-amber-900";
+  const stateAssertions = testCase.state_assertions ?? [];
+  return (
+    <div className={`rounded border ${color} p-2 text-[11px] space-y-1`}>
+      <div className="font-medium">
+        {status === "FAIL" ? "✗ FAIL" : status === "PASS" ? "✓ PASS" : "… running"} ·{" "}
+        {verdicts.passed}/{verdicts.evaluable} assertions passed
+      </div>
+      {(testCase.assertions ?? []).map((a, i) => {
+        const v = verdicts.perTurn.find((p) => p.index === i);
+        const ok = v?.verdict === "pass";
+        const pending = v?.verdict === "pending";
+        return (
+          <div key={`pt-${i}`} className="text-[10px]">
+            {pending ? "…" : ok ? "✓" : "✗"} per-turn t{a.turn}
+            {a.must_contain && a.must_contain.length > 0 && (
+              <> · contains "{a.must_contain.join(`", "`)}"</>
+            )}
+            {a.must_not_contain && a.must_not_contain.length > 0 && (
+              <> · ¬contains "{a.must_not_contain.join(`", "`)}"</>
+            )}
+            {v?.reason && <span className="text-zinc-600"> — {v.reason}</span>}
+          </div>
+        );
+      })}
+      {(testCase.transcript_assertions ?? []).map((ta, i) => {
+        const v = verdicts.transcript.find((p) => p.index === i);
+        const ok = v?.verdict === "pass";
+        const pending = v?.verdict === "pending";
+        return (
+          <div key={`tr-${i}`} className="text-[10px]">
+            {pending ? "…" : ok ? "✓" : "✗"} {ta.kind}
+            {ta.pattern && <> "{ta.pattern}"</>}
+            {v?.reason && <span className="text-zinc-600"> — {v.reason}</span>}
+          </div>
+        );
+      })}
+      {stateAssertions.length > 0 && (
+        <div className="text-[10px] text-amber-800">
+          ⓘ {stateAssertions.length} state assertion
+          {stateAssertions.length === 1 ? "" : "s"} — needs runner, not evaluated
+        </div>
+      )}
+      {(testCase.evaluators ?? []).length > 0 && (
+        <div className="text-[10px] text-zinc-600">
+          ⓘ {testCase.evaluators?.length} evaluator
+          {testCase.evaluators?.length === 1 ? "" : "s"} — runs out-of-band
+        </div>
+      )}
+    </div>
   );
 }
 

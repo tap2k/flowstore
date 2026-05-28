@@ -117,6 +117,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
   const spec = useSpecStore((s) => s.spec);
   const setPersonaPrompt = useSimulateStore((s) => s.setPersonaPrompt);
   const setMockReturns = useSimulateStore((s) => s.setMockReturns);
+  const setActiveCaseId = useSimulateStore((s) => s.setActiveCaseId);
   const setOpenSimulateTab = useUiStore((s) => s.setOpenSimulateTab);
 
   // Draft state mirrors the saved record; Save commits the draft into the
@@ -221,9 +222,9 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
     }
     if (Object.keys(nextMockReturns).length > 0) setMockReturns(nextMockReturns);
 
-    // Active-case binding (the actual run path + live verdicts come in
-    // step 6). For now, switch to Simulate so the designer sees the
-    // staged state.
+    // Bind the active case so the SimulatePanel can show the
+    // Active-case header strip and the ▶ Run case button.
+    setActiveCaseId(testCase.id);
     setOpenSimulateTab("simulate");
   }
 

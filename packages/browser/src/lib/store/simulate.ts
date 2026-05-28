@@ -112,6 +112,12 @@ interface SimulateState {
   // Both in-memory; each Start refills.
   personaTurnLimit: number;
   personaTurnsLeft: number;
+  // Active-case binding. Set when the designer clicks "Open in Sim ▶"
+  // on a saved test case (or selects one from the SimulatePanel's
+  // Load-case picker). null = free-play mode. Drives the active-case
+  // header strip, the ▶ Run case button, and inline per-turn assertion
+  // verdicts in the transcript.
+  activeCaseId: string | null;
 
   setMode: (mode: SimulateMode) => void;
   start: (args: StartArgs) => Promise<void>;
@@ -136,6 +142,7 @@ interface SimulateState {
   setAutoRun: (on: boolean) => void;
   setPersonaTurnLimit: (n: number) => void;
   autoStep: () => Promise<void>;
+  setActiveCaseId: (id: string | null) => void;
 }
 
 const varsStorage = createScopedJsonStorage<Record<string, unknown>>({
@@ -210,6 +217,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   autoStepping: false,
   personaTurnLimit: 10,
   personaTurnsLeft: 0,
+  activeCaseId: null,
 
   setMode: (mode) => {
     if (get().sessionId) return; // mode is frozen during an active session
@@ -359,6 +367,10 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   setPersonaTurnLimit: (n) => {
     const clamped = Math.max(1, Math.floor(Number.isFinite(n) ? n : 10));
     set({ personaTurnLimit: clamped });
+  },
+
+  setActiveCaseId: (id) => {
+    set({ activeCaseId: id });
   },
 
   autoStep: async () => {
