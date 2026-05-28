@@ -109,43 +109,47 @@ export function FlowInspector() {
           />
         </Field>
 
-        <Field label="Guardrails">
-          <ListEditor<Guardrail>
-            items={flow.guardrails ?? []}
-            onChange={(g) => patch({ guardrails: g.length ? g : undefined })}
-            newItem={() => ({ id: genId("g"), statement: "" })}
-            addLabel="add guardrail"
-            emptyLabel="(none)"
-            renderItem={(g, update, remove) => (
-              <div className="flex items-start gap-2">
-                <textarea
-                  className={`${inputClass} resize-y min-h-[40px]`}
-                  value={g.statement}
-                  onChange={(e) => update({ ...g, statement: e.target.value })}
-                  placeholder="Behavioral invariant"
-                />
-                <button
-                  onClick={remove}
-                  className="text-xs text-zinc-400 hover:text-red-600 mt-1"
-                  title="remove"
-                >
-                  ×
-                </button>
-              </div>
-            )}
-          />
-        </Field>
+        {import.meta.env.VITE_DEV === "1" && (
+          <Field label="Guardrails">
+            <ListEditor<Guardrail>
+              items={flow.guardrails ?? []}
+              onChange={(g) => patch({ guardrails: g.length ? g : undefined })}
+              newItem={() => ({ id: genId("g"), statement: "" })}
+              addLabel="add guardrail"
+              emptyLabel="(none)"
+              renderItem={(g, update, remove) => (
+                <div className="flex items-start gap-2">
+                  <textarea
+                    className={`${inputClass} resize-y min-h-[40px]`}
+                    value={g.statement}
+                    onChange={(e) => update({ ...g, statement: e.target.value })}
+                    placeholder="Behavioral invariant"
+                  />
+                  <button
+                    onClick={remove}
+                    className="text-xs text-zinc-400 hover:text-red-600 mt-1"
+                    title="remove"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+            />
+          </Field>
+        )}
 
-        <Field label="FAQ">
-          <FaqListEditor
-            entries={flow.knowledge?.faq ?? []}
-            onChange={(faq) =>
-              patch({ knowledge: faq.length ? { faq } : undefined })
-            }
-            defaultLang={defaultLang}
-            emptyLabel="(none)"
-          />
-        </Field>
+        {import.meta.env.VITE_DEV === "1" && (
+          <Field label="FAQ">
+            <FaqListEditor
+              entries={flow.knowledge?.faq ?? []}
+              onChange={(faq) =>
+                patch({ knowledge: faq.length ? { faq } : undefined })
+              }
+              defaultLang={defaultLang}
+              emptyLabel="(none)"
+            />
+          </Field>
+        )}
 
         {retrievalCaps.length > 0 && (() => {
           const selectedIds = flow.retrieve_on_turn ?? [];
