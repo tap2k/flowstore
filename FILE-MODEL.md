@@ -87,7 +87,7 @@ project/
 │   ├── personas/<id>.persona.json           # id + system_prompt + optional name/notes
 │   ├── evaluators/<name>.py                 # deterministic Python evaluators
 │   ├── rubrics/<id>.rubric.json             # llm-judge evaluators (declarative)
-│   ├── gold-standards/<test_case_id>.gold.json
+│   ├── gold/<id>.gold.json                  # verbatim reference transcripts; independent of cases
 │   └── runs/<timestamp>-<label>/
 │       ├── manifest.json
 │       └── <test-case-id>.result.json
@@ -98,7 +98,7 @@ project/
 
 ## Layout — multi-agent variant
 
-When a project holds multiple agents (e.g., one project with purpose × language agents), the shape promotes. **`tests/` splits between two roots**: shared testing infrastructure (personas, evaluators, rubrics) stays at project `tests/`; agent-scoped (cases, gold-standards, runs) lives under each `agents/<id>/tests/`. **`flows/` may also live at both scopes**: shared flows (typically interrupts like `verify_identity`, `handle_wrong_person`, `request_callback`) at project root; agent-specific flows under each `agents/<id>/flows/`.
+When a project holds multiple agents (e.g., one project with purpose × language agents), the shape promotes. **`tests/` splits between two roots**: shared testing infrastructure (personas, evaluators, rubrics) stays at project `tests/`; agent-scoped (cases, golds, runs) lives under each `agents/<id>/tests/`. **`flows/` may also live at both scopes**: shared flows (typically interrupts like `verify_identity`, `handle_wrong_person`, `request_callback`) at project root; agent-specific flows under each `agents/<id>/flows/`.
 
 ```
 project/
@@ -133,7 +133,7 @@ project/
     │   │   └── <id>.scripts.csv
     │   └── tests/                           # agent-specific
     │       ├── cases/<id>.test.json
-    │       ├── gold-standards/<test_case_id>.gold.json
+    │       ├── gold/<id>.gold.json
     │       └── runs/<timestamp>-<label>/
     ├── 30day-past-due-english/
     │   └── …
@@ -187,7 +187,7 @@ Three scope levels exist in a multi-agent project. Not every entity supports all
 | **Rubrics** | ✓ | — | — | Reusable across agents. |
 | **Models config** | ✓ | — | — | Per-agent overrides post-MVP. |
 | **Test cases** | — | ✓ | — | Test a specific agent's flows. |
-| **Gold standards** | — | ✓ | — | Per-test-case. |
+| **Golds** | — | ✓ | — | Verbatim reference transcripts. Independent of cases; one gold may seed many derived cases. |
 | **Runs** | — | ✓ | — | Per-execution. |
 | **Comments** | any | any | any | Anchor identifies scope. |
 
@@ -238,7 +238,7 @@ What `flowstore-init-project` writes. Every collection accepts either form; the 
 | `tests/personas/` | Directory (per-id `*.persona.json`) | Collapse to file form if ≤3 small personas. |
 | `tests/rubrics/` | Directory (per-id `*.rubric.json`) | Stay in directory form (multi-paragraph templates). |
 | `tests/evaluators/` | Directory (Python files) | Not validated as JSON. Built-ins vendored; user-added go alongside. |
-| `tests/gold-standards/` | Directory (per-test-case `*.gold.json`) | n/a |
+| `tests/gold/` | Directory (per-id `*.gold.json`) | Golds are independent of cases; one gold may seed many derived cases. |
 | `models/` | Directory (`*.json` grouped by tier) | Stay in directory form. |
 | `scripts/` | Directory (Python scripts) | Vendored; user adapts with Claude Code. Not validated as artifacts. |
 | `comments/` | Directory (per-uuid `*.comment.json`) | Stay per-uuid (additive; conflict-free). |

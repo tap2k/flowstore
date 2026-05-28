@@ -6,11 +6,13 @@ import {
   type CapabilityMock,
 } from "@flowstore/core/schema/files/capabilityMock";
 import { RubricSchema, type Rubric } from "@flowstore/core/schema/files/rubric";
+import { GoldSchema, type Gold } from "@flowstore/core/schema/files/gold";
 import type { FileMap, LoadError, TestingArtifacts } from "./types";
 
 const TEST_CASE_RE = /^tests\/cases\/(.+)\.test\.json$/;
 const PERSONA_RE = /^tests\/personas\/(.+)\.persona\.json$/;
 const RUBRIC_RE = /^tests\/rubrics\/(.+)\.rubric\.json$/;
+const GOLD_RE = /^tests\/gold\/(.+)\.gold\.json$/;
 // Mocks live under capabilities/ and pair with declaration files by id.
 // Filename: <capability_id>.<variant>.mock.json. The capability_id may
 // itself contain dots, so the variant is whatever sits between the last
@@ -65,6 +67,20 @@ export function loadTestingArtifacts(
         }
       },
     ),
+    golds: loadCollection<Gold>(
+      files,
+      errors,
+      GOLD_RE,
+      GoldSchema,
+      (parsed, baseId, path) => {
+        if (parsed.id !== baseId) {
+          errors.push({
+            path,
+            message: `id "${parsed.id}" does not match filename "${baseId}.gold.json"`,
+          });
+        }
+      },
+    ),
     capabilityMocks: loadCollection<CapabilityMock>(
       files,
       errors,
@@ -82,6 +98,37 @@ export function loadTestingArtifacts(
       },
     ),
   };
+}
+
+// Inverse of loadTestingArtifacts: produces FileMap entries for the test
+// artifacts in their canonical paths. Used by the editor's save path to
+// merge into decomposeSpec output before writing. Mocks live under
+// capabilities/<id>.<variant>.mock.json (paired with capability
+// declarations); everything else lives under tests/.
+export function decomposeTestingArtifacts(
+  artifacts: TestingArtifacts,
+): FileMap {
+  const out: FileMap = {};
+  for (const c of artifacts.testCases) {
+    out[`tests/cases/${c.id}.test.json`] = stringifyJson(c);
+  }
+  for (const p of artifacts.personas) {
+    out[`tests/personas/${p.id}.persona.json`] = stringifyJson(p);
+  }
+  for (const r of artifacts.rubrics) {
+    out[`tests/rubrics/${r.id}.rubric.json`] = stringifyJson(r);
+  }
+  for (const g of artifacts.golds) {
+    out[`tests/gold/${g.id}.gold.json`] = stringifyJson(g);
+  }
+  for (const m of artifacts.capabilityMocks) {
+    out[`capabilities/${m.capability_id}.${m.variant}.mock.json`] = stringifyJson(m);
+  }
+  return out;
+}
+
+function stringifyJson(value: unknown): string {
+  return JSON.stringify(value, null, 2) + "\n";
 }
 
 function loadCollection<T extends { $schema: string }>(

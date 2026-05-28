@@ -12,5 +12,6 @@ export * from "./decisionTest";
 export * from "./persona";
 export * from "./capabilityMock";
 export * from "./rubric";
+export * from "./gold";
 export * from "./result";
 export * from "./comment";

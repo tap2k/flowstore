@@ -4,6 +4,7 @@ import type { TestCase } from "@flowstore/core/schema/files/testCase";
 import type { Persona } from "@flowstore/core/schema/files/persona";
 import type { CapabilityMock } from "@flowstore/core/schema/files/capabilityMock";
 import type { Rubric } from "@flowstore/core/schema/files/rubric";
+import type { Gold } from "@flowstore/core/schema/files/gold";
 import type { Comment } from "@flowstore/core/schema/files/comment";
 
 export type FileMap = Record<string, string>;
@@ -21,6 +22,7 @@ export interface TestingArtifacts {
   personas: Persona[];
   capabilityMocks: CapabilityMock[];
   rubrics: Rubric[];
+  golds: Gold[];
 }
 
 export interface LoadResult {
