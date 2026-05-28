@@ -19,6 +19,44 @@ interface GithubProjectState {
   // "Save a copy". Token-scope read-only (write role but a Contents:read
   // PAT) still trips the save-time 403 backstop in GitHubProjectControls.
   canWrite: boolean;
+  // -----------------------------------------------------------------------
+  // pendingForceSave — first-save hack for brand-new repos.
+  // -----------------------------------------------------------------------
+  // True for exactly one save following save-to-new-repo. The mechanism:
+  //
+  // Account-installed GitHub Apps (security scanners, CODEOWNERS bots,
+  // default-CI installers, etc.) and in some cases GitHub's own deferred
+  // finalization of the initial commit will push — and, observed in
+  // practice, sometimes *force-push* — commits onto a brand-new repo
+  // asynchronously, advancing or outright reverting HEAD past what our
+  // save-to-new-repo just recorded. We can't reason this away from
+  // outside; polling getRef/getReadme/etc. doesn't help because the drift
+  // can land after our write returns.
+  //
+  // A real collaborator conflict is impossible on a repo this fresh, so
+  // the next save:
+  //   1. Skips the expectedCommitSha check in GitHubProjectControls.doSave
+  //      (no spurious "Someone else saved changes" modal).
+  //   2. Passes `force: true` to updateRef in writeFileMapToRepo so the
+  //      ref can be moved non-fast-forward.
+  // Both are required — without (2), the integration can still race us
+  // inside a single writeFileMapToRepo call (between getRef and updateRef)
+  // and surface a 422 instead of a phantom conflict.
+  //
+  // Single-shot: clears on the next successful save; subsequent saves
+  // resume normal optimistic concurrency, so genuine collaborator
+  // conflicts on the same repo still surface correctly.
+  //
+  // Side effect — orphan commit. When the integration force-pushes back
+  // over our SaveToNewRepoModal write, our "Initial commit from
+  // flowstore" commit becomes unreachable from `main` (still in git's
+  // object store, recoverable via reflog). The user's first edit-save
+  // then commits their full spec on top of whatever HEAD currently is,
+  // overlaying via base_tree, so no content is lost. Visible history is
+  // typically "Initialize repository" → "Update spec from flowstore
+  // editor" — 2 commits, not 3. Functionally clean; documented here so
+  // it isn't mistaken for a bug.
+  pendingForceSave: boolean;
   setLoaded: (
     location: GithubProjectLocation,
     commitSha: string | null,
@@ -29,6 +67,7 @@ interface GithubProjectState {
   // 403 backstop when a write reveals the user is actually read-only here
   // (token-scope or permission change since open).
   setCanWrite: (canWrite: boolean) => void;
+  setPendingForceSave: (b: boolean) => void;
   clear: () => void;
 }
 
@@ -36,6 +75,7 @@ interface PersistedShape {
   location: GithubProjectLocation | null;
   lastKnownCommitSha: string | null;
   canWrite: boolean;
+  pendingForceSave: boolean;
 }
 
 function persist(state: PersistedShape): void {
@@ -48,12 +88,15 @@ function persist(state: PersistedShape): void {
   }
 }
 
+function emptyPersisted(): PersistedShape {
+  return { location: null, lastKnownCommitSha: null, canWrite: true, pendingForceSave: false };
+}
+
 function loadPersisted(): PersistedShape {
-  if (typeof window === "undefined")
-    return { location: null, lastKnownCommitSha: null, canWrite: true };
+  if (typeof window === "undefined") return emptyPersisted();
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { location: null, lastKnownCommitSha: null, canWrite: true };
+    if (!raw) return emptyPersisted();
     const parsed = JSON.parse(raw) as Partial<PersistedShape>;
     if (
       !parsed.location ||
@@ -61,7 +104,7 @@ function loadPersisted(): PersistedShape {
       typeof parsed.location.repo !== "string" ||
       typeof parsed.location.ref !== "string"
     ) {
-      return { location: null, lastKnownCommitSha: null, canWrite: true };
+      return emptyPersisted();
     }
     return {
       location: { owner: parsed.location.owner, repo: parsed.location.repo, ref: parsed.location.ref },
@@ -69,9 +112,12 @@ function loadPersisted(): PersistedShape {
       // Older entries (pre-canWrite) default to true — the save-time 403
       // catch corrects any optimism without losing the loaded project.
       canWrite: typeof parsed.canWrite === "boolean" ? parsed.canWrite : true,
+      // Survives a refresh between save-to-new-repo and the user's first
+      // real save, so the conflict-check bypass still applies after reload.
+      pendingForceSave: typeof parsed.pendingForceSave === "boolean" ? parsed.pendingForceSave : false,
     };
   } catch {
-    return { location: null, lastKnownCommitSha: null, canWrite: true };
+    return emptyPersisted();
   }
 }
 
@@ -81,9 +127,13 @@ export const useGithubProjectStore = create<GithubProjectState>((set) => ({
   location: initial.location,
   lastKnownCommitSha: initial.lastKnownCommitSha,
   canWrite: initial.canWrite,
+  pendingForceSave: initial.pendingForceSave,
   setLoaded: (location, commitSha, canWrite = true) => {
-    persist({ location, lastKnownCommitSha: commitSha, canWrite });
-    set({ location, lastKnownCommitSha: commitSha, canWrite });
+    // setLoaded resets pendingForceSave by default — fresh project means
+    // the flag's history doesn't apply. SaveToNewRepoModal then turns it
+    // on explicitly via setPendingForceSave(true).
+    persist({ location, lastKnownCommitSha: commitSha, canWrite, pendingForceSave: false });
+    set({ location, lastKnownCommitSha: commitSha, canWrite, pendingForceSave: false });
   },
   setCommitSha: (commitSha) => {
     set((s) => {
@@ -92,18 +142,35 @@ export const useGithubProjectStore = create<GithubProjectState>((set) => ({
         location: next.location,
         lastKnownCommitSha: commitSha,
         canWrite: next.canWrite,
+        pendingForceSave: next.pendingForceSave,
       });
       return next;
     });
   },
   setCanWrite: (canWrite) => {
     set((s) => {
-      persist({ location: s.location, lastKnownCommitSha: s.lastKnownCommitSha, canWrite });
+      persist({
+        location: s.location,
+        lastKnownCommitSha: s.lastKnownCommitSha,
+        canWrite,
+        pendingForceSave: s.pendingForceSave,
+      });
       return { ...s, canWrite };
     });
   },
+  setPendingForceSave: (pendingForceSave) => {
+    set((s) => {
+      persist({
+        location: s.location,
+        lastKnownCommitSha: s.lastKnownCommitSha,
+        canWrite: s.canWrite,
+        pendingForceSave,
+      });
+      return { ...s, pendingForceSave };
+    });
+  },
   clear: () => {
-    persist({ location: null, lastKnownCommitSha: null, canWrite: true });
-    set({ location: null, lastKnownCommitSha: null, canWrite: true });
+    persist(emptyPersisted());
+    set(emptyPersisted());
   },
 }));

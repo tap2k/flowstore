@@ -32,30 +32,36 @@ export async function createRepo(
   client: Octokit,
   opts: { name: string; private: boolean; description?: string },
 ): Promise<CreatedRepo> {
-  // auto_init: true lays down an initial commit so the git database exists —
-  // the git-data API (blobs/trees/commits) can't operate on a zero-commit
-  // repo ("Git Repository is empty"). The generated README.md is overwritten
-  // by our own on the first write.
+  // auto_init: true races — GitHub finalizes its "Initial commit" README
+  // asynchronously and can force-push the ref *after* our first write,
+  // surfacing later as a phantom "Someone else saved changes" on the
+  // user's next save. Even polling getReadme isn't enough (the README is
+  // visible before the ref is finalized). We avoid the race by
+  // initializing the git database ourselves via the Contents API, which
+  // is synchronous and creates a real, stable initial commit.
   const res = await client.rest.repos.createForAuthenticatedUser({
     name: opts.name,
     private: opts.private,
-    auto_init: true,
+    auto_init: false,
     description: opts.description,
   });
   const owner = res.data.owner.login;
   const repo = res.data.name;
   const defaultBranch = res.data.default_branch ?? "main";
-  // The initial commit lands asynchronously; poll until the branch ref
-  // resolves so the first write doesn't race the still-empty repo.
-  for (let i = 0; i < 12; i++) {
-    try {
-      await client.rest.git.getRef({ owner, repo, ref: `heads/${defaultBranch}` });
-      break;
-    } catch (e) {
-      if (i === 11 || (!isNotFound(e) && !isEmptyRepo(e))) throw e;
-      await new Promise((r) => setTimeout(r, 500));
-    }
-  }
+
+  // Push a placeholder README to create the initial commit. The first
+  // writeFileMapToRepo call overlays the real flowstore README (and
+  // everything else) on top via base_tree, so the placeholder content
+  // doesn't survive the user's first save.
+  await client.rest.repos.createOrUpdateFileContents({
+    owner,
+    repo,
+    path: "README.md",
+    message: "Initialize repository",
+    content: btoa(`# ${repo}\n`),
+    branch: defaultBranch,
+  });
+
   return { owner, repo, defaultBranch };
 }
 
@@ -323,11 +329,18 @@ export async function writeFileMapToRepo(
   });
 
   if (baseCommitSha) {
+    // When the caller opted out of the conflict check (no expectedCommitSha
+    // — e.g., pendingForceSave on a brand-new repo, or a deliberate
+    // "Overwrite their changes"), also bypass the fast-forward check on
+    // updateRef. Without this, an integration that advances HEAD between
+    // our getRef and updateRef can still 422 us within a single call,
+    // making the bypass meaningless.
     await loc.client.rest.git.updateRef({
       owner: loc.owner,
       repo: loc.repo,
       ref: `heads/${loc.ref}`,
       sha: newCommit.data.sha,
+      force: opts.expectedCommitSha === undefined,
     });
   } else {
     await loc.client.rest.git.createRef({

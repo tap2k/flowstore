@@ -81,6 +81,12 @@ export function SaveToNewRepoModal({ onClose, onOpenSettings }: SaveToNewRepoMod
         { owner: created.owner, repo: created.repo, ref: created.defaultBranch },
         res.commitSha,
       );
+      // Brand-new repos can have HEAD drift right after creation —
+      // account-installed GitHub Apps push housekeeping commits, or the
+      // git-data write we just made can race a deferred finalization by
+      // GitHub itself. There can't be a real collaborator conflict on a
+      // repo this fresh, so the next save bypasses the conflict check.
+      useGithubProjectStore.getState().setPendingForceSave(true);
       useDirtyStore.getState().markSaved();
       onClose();
     } catch (e) {

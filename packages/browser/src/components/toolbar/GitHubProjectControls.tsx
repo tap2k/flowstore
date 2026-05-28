@@ -99,6 +99,26 @@ export function GitHubProjectControls({
     };
   }, [saveMenuOpen]);
 
+  // Cmd/Ctrl+S in connected + writable mode → doSave. Ref keeps the static
+  // listener pointed at the latest doSave closure without re-attaching every
+  // render. App.tsx owns the corresponding handler for local / read-only
+  // mode (opens the save-to-new-repo modal). Both bail when the other mode
+  // is active so only one acts per key press.
+  const doSaveRef = useRef<((force: boolean) => Promise<void>) | null>(null);
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key !== "s" && e.key !== "S") return;
+      const loc = useGithubProjectStore.getState().location;
+      const cw = useGithubProjectStore.getState().canWrite;
+      if (!loc || !cw) return;
+      e.preventDefault();
+      void doSaveRef.current?.(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   if (!spec) return null;
   // Local project — not yet on GitHub. The cloud prompts to save (create a repo).
   if (!location) {
@@ -122,7 +142,14 @@ export function GitHubProjectControls({
     try {
       const client = makeGitHubClient(pat);
       const fileMap = decomposeSpec(spec);
-      const opts = force ? {} : { expectedCommitSha: lastSha ?? undefined };
+      // Skip the optimistic concurrency check the *first* time we save
+      // after a save-to-new-repo. Account-installed GitHub Apps and
+      // GitHub's own deferred finalization can drift HEAD on brand-new
+      // repos; a real collaborator conflict is impossible that fresh, so
+      // we absorb whatever HEAD has become. The flag is single-shot.
+      const pendingForce = useGithubProjectStore.getState().pendingForceSave;
+      const effectiveForce = force || pendingForce;
+      const opts = effectiveForce ? {} : { expectedCommitSha: lastSha ?? undefined };
       const res = await writeFileMapToRepo(
         { client, owner: location.owner, repo: location.repo, ref: location.ref },
         fileMap,
@@ -130,6 +157,12 @@ export function GitHubProjectControls({
         opts,
       );
       setCommitSha(res.commitSha);
+      // Single-shot flag: clear on first successful save so subsequent saves
+      // resume normal optimistic concurrency (and surface real collaborator
+      // conflicts).
+      if (useGithubProjectStore.getState().pendingForceSave) {
+        useGithubProjectStore.getState().setPendingForceSave(false);
+      }
       useDirtyStore.getState().markSaved();
     } catch (e) {
       if (e instanceof ConflictError) {
@@ -249,6 +282,10 @@ export function GitHubProjectControls({
       </>
     );
   }
+
+  // Update the Cmd+S ref each render so the static keydown listener always
+  // calls this render's doSave (and its current closures).
+  doSaveRef.current = doSave;
 
   return (
     <>
@@ -421,9 +458,23 @@ interface NewBranchModalProps {
   onSubmit: (branchName: string) => void;
 }
 
+// Git branch names allow [A-Za-z0-9._-] (plus `/`) but the old modal
+// rejected anything else with a red error that taught git ref rules. We
+// instead silently slugify — accept any input, show a live preview of the
+// branch name we'll actually create, and never block on validation.
+function toBranchSlug(name: string): string {
+  return (
+    name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, "-")
+      .replace(/^[-.]+|[-.]+$/g, "") || "draft"
+  );
+}
+
 function NewBranchModal({ baseBranch, saving, onCancel, onSubmit }: NewBranchModalProps) {
   const [name, setName] = useState("");
-  const valid = /^[a-zA-Z0-9._/-]+$/.test(name) && !name.startsWith("/") && !name.endsWith("/");
+  const slug = toBranchSlug(name);
 
   return (
     <div
@@ -444,12 +495,12 @@ function NewBranchModal({ baseBranch, saving, onCancel, onSubmit }: NewBranchMod
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="my-draft"
-          className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400"
+          placeholder="my draft"
+          className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
         />
-        {!valid && name && (
-          <p className="mt-1 text-[11px] text-red-700">
-            Use letters, numbers, dot, dash, underscore, or slash. No leading/trailing slash.
+        {name.trim() && (
+          <p className="mt-1 text-[11px] text-zinc-500">
+            Saved as <span className="font-mono">{slug}</span>
           </p>
         )}
         <div className="flex justify-end gap-2 pt-3">
@@ -460,8 +511,8 @@ function NewBranchModal({ baseBranch, saving, onCancel, onSubmit }: NewBranchMod
             Cancel
           </button>
           <button
-            onClick={() => valid && onSubmit(name)}
-            disabled={!valid || saving}
+            onClick={() => name.trim() && onSubmit(slug)}
+            disabled={!name.trim() || saving}
             className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save to branch"}
