@@ -1,12 +1,10 @@
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useSpecStore } from "@/lib/store/spec";
 import { hasKeyForModel, useSettingsStore } from "@/lib/store/settings";
-import { useTestsStore } from "@/lib/store/tests";
 import { generatePersonaPrompt } from "@flowstore/core/runtime/personaGen";
 import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
 import { ModelPicker } from "./ModelPicker";
 import { useState } from "react";
-import type { Persona } from "@flowstore/core/schema/files/persona";
 
 interface PersonaFormProps {
   disabled: boolean;
@@ -29,9 +27,6 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
   const googleKey = useSettingsStore((s) => s.googleApiKey);
   const model = useSettingsStore((s) => s.simulatePersonaModel);
   const setSimulatePersonaModel = useSettingsStore((s) => s.setSimulatePersonaModel);
-  const savedPersonas = useTestsStore((s) => s.personas);
-  const savePersona = useTestsStore((s) => s.savePersona);
-  const uniquePersonaId = useTestsStore((s) => s.uniquePersonaId);
   // The persona runtime uses whichever provider the picked model maps to.
   // Auto-Run gates on the picked model having a configured key.
   const personaHasKey = hasKeyForModel(model);
@@ -41,31 +36,6 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
   const [genError, setGenError] = useState<string | null>(null);
 
   const configured = personaPrompt.trim().length > 0;
-
-  function onLoadSaved(id: string) {
-    if (id === "") return;
-    const found = savedPersonas.find((p) => p.id === id);
-    if (!found) return;
-    if (configured) {
-      const ok = window.confirm(`Replace the current persona buffer with "${found.name || found.id}"?`);
-      if (!ok) return;
-    }
-    setPersonaPrompt(found.system_prompt);
-  }
-
-  function onSaveAs() {
-    if (!configured) return;
-    const name = window.prompt("Save current persona buffer as:", "")?.trim() ?? "";
-    if (name === "") return;
-    const id = uniquePersonaId(name);
-    const persona: Persona = {
-      $schema: "flowstore://test/persona/v0",
-      id,
-      system_prompt: personaPrompt,
-      name,
-    };
-    savePersona(persona);
-  }
 
   async function onGenerate() {
     if (!googleKey || !spec) return;
@@ -157,43 +127,6 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
               {genError}
             </div>
           )}
-          <div className="flex items-center gap-2 text-[10px] text-zinc-500">
-            <select
-              defaultValue=""
-              onChange={(e) => {
-                const v = e.target.value;
-                e.target.value = "";
-                onLoadSaved(v);
-              }}
-              disabled={disabled || generating || savedPersonas.length === 0}
-              title={
-                savedPersonas.length === 0
-                  ? "No saved personas yet. Use the Personas tab or Save as… below."
-                  : "Replace the current buffer with a saved persona's prompt."
-              }
-              className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-            >
-              <option value="">load saved…</option>
-              {savedPersonas.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name || p.id}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={onSaveAs}
-              disabled={disabled || generating || !configured}
-              title={
-                configured
-                  ? "Save the current persona buffer as a new tests/personas/<slug>.persona.json file."
-                  : "Type a persona prompt first."
-              }
-              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-            >
-              save as…
-            </button>
-          </div>
           <textarea
             value={personaPrompt}
             onChange={(e) => setPersonaPrompt(e.target.value)}

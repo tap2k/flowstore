@@ -22,16 +22,17 @@ export function PersonasPanel() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   function startNew() {
-    // Name-first creation: id is derived from name so the filename matches
-    // what the user typed. Empty name falls back to "persona" + counter.
-    const name = window.prompt("Persona name", "")?.trim() ?? "";
-    if (name === "") return;
-    const id = uniquePersonaId(name);
+    // Placeholder-first: create with a default name immediately so the
+    // user can edit inline. Abandoned placeholders are removed via
+    // Delete; they don't reach GitHub until the next Save commits the
+    // project. Avoids a modal/prompt on creation.
+    const defaultName = `Persona ${personas.length + 1}`;
+    const id = uniquePersonaId(defaultName);
     savePersona({
       $schema: "flowstore://test/persona/v0",
       id,
       system_prompt: "",
-      name,
+      name: defaultName,
     });
     setSelectedId(id);
   }

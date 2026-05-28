@@ -187,22 +187,21 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
 
   function onCaptureCase() {
     if (transcript.length === 0) return;
-    const name = window.prompt("Capture as test case — name:", "")?.trim() ?? "";
-    if (name === "") return;
-    const id = uniqueCaseId(name);
-    // Scripted user_turns extracted from the transcript. Per the
+    // Auto-name; user renames in the Tests-tab editor (step 5). Per the
     // editor-test-loop-mvp doc, captured cases are always `source:
     // scripted`, even when the originating session was persona-driven —
     // the persona's generated user-turns become deterministic text.
     // persona_id is NOT carried over; designers who want re-explore-each-
     // run behavior re-load the persona manually in Simulate.
+    const defaultName = `Captured case ${useTestsStore.getState().cases.length + 1}`;
+    const id = uniqueCaseId(defaultName);
     const user_turns = transcript
       .filter((t) => t.role === "user")
       .map((t) => t.text);
     const testCase: TestCase = {
       $schema: "flowstore://test/case/v0",
       id,
-      name,
+      name: defaultName,
       user_turns,
     };
     saveCase(testCase);
@@ -214,26 +213,24 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
 
   function onCaptureGold() {
     if (transcript.length === 0) return;
-    const name = window.prompt("Capture as gold — name:", "")?.trim() ?? "";
-    if (name === "") return;
-    const scenarioRaw = window.prompt(
-      "Short scenario description (one line):",
-      "",
-    )?.trim();
-    const scenario = scenarioRaw && scenarioRaw.length > 0 ? scenarioRaw : name;
-    const id = uniqueGoldId(name);
+    // Auto-name; no gold editor exists in v1, so renaming requires
+    // hand-editing the JSON file. Document path in the toast.
+    const defaultName = `Captured gold ${useTestsStore.getState().golds.length + 1}`;
+    const id = uniqueGoldId(defaultName);
     const turns = transcript
       .filter((t) => t.text.trim().length > 0)
       .map((t) => ({ role: t.role, text: t.text }));
     const gold: Gold = {
       $schema: "flowstore://test/gold/v0",
       id,
-      name,
-      scenario,
+      name: defaultName,
+      scenario: defaultName,
       turns,
     };
     saveGold(gold);
-    window.alert(`Saved gold "${name}" to tests/gold/${id}.gold.json.`);
+    window.alert(
+      `Saved gold to tests/gold/${id}.gold.json. Rename via Claude Code / GitHub web UI.`,
+    );
   }
 
   function onDownload() {
