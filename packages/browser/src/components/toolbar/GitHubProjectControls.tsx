@@ -70,6 +70,7 @@ export function GitHubProjectControls({
   const location = useGithubProjectStore((s) => s.location);
   const lastSha = useGithubProjectStore((s) => s.lastKnownCommitSha);
   const canWrite = useGithubProjectStore((s) => s.canWrite);
+  const canAdmin = useGithubProjectStore((s) => s.canAdmin);
   const setSpec = useSpecStore((s) => s.setSpec);
   const setLoaded = useGithubProjectStore((s) => s.setLoaded);
   const setCommitSha = useGithubProjectStore((s) => s.setCommitSha);
@@ -238,6 +239,8 @@ export function GitHubProjectControls({
       setLoaded(
         { owner: location.owner, repo: location.repo, ref: branchName },
         res.commitSha,
+        canWrite,
+        canAdmin,
       );
       useDirtyStore.getState().markSaved();
       setNewBranchOpen(false);
@@ -331,14 +334,16 @@ export function GitHubProjectControls({
       >
         {refreshing ? <Spinner /> : <RefreshIcon />}
       </button>
-      <button
-        onClick={onShare}
-        className={iconButtonClass}
-        title="Share — manage collaborators"
-        aria-label="Share"
-      >
-        <ShareIcon />
-      </button>
+      {canAdmin && (
+        <button
+          onClick={onShare}
+          className={iconButtonClass}
+          title="Share — manage collaborators"
+          aria-label="Share"
+        >
+          <ShareIcon />
+        </button>
+      )}
 
       {error && (
         <div className="absolute top-full right-6 mt-2 z-30 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-800 shadow-md">

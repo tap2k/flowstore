@@ -26,6 +26,9 @@ interface RepoSummary {
   // collaborator / org-read access. Propagates into githubProject.canWrite
   // so the editor knows up front that Save needs to route to "Save a copy."
   canWrite: boolean;
+  // From the list response's permissions.admin — only owners/admins can
+  // manage collaborators, so the Share button is gated on this.
+  canAdmin: boolean;
   // Repo topics returned by listForAuthenticatedUser. Powers the
   // "flowstore-only" default filter — flowstore projects stamp the
   // `flowstore` topic at create time so they show up here without
@@ -74,6 +77,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
           repo: r.name,
           default_branch: r.default_branch,
           canWrite: r.permissions?.push ?? false,
+          canAdmin: r.permissions?.admin ?? false,
           topics: r.topics ?? [],
         }));
         setRepos(summaries);
@@ -149,6 +153,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
         { owner: repo.owner, repo: repo.repo, ref: selectedBranch },
         commitSha,
         repo.canWrite,
+        repo.canAdmin,
       );
       useCommentsStore.getState().setAll(comments);
       // Just-loaded from GitHub — local matches remote, not dirty. Don't

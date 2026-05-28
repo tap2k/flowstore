@@ -19,6 +19,11 @@ interface GithubProjectState {
   // "Save a copy". Token-scope read-only (write role but a Contents:read
   // PAT) still trips the save-time 403 backstop in GitHubProjectControls.
   canWrite: boolean;
+  // True only for owners/admins — managing collaborators (the Share modal)
+  // requires admin on GitHub's side; push/maintain isn't enough. Gates the
+  // Share button so write-only collaborators don't see an affordance that
+  // 403s on every operation.
+  canAdmin: boolean;
   // -----------------------------------------------------------------------
   // pendingForceSave — first-save hack for brand-new repos.
   // -----------------------------------------------------------------------
@@ -61,12 +66,16 @@ interface GithubProjectState {
     location: GithubProjectLocation,
     commitSha: string | null,
     canWrite?: boolean,
+    canAdmin?: boolean,
   ) => void;
   setCommitSha: (commitSha: string) => void;
   // Updates canWrite without touching location/sha — used by the save-time
   // 403 backstop when a write reveals the user is actually read-only here
   // (token-scope or permission change since open).
   setCanWrite: (canWrite: boolean) => void;
+  // Updates canAdmin without touching location/sha — used by the share-time
+  // 403 backstop (collaborator write succeeds but addCollaborator 403s).
+  setCanAdmin: (canAdmin: boolean) => void;
   setPendingForceSave: (b: boolean) => void;
   clear: () => void;
 }
@@ -75,6 +84,7 @@ interface PersistedShape {
   location: GithubProjectLocation | null;
   lastKnownCommitSha: string | null;
   canWrite: boolean;
+  canAdmin: boolean;
   pendingForceSave: boolean;
 }
 
@@ -89,7 +99,13 @@ function persist(state: PersistedShape): void {
 }
 
 function emptyPersisted(): PersistedShape {
-  return { location: null, lastKnownCommitSha: null, canWrite: true, pendingForceSave: false };
+  return {
+    location: null,
+    lastKnownCommitSha: null,
+    canWrite: true,
+    canAdmin: true,
+    pendingForceSave: false,
+  };
 }
 
 function loadPersisted(): PersistedShape {
@@ -112,6 +128,11 @@ function loadPersisted(): PersistedShape {
       // Older entries (pre-canWrite) default to true — the save-time 403
       // catch corrects any optimism without losing the loaded project.
       canWrite: typeof parsed.canWrite === "boolean" ? parsed.canWrite : true,
+      // Older entries (pre-canAdmin) default to true so admins don't lose
+      // Share after upgrade until they reopen the project; a 403 from any
+      // collaborator-write op flips it false (setCanAdmin), matching the
+      // canWrite backstop pattern.
+      canAdmin: typeof parsed.canAdmin === "boolean" ? parsed.canAdmin : true,
       // Survives a refresh between save-to-new-repo and the user's first
       // real save, so the conflict-check bypass still applies after reload.
       pendingForceSave: typeof parsed.pendingForceSave === "boolean" ? parsed.pendingForceSave : false,
@@ -127,13 +148,26 @@ export const useGithubProjectStore = create<GithubProjectState>((set) => ({
   location: initial.location,
   lastKnownCommitSha: initial.lastKnownCommitSha,
   canWrite: initial.canWrite,
+  canAdmin: initial.canAdmin,
   pendingForceSave: initial.pendingForceSave,
-  setLoaded: (location, commitSha, canWrite = true) => {
+  setLoaded: (location, commitSha, canWrite = true, canAdmin = true) => {
     // setLoaded resets pendingForceSave by default — fresh project means
     // the flag's history doesn't apply. SaveToNewRepoModal then turns it
     // on explicitly via setPendingForceSave(true).
-    persist({ location, lastKnownCommitSha: commitSha, canWrite, pendingForceSave: false });
-    set({ location, lastKnownCommitSha: commitSha, canWrite, pendingForceSave: false });
+    persist({
+      location,
+      lastKnownCommitSha: commitSha,
+      canWrite,
+      canAdmin,
+      pendingForceSave: false,
+    });
+    set({
+      location,
+      lastKnownCommitSha: commitSha,
+      canWrite,
+      canAdmin,
+      pendingForceSave: false,
+    });
   },
   setCommitSha: (commitSha) => {
     set((s) => {
@@ -142,6 +176,7 @@ export const useGithubProjectStore = create<GithubProjectState>((set) => ({
         location: next.location,
         lastKnownCommitSha: commitSha,
         canWrite: next.canWrite,
+        canAdmin: next.canAdmin,
         pendingForceSave: next.pendingForceSave,
       });
       return next;
@@ -153,9 +188,22 @@ export const useGithubProjectStore = create<GithubProjectState>((set) => ({
         location: s.location,
         lastKnownCommitSha: s.lastKnownCommitSha,
         canWrite,
+        canAdmin: s.canAdmin,
         pendingForceSave: s.pendingForceSave,
       });
       return { ...s, canWrite };
+    });
+  },
+  setCanAdmin: (canAdmin) => {
+    set((s) => {
+      persist({
+        location: s.location,
+        lastKnownCommitSha: s.lastKnownCommitSha,
+        canWrite: s.canWrite,
+        canAdmin,
+        pendingForceSave: s.pendingForceSave,
+      });
+      return { ...s, canAdmin };
     });
   },
   setPendingForceSave: (pendingForceSave) => {
@@ -164,6 +212,7 @@ export const useGithubProjectStore = create<GithubProjectState>((set) => ({
         location: s.location,
         lastKnownCommitSha: s.lastKnownCommitSha,
         canWrite: s.canWrite,
+        canAdmin: s.canAdmin,
         pendingForceSave,
       });
       return { ...s, pendingForceSave };

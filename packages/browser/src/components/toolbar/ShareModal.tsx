@@ -4,6 +4,7 @@ import { useGithubProjectStore } from "@/lib/store/githubProject";
 import {
   addCollaborator,
   cancelInvitation,
+  isForbidden,
   listCollaborators,
   listInvitations,
   makeGitHubClient,
@@ -25,6 +26,7 @@ export function ShareModal({ onClose }: ShareModalProps) {
   const pat = useSettingsStore((s) => s.githubPat);
   const selfLogin = useSettingsStore((s) => s.githubLogin);
   const location = useGithubProjectStore((s) => s.location);
+  const setCanAdmin = useGithubProjectStore((s) => s.setCanAdmin);
 
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [invitations, setInvitations] = useState<PendingInvitation[]>([]);
@@ -47,11 +49,20 @@ export function ShareModal({ onClose }: ShareModalProps) {
       setCollaborators(c);
       setInvitations(inv);
     } catch (e) {
+      // 403 on listInvitations means the user isn't actually admin —
+      // happens for legacy persisted entries (pre-canAdmin) that defaulted
+      // to true. Flip the store flag so the Share button hides on the next
+      // render, then close: there's nothing useful for them to do here.
+      if (isForbidden(e)) {
+        setCanAdmin(false);
+        onClose();
+        return;
+      }
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
-  }, [pat, location]);
+  }, [pat, location, setCanAdmin, onClose]);
 
   useEffect(() => {
     void refresh();
