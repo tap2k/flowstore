@@ -17,6 +17,171 @@ export async function testConnection(client: Octokit): Promise<ConnectionInfo> {
   return { login: res.data.login, name: res.data.name ?? undefined };
 }
 
+export interface CreatedRepo {
+  owner: string;
+  repo: string;
+  defaultBranch: string;
+}
+
+// Creates a new repository under the authenticated user with no initial
+// commit (auto_init: false) so writeFileMapToRepo's empty-repo path lays
+// down the spec as the first commit. Returns the actual owner/name GitHub
+// assigned (the name may be normalized) and the repo's default branch — write
+// to that, not a hardcoded "main", since the account's default may differ.
+export async function createRepo(
+  client: Octokit,
+  opts: { name: string; private: boolean; description?: string },
+): Promise<CreatedRepo> {
+  // auto_init: true lays down an initial commit so the git database exists —
+  // the git-data API (blobs/trees/commits) can't operate on a zero-commit
+  // repo ("Git Repository is empty"). The generated README.md is overwritten
+  // by our own on the first write.
+  const res = await client.rest.repos.createForAuthenticatedUser({
+    name: opts.name,
+    private: opts.private,
+    auto_init: true,
+    description: opts.description,
+  });
+  const owner = res.data.owner.login;
+  const repo = res.data.name;
+  const defaultBranch = res.data.default_branch ?? "main";
+  // The initial commit lands asynchronously; poll until the branch ref
+  // resolves so the first write doesn't race the still-empty repo.
+  for (let i = 0; i < 12; i++) {
+    try {
+      await client.rest.git.getRef({ owner, repo, ref: `heads/${defaultBranch}` });
+      break;
+    } catch (e) {
+      if (i === 11 || (!isNotFound(e) && !isEmptyRepo(e))) throw e;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+  return { owner, repo, defaultBranch };
+}
+
+// Best-effort topic stamp so the project shows up in a
+// `search/repositories?q=topic:flowstore` dashboard query. Never throws —
+// a topic failure must not fail project creation.
+export async function tagRepoTopic(
+  client: Octokit,
+  owner: string,
+  repo: string,
+  topic = "flowstore",
+): Promise<void> {
+  try {
+    await client.rest.repos.replaceAllTopics({ owner, repo, names: [topic] });
+  } catch {
+    // ignore — cosmetic
+  }
+}
+
+// User-facing role tiers — `read` maps to GitHub's `pull` permission, and
+// `write` maps to `push`. Higher tiers (maintain/admin/triage) exist on the
+// API but aren't exposed in the Share UI; we display them read-only when
+// they appear on existing collaborators.
+export type CollaboratorRole = "read" | "write";
+
+export interface Collaborator {
+  login: string;
+  avatarUrl?: string;
+  // Raw permission name from GitHub so the UI can label admins/owners/etc.
+  // distinctly from the two roles users can grant.
+  permission: string;
+}
+
+export interface PendingInvitation {
+  id: number;
+  invitee: string;
+  permission: string;
+}
+
+function rolePermission(role: CollaboratorRole): "pull" | "push" {
+  return role === "write" ? "push" : "pull";
+}
+
+export async function listCollaborators(
+  client: Octokit,
+  owner: string,
+  repo: string,
+): Promise<Collaborator[]> {
+  const res = await client.rest.repos.listCollaborators({ owner, repo, per_page: 100 });
+  return res.data.map((c) => ({
+    login: c.login,
+    avatarUrl: c.avatar_url,
+    permission: c.role_name ?? "read",
+  }));
+}
+
+export async function listInvitations(
+  client: Octokit,
+  owner: string,
+  repo: string,
+): Promise<PendingInvitation[]> {
+  const res = await client.rest.repos.listInvitations({ owner, repo, per_page: 100 });
+  return res.data.map((inv) => ({
+    id: inv.id,
+    invitee: inv.invitee?.login ?? "",
+    permission: inv.permissions ?? "read",
+  }));
+}
+
+// Returns true if the call created a new invitation (user wasn't already a
+// collaborator), false if it just updated an existing membership.
+export async function addCollaborator(
+  client: Octokit,
+  owner: string,
+  repo: string,
+  username: string,
+  role: CollaboratorRole,
+): Promise<boolean> {
+  const res = await client.rest.repos.addCollaborator({
+    owner,
+    repo,
+    username,
+    permission: rolePermission(role),
+  });
+  // GitHub returns 201 + invitation body for new invites, 204 (no body) when
+  // the user is already a collaborator (permission updated).
+  return res.status === 201;
+}
+
+export async function removeCollaborator(
+  client: Octokit,
+  owner: string,
+  repo: string,
+  username: string,
+): Promise<void> {
+  await client.rest.repos.removeCollaborator({ owner, repo, username });
+}
+
+export async function cancelInvitation(
+  client: Octokit,
+  owner: string,
+  repo: string,
+  invitationId: number,
+): Promise<void> {
+  await client.rest.repos.deleteInvitation({ owner, repo, invitation_id: invitationId });
+}
+
+// True when repos.createForAuthenticatedUser failed because the name is
+// already taken (422 with an "already exists" validation error). The caller
+// retries with a suffixed slug rather than surfacing a raw error — the repo
+// name is plumbing the user didn't pick.
+export function isRepoNameTaken(e: unknown): boolean {
+  if (typeof e !== "object" || e === null) return false;
+  const err = e as {
+    status?: unknown;
+    message?: string;
+    response?: { data?: { errors?: Array<{ message?: string }> } };
+  };
+  if (err.status !== 422) return false;
+  const text =
+    (err.response?.data?.errors ?? []).map((x) => x.message ?? "").join(" ") +
+    " " +
+    (err.message ?? "");
+  return /already exists/i.test(text);
+}
+
 export interface GitHubLocation {
   client: Octokit;
   owner: string;
@@ -122,7 +287,7 @@ export async function writeFileMapToRepo(
     });
     baseTreeSha = commit.data.tree.sha;
   } catch (e: unknown) {
-    if (!isNotFound(e)) throw e;
+    if (!isNotFound(e) && !isEmptyRepo(e)) throw e;
   }
 
   const treeEntries = await Promise.all(
@@ -213,5 +378,30 @@ function isNotFound(e: unknown): boolean {
     e !== null &&
     "status" in e &&
     (e as { status: unknown }).status === 404
+  );
+}
+
+// A repo created with auto_init:false has no commits and no default ref yet;
+// getRef on it returns 409 "Git Repository is empty" rather than a 404. Both
+// 404 (ref absent) and 409 (repo empty) mean "no base commit — create the
+// first one."
+function isEmptyRepo(e: unknown): boolean {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "status" in e &&
+    (e as { status: unknown }).status === 409
+  );
+}
+
+// True when a write was refused — either role-based (the user is read-only
+// on this repo) or token-scope (their PAT lacks Contents:write). The caller
+// reacts by offering "Save a copy" rather than surfacing a raw 403.
+export function isForbidden(e: unknown): boolean {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "status" in e &&
+    (e as { status: unknown }).status === 403
   );
 }

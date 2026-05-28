@@ -21,6 +21,10 @@ interface RepoSummary {
   owner: string;
   repo: string;
   default_branch: string;
+  // From the list response's permissions.push — false for read-only
+  // collaborator / org-read access. Propagates into githubProject.canWrite
+  // so the editor knows up front that Save needs to route to "Save a copy."
+  canWrite: boolean;
 }
 
 interface BranchSummary {
@@ -61,6 +65,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
           owner: r.owner.login,
           repo: r.name,
           default_branch: r.default_branch,
+          canWrite: r.permissions?.push ?? false,
         }));
         setRepos(summaries);
       })
@@ -131,7 +136,11 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
         return;
       }
       setSpec(spec);
-      setLoaded({ owner: repo.owner, repo: repo.repo, ref: selectedBranch }, commitSha);
+      setLoaded(
+        { owner: repo.owner, repo: repo.repo, ref: selectedBranch },
+        commitSha,
+        repo.canWrite,
+      );
       useCommentsStore.getState().setAll(comments);
       onClose();
     } catch (e) {

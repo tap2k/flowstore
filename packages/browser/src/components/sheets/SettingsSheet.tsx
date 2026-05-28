@@ -163,10 +163,14 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           <p className="text-[11px] text-red-700">{ghStatus.message}</p>
         )}
         <p className="text-[11px] text-zinc-500">
-          Fine-grained PAT with Contents: Read &amp; write on the repos you want
-          flowstore to open. Create at{" "}
+          Fine-grained PAT. Set <span className="font-medium">Repository access</span> to
+          {" "}<span className="font-medium">All repositories</span> (needed to create new
+          projects), and grant these <span className="font-medium">Permissions</span>:
+          {" "}<span className="font-mono">Contents: Read &amp; write</span> and
+          {" "}<span className="font-mono">Administration: Read &amp; write</span> (for
+          creating repos and managing collaborators). Create at{" "}
           <a
-            href="https://github.com/settings/personal-access-tokens"
+            href="https://github.com/settings/personal-access-tokens/new"
             target="_blank"
             rel="noreferrer"
             className="underline hover:text-zinc-900"

@@ -4,6 +4,7 @@ import { useSpecStore } from "@/lib/store/spec";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
 import {
   ConflictError,
+  isForbidden,
   makeGitHubClient,
   readRepoToFileMap,
   writeFileMapToRepo,
@@ -26,6 +27,18 @@ function SaveIcon() {
   );
 }
 
+function ShareIcon() {
+  // Person-plus glyph — universal "add someone" affordance.
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <line x1="19" y1="8" x2="19" y2="14" />
+      <line x1="22" y1="11" x2="16" y2="11" />
+    </svg>
+  );
+}
+
 function RefreshIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -44,14 +57,22 @@ function Spinner() {
   );
 }
 
-export function GitHubProjectControls() {
+export function GitHubProjectControls({
+  onSaveToGitHub,
+  onShare,
+}: {
+  onSaveToGitHub: () => void;
+  onShare: () => void;
+}) {
   const pat = useSettingsStore((s) => s.githubPat);
   const spec = useSpecStore((s) => s.spec);
   const location = useGithubProjectStore((s) => s.location);
   const lastSha = useGithubProjectStore((s) => s.lastKnownCommitSha);
+  const canWrite = useGithubProjectStore((s) => s.canWrite);
   const setSpec = useSpecStore((s) => s.setSpec);
   const setLoaded = useGithubProjectStore((s) => s.setLoaded);
   const setCommitSha = useGithubProjectStore((s) => s.setCommitSha);
+  const setCanWrite = useGithubProjectStore((s) => s.setCanWrite);
 
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -77,7 +98,21 @@ export function GitHubProjectControls() {
     };
   }, [saveMenuOpen]);
 
-  if (!location || !spec || !pat) return null;
+  if (!spec) return null;
+  // Local project — not yet on GitHub. The cloud prompts to save (create a repo).
+  if (!location) {
+    return (
+      <button
+        onClick={onSaveToGitHub}
+        className={iconButtonClass}
+        title="Save to GitHub"
+        aria-label="Save to GitHub"
+      >
+        <SaveIcon />
+      </button>
+    );
+  }
+  if (!pat) return null;
 
   async function doSave(force: boolean) {
     if (!location || !spec) return;
@@ -97,6 +132,12 @@ export function GitHubProjectControls() {
     } catch (e) {
       if (e instanceof ConflictError) {
         setConflictRemoteSha(e.actual ?? "");
+      } else if (isForbidden(e)) {
+        // Token-scope read-only, or perms changed since open: re-route the
+        // user to "Save a copy" rather than surface a raw 403.
+        setCanWrite(false);
+        setError("You have read-only access to this project — saving as a copy.");
+        onSaveToGitHub();
       } else {
         setError(e instanceof Error ? e.message : String(e));
       }
@@ -168,6 +209,41 @@ export function GitHubProjectControls() {
     }
   }
 
+  // Read-only project (read collaborator, org read, or detected via 403):
+  // the cloud relabels to "Save a copy" — clicking it opens the save-to-new
+  // -repo modal that forks the current spec into a repo the user owns.
+  if (!canWrite) {
+    return (
+      <>
+        <button
+          onClick={onSaveToGitHub}
+          className={iconButtonClass}
+          title="Save a copy to your account"
+          aria-label="Save a copy"
+        >
+          <SaveIcon />
+        </button>
+        <button
+          onClick={doRefresh}
+          disabled={refreshing}
+          className={iconButtonClass}
+          title="Get latest"
+          aria-label="Get latest"
+        >
+          {refreshing ? <Spinner /> : <RefreshIcon />}
+        </button>
+        {error && (
+          <div className="absolute top-full right-6 mt-2 z-30 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-800 shadow-md">
+            {error}
+            <button onClick={() => setError(null)} className="ml-2 text-red-600 hover:text-red-900">
+              dismiss
+            </button>
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <>
       <div ref={saveMenuRef} className="relative">
@@ -212,6 +288,14 @@ export function GitHubProjectControls() {
       >
         {refreshing ? <Spinner /> : <RefreshIcon />}
       </button>
+      <button
+        onClick={onShare}
+        className={iconButtonClass}
+        title="Share — manage collaborators"
+        aria-label="Share"
+      >
+        <ShareIcon />
+      </button>
 
       {error && (
         <div className="absolute top-full right-6 mt-2 z-30 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-800 shadow-md">
@@ -224,13 +308,22 @@ export function GitHubProjectControls() {
 
       {conflictRemoteSha !== null && (
         <ConflictModal
-          remoteSha={conflictRemoteSha}
           onCancel={() => setConflictRemoteSha(null)}
-          onRefreshFirst={() => {
+          onSaveAsDraft={() => {
+            setConflictRemoteSha(null);
+            setNewBranchOpen(true);
+          }}
+          onGetLatest={() => {
             setConflictRemoteSha(null);
             void doRefresh();
           }}
-          onSaveAnyway={() => {
+          onOverwrite={() => {
+            if (
+              !window.confirm(
+                "Overwrite the saved version with yours? Their changes will be lost.",
+              )
+            )
+              return;
             setConflictRemoteSha(null);
             void doSave(true);
           }}
@@ -250,13 +343,23 @@ export function GitHubProjectControls() {
 }
 
 interface ConflictModalProps {
-  remoteSha: string;
   onCancel: () => void;
-  onRefreshFirst: () => void;
-  onSaveAnyway: () => void;
+  onSaveAsDraft: () => void;
+  onGetLatest: () => void;
+  onOverwrite: () => void;
 }
 
-function ConflictModal({ remoteSha, onCancel, onRefreshFirst, onSaveAnyway }: ConflictModalProps) {
+// Conflict on Save: someone else pushed to the same branch since we opened
+// it. Default action is the *safe* one — save the user's work as a new draft
+// branch so nothing is lost on either side. "Get latest" discards the user's
+// edits; "Overwrite" discards the collaborator's edits and is gated by a
+// browser confirm to make destruction a deliberate two-step.
+function ConflictModal({
+  onCancel,
+  onSaveAsDraft,
+  onGetLatest,
+  onOverwrite,
+}: ConflictModalProps) {
   return (
     <div
       className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
@@ -266,31 +369,38 @@ function ConflictModal({ remoteSha, onCancel, onRefreshFirst, onSaveAnyway }: Co
         className="bg-white rounded-lg shadow-lg w-full max-w-md p-5"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-zinc-900 mb-2">Remote changed</h2>
+        <h2 className="text-lg font-semibold text-zinc-900 mb-2">
+          Someone else saved changes
+        </h2>
         <p className="text-sm text-zinc-700 mb-4">
-          The spec changed on GitHub since you opened it (remote at{" "}
-          <span className="font-mono text-xs">{remoteSha.slice(0, 7)}</span>). Refresh
-          first and re-apply your edits, or save anyway and overwrite the remote
-          changes.
+          Another collaborator saved to this project while you were editing.
+          Save yours as a separate <strong>draft</strong> — nothing gets lost,
+          and the two versions can be combined later.
         </p>
-        <div className="flex justify-end gap-2">
+        <div className="space-y-2">
+          <button
+            onClick={onSaveAsDraft}
+            className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+          >
+            Save as a new draft
+          </button>
+          <button
+            onClick={onGetLatest}
+            className="w-full rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+          >
+            Get latest &amp; discard my edits
+          </button>
+          <button
+            onClick={onOverwrite}
+            className="w-full rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-800 hover:bg-red-100"
+          >
+            Overwrite their changes
+          </button>
           <button
             onClick={onCancel}
-            className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+            className="w-full px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-900"
           >
             Cancel
-          </button>
-          <button
-            onClick={onSaveAnyway}
-            className="rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-800 hover:bg-red-100"
-          >
-            Save anyway
-          </button>
-          <button
-            onClick={onRefreshFirst}
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
-          >
-            Refresh first
           </button>
         </div>
       </div>

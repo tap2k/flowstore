@@ -7,6 +7,8 @@ import { SettingsSheet } from "@/components/sheets/SettingsSheet";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { SimulatePanel } from "@/components/runtime/SimulatePanel";
 import { SystemPromptPanel } from "@/components/runtime/SystemPromptPanel";
+import { SaveToNewRepoModal } from "@/components/toolbar/SaveToNewRepoModal";
+import { ShareModal } from "@/components/toolbar/ShareModal";
 import { useSpecStore } from "@/lib/store/spec";
 import {
   clearSavedSpec,
@@ -28,11 +30,14 @@ export function App() {
   );
   const runnerUrl = useSettingsStore((s) => s.runnerUrl);
   const githubLocation = useGithubProjectStore((s) => s.location);
+  const githubCanWrite = useGithubProjectStore((s) => s.canWrite);
   const [hydrating, setHydrating] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [simulateOpen, setSimulateOpen] = useState(false);
   const [promptOpen, setPromptOpen] = useState(false);
+  const [saveRepoOpen, setSaveRepoOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => startSpecPersistence(), []);
 
@@ -89,14 +94,25 @@ export function App() {
             <h1 className="text-lg font-semibold text-zinc-900 leading-tight">
               {spec ? spec.agent.meta.name : "flowstore"}
             </h1>
-            {githubLocation && (
+            {githubLocation ? (
               <div className="text-[11px] text-zinc-500 font-mono leading-tight">
                 {githubLocation.owner}/{githubLocation.repo}@{githubLocation.ref}
+                {!githubCanWrite && (
+                  <span className="ml-1 font-sans">· read-only</span>
+                )}
               </div>
-            )}
+            ) : spec ? (
+              <div className="text-[11px] text-zinc-500 leading-tight">
+                Working locally
+              </div>
+            ) : null}
           </div>
           <div className="ml-auto flex items-center gap-4">
-            <ImportExportToolbar onOpenSettings={() => setSettingsOpen(true)} />
+            <ImportExportToolbar
+              onOpenSettings={() => setSettingsOpen(true)}
+              onSaveToGitHub={() => setSaveRepoOpen(true)}
+              onShare={() => setShareOpen(true)}
+            />
           </div>
         </header>
         <main className="flex flex-1 min-h-0">
@@ -156,6 +172,16 @@ export function App() {
         </main>
       </div>
       {settingsOpen && <SettingsSheet onClose={() => setSettingsOpen(false)} />}
+      {saveRepoOpen && (
+        <SaveToNewRepoModal
+          onClose={() => setSaveRepoOpen(false)}
+          onOpenSettings={() => {
+            setSaveRepoOpen(false);
+            setSettingsOpen(true);
+          }}
+        />
+      )}
+      {shareOpen && <ShareModal onClose={() => setShareOpen(false)} />}
     </>
   );
 }

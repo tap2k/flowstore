@@ -183,6 +183,29 @@ function FocusOnRequest({ nodes }: { nodes: Node[] }) {
   return null;
 }
 
+// Re-fits the viewport when a different spec is loaded into the same
+// mounted canvas (opening another project, promoting local → GitHub, etc.).
+// ReactFlow's `fitView` prop only fires on initial mount; without this the
+// previous viewport (zoom + pan) sticks around even though the graph
+// underneath is entirely different. Skips the very first mount — the mount
+// fitView already handled it — and double-rAFs so React Flow has ingested
+// the new nodes prop before we compute the fit.
+function FitOnSpecChange({ specId }: { specId: string }) {
+  const rf = useReactFlow();
+  const lastSpecIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = lastSpecIdRef.current;
+    lastSpecIdRef.current = specId;
+    if (prev === null || prev === specId) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        rf.fitView({ duration: 300, padding: 0.2, minZoom: 0.4, maxZoom: 1.0 });
+      });
+    });
+  }, [specId, rf]);
+  return null;
+}
+
 function NewFlowButton() {
   const addFlow = useSpecStore((s) => s.addFlow);
   return (
@@ -309,6 +332,7 @@ function CanvasInner({ spec }: { spec: Spec }) {
           <NewFlowButton />
         </Panel>
         <FocusOnRequest nodes={nodes} />
+        <FitOnSpecChange specId={specId} />
         <Controls position="bottom-left" showInteractive={false}>
           <ControlButton onClick={relayout} title="Re-run auto layout">
             <RelayoutIcon />

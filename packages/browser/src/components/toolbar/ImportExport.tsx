@@ -27,6 +27,8 @@ import { downloadCsv, sanitizeFilename, useCsvFileInput } from "@/components/she
 
 interface ImportExportToolbarProps {
   onOpenSettings: () => void;
+  onSaveToGitHub: () => void;
+  onShare: () => void;
 }
 
 const buttonClass =
@@ -179,6 +181,8 @@ function downloadBlob(filename: string, content: string, mime: string) {
 
 export function ImportExportToolbar({
   onOpenSettings,
+  onSaveToGitHub,
+  onShare,
 }: ImportExportToolbarProps) {
   const spec = useSpecStore((s) => s.spec);
   const setSpec = useSpecStore((s) => s.setSpec);
@@ -267,6 +271,11 @@ export function ImportExportToolbar({
     if (!result.valid) return formatErrors(result.errors);
     if (spec && !window.confirm("Replace the current spec?")) return null;
     setSpec(result.spec);
+    // Imported specs are portable artifacts — they have no claim to whichever
+    // GitHub repo we were previously connected to. Clearing the connection
+    // means the next Save creates a fresh repo, not an accidental overwrite
+    // of the project we just navigated away from.
+    clearGithubProject();
     setImportOpen(false);
     return null;
   }
@@ -332,7 +341,7 @@ export function ImportExportToolbar({
         >
           <GithubOpenIcon />
         </button>
-        <GitHubProjectControls />
+        <GitHubProjectControls onSaveToGitHub={onSaveToGitHub} onShare={onShare} />
         <span className="w-px h-5 bg-zinc-200" />
         <button
           onClick={() => { setError(null); setImportOpen(true); }}
