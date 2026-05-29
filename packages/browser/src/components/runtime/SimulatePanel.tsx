@@ -687,6 +687,26 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             rubricVerdicts={rubricVerdicts}
           />
         )}
+        {hasSession && transcript.length > 0 && !busy && !isRunning && (
+          <div className="flex items-center justify-end gap-1 pt-1">
+            <button
+              type="button"
+              onClick={onCaptureCase}
+              title="Capture this transcript as a new test case."
+              className="rounded border border-zinc-300 bg-white px-2 py-1 text-[10px] text-zinc-700 hover:bg-zinc-50"
+            >
+              + capture as case
+            </button>
+            <button
+              type="button"
+              onClick={onCaptureGold}
+              title="Save this transcript verbatim as a gold (reference conversation)."
+              className="rounded border border-zinc-300 bg-white px-2 py-1 text-[10px] text-zinc-700 hover:bg-zinc-50"
+            >
+              + capture as gold
+            </button>
+          </div>
+        )}
       </div>
 
       {error && status === "error" && (
