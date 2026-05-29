@@ -113,7 +113,8 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
 
   const spec = useSpecStore((s) => s.spec);
   const availableLanguages = spec?.agent.meta.languages ?? [];
-  const [language, setLanguage] = useState<string | undefined>(undefined);
+  const language = useSimulateStore((s) => s.language);
+  const setLanguage = useSimulateStore((s) => s.setLanguage);
 
   // Default is "all" (undefined) — emit every language bucket. Reset to "all"
   // when the active agent changes, or when the current selection is no longer

@@ -118,6 +118,11 @@ interface SimulateState {
   // header strip, the ▶ Run case button, and inline per-turn assertion
   // verdicts in the transcript.
   activeCaseId: string | null;
+  // Language scope for the current session. undefined = emit all
+  // declared languages; a specific code restricts scripts/FAQ to that
+  // bucket. Lifted from SimulatePanel's prior useState so a Tests-tab
+  // "Open in Sim" can override the picker from case.language.
+  language: string | undefined;
 
   setMode: (mode: SimulateMode) => void;
   start: (args: StartArgs) => Promise<void>;
@@ -143,6 +148,7 @@ interface SimulateState {
   setPersonaTurnLimit: (n: number) => void;
   autoStep: () => Promise<void>;
   setActiveCaseId: (id: string | null) => void;
+  setLanguage: (lang: string | undefined) => void;
 }
 
 const varsStorage = createScopedJsonStorage<Record<string, unknown>>({
@@ -218,6 +224,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   personaTurnLimit: 10,
   personaTurnsLeft: 0,
   activeCaseId: null,
+  language: undefined,
 
   setMode: (mode) => {
     if (get().sessionId) return; // mode is frozen during an active session
@@ -371,6 +378,10 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
 
   setActiveCaseId: (id) => {
     set({ activeCaseId: id });
+  },
+
+  setLanguage: (lang) => {
+    set({ language: lang });
   },
 
   autoStep: async () => {

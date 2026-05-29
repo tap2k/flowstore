@@ -139,6 +139,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
   const setPersonaPrompt = useSimulateStore((s) => s.setPersonaPrompt);
   const setMockReturns = useSimulateStore((s) => s.setMockReturns);
   const setActiveCaseId = useSimulateStore((s) => s.setActiveCaseId);
+  const setSimulateLanguage = useSimulateStore((s) => s.setLanguage);
   const setOpenSimulateTab = useUiStore((s) => s.setOpenSimulateTab);
   // State assertions only fire on the runner path. Hide the entire
   // sub-section unless mode === "runner" — the runner-mode toggle in
@@ -164,7 +165,16 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
     testCase.transcript_assertions ?? [],
   );
   const [stateAssertions, setStateAssertions] = useState(testCase.state_assertions ?? []);
+  const [capabilityAssertions, setCapabilityAssertions] = useState(
+    testCase.capability_assertions ?? [],
+  );
   const [evaluators, setEvaluators] = useState<string[]>(testCase.evaluators ?? []);
+  const [description, setDescription] = useState(testCase.description ?? "");
+  const [goldId, setGoldId] = useState(testCase.gold_id ?? "");
+  const [language, setLanguage] = useState(testCase.language ?? "");
+  const golds = useTestsStore((s) => s.golds);
+  const availableLanguages = spec?.agent.meta.languages ?? [];
+  const showLanguage = availableLanguages.length > 1;
 
   // Re-hydrate draft when the selected case identity changes.
   useEffect(() => {
@@ -176,7 +186,11 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
     setPerTurnRows(flattenPerTurn(testCase.assertions ?? []));
     setTranscriptAssertions(testCase.transcript_assertions ?? []);
     setStateAssertions(testCase.state_assertions ?? []);
+    setCapabilityAssertions(testCase.capability_assertions ?? []);
     setEvaluators(testCase.evaluators ?? []);
+    setDescription(testCase.description ?? "");
+    setGoldId(testCase.gold_id ?? "");
+    setLanguage(testCase.language ?? "");
   }, [testCase.id]);
 
   const spec_capabilities = useMemo(() => spec?.agent.capabilities ?? [], [spec]);
@@ -202,7 +216,12 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
       JSON.stringify(testCase.transcript_assertions ?? []) ||
     JSON.stringify(stateAssertions) !==
       JSON.stringify(testCase.state_assertions ?? []) ||
-    JSON.stringify(evaluators) !== JSON.stringify(testCase.evaluators ?? []);
+    JSON.stringify(capabilityAssertions) !==
+      JSON.stringify(testCase.capability_assertions ?? []) ||
+    JSON.stringify(evaluators) !== JSON.stringify(testCase.evaluators ?? []) ||
+    description !== (testCase.description ?? "") ||
+    goldId !== (testCase.gold_id ?? "") ||
+    language !== (testCase.language ?? "");
 
   function handleSave() {
     const next: TestCase = {
@@ -219,27 +238,28 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
             ...(testCase.max_turns !== undefined ? { max_turns: testCase.max_turns } : {}),
           }
         : {}),
+      ...(description.trim() ? { description: description.trim() } : {}),
+      ...(goldId ? { gold_id: goldId } : {}),
+      ...(showLanguage && language ? { language } : {}),
       ...(Object.keys(mockBindings).length > 0 ? { mock_bindings: mockBindings } : {}),
       ...(perTurnRows.length > 0 ? { assertions: groupPerTurn(perTurnRows) } : {}),
       ...(transcriptAssertions.length > 0
         ? { transcript_assertions: transcriptAssertions }
         : {}),
       ...(stateAssertions.length > 0 ? { state_assertions: stateAssertions } : {}),
+      ...(capabilityAssertions.length > 0
+        ? { capability_assertions: capabilityAssertions }
+        : {}),
       ...(evaluators.length > 0 ? { evaluators } : {}),
       // Preserve fields the editor doesn't surface (per the planning doc:
-      // vars_file / model / language / gold_id / tags stay in the schema but
-      // not in the form).
+      // vars_file / model / tags stay in the schema but not in the form).
+      // language is preserved when not editable (monolingual project).
       ...(testCase.vars_file !== undefined ? { vars_file: testCase.vars_file } : {}),
       ...(testCase.model !== undefined ? { model: testCase.model } : {}),
-      ...(testCase.language !== undefined ? { language: testCase.language } : {}),
-      ...(testCase.gold_id !== undefined ? { gold_id: testCase.gold_id } : {}),
+      ...(!showLanguage && testCase.language !== undefined
+        ? { language: testCase.language }
+        : {}),
       ...(testCase.tags !== undefined ? { tags: testCase.tags } : {}),
-      ...(testCase.description !== undefined
-        ? { description: testCase.description }
-        : {}),
-      ...(testCase.capability_assertions !== undefined
-        ? { capability_assertions: testCase.capability_assertions }
-        : {}),
     };
     saveCase(next);
   }
@@ -272,6 +292,11 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
       nextMockReturns[capability.name] = returns as Record<string, unknown>;
     }
     if (Object.keys(nextMockReturns).length > 0) setMockReturns(nextMockReturns);
+
+    // Override Simulate's language picker with the case's language
+    // (when set). Cases are intrinsically scoped to a language for
+    // multilingual specs; opening one should match.
+    if (language) setSimulateLanguage(language);
 
     // Bind the active case so the SimulatePanel can show the
     // Active-case header strip and the ▶ Run case button.
@@ -327,6 +352,61 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
             placeholder="Human-readable label"
             className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400"
           />
+        </div>
+
+        <div>
+          <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+            description
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="What does this case test?"
+            rows={2}
+            className="w-full resize-y rounded border border-zinc-300 bg-white p-1.5 text-[11px] leading-snug text-zinc-800"
+          />
+        </div>
+
+        <div className="flex gap-2">
+          <div className="flex-1 min-w-0">
+            <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+              gold
+            </label>
+            <select
+              value={goldId}
+              onChange={(e) => setGoldId(e.target.value)}
+              className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700"
+              title="Reference gold transcript for {gold_standard} substitution in rubric judging."
+            >
+              <option value="">— none —</option>
+              {golds.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name || g.id}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {showLanguage && (
+            <div className="w-24 shrink-0">
+              <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+                language
+              </label>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700"
+                title="Language code to scope this case's scripts/FAQ. Overrides the Simulate-tab language picker on Open in Sim."
+              >
+                <option value="">— all —</option>
+                {availableLanguages.map((lang) => (
+                  <option key={lang} value={lang}>
+                    {lang}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <div>
@@ -430,6 +510,11 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
               onChange={setStateAssertions}
             />
           )}
+          <CapabilityAssertionList
+            assertions={capabilityAssertions}
+            onChange={setCapabilityAssertions}
+            capabilities={spec_capabilities}
+          />
         </Section>
 
         <Section label="evaluators">
@@ -892,6 +977,79 @@ function StateAssertionList({
         className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
       >
         + add state assertion
+      </button>
+    </SubSection>
+  );
+}
+
+type CapAssn = NonNullable<TestCase["capability_assertions"]>[number];
+
+function CapabilityAssertionList({
+  assertions,
+  onChange,
+  capabilities,
+}: {
+  assertions: CapAssn[];
+  onChange: (a: CapAssn[]) => void;
+  capabilities: { id: string; name: string }[];
+}) {
+  function update(i: number, next: Partial<CapAssn>) {
+    onChange(assertions.map((a, idx) => (idx === i ? { ...a, ...next } : a)));
+  }
+  function add() {
+    onChange([
+      ...assertions,
+      { capability: capabilities[0]?.id ?? "", invoked: true },
+    ]);
+  }
+  function remove(i: number) {
+    onChange(assertions.filter((_, idx) => idx !== i));
+  }
+  if (capabilities.length === 0 && assertions.length === 0) return null;
+  return (
+    <SubSection label="capability">
+      {assertions.map((a, i) => (
+        <div key={i} className="flex items-center gap-1">
+          <select
+            value={a.capability}
+            onChange={(e) => update(i, { capability: e.target.value })}
+            className="flex-1 min-w-0 rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] font-mono text-zinc-700"
+          >
+            {capabilities.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.id}
+              </option>
+            ))}
+            {/* keep an unknown id selectable so the row doesn't lose its value */}
+            {!capabilities.some((c) => c.id === a.capability) && a.capability && (
+              <option value={a.capability}>{a.capability} (unknown)</option>
+            )}
+          </select>
+          <select
+            value={a.invoked === false ? "false" : "true"}
+            onChange={(e) => update(i, { invoked: e.target.value === "true" })}
+            title="Whether the capability should be invoked at least once during the run."
+            className="rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] text-zinc-700"
+          >
+            <option value="true">invoked</option>
+            <option value="false">not invoked</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => remove(i)}
+            className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-50"
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={add}
+        disabled={capabilities.length === 0}
+        className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+      >
+        + add capability assertion
       </button>
     </SubSection>
   );
