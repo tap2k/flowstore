@@ -688,9 +688,11 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           <div className="text-xs text-zinc-500 italic">thinking…</div>
         )}
         {activeCase && hasSession && transcript.length > 0 && (
-          <CaseSummaryBlock
+          <TranscriptAssertionsCard testCase={activeCase} verdicts={verdicts} />
+        )}
+        {activeCase && hasSession && transcript.length > 0 && (
+          <RubricsCard
             testCase={activeCase}
-            verdicts={verdicts}
             rubrics={allRubrics}
             rubricVerdicts={rubricVerdicts}
             judgeModel={judgeModel}
@@ -906,37 +908,23 @@ function ActiveCaseStrip({
   );
 }
 
-function CaseSummaryBlock({
+function TranscriptAssertionsCard({
   testCase,
   verdicts,
-  rubrics,
-  rubricVerdicts,
-  judgeModel,
-  onJudgeModelChange,
-  onJudgeRubrics,
-  judging,
 }: {
   testCase: TestCase;
   verdicts: CaseVerdicts;
-  rubrics: Rubric[];
-  rubricVerdicts: Record<string, RubricVerdict | "pending">;
-  judgeModel: string;
-  onJudgeModelChange: (m: string) => void;
-  onJudgeRubrics: () => void;
-  judging: boolean;
 }) {
-  // Per-turn verdicts already render inline under each agent turn in
-  // the transcript; don't duplicate here. This block carries
-  // transcript-level assertion verdicts + rubric scores once the
-  // judge LLM returns.
-  const transcriptCount = testCase.transcript_assertions?.length ?? 0;
-  const evaluatorIds = (testCase.evaluators ?? []).filter((id) =>
-    rubrics.some((r) => r.id === id),
-  );
-  if (transcriptCount === 0 && evaluatorIds.length === 0) return null;
-
-  const status =
-    verdicts.failed > 0 ? "FAIL" : verdicts.pending > 0 ? "RUNNING" : "PASS";
+  // Per-turn verdicts render inline under each agent turn; this card
+  // shows only the transcript-level assertion status. Status color is
+  // based on the transcript-level verdicts alone, not aggregated with
+  // per-turn (which are already visible inline).
+  const items = testCase.transcript_assertions ?? [];
+  if (items.length === 0) return null;
+  const passed = verdicts.transcript.filter((v) => v.verdict === "pass").length;
+  const failed = verdicts.transcript.filter((v) => v.verdict === "fail").length;
+  const pending = items.length - passed - failed;
+  const status = failed > 0 ? "FAIL" : pending > 0 ? "RUNNING" : "PASS";
   const color =
     status === "FAIL"
       ? "border-red-200 bg-red-50 text-red-900"
@@ -946,21 +934,55 @@ function CaseSummaryBlock({
   return (
     <div className={`rounded border ${color} p-2 text-[11px] space-y-1`}>
       <div className="font-medium">
-        {status === "FAIL" ? "✗ FAIL" : status === "PASS" ? "✓ PASS" : "… running"} ·{" "}
-        {verdicts.passed}/{verdicts.evaluable} assertions passed
+        {status === "FAIL" ? "✗" : status === "PASS" ? "✓" : "…"} transcript ·{" "}
+        {passed}/{items.length}
       </div>
-      {(testCase.transcript_assertions ?? []).map((ta, i) => {
+      {items.map((ta, i) => {
         const v = verdicts.transcript.find((p) => p.index === i);
         const ok = v?.verdict === "pass";
-        const pending = v?.verdict === "pending";
+        const pendingTurn = v?.verdict === "pending";
         return (
           <div key={`tr-${i}`} className="text-[10px]">
-            {pending ? "…" : ok ? "✓" : "✗"} {ta.kind}
+            {pendingTurn ? "…" : ok ? "✓" : "✗"} {ta.kind}
             {ta.pattern && <> "{ta.pattern}"</>}
             {v?.reason && <span className="text-zinc-600"> — {v.reason}</span>}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function RubricsCard({
+  testCase,
+  rubrics,
+  rubricVerdicts,
+  judgeModel,
+  onJudgeModelChange,
+  onJudgeRubrics,
+  judging,
+}: {
+  testCase: TestCase;
+  rubrics: Rubric[];
+  rubricVerdicts: Record<string, RubricVerdict | "pending">;
+  judgeModel: string;
+  onJudgeModelChange: (m: string) => void;
+  onJudgeRubrics: () => void;
+  judging: boolean;
+}) {
+  const evaluatorIds = (testCase.evaluators ?? []).filter((id) =>
+    rubrics.some((r) => r.id === id),
+  );
+  if (evaluatorIds.length === 0) return null;
+  const scored = evaluatorIds.filter((id) => {
+    const v = rubricVerdicts[id];
+    return v !== undefined && v !== "pending" && v.score !== null;
+  }).length;
+  return (
+    <div className="rounded border border-zinc-200 bg-white p-2 text-[11px] space-y-1">
+      <div className="font-medium text-zinc-900">
+        rubrics · {scored}/{evaluatorIds.length} scored
+      </div>
       {evaluatorIds.map((id) => {
         const rubric = rubrics.find((r) => r.id === id);
         if (!rubric) return null;
@@ -984,25 +1006,23 @@ function CaseSummaryBlock({
           </div>
         );
       })}
-      {evaluatorIds.length > 0 && (
-        <div className="flex items-center gap-2 pt-1 text-[10px] text-zinc-600">
-          <span>judge:</span>
-          <ModelPicker
-            value={judgeModel}
-            onChange={onJudgeModelChange}
-            className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
-          />
-          <button
-            type="button"
-            onClick={onJudgeRubrics}
-            disabled={judging}
-            className="ml-auto rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-            title="Score each bound rubric with the judge LLM."
-          >
-            {judging ? "judging…" : "Judge rubrics"}
-          </button>
-        </div>
-      )}
+      <div className="flex items-center gap-2 pt-1 text-[10px] text-zinc-600">
+        <span>judge:</span>
+        <ModelPicker
+          value={judgeModel}
+          onChange={onJudgeModelChange}
+          className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
+        />
+        <button
+          type="button"
+          onClick={onJudgeRubrics}
+          disabled={judging}
+          className="ml-auto rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+          title="Score each bound rubric with the judge LLM."
+        >
+          {judging ? "judging…" : "Judge rubrics"}
+        </button>
+      </div>
     </div>
   );
 }
