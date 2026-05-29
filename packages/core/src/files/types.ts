@@ -23,6 +23,10 @@ export interface TestingArtifacts {
   capabilityMocks: CapabilityMock[];
   rubrics: Rubric[];
   golds: Gold[];
+  // Free-form {variable_name: value} dicts saved as tests/vars.<name>.json.
+  // Keyed by name (the bit between "vars." and ".json"). No schema —
+  // values are coerced at the case-runtime layer per VariableDecl types.
+  varsFiles: Record<string, Record<string, unknown>>;
 }
 
 export interface LoadResult {

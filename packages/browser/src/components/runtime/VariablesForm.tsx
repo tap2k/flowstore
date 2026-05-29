@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { Spec, VariableDecl } from "@flowstore/core/schema/v0";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useSpecStore } from "@/lib/store/spec";
+import { useTestsStore } from "@/lib/store/tests";
 import {
   collectDeclaredVariables,
   unfilledPlaceholders,
@@ -28,7 +29,14 @@ export function VariablesForm({ spec, disabled }: VariablesFormProps) {
   // Force a Gemini model regardless of the chatModel picker.
   const apiKey = useSettingsStore((s) => s.googleApiKey);
   const updateAgent = useSpecStore((s) => s.updateAgent);
+  const varsFiles = useTestsStore((s) => s.varsFiles);
+  const saveVarsFile = useTestsStore((s) => s.saveVarsFile);
+  const deleteVarsFile = useTestsStore((s) => s.deleteVarsFile);
+  const uniqueVarsFileName = useTestsStore((s) => s.uniqueVarsFileName);
 
+  // Tracks which saved vars file the buffer was loaded from (or saved
+  // as). Cleared when the user clears or generates fresh values.
+  const [loadedVarsName, setLoadedVarsName] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
@@ -49,6 +57,43 @@ export function VariablesForm({ spec, disabled }: VariablesFormProps) {
     }
     updateAgent({ variables: next });
     setOpen(true);
+  }
+
+  function onLoadVarsFile(name: string) {
+    if (name === "") return;
+    const file = varsFiles[name];
+    if (!file) return;
+    if (filledCount > 0) {
+      const ok = window.confirm(`Replace current values with "${name}"?`);
+      if (!ok) return;
+    }
+    setContextVars(file);
+    setLoadedVarsName(name);
+    setOpen(true);
+  }
+
+  function onSaveVarsAs() {
+    if (filledCount === 0) return;
+    const defaultName = uniqueVarsFileName(loadedVarsName ?? "vars");
+    const name = window.prompt("Save vars as:", defaultName)?.trim() ?? "";
+    if (name === "") return;
+    saveVarsFile(name, contextVars);
+    setLoadedVarsName(name);
+  }
+
+  function onSaveVars() {
+    if (!loadedVarsName) return;
+    saveVarsFile(loadedVarsName, contextVars);
+  }
+
+  function onDeleteVarsFile() {
+    if (!loadedVarsName) return;
+    const ok = window.confirm(
+      `Delete vars file "${loadedVarsName}"? Cases referencing it will lose the binding.`,
+    );
+    if (!ok) return;
+    deleteVarsFile(loadedVarsName);
+    setLoadedVarsName(null);
   }
 
   async function onGenerate() {
@@ -90,6 +135,59 @@ export function VariablesForm({ spec, disabled }: VariablesFormProps) {
             {genError}
           </div>
         )}
+
+        <div className="flex flex-wrap items-center gap-1 text-[10px] text-zinc-600">
+          <select
+            value={loadedVarsName ?? ""}
+            onChange={(e) => onLoadVarsFile(e.target.value)}
+            disabled={disabled || generating || Object.keys(varsFiles).length === 0}
+            className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+          >
+            <option value="">
+              {Object.keys(varsFiles).length === 0
+                ? "no saved vars files"
+                : "load saved…"}
+            </option>
+            {Object.keys(varsFiles)
+              .sort()
+              .map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+          </select>
+          {loadedVarsName && (
+            <button
+              type="button"
+              onClick={onSaveVars}
+              disabled={disabled || generating}
+              title={`Update tests/vars.${loadedVarsName}.json with current values.`}
+              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+            >
+              save
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onSaveVarsAs}
+            disabled={disabled || generating || filledCount === 0}
+            title="Save current values to a new tests/vars.<name>.json file."
+            className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+          >
+            save as…
+          </button>
+          {loadedVarsName && (
+            <button
+              type="button"
+              onClick={onDeleteVarsFile}
+              disabled={disabled || generating}
+              title={`Delete tests/vars.${loadedVarsName}.json (cascades to cases that bind it).`}
+              className="rounded border border-red-300 bg-white px-2 py-0.5 text-[10px] text-red-700 hover:bg-red-50 disabled:opacity-40"
+            >
+              delete
+            </button>
+          )}
+        </div>
 
         <div className="space-y-1">
           {declared.map((d) => (

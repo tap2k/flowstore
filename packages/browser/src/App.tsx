@@ -82,6 +82,7 @@ export function App() {
         capabilityMocks,
         rubrics: savedTests.rubrics,
         golds: savedTests.golds,
+        varsFiles: savedTests.varsFiles ?? {},
       });
     }
     const savedSimAuth = loadSavedSimulateAuth();

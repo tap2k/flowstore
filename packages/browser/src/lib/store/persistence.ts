@@ -66,6 +66,7 @@ interface PersistedTestsShape {
   personas: TestsState["personas"];
   mocksByCapability: TestsState["mocksByCapability"];
   rubrics: TestsState["rubrics"];
+  varsFiles: TestsState["varsFiles"];
 }
 
 export function loadSavedTests(): PersistedTestsShape | null {
@@ -90,6 +91,10 @@ export function loadSavedTests(): PersistedTestsShape | null {
       personas: parsed.personas,
       mocksByCapability: parsed.mocksByCapability,
       rubrics: parsed.rubrics,
+      varsFiles:
+        typeof parsed.varsFiles === "object" && parsed.varsFiles !== null
+          ? parsed.varsFiles
+          : {},
     };
   } catch {
     return null;
@@ -118,6 +123,7 @@ export function startTestsPersistence(debounceMs = 300): () => void {
           personas: state.personas,
           mocksByCapability: state.mocksByCapability,
           rubrics: state.rubrics,
+          varsFiles: state.varsFiles,
         };
         window.localStorage.setItem(TESTS_STORAGE_KEY, JSON.stringify(payload));
       } catch {
@@ -187,7 +193,7 @@ export function startSimulateAuthPersistence(debounceMs = 100): () => void {
 // was on (Simulate / Tests / Personas) across reloads.
 
 interface PersistedUi {
-  openSimulateTab: "simulate" | "tests" | "personas" | "golds";
+  openSimulateTab: "simulate" | "tests" | "personas" | "golds" | "mocks";
 }
 
 export function loadSavedUi(): PersistedUi | null {
@@ -200,7 +206,8 @@ export function loadSavedUi(): PersistedUi | null {
       parsed.openSimulateTab !== "simulate" &&
       parsed.openSimulateTab !== "tests" &&
       parsed.openSimulateTab !== "personas" &&
-      parsed.openSimulateTab !== "golds"
+      parsed.openSimulateTab !== "golds" &&
+      parsed.openSimulateTab !== "mocks"
     ) {
       return null;
     }

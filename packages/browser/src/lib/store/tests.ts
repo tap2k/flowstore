@@ -39,6 +39,10 @@ export interface TestsState {
   personas: Persona[];
   mocksByCapability: Record<string, CapabilityMock[]>;
   rubrics: Rubric[];
+  // Vars files saved at tests/vars.<name>.json, indexed by name. Free-form
+  // {variable_name: value} dicts. Cases reference them by full path via
+  // testCase.vars_file (e.g., "tests/vars.bau.json").
+  varsFiles: Record<string, Record<string, unknown>>;
   captureContext: CaptureContext | null;
 
   setAll: (artifacts: TestingArtifacts) => void;
@@ -70,6 +74,21 @@ export interface TestsState {
   deleteRubric: (id: string) => void;
   uniqueRubricId: (base: string) => string;
 
+  // Vars-file CRUD. saveVarsFile is upsert by name; deleteVarsFile
+  // cascades into cases (strips vars_file matching the deleted file's
+  // path). uniqueVarsFileName mints a slug not yet used.
+  saveVarsFile: (name: string, vars: Record<string, unknown>) => void;
+  deleteVarsFile: (name: string) => void;
+  uniqueVarsFileName: (base: string) => string;
+
+  // Mock CRUD — keyed by (capability_id, variant). Upsert semantics
+  // match the case-/persona-/gold-/rubric- savers. deleteCapabilityMock
+  // cascades into case.mock_bindings (strips the binding when its
+  // referenced variant is deleted).
+  saveCapabilityMock: (mock: CapabilityMock) => void;
+  deleteCapabilityMock: (capability_id: string, variant: string) => void;
+  uniqueMockVariant: (capability_id: string, base: string) => string;
+
   setCaptureContext: (ctx: CaptureContext | null) => void;
 }
 
@@ -87,6 +106,7 @@ export const useTestsStore = create<TestsState>((set, get) => ({
   personas: [],
   mocksByCapability: {},
   rubrics: [],
+  varsFiles: {},
   captureContext: null,
 
   setAll: (artifacts) => {
@@ -96,6 +116,7 @@ export const useTestsStore = create<TestsState>((set, get) => ({
       personas: artifacts.personas,
       mocksByCapability: indexMocks(artifacts.capabilityMocks),
       rubrics: artifacts.rubrics,
+      varsFiles: artifacts.varsFiles ?? {},
       captureContext: null,
     });
   },
@@ -107,6 +128,7 @@ export const useTestsStore = create<TestsState>((set, get) => ({
       personas: [],
       mocksByCapability: {},
       rubrics: [],
+      varsFiles: {},
       captureContext: null,
     });
   },
@@ -123,6 +145,7 @@ export const useTestsStore = create<TestsState>((set, get) => ({
       capabilityMocks,
       rubrics: s.rubrics,
       golds: s.golds,
+      varsFiles: s.varsFiles,
     };
   },
 
@@ -223,6 +246,88 @@ export const useTestsStore = create<TestsState>((set, get) => ({
   },
 
   uniqueRubricId: (base) => uniqueId(get().rubrics, base, "rubric"),
+
+  saveVarsFile: (name, vars) => {
+    set((s) => ({ varsFiles: { ...s.varsFiles, [name]: vars } }));
+    useDirtyStore.getState().setDirty(true);
+  },
+
+  deleteVarsFile: (name) => {
+    set((s) => {
+      const targetPath = `tests/vars.${name}.json`;
+      // Cascade: cases referencing the deleted vars file drop the field.
+      const cases = s.cases.map((c) => {
+        if (c.vars_file !== targetPath) return c;
+        const { vars_file: _drop, ...rest } = c;
+        return rest;
+      });
+      const { [name]: _drop2, ...rest } = s.varsFiles;
+      return { varsFiles: rest, cases };
+    });
+    useDirtyStore.getState().setDirty(true);
+  },
+
+  uniqueVarsFileName: (base) => {
+    const slug = toSlug(base, "vars");
+    const names = Object.keys(get().varsFiles);
+    if (!names.includes(slug)) return slug;
+    for (let n = 2; n < 1000; n++) {
+      const candidate = `${slug}-${n}`;
+      if (!names.includes(candidate)) return candidate;
+    }
+    return `${slug}-${Date.now()}`;
+  },
+
+  saveCapabilityMock: (mock) => {
+    set((s) => {
+      const list = s.mocksByCapability[mock.capability_id] ?? [];
+      const i = list.findIndex((m) => m.variant === mock.variant);
+      const nextList =
+        i === -1 ? [...list, mock] : list.map((m, idx) => (idx === i ? mock : m));
+      return {
+        mocksByCapability: { ...s.mocksByCapability, [mock.capability_id]: nextList },
+      };
+    });
+    useDirtyStore.getState().setDirty(true);
+  },
+
+  deleteCapabilityMock: (capability_id, variant) => {
+    set((s) => {
+      const list = s.mocksByCapability[capability_id] ?? [];
+      const nextList = list.filter((m) => m.variant !== variant);
+      const { [capability_id]: _drop, ...restMocks } = s.mocksByCapability;
+      const nextMocks =
+        nextList.length > 0
+          ? { ...restMocks, [capability_id]: nextList }
+          : restMocks;
+      // Cascade: cases whose binding pointed at this variant drop the
+      // capability entirely from mock_bindings (no orphaned reference).
+      const cases = s.cases.map((c) => {
+        if (c.mock_bindings?.[capability_id] !== variant) return c;
+        const { [capability_id]: _drop2, ...restBindings } = c.mock_bindings;
+        if (Object.keys(restBindings).length === 0) {
+          const { mock_bindings: _drop3, ...rest } = c;
+          return rest;
+        }
+        return { ...c, mock_bindings: restBindings };
+      });
+      return { mocksByCapability: nextMocks, cases };
+    });
+    useDirtyStore.getState().setDirty(true);
+  },
+
+  uniqueMockVariant: (capability_id, base) => {
+    const slug = toSlug(base, "default");
+    const taken = new Set(
+      (get().mocksByCapability[capability_id] ?? []).map((m) => m.variant),
+    );
+    if (!taken.has(slug)) return slug;
+    for (let n = 2; n < 1000; n++) {
+      const candidate = `${slug}-${n}`;
+      if (!taken.has(candidate)) return candidate;
+    }
+    return `${slug}-${Date.now()}`;
+  },
 
   setCaptureContext: (ctx) => {
     set({ captureContext: ctx });

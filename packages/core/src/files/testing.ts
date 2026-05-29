@@ -13,6 +13,11 @@ const TEST_CASE_RE = /^tests\/cases\/(.+)\.test\.json$/;
 const PERSONA_RE = /^tests\/personas\/(.+)\.persona\.json$/;
 const RUBRIC_RE = /^tests\/rubrics\/(.+)\.rubric\.json$/;
 const GOLD_RE = /^tests\/gold\/(.+)\.gold\.json$/;
+// Vars files are flat {var: value} dicts; convention used in
+// awaaz-dpd31 puts them at tests/vars.<name>.json (note: dot, not slash,
+// between "vars" and the name). Referenced from case.vars_file by full
+// project-relative path.
+const VARS_FILE_RE = /^tests\/vars\.(.+)\.json$/;
 // Mocks live under capabilities/ and pair with declaration files by id.
 // Filename: <capability_id>.<variant>.mock.json. The capability_id may
 // itself contain dots, so the variant is whatever sits between the last
@@ -97,7 +102,34 @@ export function loadTestingArtifacts(
         }
       },
     ),
+    varsFiles: loadVarsFiles(files, errors),
   };
+}
+
+function loadVarsFiles(
+  files: FileMap,
+  errors: LoadError[],
+): Record<string, Record<string, unknown>> {
+  const out: Record<string, Record<string, unknown>> = {};
+  for (const path of Object.keys(files).sort()) {
+    const match = VARS_FILE_RE.exec(path);
+    if (!match) continue;
+    const name = match[1];
+    try {
+      const parsed = JSON.parse(files[path]) as unknown;
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        errors.push({ path, message: "vars file must be a JSON object" });
+        continue;
+      }
+      out[name] = parsed as Record<string, unknown>;
+    } catch (e) {
+      errors.push({
+        path,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+  return out;
 }
 
 // Inverse of loadTestingArtifacts: produces FileMap entries for the test
@@ -123,6 +155,9 @@ export function decomposeTestingArtifacts(
   }
   for (const m of artifacts.capabilityMocks) {
     out[`capabilities/${m.capability_id}.${m.variant}.mock.json`] = stringifyJson(m);
+  }
+  for (const [name, vars] of Object.entries(artifacts.varsFiles ?? {})) {
+    out[`tests/vars.${name}.json`] = stringifyJson(vars);
   }
   return out;
 }
