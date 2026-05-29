@@ -54,7 +54,21 @@ function CaseList({
   cases: TestCase[];
   onSelect: (id: string) => void;
 }) {
-  const setOpenSimulateTab = useUiStore((s) => s.setOpenSimulateTab);
+  const saveCase = useTestsStore((s) => s.saveCase);
+  const uniqueCaseId = useTestsStore((s) => s.uniqueCaseId);
+
+  function startNew() {
+    const defaultName = `Case ${cases.length + 1}`;
+    const id = uniqueCaseId(defaultName);
+    saveCase({
+      $schema: "flowstore://test/case/v0",
+      id,
+      name: defaultName,
+      user_turns: [],
+    });
+    onSelect(id);
+  }
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-1.5">
@@ -63,19 +77,20 @@ function CaseList({
         </div>
         <button
           type="button"
-          onClick={() => setOpenSimulateTab("simulate")}
-          title="Switch to Simulate, play a conversation, and use the capture button to save it as a test case."
-          className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
+          onClick={startNew}
+          title="Create a new test case (rename + fill it in the editor). You can also capture from the Simulate tab."
+          className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50"
         >
-          capture from Simulate
+          + New
         </button>
       </div>
 
       <div className="flex-1 overflow-auto">
         {cases.length === 0 ? (
           <div className="px-3 py-6 text-center text-[11px] text-zinc-500">
-            No test cases yet. Play a conversation in the Simulate tab, then{" "}
-            <span className="font-medium">capture ▾ → as test case</span> to seed one.
+            No test cases yet. Click{" "}
+            <span className="font-medium">+ New</span> above, or capture a
+            transcript from the Simulate tab.
           </div>
         ) : (
           <ul className="divide-y divide-zinc-200">
@@ -446,10 +461,8 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-700">
-        {label}
-      </div>
-      {children}
+      <div className="text-[10px] uppercase tracking-wide text-zinc-500">{label}</div>
+      <div className="space-y-3">{children}</div>
     </div>
   );
 }
@@ -961,6 +974,12 @@ function EvaluatorsList({
                   onSave={saveRubric}
                   onDelete={(id) => {
                     deleteRubric(id);
+                    // The store-level cascade strips this id from every
+                    // case's evaluators[], but the editor's local draft
+                    // for the currently-open case is a separate copy —
+                    // strip the id here too so the next Save doesn't
+                    // re-introduce the orphaned reference.
+                    onChange(evaluators.filter((e) => e !== id));
                     setExpandedId(null);
                   }}
                 />
@@ -1134,7 +1153,7 @@ function SubSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-1 pt-2">
+    <div className="space-y-1">
       <div className={`text-[10px] ${labelClassName ?? "text-zinc-500"}`}>{label}</div>
       <div className="space-y-1">{children}</div>
     </div>

@@ -186,7 +186,22 @@ export const useTestsStore = create<TestsState>((set, get) => ({
   },
 
   deleteRubric: (id) => {
-    set((s) => ({ rubrics: s.rubrics.filter((r) => r.id !== id) }));
+    set((s) => {
+      // Cascade: strip the deleted rubric's id from every case's
+      // evaluators[] so we don't leave orphaned references behind. Cases
+      // that drop to zero evaluators have the field removed entirely
+      // (additive-by-default schema; undefined ≠ empty array).
+      const cases = s.cases.map((c) => {
+        if (!c.evaluators?.includes(id)) return c;
+        const filtered = c.evaluators.filter((e) => e !== id);
+        const { evaluators: _drop, ...rest } = c;
+        return filtered.length > 0 ? { ...rest, evaluators: filtered } : rest;
+      });
+      return {
+        rubrics: s.rubrics.filter((r) => r.id !== id),
+        cases,
+      };
+    });
     useDirtyStore.getState().setDirty(true);
   },
 
