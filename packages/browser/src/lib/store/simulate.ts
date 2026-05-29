@@ -94,6 +94,11 @@ interface SimulateState {
   contextVars: Record<string, unknown>;
   contextVarsAgentId: string | null;
   mockReturns: Record<string, Record<string, unknown>>;
+  // Sentinels for error-behavior mocks. When mockErrors[capabilityName]
+  // is set, the resolver throws (or returns an error result) instead of
+  // the static returns. Per-capability mutually exclusive with mockReturns
+  // — setting one clears the other for that capability.
+  mockErrors: Record<string, string>;
   mockReturnsAgentId: string | null;
   error: string | null;
   // Prompt-mode state. Frozen at session start; reset clears.
@@ -140,6 +145,10 @@ interface SimulateState {
     values: Record<string, unknown>,
   ) => void;
   setMockReturns: (values: Record<string, Record<string, unknown>>) => void;
+  // Mark a capability as error-behavior. Clears any static returns for
+  // that capability. Pass null to revert to static-behavior (clears the
+  // error sentinel; existing mockReturns become live again).
+  setMockError: (capabilityName: string, error: string | null) => void;
   clearMockReturnsForCapability: (capabilityName: string) => void;
   clearMockReturns: () => void;
   hydratePersona: (agentId: string) => void;
@@ -212,6 +221,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   contextVars: {},
   contextVarsAgentId: null,
   mockReturns: {},
+  mockErrors: {},
   mockReturnsAgentId: null,
   error: null,
   systemPrompt: null,
@@ -271,7 +281,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   },
 
   setMockOutput: (capabilityName, outputName, value) => {
-    const { mockReturns, mockReturnsAgentId } = get();
+    const { mockReturns, mockErrors, mockReturnsAgentId } = get();
     const existing = mockReturns[capabilityName] ?? {};
     const nextOutputs = { ...existing };
     if (value === undefined || value === null || value === "") {
@@ -285,8 +295,26 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     } else {
       next[capabilityName] = nextOutputs;
     }
-    set({ mockReturns: next });
+    // Authoring static returns implicitly leaves error behavior.
+    const nextErrors = { ...mockErrors };
+    delete nextErrors[capabilityName];
+    set({ mockReturns: next, mockErrors: nextErrors });
     if (mockReturnsAgentId) mocksStorage.save(mockReturnsAgentId, next);
+  },
+
+  setMockError: (capabilityName, error) => {
+    const { mockReturns, mockErrors, mockReturnsAgentId } = get();
+    const nextErrors = { ...mockErrors };
+    const nextReturns = { ...mockReturns };
+    if (error === null || error === "") {
+      delete nextErrors[capabilityName];
+    } else {
+      nextErrors[capabilityName] = error;
+      // Static returns and error sentinel are mutually exclusive.
+      delete nextReturns[capabilityName];
+    }
+    set({ mockErrors: nextErrors, mockReturns: nextReturns });
+    if (mockReturnsAgentId) mocksStorage.save(mockReturnsAgentId, nextReturns);
   },
 
   setMockReturnsForCapability: (capabilityName, values) => {
@@ -323,18 +351,23 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   },
 
   clearMockReturnsForCapability: (capabilityName) => {
-    const { mockReturns, mockReturnsAgentId } = get();
-    if (!(capabilityName in mockReturns)) return;
-    const next = { ...mockReturns };
-    delete next[capabilityName];
-    set({ mockReturns: next });
-    if (mockReturnsAgentId) mocksStorage.save(mockReturnsAgentId, next);
+    const { mockReturns, mockErrors, mockReturnsAgentId } = get();
+    const nextReturns = { ...mockReturns };
+    delete nextReturns[capabilityName];
+    const nextErrors = { ...mockErrors };
+    delete nextErrors[capabilityName];
+    set({ mockReturns: nextReturns, mockErrors: nextErrors });
+    if (mockReturnsAgentId) mocksStorage.save(mockReturnsAgentId, nextReturns);
   },
 
   clearMockReturns: () => {
-    const { mockReturns, mockReturnsAgentId } = get();
-    if (Object.keys(mockReturns).length === 0) return;
-    set({ mockReturns: {} });
+    const { mockReturns, mockErrors, mockReturnsAgentId } = get();
+    if (
+      Object.keys(mockReturns).length === 0 &&
+      Object.keys(mockErrors).length === 0
+    )
+      return;
+    set({ mockReturns: {}, mockErrors: {} });
     if (mockReturnsAgentId) mocksStorage.save(mockReturnsAgentId, {});
   },
 
@@ -510,7 +543,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
             provider,
             baseUrl,
             tools: buildCapabilityTools(spec),
-            resolveTool: (call) => resolveMockedCall(call.name, get().mockReturns),
+            resolveTool: (call) =>
+              resolveMockedCall(call.name, get().mockReturns, get().mockErrors),
           });
           const latencyMs = Math.round(performance.now() - t0);
           const agentTurn: TranscriptTurn = {

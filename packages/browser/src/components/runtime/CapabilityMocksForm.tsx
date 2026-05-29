@@ -26,6 +26,8 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
   const setMockOutput = useSimulateStore((s) => s.setMockOutput);
   const setMockReturns = useSimulateStore((s) => s.setMockReturns);
   const clearMockReturns = useSimulateStore((s) => s.clearMockReturns);
+  const mockErrors = useSimulateStore((s) => s.mockErrors);
+  const setMockError = useSimulateStore((s) => s.setMockError);
   const mocksByCapability = useTestsStore((s) => s.mocksByCapability);
   const saveCapabilityMock = useTestsStore((s) => s.saveCapabilityMock);
   const deleteCapabilityMock = useTestsStore((s) => s.deleteCapabilityMock);
@@ -47,7 +49,9 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
   if (capabilities.length === 0) return null;
 
   const filledCount = capabilities.filter(
-    (c) => Object.keys(mockReturns[c.capabilityName] ?? {}).length > 0,
+    (c) =>
+      Object.keys(mockReturns[c.capabilityName] ?? {}).length > 0 ||
+      mockErrors[c.capabilityName] !== undefined,
   ).length;
 
   async function onGenerate() {
@@ -104,17 +108,18 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
         )}
 
         {capabilities.map((cap) => {
-          const savedForCap = (mocksByCapability[cap.capabilityId] ?? []).filter(
-            (m) => m.behavior.kind === "static",
-          );
+          // Now include both static AND error mocks for this cap.
+          const savedForCap = mocksByCapability[cap.capabilityId] ?? [];
           const loadedVariant = loadedVariantByCap[cap.capabilityId] ?? null;
           const savingAsName = savingAsByCap[cap.capabilityId] ?? null;
           const currentValues = mockReturns[cap.capabilityName] ?? {};
+          const currentError = mockErrors[cap.capabilityName] ?? null;
           return (
             <CapabilityBlock
               key={cap.capabilityName}
               cap={cap}
               values={currentValues}
+              error={currentError}
               savedMocks={savedForCap}
               loadedVariant={loadedVariant}
               savingAsName={savingAsName}
@@ -122,14 +127,21 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
               onChange={(outName, v) => {
                 setMockOutput(cap.capabilityName, outName, v);
               }}
+              onChangeError={(err) => {
+                setMockError(cap.capabilityName, err === "" ? null : err);
+              }}
               onLoadSaved={(mock) => {
-                if (mock.behavior.kind !== "static") return;
-                const returns = mock.behavior.returns;
-                if (typeof returns !== "object" || returns === null) return;
-                setMockReturns({
-                  ...mockReturns,
-                  [cap.capabilityName]: returns as Record<string, unknown>,
-                });
+                if (mock.behavior.kind === "error") {
+                  setMockError(cap.capabilityName, mock.behavior.error);
+                } else {
+                  const returns = mock.behavior.returns;
+                  if (typeof returns !== "object" || returns === null) return;
+                  setMockReturns({
+                    ...mockReturns,
+                    [cap.capabilityName]: returns as Record<string, unknown>,
+                  });
+                  setMockError(cap.capabilityName, null);
+                }
                 setLoadedVariantByCap({
                   ...loadedVariantByCap,
                   [cap.capabilityId]: mock.variant,
@@ -137,17 +149,21 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
               }}
               onSave={() => {
                 if (!loadedVariant) return;
+                const behavior =
+                  currentError !== null
+                    ? ({ kind: "error", error: currentError } as const)
+                    : ({ kind: "static", returns: currentValues } as const);
                 saveCapabilityMock({
                   $schema: "flowstore://test/mock/v0",
                   capability_id: cap.capabilityId,
                   variant: loadedVariant,
-                  behavior: { kind: "static", returns: currentValues },
+                  behavior,
                 });
               }}
               onStartSaveAs={() => {
                 const defaultName = uniqueMockVariant(
                   cap.capabilityId,
-                  loadedVariant ?? "happy",
+                  loadedVariant ?? (currentError !== null ? "error" : "happy"),
                 );
                 setSavingAsByCap({ ...savingAsByCap, [cap.capabilityId]: defaultName });
               }}
@@ -157,11 +173,15 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
               onCommitSaveAs={() => {
                 const name = (savingAsName ?? "").trim();
                 if (name === "") return;
+                const behavior =
+                  currentError !== null
+                    ? ({ kind: "error", error: currentError } as const)
+                    : ({ kind: "static", returns: currentValues } as const);
                 saveCapabilityMock({
                   $schema: "flowstore://test/mock/v0",
                   capability_id: cap.capabilityId,
                   variant: name,
-                  behavior: { kind: "static", returns: currentValues },
+                  behavior,
                 });
                 setLoadedVariantByCap({
                   ...loadedVariantByCap,
@@ -198,11 +218,13 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
 interface CapabilityBlockProps {
   cap: MockableCapability;
   values: Record<string, unknown>;
+  error: string | null;
   savedMocks: CapabilityMock[];
   loadedVariant: string | null;
   savingAsName: string | null;
   disabled: boolean;
   onChange: (outputName: string, value: unknown) => void;
+  onChangeError: (error: string) => void;
   onLoadSaved: (mock: CapabilityMock) => void;
   onSave: () => void;
   onStartSaveAs: () => void;
@@ -215,11 +237,13 @@ interface CapabilityBlockProps {
 function CapabilityBlock({
   cap,
   values,
+  error,
   savedMocks,
   loadedVariant,
   savingAsName,
   disabled,
   onChange,
+  onChangeError,
   onLoadSaved,
   onSave,
   onStartSaveAs,
@@ -229,6 +253,7 @@ function CapabilityBlock({
   onDelete,
 }: CapabilityBlockProps) {
   const filledHere = Object.keys(values).filter((k) => values[k] !== undefined).length;
+  const inErrorMode = error !== null;
 
   return (
     <div className="rounded border border-zinc-200 bg-white">
@@ -237,6 +262,19 @@ function CapabilityBlock({
           {cap.capabilityName}
         </div>
         <div className="flex flex-wrap items-center gap-1">
+          <select
+            value={inErrorMode ? "error" : "static"}
+            onChange={(e) => {
+              if (e.target.value === "error") onChangeError("error string");
+              else onChangeError("");
+            }}
+            disabled={disabled}
+            title="static: capability returns the values below. error: capability throws the error string."
+            className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-600"
+          >
+            <option value="static">static</option>
+            <option value="error">error</option>
+          </select>
           {savedMocks.length > 0 && (
             <select
               value={loadedVariant ?? ""}
@@ -258,6 +296,7 @@ function CapabilityBlock({
                   title={m.description}
                 >
                   {m.variant}
+                  {m.behavior.kind === "error" ? " (error)" : ""}
                 </option>
               ))}
             </select>
@@ -331,15 +370,26 @@ function CapabilityBlock({
         </div>
       </div>
       <div className="space-y-2 px-2 py-2">
-        {cap.outputs.map((out) => (
-          <OutputRow
-            key={out.name}
-            output={out}
-            value={values[out.name]}
+        {inErrorMode ? (
+          <input
+            type="text"
+            value={error ?? ""}
+            onChange={(e) => onChangeError(e.target.value)}
             disabled={disabled}
-            onChange={(v) => onChange(out.name, v)}
+            placeholder="Error message the LLM will see as the tool result"
+            className="w-full rounded border border-red-300 bg-red-50 px-2 py-1 text-[11px] text-red-900 focus:outline-none focus:ring-1 focus:ring-red-400"
           />
-        ))}
+        ) : (
+          cap.outputs.map((out) => (
+            <OutputRow
+              key={out.name}
+              output={out}
+              value={values[out.name]}
+              disabled={disabled}
+              onChange={(v) => onChange(out.name, v)}
+            />
+          ))
+        )}
       </div>
     </div>
   );
@@ -361,9 +411,6 @@ function OutputRow({ output, value, disabled, onChange }: OutputRowProps) {
         {!decl && <span className="ml-1 text-zinc-400">· undeclared</span>}
       </label>
       <TypedValueInput decl={decl} value={value} disabled={disabled} onChange={onChange} />
-      {decl?.description && (
-        <p className="text-[10px] text-zinc-500">{decl.description}</p>
-      )}
     </div>
   );
 }

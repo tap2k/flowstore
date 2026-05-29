@@ -53,13 +53,18 @@ export function buildCapabilityTools(spec: Spec | null): ToolDefinition[] {
   });
 }
 
-// Resolves a capability call (by name) to its mocked outputs, or {} when no mock
-// is set / the capability has no outputs. mock_returns is keyed by capability
-// name → { outputName: value }, the same shape the mocks form produces.
+// Resolves a capability call (by name) to its mocked outputs. If the
+// capability is marked as error-behavior via mockErrors, returns a
+// `{ error: string }` sentinel that promptClient detects and feeds back
+// to the LLM as a tool error. Static returns otherwise; `{}` when
+// neither is set.
 export function resolveMockedCall(
   capabilityName: string,
   mockReturns: Record<string, Record<string, unknown>>,
-): Record<string, unknown> {
+  mockErrors: Record<string, string> = {},
+): Record<string, unknown> | { error: string } {
+  const errorMsg = mockErrors[capabilityName];
+  if (errorMsg !== undefined) return { error: errorMsg };
   return mockReturns[capabilityName] ?? {};
 }
 

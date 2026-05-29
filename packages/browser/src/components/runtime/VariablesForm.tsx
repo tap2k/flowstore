@@ -289,9 +289,6 @@ function VariableRow({ decl, value, disabled, onChange }: RowProps) {
         )}
       </label>
       <TypedValueInput decl={v} value={value} disabled={disabled} onChange={onChange} />
-      {v.description && (
-        <p className="text-[10px] text-zinc-500">{v.description}</p>
-      )}
     </div>
   );
 }
