@@ -66,6 +66,7 @@ export interface TestsState {
   uniqueGoldId: (base: string) => string;
 
   saveRubric: (rubric: Rubric) => void;
+  deleteRubric: (id: string) => void;
   uniqueRubricId: (base: string) => string;
 
   setCaptureContext: (ctx: CaptureContext | null) => void;
@@ -181,6 +182,11 @@ export const useTestsStore = create<TestsState>((set, get) => ({
         i === -1 ? [...s.rubrics, rubric] : s.rubrics.map((r, idx) => (idx === i ? rubric : r));
       return { rubrics: next };
     });
+    useDirtyStore.getState().setDirty(true);
+  },
+
+  deleteRubric: (id) => {
+    set((s) => ({ rubrics: s.rubrics.filter((r) => r.id !== id) }));
     useDirtyStore.getState().setDirty(true);
   },
 

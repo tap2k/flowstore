@@ -395,6 +395,9 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
               onChange={setStateAssertions}
             />
           )}
+        </Section>
+
+        <Section label="evaluators">
           <EvaluatorsList
             evaluators={evaluators}
             rubrics={rubrics}
@@ -869,7 +872,9 @@ function EvaluatorsList({
   onChange: (e: string[]) => void;
 }) {
   const saveRubric = useTestsStore((s) => s.saveRubric);
+  const deleteRubric = useTestsStore((s) => s.deleteRubric);
   const uniqueRubricId = useTestsStore((s) => s.uniqueRubricId);
+  const allCases = useTestsStore((s) => s.cases);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const available = rubrics
@@ -895,17 +900,16 @@ function EvaluatorsList({
       prompt_template:
         "Evaluate the following transcript against the criteria.\n\n" +
         "Criteria: {criteria}\n\nTranscript:\n{transcript}\n\n" +
-        "Return a JSON object with `score` (integer {scale.min}-{scale.max}) " +
-        "and `notes` (one-sentence explanation citing the specific turn(s) " +
-        "that drove the score; turn 1 is the agent's first message).",
+        "Return a JSON object with `score` (integer 1-5) and `notes` " +
+        "(one-sentence explanation citing the specific turn(s) that drove " +
+        "the score; turn 1 is the agent's first message).",
     });
     onChange([...evaluators, id]);
     setExpandedId(id);
   }
 
   return (
-    <SubSection label="evaluators">
-      <div className="space-y-1">
+    <div className="space-y-1">
         {evaluators.map((v, i) => {
           const rubric = rubrics.find((r) => r.id === v);
           const primary = rubric?.name || v;
@@ -949,7 +953,15 @@ function EvaluatorsList({
                 </button>
               </div>
               {isExpanded && rubric && (
-                <RubricInlineEditor rubric={rubric} onSave={saveRubric} />
+                <RubricInlineEditor
+                  rubric={rubric}
+                  cases={allCases}
+                  onSave={saveRubric}
+                  onDelete={(id) => {
+                    deleteRubric(id);
+                    setExpandedId(null);
+                  }}
+                />
               )}
             </div>
           );
@@ -990,40 +1002,39 @@ function EvaluatorsList({
             + new
           </button>
         </div>
-      </div>
-    </SubSection>
+    </div>
   );
 }
 
 function RubricInlineEditor({
   rubric,
+  cases,
   onSave,
+  onDelete,
 }: {
   rubric: Rubric;
+  cases: TestCase[];
   onSave: (r: Rubric) => void;
+  onDelete: (id: string) => void;
 }) {
   // Local draft so the user can edit without dirtying every keystroke
-  // (saveRubric marks the project dirty). Save commits the draft.
+  // (saveRubric marks the project dirty). Save commits the draft. Scale
+  // is hidden from the editor and pinned to 1-5 — the prompt_template
+  // bakes that range in literally.
   const [name, setName] = useState(rubric.name ?? "");
   const [criteria, setCriteria] = useState(rubric.criteria);
   const [promptTemplate, setPromptTemplate] = useState(rubric.prompt_template);
-  const [scaleMin, setScaleMin] = useState(rubric.scale.min);
-  const [scaleMax, setScaleMax] = useState(rubric.scale.max);
 
   useEffect(() => {
     setName(rubric.name ?? "");
     setCriteria(rubric.criteria);
     setPromptTemplate(rubric.prompt_template);
-    setScaleMin(rubric.scale.min);
-    setScaleMax(rubric.scale.max);
   }, [rubric.id]);
 
   const dirty =
     name !== (rubric.name ?? "") ||
     criteria !== rubric.criteria ||
-    promptTemplate !== rubric.prompt_template ||
-    scaleMin !== rubric.scale.min ||
-    scaleMax !== rubric.scale.max;
+    promptTemplate !== rubric.prompt_template;
 
   function handleSave() {
     onSave({
@@ -1031,10 +1042,26 @@ function RubricInlineEditor({
       id: rubric.id,
       ...(name.trim() ? { name: name.trim() } : {}),
       criteria,
-      scale: { min: scaleMin, max: scaleMax },
+      // Preserve any non-1-5 scale that came from a JSON-side edit.
+      scale: rubric.scale,
       prompt_template: promptTemplate,
       ...(rubric.model !== undefined ? { model: rubric.model } : {}),
     });
+  }
+
+  function handleDelete() {
+    const referencingCases = cases.filter((c) =>
+      (c.evaluators ?? []).includes(rubric.id),
+    );
+    const refMsg =
+      referencingCases.length > 0
+        ? `\n\n${referencingCases.length} case${referencingCases.length === 1 ? "" : "s"} still reference${referencingCases.length === 1 ? "s" : ""} this rubric (binding stays until you unbind manually).`
+        : "";
+    const ok = window.confirm(
+      `Delete rubric "${rubric.name || rubric.id}"?${refMsg}`,
+    );
+    if (!ok) return;
+    onDelete(rubric.id);
   }
 
   return (
@@ -1062,22 +1089,6 @@ function RubricInlineEditor({
           className="w-full resize-y rounded border border-zinc-300 bg-white p-1.5 text-[11px] leading-snug"
         />
       </div>
-      <div className="flex items-center gap-2 text-[10px] text-zinc-600">
-        <span>scale</span>
-        <input
-          type="number"
-          value={scaleMin}
-          onChange={(e) => setScaleMin(Number(e.target.value))}
-          className="w-12 rounded border border-zinc-300 px-1 py-0.5 text-[11px]"
-        />
-        <span>—</span>
-        <input
-          type="number"
-          value={scaleMax}
-          onChange={(e) => setScaleMax(Number(e.target.value))}
-          className="w-12 rounded border border-zinc-300 px-1 py-0.5 text-[11px]"
-        />
-      </div>
       <div>
         <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
           prompt_template
@@ -1090,7 +1101,14 @@ function RubricInlineEditor({
           className="w-full resize-y rounded border border-zinc-300 bg-white p-1.5 font-mono text-[10px] leading-snug"
         />
       </div>
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-1">
+        <button
+          type="button"
+          onClick={handleDelete}
+          className="rounded border border-red-300 bg-white px-2 py-0.5 text-[10px] text-red-700 hover:bg-red-50"
+        >
+          Delete rubric
+        </button>
         <button
           type="button"
           onClick={handleSave}
