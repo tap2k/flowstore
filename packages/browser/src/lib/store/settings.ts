@@ -9,6 +9,7 @@ const OPENROUTER_KEY = "flowstore:settings:openrouter_api_key";
 const CHAT_MODEL_KEY = "flowstore:settings:chat_model";
 const AGENT_SIMULATE_MODEL_KEY = "flowstore:settings:simulate_agent_model";
 const PERSONA_SIMULATE_MODEL_KEY = "flowstore:settings:simulate_persona_model";
+const JUDGE_SIMULATE_MODEL_KEY = "flowstore:settings:simulate_judge_model";
 const RUNNER_KEY = "flowstore:settings:runner_url";
 const GITHUB_PAT_KEY = "flowstore:settings:github_pat";
 const GITHUB_LOGIN_KEY = "flowstore:settings:github_login";
@@ -33,6 +34,11 @@ interface SettingsState {
   chatModel: string;
   simulateAgentModel: string;
   simulatePersonaModel: string;
+  // simulateJudge = the LLM-judge model used for rubric scoring on
+  // completed runs. Same shape/selection mechanism as the other
+  // simulate-* model fields; uses Gemini structured-output today, so
+  // pick a Google-keyed model.
+  simulateJudgeModel: string;
   runnerUrl: string;
   githubPat: string;
   // Identity echoed from `GET /user` after a PAT is set. Used by Comments
@@ -46,6 +52,7 @@ interface SettingsState {
   setChatModel: (model: string) => void;
   setSimulateAgentModel: (model: string) => void;
   setSimulatePersonaModel: (model: string) => void;
+  setSimulateJudgeModel: (model: string) => void;
   setRunnerUrl: (url: string) => void;
   setGithubPat: (pat: string) => void;
   setGithubIdentity: (login: string, name: string) => void;
@@ -82,6 +89,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   chatModel: DEFAULT_MODEL_ID,
   simulateAgentModel: DEFAULT_MODEL_ID,
   simulatePersonaModel: DEFAULT_MODEL_ID,
+  simulateJudgeModel: DEFAULT_MODEL_ID,
   runnerUrl: "",
   githubPat: "",
   githubLogin: "",
@@ -109,6 +117,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setSimulatePersonaModel: (model) => {
     persistString(PERSONA_SIMULATE_MODEL_KEY, model);
     set({ simulatePersonaModel: model });
+  },
+  setSimulateJudgeModel: (model) => {
+    persistString(JUDGE_SIMULATE_MODEL_KEY, model);
+    set({ simulateJudgeModel: model });
   },
   setRunnerUrl: (url) => {
     const trimmed = url.trim().replace(/\/+$/, "");
@@ -203,6 +215,7 @@ export function loadSavedSettings(): void {
     const chat = window.localStorage.getItem(CHAT_MODEL_KEY) ?? "";
     const simulateAgent = window.localStorage.getItem(AGENT_SIMULATE_MODEL_KEY) ?? "";
     const simulatePersona = window.localStorage.getItem(PERSONA_SIMULATE_MODEL_KEY) ?? "";
+    const simulateJudge = window.localStorage.getItem(JUDGE_SIMULATE_MODEL_KEY) ?? "";
     const runner = window.localStorage.getItem(RUNNER_KEY);
     const pat = window.localStorage.getItem(GITHUB_PAT_KEY) ?? "";
     const login = window.localStorage.getItem(GITHUB_LOGIN_KEY) ?? "";
@@ -214,6 +227,7 @@ export function loadSavedSettings(): void {
     if (chat && validModelIds.has(chat)) patch.chatModel = chat;
     if (simulateAgent && validModelIds.has(simulateAgent)) patch.simulateAgentModel = simulateAgent;
     if (simulatePersona && validModelIds.has(simulatePersona)) patch.simulatePersonaModel = simulatePersona;
+    if (simulateJudge && validModelIds.has(simulateJudge)) patch.simulateJudgeModel = simulateJudge;
     if (runner !== null) patch.runnerUrl = runner;
     if (pat) patch.githubPat = pat;
     if (login) patch.githubLogin = login;

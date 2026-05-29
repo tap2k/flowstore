@@ -24,7 +24,6 @@ import type { Gold } from "@flowstore/core/schema/files/gold";
 import { evaluateCaseAgainstTranscript, type CaseVerdicts } from "@/lib/caseVerdicts";
 import { judgeRubric, type RubricVerdict } from "@flowstore/core/runtime/judgeRubric";
 import type { Rubric } from "@flowstore/core/schema/files/rubric";
-import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
 
 interface SimulatePanelProps {
   open: boolean;
@@ -42,6 +41,8 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const setSimulateAgentModel = useSettingsStore((s) => s.setSimulateAgentModel);
   const personaModel = useSettingsStore((s) => s.simulatePersonaModel);
   const setSimulatePersonaModel = useSettingsStore((s) => s.setSimulatePersonaModel);
+  const judgeModel = useSettingsStore((s) => s.simulateJudgeModel);
+  const setSimulateJudgeModel = useSettingsStore((s) => s.setSimulateJudgeModel);
   const runnerUrl = useSettingsStore((s) => s.runnerUrl);
   const mode = useSimulateStore((s) => s.mode);
   const sessionId = useSimulateStore((s) => s.sessionId);
@@ -219,12 +220,9 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     if (!activeCase || isRunning) return;
     setIsRunning(true);
     stopRequestedRef.current = false;
-    // Mark all bound rubrics as pending so the summary block shows
-    // "judging…" while we wait on the judge LLM.
-    const boundIds = (activeCase.evaluators ?? []).filter((id) =>
-      allRubrics.some((r) => r.id === id),
-    );
-    setRubricVerdicts(Object.fromEntries(boundIds.map((id) => [id, "pending" as const])));
+    // Clear any prior rubric verdicts — judging is now manual via the
+    // summary block's "Judge rubrics" button.
+    setRubricVerdicts({});
     try {
       if (hasSession) await reset();
       await startSession();
@@ -254,11 +252,19 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       stopRequestedRef.current = false;
     }
 
-    // Run completed (scripted path). Judge each bound rubric in parallel.
+    // Don't auto-judge — the user clicks "Judge rubrics" in the summary
+    // block when they're ready. Clear out any "pending" markers we set
+    // above so the block doesn't show a stuck spinner.
+    setRubricVerdicts({});
+  }
+
+  async function judgeBoundRubrics() {
+    if (!activeCase) return;
+    const boundIds = (activeCase.evaluators ?? []).filter((id) =>
+      allRubrics.some((r) => r.id === id),
+    );
     if (boundIds.length === 0) return;
     if (!googleApiKey) {
-      // No judge LLM key — surface a clear error per rubric rather than
-      // silently skip.
       setRubricVerdicts(
         Object.fromEntries(
           boundIds.map((id) => [
@@ -273,11 +279,13 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       );
       return;
     }
+    setRubricVerdicts(
+      Object.fromEntries(boundIds.map((id) => [id, "pending" as const])),
+    );
     const goldRecord = activeCase.gold_id
       ? allGolds.find((g) => g.id === activeCase.gold_id) ?? null
       : null;
     const finalTranscript = useSimulateStore.getState().transcript;
-    const judgeModel = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
     await Promise.all(
       boundIds.map(async (id) => {
         const rubric = allRubrics.find((r) => r.id === id);
@@ -685,6 +693,10 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             verdicts={verdicts}
             rubrics={allRubrics}
             rubricVerdicts={rubricVerdicts}
+            judgeModel={judgeModel}
+            onJudgeModelChange={setSimulateJudgeModel}
+            onJudgeRubrics={() => void judgeBoundRubrics()}
+            judging={Object.values(rubricVerdicts).some((v) => v === "pending")}
           />
         )}
         {hasSession && transcript.length > 0 && !busy && !isRunning && (
@@ -899,11 +911,19 @@ function CaseSummaryBlock({
   verdicts,
   rubrics,
   rubricVerdicts,
+  judgeModel,
+  onJudgeModelChange,
+  onJudgeRubrics,
+  judging,
 }: {
   testCase: TestCase;
   verdicts: CaseVerdicts;
   rubrics: Rubric[];
   rubricVerdicts: Record<string, RubricVerdict | "pending">;
+  judgeModel: string;
+  onJudgeModelChange: (m: string) => void;
+  onJudgeRubrics: () => void;
+  judging: boolean;
 }) {
   // Per-turn verdicts already render inline under each agent turn in
   // the transcript; don't duplicate here. This block carries
@@ -945,29 +965,44 @@ function CaseSummaryBlock({
         const rubric = rubrics.find((r) => r.id === id);
         if (!rubric) return null;
         const v = rubricVerdicts[id];
-        const pending = v === "pending" || v === undefined;
-        const errored = !pending && v.score === null;
+        const pending = v === "pending";
+        const unrun = v === undefined;
+        const errored = !pending && !unrun && v.score === null;
         const label = rubric.name || rubric.id;
         return (
           <div key={`ev-${id}`} className="text-[10px]">
-            {pending
-              ? "…"
-              : errored
-                ? "⚠"
-                : "•"}{" "}
-            {label}
-            {!pending && v.score !== null && (
+            {pending ? "…" : unrun ? "○" : errored ? "⚠" : "•"} {label}
+            {!pending && !unrun && v.score !== null && (
               <span className="font-mono">
                 {" · "}
                 {v.score}/{rubric.scale?.max ?? 5}
               </span>
             )}
-            {!pending && (
+            {!pending && !unrun && (
               <span className="text-zinc-600"> — {v.notes}</span>
             )}
           </div>
         );
       })}
+      {evaluatorIds.length > 0 && (
+        <div className="flex items-center gap-2 pt-1 text-[10px] text-zinc-600">
+          <span>judge:</span>
+          <ModelPicker
+            value={judgeModel}
+            onChange={onJudgeModelChange}
+            className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
+          />
+          <button
+            type="button"
+            onClick={onJudgeRubrics}
+            disabled={judging}
+            className="ml-auto rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+            title="Score each bound rubric with the judge LLM."
+          >
+            {judging ? "judging…" : "Judge rubrics"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
