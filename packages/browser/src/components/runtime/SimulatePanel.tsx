@@ -845,8 +845,8 @@ function ActiveCaseStrip({
   const totalAssertions =
     (testCase.assertions?.length ?? 0) +
     (testCase.transcript_assertions?.length ?? 0) +
-    (testCase.state_assertions?.length ?? 0) +
-    (testCase.evaluators?.length ?? 0);
+    (testCase.state_assertions?.length ?? 0);
+  const rubricCount = testCase.evaluators?.length ?? 0;
   return (
     <div className="border-b border-zinc-200 bg-amber-50/60 px-3 py-1.5 text-[11px]">
       <div className="flex items-center justify-between gap-2">
@@ -859,6 +859,12 @@ function ActiveCaseStrip({
               ? `persona · ${testCase.persona_id}`
               : `scripted · ${testCase.user_turns?.length ?? 0} turns`}{" "}
             · {totalAssertions} assertion{totalAssertions === 1 ? "" : "s"}
+            {rubricCount > 0 && (
+              <>
+                {" · "}
+                {rubricCount} rubric{rubricCount === 1 ? "" : "s"}
+              </>
+            )}
             {hasSession && verdicts.evaluable > 0 && (
               <>
                 {" · "}
