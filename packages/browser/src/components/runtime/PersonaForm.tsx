@@ -57,12 +57,6 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
     if (id === "") return;
     const persona = personas.find((p) => p.id === id);
     if (!persona) return;
-    if (configured) {
-      const ok = window.confirm(
-        `Replace the current persona prompt with "${persona.name || persona.id}"?`,
-      );
-      if (!ok) return;
-    }
     setPersonaPrompt(persona.system_prompt);
     setLoadedPersonaId(id);
     setOpen(true);

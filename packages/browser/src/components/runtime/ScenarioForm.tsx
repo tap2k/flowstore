@@ -157,13 +157,6 @@ export function ScenarioForm({ spec, disabled }: ScenarioFormProps) {
     if (id === "") return;
     const sc = scenarios.find((s) => s.id === id);
     if (!sc) return;
-    const hasContent = filledVarsCount > 0 || setMocksCount > 0;
-    if (hasContent) {
-      const ok = window.confirm(
-        `Replace current vars + mocks with "${sc.name || sc.id}"?`,
-      );
-      if (!ok) return;
-    }
     hydrateBufferFromScenario(sc);
     setLoadedScenarioId(id);
     setOpen(true);
@@ -239,10 +232,12 @@ export function ScenarioForm({ spec, disabled }: ScenarioFormProps) {
     }
   }
 
+  const configured = filledVarsCount > 0 || setMocksCount > 0;
+
   return (
     <CollapsibleGenerateSection
       title="Scenario"
-      countLabel=""
+      countLabel={configured ? "configured" : "empty"}
       open={open}
       onToggle={() => setOpen((o) => !o)}
       onClear={filledVarsCount > 0 || setMocksCount > 0 ? onClear : undefined}
