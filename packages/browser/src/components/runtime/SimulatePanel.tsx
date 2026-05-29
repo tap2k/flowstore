@@ -785,8 +785,14 @@ function CaseSummaryBlock({
   testCase: TestCase;
   verdicts: CaseVerdicts;
 }) {
-  if (verdicts.evaluable === 0 && (testCase.state_assertions?.length ?? 0) === 0)
-    return null;
+  // Per-turn verdicts already render inline under each agent turn in
+  // the transcript; don't duplicate here. This block only carries
+  // transcript-level assertions + evaluator (rubric) references — the
+  // results that aren't already visible somewhere.
+  const transcriptCount = testCase.transcript_assertions?.length ?? 0;
+  const evaluatorCount = testCase.evaluators?.length ?? 0;
+  if (transcriptCount === 0 && evaluatorCount === 0) return null;
+
   const status =
     verdicts.failed > 0 ? "FAIL" : verdicts.pending > 0 ? "RUNNING" : "PASS";
   const color =
@@ -795,30 +801,12 @@ function CaseSummaryBlock({
       : status === "PASS"
         ? "border-emerald-200 bg-emerald-50 text-emerald-900"
         : "border-amber-200 bg-amber-50 text-amber-900";
-  const stateAssertions = testCase.state_assertions ?? [];
   return (
     <div className={`rounded border ${color} p-2 text-[11px] space-y-1`}>
       <div className="font-medium">
         {status === "FAIL" ? "✗ FAIL" : status === "PASS" ? "✓ PASS" : "… running"} ·{" "}
         {verdicts.passed}/{verdicts.evaluable} assertions passed
       </div>
-      {(testCase.assertions ?? []).map((a, i) => {
-        const v = verdicts.perTurn.find((p) => p.index === i);
-        const ok = v?.verdict === "pass";
-        const pending = v?.verdict === "pending";
-        return (
-          <div key={`pt-${i}`} className="text-[10px]">
-            {pending ? "…" : ok ? "✓" : "✗"} per-turn t{a.turn}
-            {a.must_contain && a.must_contain.length > 0 && (
-              <> · contains "{a.must_contain.join(`", "`)}"</>
-            )}
-            {a.must_not_contain && a.must_not_contain.length > 0 && (
-              <> · ¬contains "{a.must_not_contain.join(`", "`)}"</>
-            )}
-            {v?.reason && <span className="text-zinc-600"> — {v.reason}</span>}
-          </div>
-        );
-      })}
       {(testCase.transcript_assertions ?? []).map((ta, i) => {
         const v = verdicts.transcript.find((p) => p.index === i);
         const ok = v?.verdict === "pass";
@@ -831,16 +819,10 @@ function CaseSummaryBlock({
           </div>
         );
       })}
-      {stateAssertions.length > 0 && (
-        <div className="text-[10px] text-amber-800">
-          ⓘ {stateAssertions.length} state assertion
-          {stateAssertions.length === 1 ? "" : "s"} — needs runner, not evaluated
-        </div>
-      )}
-      {(testCase.evaluators ?? []).length > 0 && (
+      {evaluatorCount > 0 && (
         <div className="text-[10px] text-zinc-600">
-          ⓘ {testCase.evaluators?.length} evaluator
-          {testCase.evaluators?.length === 1 ? "" : "s"} — runs out-of-band
+          ⓘ {evaluatorCount} rubric{evaluatorCount === 1 ? "" : "s"} —
+          runs out-of-band
         </div>
       )}
     </div>
