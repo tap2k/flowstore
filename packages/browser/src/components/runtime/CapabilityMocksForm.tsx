@@ -25,9 +25,6 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
   const contextVars = useSimulateStore((s) => s.contextVars);
   const setMockOutput = useSimulateStore((s) => s.setMockOutput);
   const setMockReturns = useSimulateStore((s) => s.setMockReturns);
-  const clearMockReturnsForCapability = useSimulateStore(
-    (s) => s.clearMockReturnsForCapability,
-  );
   const clearMockReturns = useSimulateStore((s) => s.clearMockReturns);
   const mocksByCapability = useTestsStore((s) => s.mocksByCapability);
   const saveCapabilityMock = useTestsStore((s) => s.saveCapabilityMock);
@@ -85,7 +82,14 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
       countLabel={`(${filledCount} filled / ${capabilities.length} declared)`}
       open={open}
       onToggle={() => setOpen((o) => !o)}
-      onClear={filledCount > 0 ? clearMockReturns : undefined}
+      onClear={
+        filledCount > 0
+          ? () => {
+              clearMockReturns();
+              setLoadedVariantByCap({});
+            }
+          : undefined
+      }
       onGenerate={onGenerate}
       apiKey={apiKey}
       disabled={disabled}
@@ -117,12 +121,6 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
               disabled={disabled || generating}
               onChange={(outName, v) => {
                 setMockOutput(cap.capabilityName, outName, v);
-              }}
-              onClear={() => {
-                clearMockReturnsForCapability(cap.capabilityName);
-                const next = { ...loadedVariantByCap };
-                delete next[cap.capabilityId];
-                setLoadedVariantByCap(next);
               }}
               onLoadSaved={(mock) => {
                 if (mock.behavior.kind !== "static") return;
@@ -205,7 +203,6 @@ interface CapabilityBlockProps {
   savingAsName: string | null;
   disabled: boolean;
   onChange: (outputName: string, value: unknown) => void;
-  onClear: () => void;
   onLoadSaved: (mock: CapabilityMock) => void;
   onSave: () => void;
   onStartSaveAs: () => void;
@@ -223,7 +220,6 @@ function CapabilityBlock({
   savingAsName,
   disabled,
   onChange,
-  onClear,
   onLoadSaved,
   onSave,
   onStartSaveAs,
@@ -237,13 +233,8 @@ function CapabilityBlock({
   return (
     <div className="rounded border border-zinc-200 bg-white">
       <div className="border-b border-zinc-100 px-2 py-1.5 space-y-1">
-        <div className="min-w-0">
-          <div className="text-[11px] font-mono text-zinc-800 truncate">{cap.capabilityName}</div>
-          {cap.description && (
-            <div className="text-[10px] text-zinc-500 leading-tight truncate">
-              {cap.description}
-            </div>
-          )}
+        <div className="text-[11px] font-mono text-zinc-800 truncate">
+          {cap.capabilityName}
         </div>
         <div className="flex flex-wrap items-center gap-1">
           {savedMocks.length > 0 && (
@@ -335,17 +326,6 @@ function CapabilityBlock({
               className="rounded border border-red-300 bg-white px-1.5 py-0.5 text-[10px] text-red-700 hover:bg-red-50 disabled:opacity-40"
             >
               delete
-            </button>
-          )}
-          {filledHere > 0 && (
-            <button
-              type="button"
-              onClick={onClear}
-              disabled={disabled}
-              className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-50 disabled:opacity-40"
-              title="Clear values for this capability (in-session only)."
-            >
-              clear
             </button>
           )}
         </div>
