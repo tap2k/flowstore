@@ -60,6 +60,16 @@ export function GoldsPanel() {
                 expanded={selectedId === g.id}
                 onToggle={() => setSelectedId(selectedId === g.id ? null : g.id)}
                 onSave={(updated) => saveGold(updated)}
+                onCopy={() => {
+                  const base = g.name ? `${g.name} copy` : `${g.id}-copy`;
+                  const newId = uniqueGoldId(base);
+                  saveGold({
+                    ...g,
+                    id: newId,
+                    ...(g.name ? { name: `${g.name} copy` } : {}),
+                  });
+                  setSelectedId(newId);
+                }}
                 onDelete={() => {
                   const ok = window.confirm(`Delete gold "${g.name || g.id}"?`);
                   if (!ok) return;
@@ -80,10 +90,11 @@ interface GoldRowProps {
   expanded: boolean;
   onToggle: () => void;
   onSave: (g: Gold) => void;
+  onCopy: () => void;
   onDelete: () => void;
 }
 
-function GoldRow({ gold, expanded, onToggle, onSave, onDelete }: GoldRowProps) {
+function GoldRow({ gold, expanded, onToggle, onSave, onCopy, onDelete }: GoldRowProps) {
   const [name, setName] = useState(gold.name ?? "");
   const [notes, setNotes] = useState(gold.notes ?? "");
   const [turns, setTurns] = useState(gold.turns);
@@ -251,15 +262,25 @@ function GoldRow({ gold, expanded, onToggle, onSave, onDelete }: GoldRowProps) {
             >
               Delete
             </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={!dirty}
-              title={dirty ? "Save changes" : "No unsaved edits"}
-              className="rounded-md bg-zinc-900 px-3 py-1 text-[11px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
-            >
-              Save
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={onCopy}
+                title="Duplicate this gold as a new one."
+                className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
+              >
+                Copy
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={!dirty}
+                title={dirty ? "Save changes" : "No unsaved edits"}
+                className="rounded-md bg-zinc-900 px-3 py-1 text-[11px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+              >
+                Save
+              </button>
+            </div>
           </div>
         </div>
       )}

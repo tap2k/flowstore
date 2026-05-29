@@ -3,6 +3,10 @@ import type { Persona } from "@flowstore/core/schema/files/persona";
 import { useTestsStore } from "@/lib/store/tests";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useUiStore } from "@/lib/store/ui";
+import { useSpecStore } from "@/lib/store/spec";
+import { useSettingsStore } from "@/lib/store/settings";
+import { generatePersonaPrompt } from "@flowstore/core/runtime/personaGen";
+import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
 
 // Saved-persona library for the Run pill's Personas tab. Compact vertical
 // list, click a row to expand its editor inline. Personas are
@@ -19,14 +23,16 @@ export function PersonasPanel() {
   const setPersonaPrompt = useSimulateStore((s) => s.setPersonaPrompt);
   const setActiveCaseId = useSimulateStore((s) => s.setActiveCaseId);
   const setOpenSimulateTab = useUiStore((s) => s.setOpenSimulateTab);
+  const spec = useSpecStore((s) => s.spec);
+  const apiKey = useSettingsStore((s) => s.googleApiKey);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [generating, setGenerating] = useState<
+    | null
+    | { name: string; notes: string; busy: boolean; error: string | null }
+  >(null);
 
   function startNew() {
-    // Placeholder-first: create with a default name immediately so the
-    // user can edit inline. Abandoned placeholders are removed via
-    // Delete; they don't reach GitHub until the next Save commits the
-    // project. Avoids a modal/prompt on creation.
     const defaultName = `Persona ${personas.length + 1}`;
     const id = uniquePersonaId(defaultName);
     savePersona({
@@ -36,6 +42,44 @@ export function PersonasPanel() {
       name: defaultName,
     });
     setSelectedId(id);
+  }
+
+  function startGenerate() {
+    setGenerating({ name: "", notes: "", busy: false, error: null });
+  }
+
+  async function runGenerate() {
+    if (!generating || !spec || !apiKey) return;
+    const name = generating.name.trim();
+    const notes = generating.notes.trim();
+    if (!name && !notes) return;
+    setGenerating({ ...generating, busy: true, error: null });
+    try {
+      const geminiModel = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
+      const systemPrompt = await generatePersonaPrompt({
+        spec,
+        contextVars: {},
+        apiKey,
+        model: geminiModel,
+        personaContext: { name: name || undefined, notes: notes || undefined },
+      });
+      const id = uniquePersonaId(name || "persona");
+      savePersona({
+        $schema: "flowstore://test/persona/v0",
+        id,
+        ...(name ? { name } : {}),
+        ...(notes ? { notes } : {}),
+        system_prompt: systemPrompt,
+      });
+      setSelectedId(id);
+      setGenerating(null);
+    } catch (e) {
+      setGenerating({
+        ...generating,
+        busy: false,
+        error: e instanceof Error ? e.message : "Generation failed.",
+      });
+    }
   }
 
   function useInSimulate(p: Persona) {
@@ -53,15 +97,89 @@ export function PersonasPanel() {
         <div className="text-[11px] text-zinc-500">
           {personas.length} {personas.length === 1 ? "persona" : "personas"}
         </div>
-        <button
-          type="button"
-          onClick={startNew}
-          title="Create a new persona"
-          className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50"
-        >
-          + New
-        </button>
+        <div className="flex items-center gap-1">
+          {apiKey && spec && (
+            <button
+              type="button"
+              onClick={startGenerate}
+              disabled={generating !== null}
+              title="Generate a new persona from a name + notes prompt."
+              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+            >
+              ✨ Generate
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={startNew}
+            title="Create a placeholder persona — fill prompt inline."
+            className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50"
+          >
+            + New
+          </button>
+        </div>
       </div>
+
+      {generating && (
+        <div className="space-y-2 border-b border-zinc-200 bg-white px-3 py-2 text-[11px]">
+          <div className="font-medium text-zinc-900">Generate persona</div>
+          {generating.error && (
+            <div className="rounded border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-700">
+              {generating.error}
+            </div>
+          )}
+          <div>
+            <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+              name
+            </label>
+            <input
+              type="text"
+              autoFocus
+              value={generating.name}
+              onChange={(e) =>
+                setGenerating({ ...generating, name: e.target.value })
+              }
+              placeholder="e.g. Polite first-time caller"
+              className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px]"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+              notes
+            </label>
+            <textarea
+              value={generating.notes}
+              onChange={(e) =>
+                setGenerating({ ...generating, notes: e.target.value })
+              }
+              placeholder="Who is this user, why are they calling, what's their style?"
+              rows={3}
+              className="w-full resize-y rounded border border-zinc-300 bg-white p-1.5 text-[11px] leading-snug"
+            />
+          </div>
+          <div className="flex justify-end gap-1">
+            <button
+              type="button"
+              onClick={() => setGenerating(null)}
+              disabled={generating.busy}
+              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={runGenerate}
+              disabled={
+                generating.busy ||
+                (generating.name.trim() === "" && generating.notes.trim() === "")
+              }
+              className="rounded-md bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+            >
+              {generating.busy ? "Generating…" : "Generate"}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-auto">
         {personas.length === 0 ? (

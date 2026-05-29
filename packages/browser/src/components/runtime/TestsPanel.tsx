@@ -320,6 +320,14 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
         <div className="flex items-center gap-1">
           <button
             type="button"
+            onClick={handleCopy}
+            title="Duplicate this case — handy for variant authoring (same scenario, different assertions)."
+            className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
+          >
+            Copy
+          </button>
+          <button
+            type="button"
             onClick={handleSave}
             disabled={!dirty}
             className="rounded-md bg-zinc-900 px-2 py-1 text-[11px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
@@ -542,21 +550,13 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
           </Section>
         )}
 
-        <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-200">
+        <div className="pt-2 border-t border-zinc-200">
           <button
             type="button"
             onClick={handleDelete}
             className="rounded border border-red-300 bg-white px-2 py-1 text-[11px] text-red-700 hover:bg-red-50"
           >
             Delete case
-          </button>
-          <button
-            type="button"
-            onClick={handleCopy}
-            title="Duplicate this case as a new one — handy for variant authoring (same scenario, different assertions)."
-            className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
-          >
-            Copy case
           </button>
         </div>
       </div>

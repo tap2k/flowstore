@@ -19,8 +19,9 @@ export async function generatePersonaPrompt(args: {
   contextVars: Record<string, unknown>;
   apiKey: string;
   model: string;
+  personaContext?: { name?: string; notes?: string };
 }): Promise<string> {
-  const { spec, contextVars, apiKey, model } = args;
+  const { spec, contextVars, apiKey, model, personaContext } = args;
 
   const goals = (spec.agent.business_goals ?? [])
     .map((g) => `- ${g.name}`)
@@ -31,9 +32,20 @@ export async function generatePersonaPrompt(args: {
     .map(([k, v]) => `- ${k}: ${JSON.stringify(v)}`)
     .join("\n");
 
+  const personaPreamble = personaContext && (personaContext.name || personaContext.notes)
+    ? [
+        "Persona you're writing FOR:",
+        personaContext.name ? `  Name: ${personaContext.name}` : null,
+        personaContext.notes ? `  Notes: ${personaContext.notes}` : null,
+        "Ground the persona prompt in this description.",
+        "",
+      ].filter((s) => s !== null) as string[]
+    : [];
+
   const userPrompt = [
     ...agentContextPreamble(spec),
     "",
+    ...personaPreamble,
     goals ? `Outcomes the agent is judged against (pick one for the persona to want):\n${goals}` : null,
     "",
     filledVars
