@@ -116,15 +116,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const language = useSimulateStore((s) => s.language);
   const setLanguage = useSimulateStore((s) => s.setLanguage);
   const hasCapabilities = (spec?.agent.capabilities?.length ?? 0) > 0;
-  // Tests + Scenarios tabs are dev-only. If a previous session persisted
-  // openSimulateTab to one of them and VITE_DEV is now off, bounce back to
-  // "simulate" so the user isn't stuck on a hidden tab.
-  useEffect(() => {
-    const devOnly = openSimulateTab === "tests" || openSimulateTab === "scenarios";
-    if (devOnly && !import.meta.env.VITE_DEV) {
-      setOpenSimulateTab("simulate");
-    }
-  }, [openSimulateTab, setOpenSimulateTab]);
 
   // Default is "all" (undefined) — emit every language bucket. Reset to "all"
   // when the active agent changes, or when the current selection is no longer

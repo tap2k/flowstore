@@ -78,6 +78,16 @@ export function PersonasPanel() {
                 expanded={selectedId === p.id}
                 onToggle={() => setSelectedId(selectedId === p.id ? null : p.id)}
                 onSave={(updated) => savePersona(updated)}
+                onCopy={() => {
+                  const base = p.name ? `${p.name} copy` : `${p.id}-copy`;
+                  const newId = uniquePersonaId(base);
+                  savePersona({
+                    ...p,
+                    id: newId,
+                    ...(p.name ? { name: `${p.name} copy` } : {}),
+                  });
+                  setSelectedId(newId);
+                }}
                 onDelete={() => {
                   const ok = window.confirm(`Delete persona "${p.name || p.id}"?`);
                   if (!ok) return;
@@ -99,6 +109,7 @@ interface PersonaRowProps {
   expanded: boolean;
   onToggle: () => void;
   onSave: (p: Persona) => void;
+  onCopy: () => void;
   onDelete: () => void;
   onUseInSimulate: () => void;
 }
@@ -108,6 +119,7 @@ function PersonaRow({
   expanded,
   onToggle,
   onSave,
+  onCopy,
   onDelete,
   onUseInSimulate,
 }: PersonaRowProps) {
@@ -236,6 +248,14 @@ function PersonaRow({
               Delete
             </button>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onCopy}
+                title="Duplicate this persona as a new one — handy for variant authoring."
+                className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
+              >
+                Copy
+              </button>
               <button
                 type="button"
                 onClick={onUseInSimulate}

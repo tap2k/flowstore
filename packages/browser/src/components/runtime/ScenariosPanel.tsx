@@ -181,6 +181,16 @@ export function ScenariosPanel() {
                 expanded={selectedId === sc.id}
                 onToggle={() => setSelectedId(selectedId === sc.id ? null : sc.id)}
                 onSave={(updated) => saveScenario(updated)}
+                onCopy={() => {
+                  const base = sc.name ? `${sc.name} copy` : `${sc.id}-copy`;
+                  const newId = uniqueScenarioId(base);
+                  saveScenario({
+                    ...sc,
+                    id: newId,
+                    ...(sc.name ? { name: `${sc.name} copy` } : {}),
+                  });
+                  setSelectedId(newId);
+                }}
                 onDelete={() => {
                   const ok = window.confirm(
                     `Delete scenario "${sc.name || sc.id}"? Cases binding this scenario will lose the binding.`,
@@ -203,12 +213,12 @@ interface ScenarioRowProps {
   expanded: boolean;
   onToggle: () => void;
   onSave: (s: Scenario) => void;
+  onCopy: () => void;
   onDelete: () => void;
 }
 
-function ScenarioRow({ scenario, expanded, onToggle, onSave, onDelete }: ScenarioRowProps) {
+function ScenarioRow({ scenario, expanded, onToggle, onSave, onCopy, onDelete }: ScenarioRowProps) {
   const spec = useSpecStore((s) => s.spec);
-  const apiKey = useSettingsStore((s) => s.googleApiKey);
   const declaredVars = useMemo(() => collectDeclaredVariables(spec), [spec]);
   const mockableCaps = useMemo(() => collectMockableCapabilities(spec), [spec]);
 
@@ -218,8 +228,6 @@ function ScenarioRow({ scenario, expanded, onToggle, onSave, onDelete }: Scenari
   const [mocks, setMocks] = useState<Record<string, ScenarioMockBehavior>>(
     scenario.mocks ?? {},
   );
-  const [regenerating, setRegenerating] = useState(false);
-  const [regenError, setRegenError] = useState<string | null>(null);
 
   useEffect(() => {
     if (expanded) {
@@ -227,7 +235,6 @@ function ScenarioRow({ scenario, expanded, onToggle, onSave, onDelete }: Scenari
       setNotes(scenario.notes ?? "");
       setVars(scenario.vars ?? {});
       setMocks(scenario.mocks ?? {});
-      setRegenError(null);
     }
   }, [expanded, scenario]);
 
@@ -252,28 +259,6 @@ function ScenarioRow({ scenario, expanded, onToggle, onSave, onDelete }: Scenari
     onSave(next);
   }
 
-  async function handleRegenerate() {
-    if (!spec || !apiKey) return;
-    if (!name.trim() && !notes.trim()) return;
-    setRegenerating(true);
-    setRegenError(null);
-    try {
-      const geminiModel = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
-      const { vars: nextVars, mocks: nextMocks } = await generateScenarioContent(
-        spec,
-        apiKey,
-        geminiModel,
-        { name: name.trim() || undefined, notes: notes.trim() || undefined },
-      );
-      setVars(nextVars);
-      setMocks(nextMocks);
-    } catch (e) {
-      setRegenError(e instanceof Error ? e.message : "Regenerate failed.");
-    } finally {
-      setRegenerating(false);
-    }
-  }
-
   return (
     <li>
       <button
@@ -294,11 +279,6 @@ function ScenarioRow({ scenario, expanded, onToggle, onSave, onDelete }: Scenari
 
       {expanded && (
         <div className="space-y-3 border-t border-zinc-100 bg-zinc-50/50 px-3 py-2 text-[11px]">
-          {regenError && (
-            <div className="rounded border border-red-200 bg-red-50 px-2 py-1 text-red-700">
-              {regenError}
-            </div>
-          )}
           <div>
             <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
               name
@@ -328,7 +308,6 @@ function ScenarioRow({ scenario, expanded, onToggle, onSave, onDelete }: Scenari
           <VarsEditor
             declared={declaredVars}
             values={vars}
-            disabled={regenerating}
             onChange={(name, value) => {
               const next = { ...vars };
               if (value === undefined || value === null || value === "") {
@@ -343,7 +322,6 @@ function ScenarioRow({ scenario, expanded, onToggle, onSave, onDelete }: Scenari
           <MocksEditor
             caps={mockableCaps}
             behaviors={mocks}
-            disabled={regenerating}
             keyOf={(cap) => cap.capabilityId}
             onChange={(k, behavior) => {
               const next = { ...mocks };
@@ -365,17 +343,14 @@ function ScenarioRow({ scenario, expanded, onToggle, onSave, onDelete }: Scenari
               Delete
             </button>
             <div className="flex items-center gap-1">
-              {apiKey && (name.trim() || notes.trim()) && (
-                <button
-                  type="button"
-                  onClick={handleRegenerate}
-                  disabled={regenerating}
-                  title="Regenerate vars + mocks from this row's name + notes (replaces them)."
-                  className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-                >
-                  {regenerating ? "Regenerating…" : "✨ Regenerate"}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={onCopy}
+                title="Duplicate this scenario as a new one — handy for variant authoring (e.g. tweak one mock)."
+                className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
+              >
+                Copy
+              </button>
               <button
                 type="button"
                 onClick={handleSave}

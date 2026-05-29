@@ -129,6 +129,7 @@ interface CaseEditorProps {
 function CaseEditor({ testCase, onBack }: CaseEditorProps) {
   const saveCase = useTestsStore((s) => s.saveCase);
   const deleteCase = useTestsStore((s) => s.deleteCase);
+  const uniqueCaseId = useTestsStore((s) => s.uniqueCaseId);
   const personas = useTestsStore((s) => s.personas);
   const rubrics = useTestsStore((s) => s.rubrics);
   const scenarios = useTestsStore((s) => s.scenarios);
@@ -266,6 +267,17 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
     const ok = window.confirm(`Delete case "${testCase.name || testCase.id}"?`);
     if (!ok) return;
     deleteCase(testCase.id);
+    onBack();
+  }
+
+  function handleCopy() {
+    const base = testCase.name ? `${testCase.name} copy` : `${testCase.id}-copy`;
+    const newId = uniqueCaseId(base);
+    saveCase({
+      ...testCase,
+      id: newId,
+      ...(testCase.name ? { name: `${testCase.name} copy` } : {}),
+    });
     onBack();
   }
 
@@ -530,13 +542,21 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
           </Section>
         )}
 
-        <div className="pt-2 border-t border-zinc-200">
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-200">
           <button
             type="button"
             onClick={handleDelete}
             className="rounded border border-red-300 bg-white px-2 py-1 text-[11px] text-red-700 hover:bg-red-50"
           >
             Delete case
+          </button>
+          <button
+            type="button"
+            onClick={handleCopy}
+            title="Duplicate this case as a new one — handy for variant authoring (same scenario, different assertions)."
+            className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
+          >
+            Copy case
           </button>
         </div>
       </div>
