@@ -37,6 +37,10 @@ export function VariablesForm({ spec, disabled }: VariablesFormProps) {
   // Tracks which saved vars file the buffer was loaded from (or saved
   // as). Cleared when the user clears or generates fresh values.
   const [loadedVarsName, setLoadedVarsName] = useState<string | null>(null);
+  // Inline "save as" input: null = not naming; string = the in-progress
+  // name. Replaces the modal window.prompt with an in-place text input
+  // matching the MocksPanel + New pattern.
+  const [savingAsName, setSavingAsName] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
@@ -72,13 +76,20 @@ export function VariablesForm({ spec, disabled }: VariablesFormProps) {
     setOpen(true);
   }
 
-  function onSaveVarsAs() {
+  function onStartSaveAs() {
     if (filledCount === 0) return;
-    const defaultName = uniqueVarsFileName(loadedVarsName ?? "vars");
-    const name = window.prompt("Save vars as:", defaultName)?.trim() ?? "";
+    setSavingAsName(uniqueVarsFileName(loadedVarsName ?? "vars"));
+  }
+  function onConfirmSaveAs() {
+    if (savingAsName === null) return;
+    const name = savingAsName.trim();
     if (name === "") return;
     saveVarsFile(name, contextVars);
     setLoadedVarsName(name);
+    setSavingAsName(null);
+  }
+  function onCancelSaveAs() {
+    setSavingAsName(null);
   }
 
   function onSaveVars() {
@@ -167,15 +178,48 @@ export function VariablesForm({ spec, disabled }: VariablesFormProps) {
               save
             </button>
           )}
-          <button
-            type="button"
-            onClick={onSaveVarsAs}
-            disabled={disabled || generating || filledCount === 0}
-            title="Save current values to a new tests/vars.<name>.json file."
-            className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-          >
-            save as…
-          </button>
+          {savingAsName === null ? (
+            <button
+              type="button"
+              onClick={onStartSaveAs}
+              disabled={disabled || generating || filledCount === 0}
+              title="Save current values to a new tests/vars.<name>.json file."
+              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+            >
+              save as…
+            </button>
+          ) : (
+            <>
+              <input
+                type="text"
+                autoFocus
+                value={savingAsName}
+                onChange={(e) => setSavingAsName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") onConfirmSaveAs();
+                  else if (e.key === "Escape") onCancelSaveAs();
+                }}
+                placeholder="name"
+                className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] font-mono text-zinc-800"
+                style={{ width: "8rem" }}
+              />
+              <button
+                type="button"
+                onClick={onConfirmSaveAs}
+                disabled={savingAsName.trim() === ""}
+                className="rounded-md bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+              >
+                save
+              </button>
+              <button
+                type="button"
+                onClick={onCancelSaveAs}
+                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
+              >
+                cancel
+              </button>
+            </>
+          )}
           {loadedVarsName && (
             <button
               type="button"
