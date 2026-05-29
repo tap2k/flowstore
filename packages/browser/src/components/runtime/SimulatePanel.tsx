@@ -78,6 +78,11 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     ? allCases.find((c) => c.id === activeCaseId) ?? null
     : null;
   const [isRunning, setIsRunning] = useState(false);
+  // Set by the Stop button; the run loop checks before each `send()` and
+  // breaks. An in-flight LLM call still completes (we can't abort the
+  // network round-trip mid-stream); stop takes effect on the next turn
+  // boundary — same UX as the persona-driven autoRun loop.
+  const stopRequestedRef = useRef(false);
   const verdicts: CaseVerdicts = evaluateCaseAgainstTranscript(
     activeCase,
     transcript,
@@ -202,6 +207,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   async function runActiveCase() {
     if (!activeCase || isRunning) return;
     setIsRunning(true);
+    stopRequestedRef.current = false;
     try {
       if (hasSession) await reset();
       await startSession();
@@ -209,6 +215,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       if (useSimulateStore.getState().status === "error") return;
       if (activeCase.user_turns && activeCase.user_turns.length > 0) {
         for (const turn of activeCase.user_turns) {
+          if (stopRequestedRef.current) break;
           const s = useSimulateStore.getState().status;
           if (s === "ended" || s === "error") break;
           await send(turn);
@@ -222,7 +229,17 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       }
     } finally {
       setIsRunning(false);
+      stopRequestedRef.current = false;
     }
+  }
+
+  function stopActiveCase() {
+    if (!isRunning) return;
+    stopRequestedRef.current = true;
+    // Persona-driven cases run via the existing autoRun loop; the
+    // canonical way to halt that loop is setAutoRun(false). For
+    // scripted cases the flag above handles it.
+    useSimulateStore.getState().setAutoRun(false);
   }
 
   function onCaptureCase() {
@@ -468,6 +485,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           busy={busy}
           verdicts={verdicts}
           onRun={() => void runActiveCase()}
+          onStop={stopActiveCase}
           onUnload={() => setActiveCaseId(null)}
         />
       )}
@@ -707,6 +725,7 @@ function ActiveCaseStrip({
   busy,
   verdicts,
   onRun,
+  onStop,
   onUnload,
 }: {
   testCase: TestCase;
@@ -715,6 +734,7 @@ function ActiveCaseStrip({
   busy: boolean;
   verdicts: CaseVerdicts;
   onRun: () => void;
+  onStop: () => void;
   onUnload: () => void;
 }) {
   const totalAssertions =
@@ -746,22 +766,32 @@ function ActiveCaseStrip({
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={onRun}
-            disabled={isRunning || busy}
-            aria-label={hasSession ? "Re-run case" : "Run case"}
-            className="rounded bg-zinc-900 px-2 py-1 text-[12px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
-            title={
-              isRunning
-                ? "Running…"
-                : hasSession
+          {isRunning ? (
+            <button
+              type="button"
+              onClick={onStop}
+              aria-label="Stop case"
+              className="rounded border border-red-300 bg-red-50 px-2 py-1 text-[12px] font-medium text-red-700 hover:bg-red-100"
+              title="Stop. Any in-flight LLM call still completes; the loop halts on the next turn."
+            >
+              ■
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onRun}
+              disabled={busy}
+              aria-label={hasSession ? "Re-run case" : "Run case"}
+              className="rounded bg-zinc-900 px-2 py-1 text-[12px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+              title={
+                hasSession
                   ? "Re-run case against the current spec."
                   : "Run case against the current spec."
-            }
-          >
-            {isRunning ? "…" : hasSession ? "↻" : "▶"}
-          </button>
+              }
+            >
+              {hasSession ? "↻" : "▶"}
+            </button>
+          )}
           <button
             type="button"
             onClick={onUnload}
