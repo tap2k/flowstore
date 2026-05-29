@@ -221,6 +221,9 @@ interface ScenarioRowProps {
 
 function ScenarioRow({ scenario, expanded, onToggle, onSave, onCopy, onDelete }: ScenarioRowProps) {
   const spec = useSpecStore((s) => s.spec);
+  const defaultModel = useSettingsStore((s) => s.defaultModel);
+  const dispatch = resolveDispatch(defaultModel);
+  const apiKey = dispatch.apiKey;
   const declaredVars = useMemo(() => collectDeclaredVariables(spec), [spec]);
   const mockableCaps = useMemo(() => collectMockableCapabilities(spec), [spec]);
 
@@ -230,6 +233,8 @@ function ScenarioRow({ scenario, expanded, onToggle, onSave, onCopy, onDelete }:
   const [mocks, setMocks] = useState<Record<string, ScenarioMockBehavior>>(
     scenario.mocks ?? {},
   );
+  const [regenerating, setRegenerating] = useState(false);
+  const [regenError, setRegenError] = useState<string | null>(null);
 
   useEffect(() => {
     if (expanded) {
@@ -237,6 +242,7 @@ function ScenarioRow({ scenario, expanded, onToggle, onSave, onCopy, onDelete }:
       setNotes(scenario.notes ?? "");
       setVars(scenario.vars ?? {});
       setMocks(scenario.mocks ?? {});
+      setRegenError(null);
     }
   }, [expanded, scenario]);
 
@@ -261,6 +267,28 @@ function ScenarioRow({ scenario, expanded, onToggle, onSave, onCopy, onDelete }:
     onSave(next);
   }
 
+  async function handleRegenerate() {
+    if (!spec || !apiKey || !dispatch.provider) return;
+    if (!name.trim() && !notes.trim()) return;
+    setRegenerating(true);
+    setRegenError(null);
+    try {
+      const { vars: nextVars, mocks: nextMocks } = await generateScenarioContent(
+        spec,
+        dispatch.provider,
+        apiKey,
+        dispatch.wireModel,
+        { name: name.trim() || undefined, notes: notes.trim() || undefined },
+      );
+      setVars(nextVars);
+      setMocks(nextMocks);
+    } catch (e) {
+      setRegenError(e instanceof Error ? e.message : "Regenerate failed.");
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
   return (
     <li>
       <button
@@ -281,6 +309,11 @@ function ScenarioRow({ scenario, expanded, onToggle, onSave, onCopy, onDelete }:
 
       {expanded && (
         <div className="space-y-3 border-t border-zinc-100 bg-zinc-50/50 px-3 py-2 text-[11px]">
+          {regenError && (
+            <div className="rounded border border-red-200 bg-red-50 px-2 py-1 text-red-700">
+              {regenError}
+            </div>
+          )}
           <div>
             <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
               name
@@ -345,6 +378,17 @@ function ScenarioRow({ scenario, expanded, onToggle, onSave, onCopy, onDelete }:
               Delete
             </button>
             <div className="flex items-center gap-1">
+              {apiKey && (name.trim() || notes.trim()) && (
+                <button
+                  type="button"
+                  onClick={handleRegenerate}
+                  disabled={regenerating}
+                  title="Regenerate vars + mocks from this row's name + notes (replaces them; save to persist)."
+                  className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+                >
+                  {regenerating ? "Regenerating…" : "✨ Regenerate"}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onCopy}
