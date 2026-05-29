@@ -13,8 +13,17 @@ import { useSpecStore } from "@/lib/store/spec";
 import {
   clearSavedSpec,
   loadSavedSpec,
+  loadSavedSimulateAuth,
+  loadSavedTests,
+  loadSavedUi,
+  startSimulateAuthPersistence,
   startSpecPersistence,
+  startTestsPersistence,
+  startUiPersistence,
 } from "@/lib/store/persistence";
+import { useTestsStore } from "@/lib/store/tests";
+import { useSimulateStore } from "@/lib/store/simulate";
+import { useUiStore } from "@/lib/store/ui";
 import { loadSavedSettings, useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
 import { startDirtyTracking, useDirtyStore } from "@/lib/store/dirty";
@@ -40,7 +49,18 @@ export function App() {
   const [saveRepoOpen, setSaveRepoOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
 
-  useEffect(() => startSpecPersistence(), []);
+  useEffect(() => {
+    const stop1 = startSpecPersistence();
+    const stop2 = startTestsPersistence();
+    const stop3 = startSimulateAuthPersistence();
+    const stop4 = startUiPersistence();
+    return () => {
+      stop1();
+      stop2();
+      stop3();
+      stop4();
+    };
+  }, []);
 
   useEffect(() => {
     loadSavedSettings();
@@ -49,6 +69,28 @@ export function App() {
       const result = validateSpec(saved);
       if (result.valid) setSpec(result.spec);
       else clearSavedSpec();
+    }
+    const savedTests = loadSavedTests();
+    if (savedTests) {
+      // Reuse setAll which expects the TestingArtifacts (flat) shape —
+      // we have the indexed `mocksByCapability` from localStorage. Cheap
+      // to flatten and round-trip; setAll re-indexes.
+      const capabilityMocks = Object.values(savedTests.mocksByCapability).flat();
+      useTestsStore.getState().setAll({
+        testCases: savedTests.cases,
+        personas: savedTests.personas,
+        capabilityMocks,
+        rubrics: savedTests.rubrics,
+        golds: savedTests.golds,
+      });
+    }
+    const savedSimAuth = loadSavedSimulateAuth();
+    if (savedSimAuth?.activeCaseId) {
+      useSimulateStore.getState().setActiveCaseId(savedSimAuth.activeCaseId);
+    }
+    const savedUi = loadSavedUi();
+    if (savedUi) {
+      useUiStore.getState().setOpenSimulateTab(savedUi.openSimulateTab);
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setHydrating(false);
