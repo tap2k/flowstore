@@ -12,6 +12,11 @@ export const PersonaSchema = Type.Object(
     name: Type.Optional(Type.String()),
     notes: Type.Optional(Type.String()),
     model: Type.Optional(Type.String()),
+    // Simulate-tab convenience: loading this persona offers to hydrate the
+    // matching scenario (vars + mocks) so exploration starts in a coherent
+    // world. NOT used by test cases — cases bind their own scenario_id for
+    // reproducibility.
+    default_scenario_id: Type.Optional(Type.String()),
   },
   { additionalProperties: false },
 );

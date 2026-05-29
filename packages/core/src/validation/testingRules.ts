@@ -5,7 +5,7 @@ export type TestingIssueLocation =
   | { kind: "test_case"; id: string }
   | { kind: "persona"; id: string }
   | { kind: "rubric"; id: string }
-  | { kind: "mock"; capabilityId: string; variant: string };
+  | { kind: "scenario"; id: string };
 
 export interface TestingIssue {
   at: TestingIssueLocation;
@@ -13,12 +13,11 @@ export interface TestingIssue {
 }
 
 // Cross-file checks across testing artifacts and the spec:
-//   - mock.capability_id refers to a known capability
+//   - scenario.mocks keys refer to known capabilities
+//   - persona.default_scenario_id refers to an existing scenario
 //   - test_case.persona_id refers to a known persona
-//   - test_case.mock_bindings.<capability_id> refers to an existing mock variant
+//   - test_case.scenario_id refers to a known scenario
 //   - test_case.capability_assertions[].capability refers to a known capability
-//   - test_case.evaluators[] — name resolution requires Python eval-file
-//     enumeration we don't have here; skip in v0
 //   - duplicate ids within each collection
 export function validateTesting(
   spec: Spec | null,
@@ -37,6 +36,32 @@ export function validateTesting(
     }
   }
 
+  const scenarioIds = new Set<string>();
+  for (const s of artifacts.scenarios) {
+    if (scenarioIds.has(s.id)) {
+      issues.push({ at: { kind: "scenario", id: s.id }, message: "Duplicate scenario id" });
+    } else {
+      scenarioIds.add(s.id);
+    }
+    for (const capId of Object.keys(s.mocks ?? {})) {
+      if (spec && !capabilityIds.has(capId)) {
+        issues.push({
+          at: { kind: "scenario", id: s.id },
+          message: `mocks key "${capId}" is not in agent.capabilities`,
+        });
+      }
+    }
+  }
+
+  for (const p of artifacts.personas) {
+    if (p.default_scenario_id && !scenarioIds.has(p.default_scenario_id)) {
+      issues.push({
+        at: { kind: "persona", id: p.id },
+        message: `default_scenario_id "${p.default_scenario_id}" not in tests/scenarios/`,
+      });
+    }
+  }
+
   const testIds = new Set<string>();
   const rubricIds = new Set<string>();
   for (const r of artifacts.rubrics) {
@@ -47,34 +72,12 @@ export function validateTesting(
     }
   }
 
-  // Index mocks by capability_id → set of variants for membership checks.
-  const mockIndex = new Map<string, Set<string>>();
-  for (const m of artifacts.capabilityMocks) {
-    if (spec && !capabilityIds.has(m.capability_id)) {
-      issues.push({
-        at: { kind: "mock", capabilityId: m.capability_id, variant: m.variant },
-        message: `capability_id "${m.capability_id}" not in agent.capabilities`,
-      });
-    }
-    const variants = mockIndex.get(m.capability_id) ?? new Set();
-    if (variants.has(m.variant)) {
-      issues.push({
-        at: { kind: "mock", capabilityId: m.capability_id, variant: m.variant },
-        message: `Duplicate mock variant "${m.variant}" for capability "${m.capability_id}"`,
-      });
-    }
-    variants.add(m.variant);
-    mockIndex.set(m.capability_id, variants);
-  }
-
   for (const t of artifacts.testCases) {
     if (testIds.has(t.id)) {
       issues.push({ at: { kind: "test_case", id: t.id }, message: "Duplicate test case id" });
     } else {
       testIds.add(t.id);
     }
-    // Shape discriminator: a case is either scripted (user_turns) or
-    // persona-driven (persona_id), never both, never neither.
     const hasTurns = Array.isArray(t.user_turns);
     const hasPersona = typeof t.persona_id === "string";
     if (!hasTurns && !hasPersona) {
@@ -101,21 +104,11 @@ export function validateTesting(
         message: `persona_id "${t.persona_id}" not in tests/personas/`,
       });
     }
-    for (const [capId, variant] of Object.entries(t.mock_bindings ?? {})) {
-      if (spec && !capabilityIds.has(capId)) {
-        issues.push({
-          at: { kind: "test_case", id: t.id },
-          message: `mock_bindings refers to unknown capability "${capId}"`,
-        });
-        continue;
-      }
-      const variants = mockIndex.get(capId);
-      if (!variants || !variants.has(variant)) {
-        issues.push({
-          at: { kind: "test_case", id: t.id },
-          message: `mock_bindings["${capId}"] = "${variant}" — no matching ${capId}.${variant}.mock.json`,
-        });
-      }
+    if (t.scenario_id && !scenarioIds.has(t.scenario_id)) {
+      issues.push({
+        at: { kind: "test_case", id: t.id },
+        message: `scenario_id "${t.scenario_id}" not in tests/scenarios/`,
+      });
     }
     for (const ca of t.capability_assertions ?? []) {
       if (spec && !capabilityIds.has(ca.capability)) {

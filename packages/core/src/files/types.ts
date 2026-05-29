@@ -2,7 +2,7 @@ import type { Spec } from "@flowstore/core/schema/v0";
 import type { ResolvedModelsConfig } from "./models";
 import type { TestCase } from "@flowstore/core/schema/files/testCase";
 import type { Persona } from "@flowstore/core/schema/files/persona";
-import type { CapabilityMock } from "@flowstore/core/schema/files/capabilityMock";
+import type { Scenario } from "@flowstore/core/schema/files/scenario";
 import type { Rubric } from "@flowstore/core/schema/files/rubric";
 import type { Gold } from "@flowstore/core/schema/files/gold";
 import type { Comment } from "@flowstore/core/schema/files/comment";
@@ -15,18 +15,15 @@ export interface LoadError {
 }
 
 // Sibling testing artifacts that live alongside the spec but are not part
-// of the runtime-compiled artifact. The editor's result viewer + Nikunj's
-// scripts both consume from here.
+// of the runtime-compiled artifact. Scenarios bundle vars + per-cap mock
+// behaviors as one "world" the agent runs in; cases bind to a scenario,
+// personas may default to one.
 export interface TestingArtifacts {
   testCases: TestCase[];
   personas: Persona[];
-  capabilityMocks: CapabilityMock[];
+  scenarios: Scenario[];
   rubrics: Rubric[];
   golds: Gold[];
-  // Free-form {variable_name: value} dicts saved as tests/vars.<name>.json.
-  // Keyed by name (the bit between "vars." and ".json"). No schema —
-  // values are coerced at the case-runtime layer per VariableDecl types.
-  varsFiles: Record<string, Record<string, unknown>>;
 }
 
 export interface LoadResult {

@@ -1,9 +1,5 @@
 import { Type, type Static } from "@sinclair/typebox";
 
-// Per-capability mock binding for a test run: which mock variant should fire
-// when the agent invokes capability X. Resolves to capabilities/<id>.<variant>.mock.json.
-const MockBindings = Type.Record(Type.String(), Type.String());
-
 // Lightweight per-turn substring assertion. `turn` is a 1-indexed pointer
 // into the agent-only subsequence of the resulting transcript (turn 1 = the
 // chatbot's opening when chatbot_initiates is true). Evaluation lives in
@@ -109,7 +105,10 @@ export const TestCaseSchema = Type.Object(
     name: Type.Optional(Type.String()),
     notes: Type.Optional(Type.String()),
     user_turns: Type.Optional(Type.Array(Type.String())),
-    mock_bindings: Type.Optional(MockBindings),
+    // The "world" the case runs in: vars + mock returns. Resolves to
+    // tests/scenarios/<scenario_id>.scenario.json. Optional — omit for
+    // trivial cases that don't need mock setup.
+    scenario_id: Type.Optional(Type.String()),
     evaluators: Type.Optional(Type.Array(Type.String())),
     assertions: Type.Optional(Type.Array(Assertion)),
     state_assertions: Type.Optional(Type.Array(StateAssertion)),
@@ -127,11 +126,6 @@ export const TestCaseSchema = Type.Object(
     // spec.meta.languages declares >1 language; the runner script fails loud
     // if absent rather than guessing the first declared language.
     language: Type.Optional(Type.String()),
-    // Path (project-relative) to a JSON file of {placeholder: value} to inject
-    // into the compiled prompt for this case. Makes the case self-describing —
-    // suite runners can pick up the right variable bundle without out-of-band
-    // mapping. CLI --vars-file still wins when explicitly passed.
-    vars_file: Type.Optional(Type.String()),
     // Free-form labels for suite filtering and grouping. Suite runners accept
     // a `--tag <name>` filter that includes only cases carrying that tag.
     // Colon-prefixed namespaces are the lightweight convention for richer

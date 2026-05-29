@@ -55,7 +55,7 @@ export function startSpecPersistence(debounceMs = 300): () => void {
 }
 
 // ----- Tests store -----
-// Persists cases / golds / personas / mocksByCapability / rubrics — the
+// Persists cases / golds / personas / scenarios / rubrics — the
 // file-backed authoring artifacts the editor manages. captureContext is
 // intentionally NOT persisted: the planning doc treats the reference
 // transcript as ephemeral session state.
@@ -64,9 +64,8 @@ interface PersistedTestsShape {
   cases: TestsState["cases"];
   golds: TestsState["golds"];
   personas: TestsState["personas"];
-  mocksByCapability: TestsState["mocksByCapability"];
+  scenarios: TestsState["scenarios"];
   rubrics: TestsState["rubrics"];
-  varsFiles: TestsState["varsFiles"];
 }
 
 export function loadSavedTests(): PersistedTestsShape | null {
@@ -80,8 +79,7 @@ export function loadSavedTests(): PersistedTestsShape | null {
       !Array.isArray(parsed.golds) ||
       !Array.isArray(parsed.personas) ||
       !Array.isArray(parsed.rubrics) ||
-      typeof parsed.mocksByCapability !== "object" ||
-      parsed.mocksByCapability === null
+      !Array.isArray(parsed.scenarios)
     ) {
       return null;
     }
@@ -89,12 +87,8 @@ export function loadSavedTests(): PersistedTestsShape | null {
       cases: parsed.cases,
       golds: parsed.golds,
       personas: parsed.personas,
-      mocksByCapability: parsed.mocksByCapability,
+      scenarios: parsed.scenarios,
       rubrics: parsed.rubrics,
-      varsFiles:
-        typeof parsed.varsFiles === "object" && parsed.varsFiles !== null
-          ? parsed.varsFiles
-          : {},
     };
   } catch {
     return null;
@@ -121,9 +115,8 @@ export function startTestsPersistence(debounceMs = 300): () => void {
           cases: state.cases,
           golds: state.golds,
           personas: state.personas,
-          mocksByCapability: state.mocksByCapability,
+          scenarios: state.scenarios,
           rubrics: state.rubrics,
-          varsFiles: state.varsFiles,
         };
         window.localStorage.setItem(TESTS_STORAGE_KEY, JSON.stringify(payload));
       } catch {
@@ -193,7 +186,7 @@ export function startSimulateAuthPersistence(debounceMs = 100): () => void {
 // was on (Simulate / Tests / Personas) across reloads.
 
 interface PersistedUi {
-  openSimulateTab: "simulate" | "tests" | "personas" | "golds" | "mocks";
+  openSimulateTab: "simulate" | "tests" | "personas" | "golds" | "scenarios";
 }
 
 export function loadSavedUi(): PersistedUi | null {
@@ -207,7 +200,7 @@ export function loadSavedUi(): PersistedUi | null {
       parsed.openSimulateTab !== "tests" &&
       parsed.openSimulateTab !== "personas" &&
       parsed.openSimulateTab !== "golds" &&
-      parsed.openSimulateTab !== "mocks"
+      parsed.openSimulateTab !== "scenarios"
     ) {
       return null;
     }

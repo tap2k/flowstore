@@ -8,7 +8,7 @@ export default defineConfig({
     "schema/v0": "src/schema/v0.ts",
     "schema/flowJunction": "src/schema/flowJunction.ts",
     "schema/files/index": "src/schema/files/index.ts",
-    "schema/files/capabilityMock": "src/schema/files/capabilityMock.ts",
+    "schema/files/scenario": "src/schema/files/scenario.ts",
     "schema/files/comment": "src/schema/files/comment.ts",
     "schema/files/glossary": "src/schema/files/glossary.ts",
     "schema/files/knowledgeTable": "src/schema/files/knowledgeTable.ts",

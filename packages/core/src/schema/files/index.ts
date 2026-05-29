@@ -10,7 +10,7 @@ export * from "./knowledgeTable";
 export * from "./testCase";
 export * from "./decisionTest";
 export * from "./persona";
-export * from "./capabilityMock";
+export * from "./scenario";
 export * from "./rubric";
 export * from "./gold";
 export * from "./result";
