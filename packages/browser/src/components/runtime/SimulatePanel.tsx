@@ -750,19 +750,27 @@ function ActiveCaseStrip({
             type="button"
             onClick={onRun}
             disabled={isRunning || busy}
-            className="rounded bg-zinc-900 px-2 py-1 text-[11px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
-            title="Run this case against the current spec."
+            aria-label={hasSession ? "Re-run case" : "Run case"}
+            className="rounded bg-zinc-900 px-2 py-1 text-[12px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+            title={
+              isRunning
+                ? "Running…"
+                : hasSession
+                  ? "Re-run case against the current spec."
+                  : "Run case against the current spec."
+            }
           >
-            {isRunning ? "Running…" : hasSession ? "↻ Re-run case" : "▶ Run case"}
+            {isRunning ? "…" : hasSession ? "↻" : "▶"}
           </button>
           <button
             type="button"
             onClick={onUnload}
             disabled={isRunning}
-            className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+            aria-label="Unload case"
+            className="rounded border border-zinc-300 bg-white px-2 py-1 text-[12px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
             title="Unload the active case binding (variables/persona/mocks stay loaded)."
           >
-            × Unload
+            ×
           </button>
         </div>
       </div>
