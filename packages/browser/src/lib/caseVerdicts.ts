@@ -130,7 +130,12 @@ export function evaluateCaseAgainstTranscript(
     }
     if (ta.kind === "regex") {
       try {
-        const re = new RegExp(ta.pattern ?? "");
+        // Case-insensitive by default (matches substring/count behavior
+        // in this file). JS regex doesn't support inline `(?i)` flag,
+        // so we bake `i` in here. Designers who genuinely want
+        // case-sensitive matching can build the pattern with explicit
+        // char classes like [Hh].
+        const re = new RegExp(ta.pattern ?? "", "i");
         const matches = re.test(agentJoined);
         const wantPresent = ta.must_appear !== false;
         if (wantPresent === matches) {

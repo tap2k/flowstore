@@ -691,7 +691,7 @@ function TranscriptAssertionList({
           {(a.kind === "substring" || a.kind === "regex" || a.kind === "count") && (
             <input
               type="text"
-              placeholder={a.kind === "regex" ? "regex" : "pattern"}
+              placeholder={a.kind === "regex" ? "regex (case-insensitive)" : "pattern"}
               value={a.pattern ?? ""}
               onChange={(e) => update(i, { pattern: e.target.value })}
               className="flex-1 min-w-0 rounded border border-zinc-300 px-2 py-0.5 text-[11px]"
