@@ -205,18 +205,18 @@ export function VariablesForm({ spec, disabled }: VariablesFormProps) {
               />
               <button
                 type="button"
+                onClick={onCancelSaveAs}
+                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
+              >
+                cancel
+              </button>
+              <button
+                type="button"
                 onClick={onConfirmSaveAs}
                 disabled={savingAsName.trim() === ""}
                 className="rounded-md bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
               >
                 save
-              </button>
-              <button
-                type="button"
-                onClick={onCancelSaveAs}
-                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
-              >
-                cancel
               </button>
             </>
           )}
