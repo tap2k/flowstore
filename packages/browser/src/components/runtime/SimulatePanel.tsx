@@ -116,6 +116,14 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const availableLanguages = spec?.agent.meta.languages ?? [];
   const language = useSimulateStore((s) => s.language);
   const setLanguage = useSimulateStore((s) => s.setLanguage);
+  const hasCapabilities = (spec?.agent.capabilities?.length ?? 0) > 0;
+  // If the active tab is "mocks" but the spec has no capabilities,
+  // bounce back to Simulate so we don't render dead UI.
+  useEffect(() => {
+    if (openSimulateTab === "mocks" && !hasCapabilities) {
+      setOpenSimulateTab("simulate");
+    }
+  }, [openSimulateTab, hasCapabilities, setOpenSimulateTab]);
 
   // Default is "all" (undefined) — emit every language bucket. Reset to "all"
   // when the active agent changes, or when the current selection is no longer
@@ -544,16 +552,18 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         <TabButton active={openSimulateTab === "golds"} onClick={() => setOpenSimulateTab("golds")}>
           Golds
         </TabButton>
-        <TabButton active={openSimulateTab === "mocks"} onClick={() => setOpenSimulateTab("mocks")}>
-          Mocks
-        </TabButton>
+        {hasCapabilities && (
+          <TabButton active={openSimulateTab === "mocks"} onClick={() => setOpenSimulateTab("mocks")}>
+            Mocks
+          </TabButton>
+        )}
       </div>
 
       {openSimulateTab === "personas" && <PersonasPanel />}
 
       {openSimulateTab === "golds" && <GoldsPanel />}
 
-      {openSimulateTab === "mocks" && <MocksPanel />}
+      {openSimulateTab === "mocks" && hasCapabilities && <MocksPanel />}
 
       {openSimulateTab === "tests" && <TestsPanel />}
 
