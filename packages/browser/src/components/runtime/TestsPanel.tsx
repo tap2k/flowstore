@@ -465,31 +465,47 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
                 const bound = mockBindings[cap.id];
                 const disabled = mocks.length === 0;
                 return (
-                  <li key={cap.id} className="flex items-center gap-2">
-                    <label className="flex items-center gap-1.5 flex-1 min-w-0">
-                      <input
-                        type="checkbox"
-                        checked={!!bound}
-                        disabled={disabled}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            const variant = mocks[0]?.variant ?? "default";
-                            setMockBindings({ ...mockBindings, [cap.id]: variant });
-                          } else {
-                            const next = { ...mockBindings };
-                            delete next[cap.id];
-                            setMockBindings(next);
-                          }
-                        }}
-                      />
-                      <span className="font-mono text-[11px] text-zinc-800 truncate">
-                        {cap.id}
-                      </span>
-                    </label>
+                  <li key={cap.id} className="flex items-center gap-1.5">
+                    <input
+                      type="checkbox"
+                      checked={!!bound}
+                      disabled={disabled}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          const variant = mocks[0]?.variant ?? "default";
+                          setMockBindings({ ...mockBindings, [cap.id]: variant });
+                        } else {
+                          const next = { ...mockBindings };
+                          delete next[cap.id];
+                          setMockBindings(next);
+                        }
+                      }}
+                    />
+                    <span className="flex-1 min-w-0 font-mono text-[11px] text-zinc-800 truncate">
+                      {cap.id}
+                    </span>
                     {disabled ? (
                       <span className="text-[10px] text-zinc-400 italic">no mocks</span>
+                    ) : bound ? (
+                      <select
+                        value={bound}
+                        onChange={(e) =>
+                          setMockBindings({ ...mockBindings, [cap.id]: e.target.value })
+                        }
+                        className="rounded border border-zinc-300 bg-white px-1 py-0.5 text-[10px] font-mono text-zinc-700"
+                        title="Pick which mock variant fires for this capability when the case runs."
+                      >
+                        {mocks.map((m) => (
+                          <option key={m.variant} value={m.variant}>
+                            {m.variant}
+                            {m.behavior.kind === "error" ? " (error)" : ""}
+                          </option>
+                        ))}
+                      </select>
                     ) : (
-                      bound && <span className="text-[10px] text-zinc-500">{bound}</span>
+                      <span className="text-[10px] text-zinc-400">
+                        {mocks.length} variant{mocks.length === 1 ? "" : "s"}
+                      </span>
                     )}
                   </li>
                 );
