@@ -185,7 +185,6 @@ function MockRow({
     return decls as Record<string, unknown>;
   }, [spec]);
 
-  const [description, setDescription] = useState(mock.description ?? "");
   const [kind, setKind] = useState<"static" | "error">(mock.behavior.kind);
   const [returns, setReturns] = useState<Record<string, unknown>>(
     mock.behavior.kind === "static" && typeof mock.behavior.returns === "object" && mock.behavior.returns !== null
@@ -198,7 +197,6 @@ function MockRow({
 
   useEffect(() => {
     if (expanded) {
-      setDescription(mock.description ?? "");
       setKind(mock.behavior.kind);
       setReturns(
         mock.behavior.kind === "static" && typeof mock.behavior.returns === "object" && mock.behavior.returns !== null
@@ -210,7 +208,6 @@ function MockRow({
   }, [expanded, mock]);
 
   const dirty =
-    description !== (mock.description ?? "") ||
     kind !== mock.behavior.kind ||
     (kind === "static" &&
       JSON.stringify(returns) !==
@@ -225,7 +222,6 @@ function MockRow({
       $schema: "flowstore://test/mock/v0",
       capability_id: mock.capability_id,
       variant: mock.variant,
-      ...(description.trim() ? { description: description.trim() } : {}),
       behavior:
         kind === "static"
           ? { kind: "static", returns }
@@ -244,10 +240,9 @@ function MockRow({
         <div className="min-w-0 flex-1">
           <div className="truncate font-mono text-[12px] text-zinc-900">
             {mock.capability_id}.{mock.variant}
-          </div>
-          <div className="truncate text-[10px] text-zinc-500">
-            {mock.behavior.kind}
-            {mock.description ? ` — ${mock.description}` : ""}
+            {mock.behavior.kind === "error" && (
+              <span className="ml-1.5 text-[10px] text-red-700">(error)</span>
+            )}
           </div>
         </div>
         <span className="ml-2 text-zinc-400">{expanded ? "▾" : "▸"}</span>
@@ -255,19 +250,6 @@ function MockRow({
 
       {expanded && (
         <div className="space-y-2 border-t border-zinc-100 bg-zinc-50/50 px-3 py-2">
-          <div>
-            <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
-              description
-            </label>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional one-line note"
-              className="w-full rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px]"
-            />
-          </div>
-
           <div>
             <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
               behavior

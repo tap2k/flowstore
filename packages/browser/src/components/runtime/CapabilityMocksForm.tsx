@@ -290,11 +290,7 @@ function CapabilityBlock({
             >
               <option value="">load saved…</option>
               {savedMocks.map((m) => (
-                <option
-                  key={m.variant}
-                  value={m.variant}
-                  title={m.description}
-                >
+                <option key={m.variant} value={m.variant}>
                   {m.variant}
                   {m.behavior.kind === "error" ? " (error)" : ""}
                 </option>

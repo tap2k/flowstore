@@ -28,7 +28,6 @@ export const CapabilityMockSchema = Type.Object(
     $schema: Type.Literal("flowstore://test/mock/v0"),
     capability_id: Type.String(),
     variant: Type.String(),
-    description: Type.Optional(Type.String()),
     behavior: Type.Union([StaticBehavior, ErrorBehavior]),
   },
   { additionalProperties: false },
