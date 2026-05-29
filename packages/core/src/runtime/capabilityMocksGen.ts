@@ -32,6 +32,7 @@ export async function generateCapabilityMocks(
   model: string,
   capabilities: MockableCapability[],
   contextVars: Record<string, unknown> = {},
+  scenarioContext?: { name?: string; notes?: string },
 ): Promise<Record<string, Record<string, unknown>>> {
   if (capabilities.length === 0) return {};
 
@@ -51,9 +52,20 @@ export async function generateCapabilityMocks(
     Object.entries(contextVars).filter(([, v]) => v !== undefined && v !== null && v !== ""),
   );
 
+  const scenarioPreamble = scenarioContext && (scenarioContext.name || scenarioContext.notes)
+    ? [
+        "Scenario you're generating returns FOR:",
+        scenarioContext.name ? `  Name: ${scenarioContext.name}` : null,
+        scenarioContext.notes ? `  Notes: ${scenarioContext.notes}` : null,
+        "Choose returns consistent with this scenario — e.g. if the scenario notes describe a failure path, surface that in the returns where it matters.",
+        "",
+      ].filter((s) => s !== null) as string[]
+    : [];
+
   const userPrompt = [
     ...agentContextPreamble(spec),
     "",
+    ...scenarioPreamble,
     Object.keys(filledVars).length > 0
       ? `Variables already set in scope (use these as anchors — outputs should be coherent with them; an output whose name matches one of these should default to the same value unless context suggests divergence):\n${JSON.stringify(filledVars, null, 2)}\n`
       : null,

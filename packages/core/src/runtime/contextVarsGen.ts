@@ -33,15 +33,27 @@ export async function generateContextVars(
   apiKey: string,
   model: string,
   declared: DeclaredVariable[],
+  scenarioContext?: { name?: string; notes?: string },
 ): Promise<Record<string, unknown>> {
   if (declared.length === 0) return {};
 
   const properties: Record<string, unknown> = {};
   for (const d of declared) properties[d.name] = propertySchemaFor(d.decl);
 
+  const scenarioPreamble = scenarioContext && (scenarioContext.name || scenarioContext.notes)
+    ? [
+        "Scenario you're generating values FOR:",
+        scenarioContext.name ? `  Name: ${scenarioContext.name}` : null,
+        scenarioContext.notes ? `  Notes: ${scenarioContext.notes}` : null,
+        "Choose values consistent with this scenario.",
+        "",
+      ].filter((s) => s !== null) as string[]
+    : [];
+
   const userPrompt = [
     ...agentContextPreamble(spec),
     "",
+    ...scenarioPreamble,
     `Declared variables:`,
     JSON.stringify(
       declared.map((d) => ({
