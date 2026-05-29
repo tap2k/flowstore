@@ -22,6 +22,9 @@ import { useTestsStore } from "@/lib/store/tests";
 import type { TestCase } from "@flowstore/core/schema/files/testCase";
 import type { Gold } from "@flowstore/core/schema/files/gold";
 import { evaluateCaseAgainstTranscript, type CaseVerdicts } from "@/lib/caseVerdicts";
+import { judgeRubric, type RubricVerdict } from "@flowstore/core/runtime/judgeRubric";
+import type { Rubric } from "@flowstore/core/schema/files/rubric";
+import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
 
 interface SimulatePanelProps {
   open: boolean;
@@ -72,6 +75,8 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const uniqueGoldId = useTestsStore((s) => s.uniqueGoldId);
   const setCaptureContext = useTestsStore((s) => s.setCaptureContext);
   const allCases = useTestsStore((s) => s.cases);
+  const allRubrics = useTestsStore((s) => s.rubrics);
+  const allGolds = useTestsStore((s) => s.golds);
   const activeCaseId = useSimulateStore((s) => s.activeCaseId);
   const setActiveCaseId = useSimulateStore((s) => s.setActiveCaseId);
   const activeCase = activeCaseId
@@ -83,6 +88,12 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   // network round-trip mid-stream); stop takes effect on the next turn
   // boundary — same UX as the persona-driven autoRun loop.
   const stopRequestedRef = useRef(false);
+  // Rubric verdicts for the current run, populated on completion by
+  // judgeRubric() — one entry per bound rubric. Cleared at the start of
+  // each run.
+  const [rubricVerdicts, setRubricVerdicts] = useState<
+    Record<string, RubricVerdict | "pending">
+  >({});
   const verdicts: CaseVerdicts = evaluateCaseAgainstTranscript(
     activeCase,
     transcript,
@@ -208,6 +219,12 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     if (!activeCase || isRunning) return;
     setIsRunning(true);
     stopRequestedRef.current = false;
+    // Mark all bound rubrics as pending so the summary block shows
+    // "judging…" while we wait on the judge LLM.
+    const boundIds = (activeCase.evaluators ?? []).filter((id) =>
+      allRubrics.some((r) => r.id === id),
+    );
+    setRubricVerdicts(Object.fromEntries(boundIds.map((id) => [id, "pending" as const])));
     try {
       if (hasSession) await reset();
       await startSession();
@@ -226,11 +243,55 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         // we just enable autoRun and let the existing autoStep machinery
         // play through.
         useSimulateStore.getState().setAutoRun(true);
+        // For persona-driven runs we can't await completion here — the
+        // loop is driven by an effect elsewhere. Skip rubric judging in
+        // that branch for now; it can be triggered separately when the
+        // autoRun finishes (follow-up).
+        return;
       }
     } finally {
       setIsRunning(false);
       stopRequestedRef.current = false;
     }
+
+    // Run completed (scripted path). Judge each bound rubric in parallel.
+    if (boundIds.length === 0) return;
+    if (!googleApiKey) {
+      // No judge LLM key — surface a clear error per rubric rather than
+      // silently skip.
+      setRubricVerdicts(
+        Object.fromEntries(
+          boundIds.map((id) => [
+            id,
+            {
+              score: null,
+              notes:
+                "judge skipped — no Google API key configured (rubric judging uses Gemini structured output)",
+            } satisfies RubricVerdict,
+          ]),
+        ),
+      );
+      return;
+    }
+    const goldRecord = activeCase.gold_id
+      ? allGolds.find((g) => g.id === activeCase.gold_id) ?? null
+      : null;
+    const finalTranscript = useSimulateStore.getState().transcript;
+    const judgeModel = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
+    await Promise.all(
+      boundIds.map(async (id) => {
+        const rubric = allRubrics.find((r) => r.id === id);
+        if (!rubric) return;
+        const verdict = await judgeRubric({
+          rubric,
+          transcript: finalTranscript.map((t) => ({ role: t.role, text: t.text })),
+          gold: goldRecord,
+          apiKey: googleApiKey,
+          model: judgeModel,
+        });
+        setRubricVerdicts((prev) => ({ ...prev, [id]: verdict }));
+      }),
+    );
   }
 
   function stopActiveCase() {
@@ -619,7 +680,12 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           <div className="text-xs text-zinc-500 italic">thinking…</div>
         )}
         {activeCase && hasSession && transcript.length > 0 && (
-          <CaseSummaryBlock testCase={activeCase} verdicts={verdicts} />
+          <CaseSummaryBlock
+            testCase={activeCase}
+            verdicts={verdicts}
+            rubrics={allRubrics}
+            rubricVerdicts={rubricVerdicts}
+          />
         )}
       </div>
 
@@ -811,17 +877,23 @@ function ActiveCaseStrip({
 function CaseSummaryBlock({
   testCase,
   verdicts,
+  rubrics,
+  rubricVerdicts,
 }: {
   testCase: TestCase;
   verdicts: CaseVerdicts;
+  rubrics: Rubric[];
+  rubricVerdicts: Record<string, RubricVerdict | "pending">;
 }) {
   // Per-turn verdicts already render inline under each agent turn in
-  // the transcript; don't duplicate here. This block only carries
-  // transcript-level assertions + evaluator (rubric) references — the
-  // results that aren't already visible somewhere.
+  // the transcript; don't duplicate here. This block carries
+  // transcript-level assertion verdicts + rubric scores once the
+  // judge LLM returns.
   const transcriptCount = testCase.transcript_assertions?.length ?? 0;
-  const evaluatorCount = testCase.evaluators?.length ?? 0;
-  if (transcriptCount === 0 && evaluatorCount === 0) return null;
+  const evaluatorIds = (testCase.evaluators ?? []).filter((id) =>
+    rubrics.some((r) => r.id === id),
+  );
+  if (transcriptCount === 0 && evaluatorIds.length === 0) return null;
 
   const status =
     verdicts.failed > 0 ? "FAIL" : verdicts.pending > 0 ? "RUNNING" : "PASS";
@@ -849,12 +921,33 @@ function CaseSummaryBlock({
           </div>
         );
       })}
-      {evaluatorCount > 0 && (
-        <div className="text-[10px] text-zinc-600">
-          ⓘ {evaluatorCount} rubric{evaluatorCount === 1 ? "" : "s"} —
-          runs out-of-band
-        </div>
-      )}
+      {evaluatorIds.map((id) => {
+        const rubric = rubrics.find((r) => r.id === id);
+        if (!rubric) return null;
+        const v = rubricVerdicts[id];
+        const pending = v === "pending" || v === undefined;
+        const errored = !pending && v.score === null;
+        const label = rubric.name || rubric.id;
+        return (
+          <div key={`ev-${id}`} className="text-[10px]">
+            {pending
+              ? "…"
+              : errored
+                ? "⚠"
+                : "•"}{" "}
+            {label}
+            {!pending && v.score !== null && (
+              <span className="font-mono">
+                {" · "}
+                {v.score}/{rubric.scale?.max ?? 5}
+              </span>
+            )}
+            {!pending && (
+              <span className="text-zinc-600"> — {v.notes}</span>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
