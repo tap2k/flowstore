@@ -236,7 +236,7 @@ function CapabilityBlock({
 
   return (
     <div className="rounded border border-zinc-200 bg-white">
-      <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-2 py-1.5">
+      <div className="border-b border-zinc-100 px-2 py-1.5 space-y-1">
         <div className="min-w-0">
           <div className="text-[11px] font-mono text-zinc-800 truncate">{cap.capabilityName}</div>
           {cap.description && (
@@ -245,7 +245,7 @@ function CapabilityBlock({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           {savedMocks.length > 0 && (
             <select
               value={loadedVariant ?? ""}
@@ -257,13 +257,16 @@ function CapabilityBlock({
               }}
               disabled={disabled}
               title="Hydrate this capability's mock returns from a saved file."
-              className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-50 disabled:opacity-40"
+              className="max-w-[7rem] truncate rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-50 disabled:opacity-40"
             >
               <option value="">load saved…</option>
               {savedMocks.map((m) => (
-                <option key={m.variant} value={m.variant}>
+                <option
+                  key={m.variant}
+                  value={m.variant}
+                  title={m.description}
+                >
                   {m.variant}
-                  {m.description ? ` — ${m.description}` : ""}
                 </option>
               ))}
             </select>
