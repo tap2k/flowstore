@@ -113,15 +113,41 @@ function GoldRow({ gold, expanded, onToggle, onSave, onDelete }: GoldRowProps) {
     });
   }
 
-  function updateTurn(i: number, next: Partial<Gold["turns"][number]>) {
-    setTurns(turns.map((t, idx) => (idx === i ? { ...t, ...next } : t)));
+  function updateTurnText(i: number, text: string) {
+    setTurns(turns.map((t, idx) => (idx === i ? { ...t, text } : t)));
   }
   function removeTurn(i: number) {
-    setTurns(turns.filter((_, idx) => idx !== i));
+    // Re-derive alternation from the kept first turn's role so the
+    // sequence stays purely agent ↔ user.
+    const kept = turns.filter((_, idx) => idx !== i);
+    const startRole = kept[0]?.role ?? "agent";
+    setTurns(
+      kept.map((t, idx) => ({
+        ...t,
+        role: idx % 2 === 0 ? startRole : startRole === "agent" ? "user" : "agent",
+      })),
+    );
   }
-  function addTurn(role: "agent" | "user") {
-    setTurns([...turns, { role, text: "" }]);
+  function addTurn() {
+    // Add the opposite role of the last turn. Empty list defaults to
+    // agent (matches the chatbot_initiates=true convention; the
+    // "Starts with" toggle below flips the whole sequence if wrong).
+    const lastRole = turns[turns.length - 1]?.role;
+    const nextRole: "agent" | "user" =
+      lastRole === "agent" ? "user" : lastRole === "user" ? "agent" : "agent";
+    setTurns([...turns, { role: nextRole, text: "" }]);
   }
+  function flipFirstSpeaker() {
+    // Flip every turn's role so the sequence still strictly alternates
+    // but with the opposite speaker leading.
+    setTurns(
+      turns.map((t) => ({
+        ...t,
+        role: t.role === "agent" ? "user" : "agent",
+      })),
+    );
+  }
+  const firstRole = turns[0]?.role ?? "agent";
 
   return (
     <li>
@@ -167,30 +193,35 @@ function GoldRow({ gold, expanded, onToggle, onSave, onDelete }: GoldRowProps) {
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
-              turns
-            </label>
+            <div className="flex items-baseline justify-between">
+              <label className="text-[10px] uppercase tracking-wide text-zinc-500">
+                turns
+              </label>
+              {turns.length > 0 && (
+                <button
+                  type="button"
+                  onClick={flipFirstSpeaker}
+                  title="Flip every turn's role so the sequence still alternates but with the opposite speaker first."
+                  className="text-[10px] text-zinc-500 hover:text-zinc-900 underline-offset-2 hover:underline"
+                >
+                  starts with: {firstRole}
+                </button>
+              )}
+            </div>
             <div className="space-y-1">
               {turns.length === 0 && (
                 <div className="text-[11px] text-zinc-500 italic">
-                  No turns. Add an agent or user turn below.
+                  No turns. Click + add turn to start.
                 </div>
               )}
               {turns.map((t, i) => (
                 <div key={i} className="flex items-start gap-1">
-                  <select
-                    value={t.role}
-                    onChange={(e) =>
-                      updateTurn(i, { role: e.target.value as "agent" | "user" })
-                    }
-                    className="mt-0.5 rounded border border-zinc-300 bg-white px-1 py-0.5 text-[10px] text-zinc-700"
-                  >
-                    <option value="agent">agent</option>
-                    <option value="user">user</option>
-                  </select>
+                  <span className="mt-1 w-10 shrink-0 text-right font-mono text-[10px] text-zinc-500">
+                    {t.role}
+                  </span>
                   <textarea
                     value={t.text}
-                    onChange={(e) => updateTurn(i, { text: e.target.value })}
+                    onChange={(e) => updateTurnText(i, e.target.value)}
                     rows={1}
                     className="flex-1 resize-y rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px]"
                   />
@@ -203,22 +234,13 @@ function GoldRow({ gold, expanded, onToggle, onSave, onDelete }: GoldRowProps) {
                   </button>
                 </div>
               ))}
-              <div className="flex items-center gap-1 pt-0.5">
-                <button
-                  type="button"
-                  onClick={() => addTurn("agent")}
-                  className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
-                >
-                  + agent turn
-                </button>
-                <button
-                  type="button"
-                  onClick={() => addTurn("user")}
-                  className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
-                >
-                  + user turn
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={addTurn}
+                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
+              >
+                + add turn
+              </button>
             </div>
           </div>
 
