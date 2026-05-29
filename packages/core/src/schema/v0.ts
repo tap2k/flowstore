@@ -99,7 +99,7 @@ const TableEntrySchema = Type.Object(
   {
     id: Type.String(),
     name: Type.String(),
-    purpose: Type.Optional(Type.String()),
+    notes: Type.Optional(Type.String()),
     structure: Type.Array(TableFieldSchema),
     rows: Type.Array(Type.Record(Type.String(), Type.Unknown())),
     scaling_rule: Type.Optional(Type.String()),

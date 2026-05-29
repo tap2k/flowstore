@@ -62,7 +62,7 @@ export const DecisionTestSchema = Type.Object(
     $schema: Type.Literal("flowstore://test/decision-test/v0"),
     id: Type.String(),
     name: Type.Optional(Type.String()),
-    description: Type.Optional(Type.String()),
+    notes: Type.Optional(Type.String()),
     prefix_turns: Type.Array(Type.String()),
     branches: Type.Array(DecisionBranch),
     mock_bindings: Type.Optional(MockBindings),

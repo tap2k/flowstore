@@ -38,6 +38,9 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
   // Inline save-as: { [capability_id]: in-progress-name }. Replaces a
   // window.prompt with the same pattern VariablesForm uses.
   const [savingAsByCap, setSavingAsByCap] = useState<Record<string, string>>({});
+  // Per-cap expand state. Collapsed by default — matches the persona/mock
+  // library row pattern. Auto-expands when a saved variant is loaded.
+  const [expandedCapIds, setExpandedCapIds] = useState<Record<string, boolean>>({});
   // ✨ Generate uses Gemini structured output (responseSchema) — Google-only.
   // Force a Gemini model regardless of the chatModel picker.
   const apiKey = useSettingsStore((s) => s.googleApiKey);
@@ -123,6 +126,13 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
               savedMocks={savedForCap}
               loadedVariant={loadedVariant}
               savingAsName={savingAsName}
+              expanded={!!expandedCapIds[cap.capabilityId]}
+              onToggleExpand={() =>
+                setExpandedCapIds({
+                  ...expandedCapIds,
+                  [cap.capabilityId]: !expandedCapIds[cap.capabilityId],
+                })
+              }
               disabled={disabled || generating}
               onChange={(outName, v) => {
                 setMockOutput(cap.capabilityName, outName, v);
@@ -145,6 +155,10 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
                 setLoadedVariantByCap({
                   ...loadedVariantByCap,
                   [cap.capabilityId]: mock.variant,
+                });
+                setExpandedCapIds({
+                  ...expandedCapIds,
+                  [cap.capabilityId]: true,
                 });
               }}
               onSave={() => {
@@ -222,6 +236,8 @@ interface CapabilityBlockProps {
   savedMocks: CapabilityMock[];
   loadedVariant: string | null;
   savingAsName: string | null;
+  expanded: boolean;
+  onToggleExpand: () => void;
   disabled: boolean;
   onChange: (outputName: string, value: unknown) => void;
   onChangeError: (error: string) => void;
@@ -241,6 +257,8 @@ function CapabilityBlock({
   savedMocks,
   loadedVariant,
   savingAsName,
+  expanded,
+  onToggleExpand,
   disabled,
   onChange,
   onChangeError,
@@ -254,27 +272,27 @@ function CapabilityBlock({
 }: CapabilityBlockProps) {
   const filledHere = Object.keys(values).filter((k) => values[k] !== undefined).length;
   const inErrorMode = error !== null;
+  const subtitle = inErrorMode
+    ? "error"
+    : cap.outputs.length === 0
+      ? "side-effect"
+      : `${filledHere}/${cap.outputs.length} filled`;
 
   return (
     <div className="rounded border border-zinc-200 bg-white">
-      <div className="border-b border-zinc-100 px-2 py-1.5 space-y-1">
-        <div className="text-[11px] font-mono text-zinc-800 truncate">
-          {cap.capabilityName}
-        </div>
-        <div className="flex flex-wrap items-center gap-1">
-          <select
-            value={inErrorMode ? "error" : "static"}
-            onChange={(e) => {
-              if (e.target.value === "error") onChangeError("error string");
-              else onChangeError("");
-            }}
-            disabled={disabled}
-            title="static: capability returns the values below. error: capability throws the error string."
-            className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-600"
+      <div className="border-b border-zinc-100 px-2 py-1.5">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onToggleExpand}
+            className="flex min-w-0 flex-1 flex-col items-start text-left hover:bg-zinc-50 -mx-2 -my-1.5 px-2 py-1.5"
+            title="Click to expand/collapse this capability's mock editor."
           >
-            <option value="static">static</option>
-            <option value="error">error</option>
-          </select>
+            <span className="truncate font-mono text-[11px] text-zinc-800 max-w-full">
+              {cap.capabilityName}
+            </span>
+            <span className="font-mono text-[10px] text-zinc-500">{subtitle}</span>
+          </button>
           {savedMocks.length > 0 && (
             <select
               value={loadedVariant ?? ""}
@@ -309,7 +327,7 @@ function CapabilityBlock({
             </button>
           )}
           {savingAsName === null ? (
-            filledHere > 0 && (
+            (filledHere > 0 || inErrorMode) && (
               <button
                 type="button"
                 onClick={onStartSaveAs}
@@ -363,30 +381,53 @@ function CapabilityBlock({
               delete
             </button>
           )}
+          <button
+            type="button"
+            onClick={onToggleExpand}
+            className="ml-1 text-zinc-400 hover:text-zinc-900"
+            title={expanded ? "Collapse" : "Expand"}
+          >
+            {expanded ? "▾" : "▸"}
+          </button>
         </div>
       </div>
-      <div className="space-y-2 px-2 py-2">
-        {inErrorMode ? (
-          <input
-            type="text"
-            value={error ?? ""}
-            onChange={(e) => onChangeError(e.target.value)}
+      {expanded && (
+        <div className="space-y-2 px-2 py-2">
+          <select
+            value={inErrorMode ? "error" : "static"}
+            onChange={(e) => {
+              if (e.target.value === "error") onChangeError("error string");
+              else onChangeError("");
+            }}
             disabled={disabled}
-            placeholder="Error message the LLM will see as the tool result"
-            className="w-full rounded border border-red-300 bg-red-50 px-2 py-1 text-[11px] text-red-900 focus:outline-none focus:ring-1 focus:ring-red-400"
-          />
-        ) : (
-          cap.outputs.map((out) => (
-            <OutputRow
-              key={out.name}
-              output={out}
-              value={values[out.name]}
+            title="static: capability returns the values below. error: capability throws the error string."
+            className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-600"
+          >
+            <option value="static">static</option>
+            <option value="error">error</option>
+          </select>
+          {inErrorMode ? (
+            <input
+              type="text"
+              value={error ?? ""}
+              onChange={(e) => onChangeError(e.target.value)}
               disabled={disabled}
-              onChange={(v) => onChange(out.name, v)}
+              placeholder="Error message the LLM will see as the tool result"
+              className="w-full rounded border border-red-300 bg-red-50 px-2 py-1 text-[11px] text-red-900 focus:outline-none focus:ring-1 focus:ring-red-400"
             />
-          ))
-        )}
-      </div>
+          ) : (
+            cap.outputs.map((out) => (
+              <OutputRow
+                key={out.name}
+                output={out}
+                value={values[out.name]}
+                disabled={disabled}
+                onChange={(v) => onChange(out.name, v)}
+              />
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }

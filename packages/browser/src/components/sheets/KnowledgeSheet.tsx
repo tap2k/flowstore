@@ -193,12 +193,12 @@ function TableEditor({
           ×
         </button>
       </div>
-      <Field label="Purpose">
+      <Field label="Notes">
         <textarea
           className={`${inputClass} resize-y min-h-[40px]`}
-          value={table.purpose ?? ""}
+          value={table.notes ?? ""}
           onChange={(e) =>
-            onChange({ ...table, purpose: e.target.value || undefined })
+            onChange({ ...table, notes: e.target.value || undefined })
           }
           placeholder="(optional) what this table is for"
         />

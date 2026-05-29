@@ -1,5 +1,6 @@
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useSpecStore } from "@/lib/store/spec";
+import { useTestsStore } from "@/lib/store/tests";
 import { hasKeyForModel, useSettingsStore } from "@/lib/store/settings";
 import { generatePersonaPrompt } from "@flowstore/core/runtime/personaGen";
 import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
@@ -20,6 +21,10 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
   const setAutoRun = useSimulateStore((s) => s.setAutoRun);
   const setPersonaTurnLimit = useSimulateStore((s) => s.setPersonaTurnLimit);
   const spec = useSpecStore((s) => s.spec);
+  const personas = useTestsStore((s) => s.personas);
+  const savePersona = useTestsStore((s) => s.savePersona);
+  const deletePersona = useTestsStore((s) => s.deletePersona);
+  const uniquePersonaId = useTestsStore((s) => s.uniquePersonaId);
   // ✨ Generate uses Gemini structured-output (responseSchema) directly,
   // which is Google-specific. It needs the Google key regardless of which
   // model the persona-runtime picker is set to. Multi-provider structured
@@ -34,8 +39,67 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
   const [open, setOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
+  // Tracks which saved persona the buffer was loaded from (or saved as).
+  // Stays set across edits; the save button updates the saved record.
+  const [loadedPersonaId, setLoadedPersonaId] = useState<string | null>(null);
+  const [savingAsName, setSavingAsName] = useState<string | null>(null);
 
   const configured = personaPrompt.trim().length > 0;
+  const loadedPersona = loadedPersonaId
+    ? personas.find((p) => p.id === loadedPersonaId) ?? null
+    : null;
+
+  function onLoadPersona(id: string) {
+    if (id === "") return;
+    const persona = personas.find((p) => p.id === id);
+    if (!persona) return;
+    if (configured) {
+      const ok = window.confirm(
+        `Replace the current persona prompt with "${persona.name || persona.id}"?`,
+      );
+      if (!ok) return;
+    }
+    setPersonaPrompt(persona.system_prompt);
+    setLoadedPersonaId(id);
+    setOpen(true);
+  }
+
+  function onSavePersona() {
+    if (!loadedPersona) return;
+    savePersona({ ...loadedPersona, system_prompt: personaPrompt });
+  }
+
+  function onStartSaveAs() {
+    if (!configured) return;
+    setSavingAsName(loadedPersona?.name ?? "persona");
+  }
+  function onConfirmSaveAs() {
+    if (savingAsName === null) return;
+    const name = savingAsName.trim();
+    if (name === "") return;
+    const id = uniquePersonaId(name);
+    savePersona({
+      $schema: "flowstore://test/persona/v0",
+      id,
+      name,
+      system_prompt: personaPrompt,
+    });
+    setLoadedPersonaId(id);
+    setSavingAsName(null);
+  }
+  function onCancelSaveAs() {
+    setSavingAsName(null);
+  }
+
+  function onDeletePersona() {
+    if (!loadedPersona) return;
+    const ok = window.confirm(
+      `Delete persona "${loadedPersona.name || loadedPersona.id}"?`,
+    );
+    if (!ok) return;
+    deletePersona(loadedPersona.id);
+    setLoadedPersonaId(null);
+  }
 
   async function onGenerate() {
     if (!googleKey || !spec) return;
@@ -127,6 +191,87 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
               {genError}
             </div>
           )}
+          <div className="flex items-center gap-1 text-[10px] text-zinc-600">
+            <select
+              value={loadedPersonaId ?? ""}
+              onChange={(e) => onLoadPersona(e.target.value)}
+              disabled={disabled || generating || personas.length === 0}
+              className="max-w-[8rem] truncate rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+            >
+              <option value="">
+                {personas.length === 0 ? "no saved personas" : "load saved…"}
+              </option>
+              {personas.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name || p.id}
+                </option>
+              ))}
+            </select>
+            {loadedPersona && (
+              <button
+                type="button"
+                onClick={onSavePersona}
+                disabled={disabled || generating}
+                title={`Update tests/personas/${loadedPersona.id}.persona.json with the current prompt.`}
+                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+              >
+                save
+              </button>
+            )}
+            {savingAsName === null ? (
+              <button
+                type="button"
+                onClick={onStartSaveAs}
+                disabled={disabled || generating || !configured}
+                title="Save current prompt as a new persona file."
+                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+              >
+                save as…
+              </button>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  autoFocus
+                  value={savingAsName}
+                  onChange={(e) => setSavingAsName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") onConfirmSaveAs();
+                    else if (e.key === "Escape") onCancelSaveAs();
+                  }}
+                  placeholder="name"
+                  className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] font-mono text-zinc-800"
+                  style={{ width: "8rem" }}
+                />
+                <button
+                  type="button"
+                  onClick={onCancelSaveAs}
+                  className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
+                >
+                  cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={onConfirmSaveAs}
+                  disabled={savingAsName.trim() === ""}
+                  className="rounded-md bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+                >
+                  save
+                </button>
+              </>
+            )}
+            {loadedPersona && (
+              <button
+                type="button"
+                onClick={onDeletePersona}
+                disabled={disabled || generating}
+                title={`Delete tests/personas/${loadedPersona.id}.persona.json.`}
+                className="rounded border border-red-300 bg-white px-2 py-0.5 text-[10px] text-red-700 hover:bg-red-50 disabled:opacity-40"
+              >
+                delete
+              </button>
+            )}
+          </div>
           <textarea
             value={personaPrompt}
             onChange={(e) => setPersonaPrompt(e.target.value)}

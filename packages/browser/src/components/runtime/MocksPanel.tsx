@@ -8,9 +8,11 @@ import { TypedValueInput } from "./TypedValueInput";
 // Matches the personas/golds pattern: list of mocks (each row labelled
 // <capability_id>.<variant>), click to expand an inline editor.
 // Static-behavior mocks render typed inputs per output declared on the
-// capability; error-behavior mocks just take the error string. + New
-// requires picking a capability + a variant name before the editor
-// opens.
+// capability; error-behavior mocks just take the error string.
+// Placeholder-first creation: + New immediately saves a mock for the
+// first capability + variant "happy" (static, empty returns) and opens
+// it. Abandoned placeholders are removed via Delete; they don't reach
+// GitHub until the next Save commits the project. Mirrors PersonasPanel.
 
 export function MocksPanel() {
   const mocksByCapability = useTestsStore((s) => s.mocksByCapability);
@@ -31,29 +33,18 @@ export function MocksPanel() {
 
   const capabilities = spec?.agent.capabilities ?? [];
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [newCapId, setNewCapId] = useState(capabilities[0]?.id ?? "");
-  const [newVariant, setNewVariant] = useState("happy");
 
   function startNew() {
     if (capabilities.length === 0) return;
     const initialCap = capabilities[0].id;
-    setNewCapId(initialCap);
-    setNewVariant(uniqueMockVariant(initialCap, "happy"));
-    setCreating(true);
-  }
-
-  function confirmNew() {
-    if (!newCapId) return;
-    const variant = newVariant.trim() || uniqueMockVariant(newCapId, "happy");
+    const variant = uniqueMockVariant(initialCap, "happy");
     saveCapabilityMock({
       $schema: "flowstore://test/mock/v0",
-      capability_id: newCapId,
+      capability_id: initialCap,
       variant,
       behavior: { kind: "static", returns: {} },
     });
-    setSelectedKey(`${newCapId}.${variant}`);
-    setCreating(false);
+    setSelectedKey(`${initialCap}.${variant}`);
   }
 
   return (
@@ -69,7 +60,7 @@ export function MocksPanel() {
           title={
             capabilities.length === 0
               ? "Spec has no capabilities declared."
-              : "Create a new capability mock (pick capability + variant)."
+              : "Create a placeholder mock for the first capability — rename/retarget by deleting and recreating."
           }
           className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
         >
@@ -78,55 +69,7 @@ export function MocksPanel() {
       </div>
 
       <div className="flex-1 overflow-auto">
-        {creating && (
-          <div className="space-y-2 border-b border-zinc-200 bg-amber-50/60 p-2 text-[11px]">
-            <div className="font-medium text-zinc-900">New mock</div>
-            <div className="flex items-center gap-1">
-              <label className="text-[10px] text-zinc-600">capability</label>
-              <select
-                value={newCapId}
-                onChange={(e) => {
-                  setNewCapId(e.target.value);
-                  setNewVariant(uniqueMockVariant(e.target.value, "happy"));
-                }}
-                className="flex-1 min-w-0 rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] font-mono"
-              >
-                {capabilities.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.id}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center gap-1">
-              <label className="text-[10px] text-zinc-600">variant</label>
-              <input
-                type="text"
-                value={newVariant}
-                onChange={(e) => setNewVariant(e.target.value)}
-                className="flex-1 rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] font-mono"
-              />
-            </div>
-            <div className="flex justify-end gap-1">
-              <button
-                type="button"
-                onClick={() => setCreating(false)}
-                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmNew}
-                className="rounded-md bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-zinc-700"
-              >
-                Create
-              </button>
-            </div>
-          </div>
-        )}
-
-        {allMocks.length === 0 && !creating ? (
+        {allMocks.length === 0 ? (
           <div className="px-3 py-6 text-center text-[11px] text-zinc-500">
             No mocks yet.{" "}
             {capabilities.length === 0
@@ -254,24 +197,14 @@ function MockRow({
             <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
               behavior
             </label>
-            <div className="flex gap-3">
-              <label className="flex items-center gap-1.5">
-                <input
-                  type="radio"
-                  checked={kind === "static"}
-                  onChange={() => setKind("static")}
-                />
-                <span className="text-[11px]">static (returns)</span>
-              </label>
-              <label className="flex items-center gap-1.5">
-                <input
-                  type="radio"
-                  checked={kind === "error"}
-                  onChange={() => setKind("error")}
-                />
-                <span className="text-[11px]">error</span>
-              </label>
-            </div>
+            <select
+              value={kind}
+              onChange={(e) => setKind(e.target.value as "static" | "error")}
+              className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px]"
+            >
+              <option value="static">static</option>
+              <option value="error">error</option>
+            </select>
           </div>
 
           {kind === "static" && (

@@ -17,7 +17,7 @@ export const KnowledgeTableMetaSchema = Type.Object(
     $schema: Type.Literal("flowstore://spec/knowledge-table/v0"),
     id: Type.String(),
     name: Type.String(),
-    purpose: Type.Optional(Type.String()),
+    notes: Type.Optional(Type.String()),
     structure: Type.Array(TableField),
     scaling_rule: Type.Optional(Type.String()),
   },

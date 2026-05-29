@@ -105,13 +105,11 @@ function CaseList({
                     <div className="truncate text-[12px] font-medium text-zinc-900">
                       {c.name || c.id}
                     </div>
-                    <div className="truncate text-[10px] text-zinc-500">
-                      {c.persona_id
-                        ? `persona-driven · ${c.persona_id}`
-                        : `${c.user_turns?.length ?? 0} scripted turns`}
+                    <div className="truncate font-mono text-[10px] text-zinc-500">
+                      {c.id} | {c.persona_id ? "persona" : "scripted"}
                     </div>
                   </div>
-                  <span className="ml-2 text-zinc-400">›</span>
+                  <span className="ml-2 text-zinc-400">▸</span>
                 </button>
               </li>
             ))}
@@ -134,6 +132,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
   const rubrics = useTestsStore((s) => s.rubrics);
   const mocksByCapability = useTestsStore((s) => s.mocksByCapability);
   const captureContext = useTestsStore((s) => s.captureContext);
+  const casesCount = useTestsStore((s) => s.cases.length);
   const spec = useSpecStore((s) => s.spec);
   const simulateMode = useSimulateStore((s) => s.mode);
   const setPersonaPrompt = useSimulateStore((s) => s.setPersonaPrompt);
@@ -169,7 +168,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
     testCase.capability_assertions ?? [],
   );
   const [evaluators, setEvaluators] = useState<string[]>(testCase.evaluators ?? []);
-  const [description, setDescription] = useState(testCase.description ?? "");
+  const [notes, setNotes] = useState(testCase.notes ?? "");
   const [goldId, setGoldId] = useState(testCase.gold_id ?? "");
   const [language, setLanguage] = useState(testCase.language ?? "");
   // vars_file is stored as a full project-relative path like
@@ -196,7 +195,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
     setStateAssertions(testCase.state_assertions ?? []);
     setCapabilityAssertions(testCase.capability_assertions ?? []);
     setEvaluators(testCase.evaluators ?? []);
-    setDescription(testCase.description ?? "");
+    setNotes(testCase.notes ?? "");
     setGoldId(testCase.gold_id ?? "");
     setLanguage(testCase.language ?? "");
     setVarsFileName(parseVarsFilePath(testCase.vars_file));
@@ -228,7 +227,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
     JSON.stringify(capabilityAssertions) !==
       JSON.stringify(testCase.capability_assertions ?? []) ||
     JSON.stringify(evaluators) !== JSON.stringify(testCase.evaluators ?? []) ||
-    description !== (testCase.description ?? "") ||
+    notes !== (testCase.notes ?? "") ||
     goldId !== (testCase.gold_id ?? "") ||
     language !== (testCase.language ?? "") ||
     varsFileName !== parseVarsFilePath(testCase.vars_file);
@@ -248,7 +247,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
             ...(testCase.max_turns !== undefined ? { max_turns: testCase.max_turns } : {}),
           }
         : {}),
-      ...(description.trim() ? { description: description.trim() } : {}),
+      ...(notes.trim() ? { notes: notes.trim() } : {}),
       ...(goldId ? { gold_id: goldId } : {}),
       ...(varsFileName ? { vars_file: `tests/vars.${varsFileName}.json` } : {}),
       ...(showLanguage && language ? { language } : {}),
@@ -325,13 +324,9 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex items-center justify-between gap-2 border-b border-zinc-200 px-3 py-1.5">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-[11px] text-zinc-600 hover:text-zinc-900"
-        >
-          ‹ all cases
-        </button>
+        <div className="text-[11px] text-zinc-500">
+          {casesCount} {casesCount === 1 ? "case" : "cases"}
+        </div>
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -353,16 +348,28 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
         </div>
       </div>
 
+      <button
+        type="button"
+        onClick={onBack}
+        title="Click to collapse back to the case list."
+        className="flex w-full items-center justify-between gap-2 border-b border-zinc-200 px-3 py-2 text-left hover:bg-zinc-50"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[12px] font-medium text-zinc-900">
+            {testCase.name || testCase.id}
+          </div>
+          <div className="truncate font-mono text-[10px] text-zinc-500">
+            {testCase.id} | {testCase.persona_id ? "persona" : "scripted"}
+          </div>
+        </div>
+        <span className="ml-2 text-zinc-400">▾</span>
+      </button>
+
       <div className="flex-1 overflow-auto px-3 py-3 space-y-5 text-[11px]">
         <div>
-          <div className="flex items-baseline justify-between">
-            <label className="text-[10px] uppercase tracking-wide text-zinc-500">
-              name
-            </label>
-            <span className="font-mono text-[10px] text-zinc-400" title="ID is the filename.">
-              id: {testCase.id}
-            </span>
-          </div>
+          <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+            name
+          </label>
           <input
             type="text"
             value={name}
@@ -374,11 +381,11 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
 
         <div>
           <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
-            description
+            notes
           </label>
           <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
             placeholder="What does this case test?"
             rows={2}
             className="w-full resize-y rounded border border-zinc-300 bg-white p-1.5 text-[11px] leading-snug text-zinc-800"
@@ -505,35 +512,28 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
                 const disabled = mocks.length === 0;
                 return (
                   <li key={cap.id} className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      checked={!!bound}
-                      disabled={disabled}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          const variant = mocks[0]?.variant ?? "default";
-                          setMockBindings({ ...mockBindings, [cap.id]: variant });
-                        } else {
-                          const next = { ...mockBindings };
-                          delete next[cap.id];
-                          setMockBindings(next);
-                        }
-                      }}
-                    />
                     <span className="flex-1 min-w-0 font-mono text-[11px] text-zinc-800 truncate">
                       {cap.id}
                     </span>
                     {disabled ? (
                       <span className="text-[10px] text-zinc-400 italic">no mocks</span>
-                    ) : bound ? (
+                    ) : (
                       <select
-                        value={bound}
-                        onChange={(e) =>
-                          setMockBindings({ ...mockBindings, [cap.id]: e.target.value })
-                        }
+                        value={bound ?? ""}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === "") {
+                            const next = { ...mockBindings };
+                            delete next[cap.id];
+                            setMockBindings(next);
+                          } else {
+                            setMockBindings({ ...mockBindings, [cap.id]: v });
+                          }
+                        }}
                         className="rounded border border-zinc-300 bg-white px-1 py-0.5 text-[10px] font-mono text-zinc-700"
-                        title="Pick which mock variant fires for this capability when the case runs."
+                        title="Pick which mock variant fires for this capability when the case runs. Leave blank to call the real capability."
                       >
+                        <option value="">—</option>
                         {mocks.map((m) => (
                           <option key={m.variant} value={m.variant}>
                             {m.variant}
@@ -541,10 +541,6 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
                           </option>
                         ))}
                       </select>
-                    ) : (
-                      <span className="text-[10px] text-zinc-400">
-                        {mocks.length} variant{mocks.length === 1 ? "" : "s"}
-                      </span>
                     )}
                   </li>
                 );

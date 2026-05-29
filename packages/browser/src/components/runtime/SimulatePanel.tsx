@@ -361,7 +361,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       $schema: "flowstore://test/gold/v0",
       id,
       name: defaultName,
-      scenario: defaultName,
       turns,
     };
     saveGold(gold);

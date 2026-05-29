@@ -24,7 +24,6 @@ export function GoldsPanel() {
       $schema: "flowstore://test/gold/v0",
       id,
       name: defaultName,
-      scenario: "",
       turns: [],
     });
     setSelectedId(id);
@@ -85,29 +84,29 @@ interface GoldRowProps {
 }
 
 function GoldRow({ gold, expanded, onToggle, onSave, onDelete }: GoldRowProps) {
-  const [name, setName] = useState(gold.name);
-  const [scenario, setScenario] = useState(gold.scenario);
+  const [name, setName] = useState(gold.name ?? "");
+  const [notes, setNotes] = useState(gold.notes ?? "");
   const [turns, setTurns] = useState(gold.turns);
 
   useEffect(() => {
     if (expanded) {
-      setName(gold.name);
-      setScenario(gold.scenario);
+      setName(gold.name ?? "");
+      setNotes(gold.notes ?? "");
       setTurns(gold.turns);
     }
   }, [expanded, gold]);
 
   const dirty =
-    name !== gold.name ||
-    scenario !== gold.scenario ||
+    name !== (gold.name ?? "") ||
+    notes !== (gold.notes ?? "") ||
     JSON.stringify(turns) !== JSON.stringify(gold.turns);
 
   function handleSave() {
     onSave({
       $schema: "flowstore://test/gold/v0",
       id: gold.id,
-      name,
-      scenario,
+      ...(name.trim() ? { name: name.trim() } : {}),
+      ...(notes.trim() ? { notes: notes.trim() } : {}),
       turns,
       ...(gold.source_pointer !== undefined ? { source_pointer: gold.source_pointer } : {}),
     });
@@ -181,11 +180,11 @@ function GoldRow({ gold, expanded, onToggle, onSave, onDelete }: GoldRowProps) {
 
           <div>
             <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
-              scenario
+              notes
             </label>
             <textarea
-              value={scenario}
-              onChange={(e) => setScenario(e.target.value)}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
               rows={2}
               placeholder="One-line description of what happens."
               className="w-full resize-y rounded border border-zinc-300 bg-white p-1.5 text-[11px] leading-snug"

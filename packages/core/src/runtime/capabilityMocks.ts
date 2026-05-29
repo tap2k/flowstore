@@ -87,7 +87,6 @@ export function collectMockableCapabilities(spec: Spec | null): MockableCapabili
       name,
       decl: lookupDecl(spec, name),
     }));
-    if (outputs.length === 0) continue;
     out.push({
       capabilityName: cap.name,
       capabilityId: cap.id,

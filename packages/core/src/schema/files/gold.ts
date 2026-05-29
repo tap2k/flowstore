@@ -24,8 +24,8 @@ export const GoldSchema = Type.Object(
   {
     $schema: Type.Literal("flowstore://test/gold/v0"),
     id: Type.String(),
-    name: Type.String(),
-    scenario: Type.String(),
+    name: Type.Optional(Type.String()),
+    notes: Type.Optional(Type.String()),
     turns: Type.Array(GoldTurnSchema),
     source_pointer: Type.Optional(Type.String()),
   },
