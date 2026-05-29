@@ -355,9 +355,7 @@ const updateAgentTool: Tool = {
   },
   impl: (args) => {
     const { patch } = args as { patch: Partial<Agent> };
-    const s = store();
-    if (!s.spec) return { ok: false, error: "no spec loaded" };
-    s.updateAgent(patch);
+    store().updateAgent(patch);
     return { ok: true };
   },
 };

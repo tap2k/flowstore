@@ -83,7 +83,13 @@ export const useSpecStore = create<SpecState>((set) => ({
     }),
   updateAgent: (patch) =>
     set((state) => {
-      if (!state.spec) return {};
+      // Matches addFlow's auto-bootstrap: the chat tool calls updateAgent on
+      // an empty spec to set meta first, then creates the entry flow and
+      // links entry_flow_id. entry_flow_id stays "" until the LLM links it
+      // (validator will flag it; the chat loop surfaces that to the LLM).
+      if (!state.spec) {
+        return { spec: { agent: mergePatch(blankAgent(""), patch), flows: [] } };
+      }
       return { spec: { ...state.spec, agent: mergePatch(state.spec.agent, patch) } };
     }),
   updateExitPath: (flowId, exitPathId, patch) =>
