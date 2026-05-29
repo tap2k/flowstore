@@ -536,27 +536,31 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         <TabButton active={openSimulateTab === "simulate"} onClick={() => setOpenSimulateTab("simulate")}>
           Simulate
         </TabButton>
-        <TabButton active={openSimulateTab === "tests"} onClick={() => setOpenSimulateTab("tests")}>
-          Tests
-        </TabButton>
+        {import.meta.env.VITE_DEV && (
+          <TabButton active={openSimulateTab === "tests"} onClick={() => setOpenSimulateTab("tests")}>
+            Tests
+          </TabButton>
+        )}
         <TabButton active={openSimulateTab === "personas"} onClick={() => setOpenSimulateTab("personas")}>
           Personas
         </TabButton>
         <TabButton active={openSimulateTab === "golds"} onClick={() => setOpenSimulateTab("golds")}>
           Golds
         </TabButton>
-        <TabButton active={openSimulateTab === "scenarios"} onClick={() => setOpenSimulateTab("scenarios")}>
-          Scenarios
-        </TabButton>
+        {import.meta.env.VITE_DEV && (
+          <TabButton active={openSimulateTab === "scenarios"} onClick={() => setOpenSimulateTab("scenarios")}>
+            Scenarios
+          </TabButton>
+        )}
       </div>
 
       {openSimulateTab === "personas" && <PersonasPanel />}
 
       {openSimulateTab === "golds" && <GoldsPanel />}
 
-      {openSimulateTab === "scenarios" && <ScenariosPanel />}
+      {openSimulateTab === "scenarios" && import.meta.env.VITE_DEV && <ScenariosPanel />}
 
-      {openSimulateTab === "tests" && <TestsPanel />}
+      {openSimulateTab === "tests" && import.meta.env.VITE_DEV && <TestsPanel />}
 
       {openSimulateTab === "simulate" && (
         <>

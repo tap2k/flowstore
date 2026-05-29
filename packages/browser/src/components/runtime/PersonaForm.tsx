@@ -325,7 +325,7 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
                   : "rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
               }
             >
-              {autoRun ? "■ Stop" : "▶ Start"}
+              {autoRun ? "■" : "▶"}
             </button>
             {autoRun && (
               <span className="text-zinc-400">· {personaTurnsLeft} left</span>
