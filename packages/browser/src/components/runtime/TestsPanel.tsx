@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TestCase } from "@flowstore/core/schema/files/testCase";
+import type { Rubric } from "@flowstore/core/schema/files/rubric";
 import { useTestsStore } from "@/lib/store/tests";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSimulateStore } from "@/lib/store/simulate";
@@ -141,7 +142,9 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
   const [mockBindings, setMockBindings] = useState<Record<string, string>>(
     testCase.mock_bindings ?? {},
   );
-  const [perTurnAssertions, setPerTurnAssertions] = useState(testCase.assertions ?? []);
+  const [perTurnRows, setPerTurnRows] = useState<PerTurnRow[]>(
+    flattenPerTurn(testCase.assertions ?? []),
+  );
   const [transcriptAssertions, setTranscriptAssertions] = useState(
     testCase.transcript_assertions ?? [],
   );
@@ -155,7 +158,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
     setUserTurns(testCase.user_turns ?? []);
     setPersonaId(testCase.persona_id ?? "");
     setMockBindings(testCase.mock_bindings ?? {});
-    setPerTurnAssertions(testCase.assertions ?? []);
+    setPerTurnRows(flattenPerTurn(testCase.assertions ?? []));
     setTranscriptAssertions(testCase.transcript_assertions ?? []);
     setStateAssertions(testCase.state_assertions ?? []);
     setEvaluators(testCase.evaluators ?? []);
@@ -183,7 +186,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
           }
         : {}),
       ...(Object.keys(mockBindings).length > 0 ? { mock_bindings: mockBindings } : {}),
-      ...(perTurnAssertions.length > 0 ? { assertions: perTurnAssertions } : {}),
+      ...(perTurnRows.length > 0 ? { assertions: groupPerTurn(perTurnRows) } : {}),
       ...(transcriptAssertions.length > 0
         ? { transcript_assertions: transcriptAssertions }
         : {}),
@@ -381,10 +384,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
         )}
 
         <Section label="assertions">
-          <PerTurnAssertionList
-            assertions={perTurnAssertions}
-            onChange={setPerTurnAssertions}
-          />
+          <PerTurnAssertionList rows={perTurnRows} onChange={setPerTurnRows} />
           <TranscriptAssertionList
             assertions={transcriptAssertions}
             onChange={setTranscriptAssertions}
@@ -504,58 +504,105 @@ function UserTurnsList({
 
 type PerTurn = NonNullable<TestCase["assertions"]>[number];
 
+// Editor-side flat shape. The schema groups must_contain[] /
+// must_not_contain[] under a single turn; the editor lets the user
+// add one substring per row instead — easier to scan and reorder.
+// flattenPerTurn / groupPerTurn round-trip between the two.
+interface PerTurnRow {
+  turn: number;
+  op: "contains" | "doesnt_contain";
+  text: string;
+}
+
+function flattenPerTurn(assertions: PerTurn[]): PerTurnRow[] {
+  const rows: PerTurnRow[] = [];
+  for (const a of assertions) {
+    for (const t of a.must_contain ?? []) {
+      rows.push({ turn: a.turn, op: "contains", text: t });
+    }
+    for (const t of a.must_not_contain ?? []) {
+      rows.push({ turn: a.turn, op: "doesnt_contain", text: t });
+    }
+  }
+  rows.sort((a, b) => a.turn - b.turn);
+  return rows;
+}
+
+function groupPerTurn(rows: PerTurnRow[]): PerTurn[] {
+  const byTurn = new Map<number, { must_contain: string[]; must_not_contain: string[] }>();
+  for (const r of rows) {
+    if (r.text.trim() === "") continue;
+    let entry = byTurn.get(r.turn);
+    if (!entry) {
+      entry = { must_contain: [], must_not_contain: [] };
+      byTurn.set(r.turn, entry);
+    }
+    if (r.op === "contains") entry.must_contain.push(r.text);
+    else entry.must_not_contain.push(r.text);
+  }
+  return Array.from(byTurn.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([turn, lists]) => ({
+      turn,
+      ...(lists.must_contain.length > 0 ? { must_contain: lists.must_contain } : {}),
+      ...(lists.must_not_contain.length > 0 ? { must_not_contain: lists.must_not_contain } : {}),
+    }));
+}
+
 function PerTurnAssertionList({
-  assertions,
+  rows,
   onChange,
 }: {
-  assertions: PerTurn[];
-  onChange: (a: PerTurn[]) => void;
+  rows: PerTurnRow[];
+  onChange: (r: PerTurnRow[]) => void;
 }) {
-  function update(i: number, next: Partial<PerTurn>) {
-    onChange(assertions.map((a, idx) => (idx === i ? { ...a, ...next } : a)));
+  function update(i: number, next: Partial<PerTurnRow>) {
+    onChange(rows.map((r, idx) => (idx === i ? { ...r, ...next } : r)));
   }
   function add() {
-    onChange([...assertions, { turn: assertions.length + 1, must_contain: [""] }]);
+    const lastTurn = rows[rows.length - 1]?.turn ?? 1;
+    onChange([...rows, { turn: lastTurn, op: "contains", text: "" }]);
   }
   function remove(i: number) {
-    onChange(assertions.filter((_, idx) => idx !== i));
+    onChange(rows.filter((_, idx) => idx !== i));
   }
   return (
-    <SubSection label="per-turn substring">
-      {assertions.map((a, i) => (
-        <div
-          key={i}
-          className="rounded border border-zinc-200 bg-white p-2 space-y-1"
-        >
-          <div className="flex items-center gap-2">
-            <label className="text-[10px] text-zinc-500">turn</label>
-            <input
-              type="number"
-              min={1}
-              value={a.turn}
-              onChange={(e) => update(i, { turn: parseInt(e.target.value, 10) || 1 })}
-              className="w-12 rounded border border-zinc-300 px-1 py-0.5 text-[11px]"
-            />
-            <button
-              type="button"
-              onClick={() => remove(i)}
-              className="ml-auto rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-50"
-            >
-              ✕
-            </button>
-          </div>
-          <StringListEditor
-            label="must_contain"
-            values={a.must_contain ?? []}
-            onChange={(v) => update(i, { must_contain: v.length === 0 ? undefined : v })}
+    <SubSection label="per-turn">
+      {rows.map((r, i) => (
+        <div key={i} className="flex items-center gap-1">
+          <span className="text-[10px] text-zinc-500">t</span>
+          <input
+            type="number"
+            min={1}
+            value={r.turn}
+            onChange={(e) => update(i, { turn: parseInt(e.target.value, 10) || 1 })}
+            className="w-10 rounded border border-zinc-300 px-1 py-0.5 text-[11px]"
+            title="Agent turn index (1 = first agent turn)."
           />
-          <StringListEditor
-            label="must_not_contain"
-            values={a.must_not_contain ?? []}
-            onChange={(v) =>
-              update(i, { must_not_contain: v.length === 0 ? undefined : v })
+          <select
+            value={r.op}
+            onChange={(e) =>
+              update(i, { op: e.target.value as PerTurnRow["op"] })
             }
+            className="rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] text-zinc-700"
+          >
+            <option value="contains">contains</option>
+            <option value="doesnt_contain">doesn't contain</option>
+          </select>
+          <input
+            type="text"
+            value={r.text}
+            onChange={(e) => update(i, { text: e.target.value })}
+            placeholder="substring"
+            className="flex-1 min-w-0 rounded border border-zinc-300 px-2 py-0.5 text-[11px]"
           />
+          <button
+            type="button"
+            onClick={() => remove(i)}
+            className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-50"
+          >
+            ✕
+          </button>
         </div>
       ))}
       <button
@@ -563,7 +610,7 @@ function PerTurnAssertionList({
         onClick={add}
         className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
       >
-        + add per-turn assertion
+        + add
       </button>
     </SubSection>
   );
@@ -825,9 +872,12 @@ function EvaluatorsList({
   onChange,
 }: {
   evaluators: string[];
-  rubrics: { id: string; name?: string }[];
+  rubrics: Rubric[];
   onChange: (e: string[]) => void;
 }) {
+  const saveRubric = useTestsStore((s) => s.saveRubric);
+  const uniqueRubricId = useTestsStore((s) => s.uniqueRubricId);
+
   // Available rubric ids that aren't already bound to this case.
   const available = rubrics
     .map((r) => r.id)
@@ -840,37 +890,41 @@ function EvaluatorsList({
     if (id === "" || evaluators.includes(id)) return;
     onChange([...evaluators, id]);
   }
-  function addCustom() {
-    const name = window.prompt(
-      "Evaluator name (resolves to tests/rubrics/<name>.rubric.json or tests/evaluators/<name>.py):",
-      "",
-    )?.trim();
-    if (!name) return;
-    onChange([...evaluators, name]);
+  function addNewRubric() {
+    const defaultName = `Rubric ${rubrics.length + 1}`;
+    const id = uniqueRubricId(defaultName);
+    saveRubric({
+      $schema: "flowstore://test/rubric/v0",
+      id,
+      name: defaultName,
+      criteria: "",
+      scale: { min: 1, max: 5 },
+      prompt_template:
+        "Evaluate the following transcript against the criteria.\n\n" +
+        "Criteria: {criteria}\n\nTranscript:\n{transcript}\n\n" +
+        "Score (1-5):",
+    });
+    onChange([...evaluators, id]);
   }
   return (
     <SubSection label="evaluators">
       <div className="space-y-1">
-        {evaluators.length === 0 && (
-          <div className="text-[10px] text-zinc-500 italic">
-            None bound. Pick a rubric below or add a custom evaluator name.
-          </div>
-        )}
         {evaluators.map((v, i) => {
           const rubric = rubrics.find((r) => r.id === v);
+          const primary = rubric?.name || v;
           return (
             <div
               key={i}
               className="flex items-center gap-1 rounded border border-zinc-200 bg-white px-2 py-0.5"
             >
-              <span className="font-mono text-[11px] text-zinc-800 flex-1 truncate">
-                {v}
-              </span>
-              {rubric?.name && (
-                <span className="text-[10px] text-zinc-500 truncate">
-                  {rubric.name}
-                </span>
-              )}
+              <div className="flex-1 min-w-0">
+                <div className="truncate text-[11px] text-zinc-800">{primary}</div>
+                {rubric?.name && rubric.name !== v && (
+                  <div className="truncate font-mono text-[10px] text-zinc-500">
+                    {v}
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => remove(i)}
@@ -903,71 +957,22 @@ function EvaluatorsList({
               const r = rubrics.find((rr) => rr.id === id);
               return (
                 <option key={id} value={id}>
-                  {id}
-                  {r?.name ? ` — ${r.name}` : ""}
+                  {r?.name || id}
                 </option>
               );
             })}
           </select>
           <button
             type="button"
-            onClick={addCustom}
+            onClick={addNewRubric}
+            title="Create a placeholder rubric (id slugged from a default name) and bind it. Hand-edit tests/rubrics/<id>.rubric.json to refine criteria + prompt template."
             className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
           >
-            + custom
+            + new rubric
           </button>
         </div>
       </div>
     </SubSection>
-  );
-}
-
-function StringListEditor({
-  label,
-  values,
-  onChange,
-}: {
-  label: string;
-  values: string[];
-  onChange: (v: string[]) => void;
-}) {
-  function update(i: number, text: string) {
-    onChange(values.map((v, idx) => (idx === i ? text : v)));
-  }
-  function remove(i: number) {
-    onChange(values.filter((_, idx) => idx !== i));
-  }
-  function add() {
-    onChange([...values, ""]);
-  }
-  return (
-    <div className="space-y-0.5">
-      {label && <div className="text-[10px] text-zinc-500">{label}</div>}
-      {values.map((v, i) => (
-        <div key={i} className="flex items-center gap-1">
-          <input
-            type="text"
-            value={v}
-            onChange={(e) => update(i, e.target.value)}
-            className="flex-1 rounded border border-zinc-300 px-2 py-0.5 text-[11px]"
-          />
-          <button
-            type="button"
-            onClick={() => remove(i)}
-            className="rounded border border-zinc-200 bg-white px-1 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-50"
-          >
-            ✕
-          </button>
-        </div>
-      ))}
-      <button
-        type="button"
-        onClick={add}
-        className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
-      >
-        + add
-      </button>
-    </div>
   );
 }
 

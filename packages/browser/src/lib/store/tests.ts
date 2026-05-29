@@ -65,6 +65,9 @@ export interface TestsState {
   saveGold: (gold: Gold) => void;
   uniqueGoldId: (base: string) => string;
 
+  saveRubric: (rubric: Rubric) => void;
+  uniqueRubricId: (base: string) => string;
+
   setCaptureContext: (ctx: CaptureContext | null) => void;
 }
 
@@ -170,6 +173,18 @@ export const useTestsStore = create<TestsState>((set, get) => ({
   },
 
   uniqueGoldId: (base) => uniqueId(get().golds, base, "gold"),
+
+  saveRubric: (rubric) => {
+    set((s) => {
+      const i = s.rubrics.findIndex((r) => r.id === rubric.id);
+      const next =
+        i === -1 ? [...s.rubrics, rubric] : s.rubrics.map((r, idx) => (idx === i ? rubric : r));
+      return { rubrics: next };
+    });
+    useDirtyStore.getState().setDirty(true);
+  },
+
+  uniqueRubricId: (base) => uniqueId(get().rubrics, base, "rubric"),
 
   setCaptureContext: (ctx) => {
     set({ captureContext: ctx });

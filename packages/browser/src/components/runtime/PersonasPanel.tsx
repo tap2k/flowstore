@@ -157,17 +157,9 @@ function PersonaRow({
       {expanded && (
         <div className="space-y-2 border-t border-zinc-100 bg-zinc-50/50 px-3 py-2">
           <div>
-            <div className="flex items-baseline justify-between">
-              <label className="text-[10px] uppercase tracking-wide text-zinc-500">
-                name
-              </label>
-              <span
-                className="font-mono text-[10px] text-zinc-400"
-                title="ID is the filename; rename a persona by creating a new one and deleting the old."
-              >
-                id: {persona.id}
-              </span>
-            </div>
+            <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+              name
+            </label>
             <input
               type="text"
               value={name}
