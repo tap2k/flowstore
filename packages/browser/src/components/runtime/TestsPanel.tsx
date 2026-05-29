@@ -275,7 +275,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto px-3 py-3 space-y-3 text-[11px]">
+      <div className="flex-1 overflow-auto px-3 py-3 space-y-5 text-[11px]">
         <div>
           <div className="flex items-baseline justify-between">
             <label className="text-[10px] uppercase tracking-wide text-zinc-500">
@@ -446,7 +446,9 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="mb-1 text-[10px] uppercase tracking-wide text-zinc-500">{label}</div>
+      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-700">
+        {label}
+      </div>
       {children}
     </div>
   );
