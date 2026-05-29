@@ -239,12 +239,10 @@ export function ScenarioForm({ spec, disabled }: ScenarioFormProps) {
     }
   }
 
-  const countLabel = `(${filledVarsCount}/${declaredVars.length} vars · ${setMocksCount}/${mockableCaps.length} mocks${loadedScenario ? ` · ${loadedScenario.name || loadedScenario.id}` : ""})`;
-
   return (
     <CollapsibleGenerateSection
       title="Scenario"
-      countLabel={countLabel}
+      countLabel=""
       open={open}
       onToggle={() => setOpen((o) => !o)}
       onClear={filledVarsCount > 0 || setMocksCount > 0 ? onClear : undefined}

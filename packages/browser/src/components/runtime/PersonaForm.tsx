@@ -320,11 +320,6 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
               className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
             />
           </div>
-          <p className="text-[10px] text-zinc-500">
-            Persona drives the user side of the conversation when running. The agent&rsquo;s
-            lines are sent to this prompt as user input; the model&rsquo;s reply becomes the next
-            user turn. Saved per agent.
-          </p>
         </div>
       )}
     </div>
