@@ -17,6 +17,7 @@ export function PersonasPanel() {
   const deletePersona = useTestsStore((s) => s.deletePersona);
   const uniquePersonaId = useTestsStore((s) => s.uniquePersonaId);
   const setPersonaPrompt = useSimulateStore((s) => s.setPersonaPrompt);
+  const setActiveCaseId = useSimulateStore((s) => s.setActiveCaseId);
   const setOpenSimulateTab = useUiStore((s) => s.setOpenSimulateTab);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -39,6 +40,10 @@ export function PersonasPanel() {
 
   function useInSimulate(p: Persona) {
     setPersonaPrompt(p.system_prompt);
+    // Picking a persona = starting a free exploration. Drop any
+    // active-case binding so the Active-case strip and verdict surfaces
+    // don't linger and conflict with what's actually being run.
+    setActiveCaseId(null);
     setOpenSimulateTab("simulate");
   }
 

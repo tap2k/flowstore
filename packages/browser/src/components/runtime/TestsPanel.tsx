@@ -172,7 +172,15 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
   const [description, setDescription] = useState(testCase.description ?? "");
   const [goldId, setGoldId] = useState(testCase.gold_id ?? "");
   const [language, setLanguage] = useState(testCase.language ?? "");
+  // vars_file is stored as a full project-relative path like
+  // "tests/vars.bau.json"; the picker shows just the name (between
+  // "tests/vars." and ".json"). Convert in/out at the boundary.
+  const [varsFileName, setVarsFileName] = useState<string>(
+    parseVarsFilePath(testCase.vars_file),
+  );
   const golds = useTestsStore((s) => s.golds);
+  const varsFiles = useTestsStore((s) => s.varsFiles);
+  const setSimulateContextVars = useSimulateStore((s) => s.setContextVars);
   const availableLanguages = spec?.agent.meta.languages ?? [];
   const showLanguage = availableLanguages.length > 1;
 
@@ -191,6 +199,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
     setDescription(testCase.description ?? "");
     setGoldId(testCase.gold_id ?? "");
     setLanguage(testCase.language ?? "");
+    setVarsFileName(parseVarsFilePath(testCase.vars_file));
   }, [testCase.id]);
 
   const spec_capabilities = useMemo(() => spec?.agent.capabilities ?? [], [spec]);
@@ -221,7 +230,8 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
     JSON.stringify(evaluators) !== JSON.stringify(testCase.evaluators ?? []) ||
     description !== (testCase.description ?? "") ||
     goldId !== (testCase.gold_id ?? "") ||
-    language !== (testCase.language ?? "");
+    language !== (testCase.language ?? "") ||
+    varsFileName !== parseVarsFilePath(testCase.vars_file);
 
   function handleSave() {
     const next: TestCase = {
@@ -240,6 +250,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
         : {}),
       ...(description.trim() ? { description: description.trim() } : {}),
       ...(goldId ? { gold_id: goldId } : {}),
+      ...(varsFileName ? { vars_file: `tests/vars.${varsFileName}.json` } : {}),
       ...(showLanguage && language ? { language } : {}),
       ...(Object.keys(mockBindings).length > 0 ? { mock_bindings: mockBindings } : {}),
       ...(perTurnRows.length > 0 ? { assertions: groupPerTurn(perTurnRows) } : {}),
@@ -254,7 +265,6 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
       // Preserve fields the editor doesn't surface (per the planning doc:
       // vars_file / model / tags stay in the schema but not in the form).
       // language is preserved when not editable (monolingual project).
-      ...(testCase.vars_file !== undefined ? { vars_file: testCase.vars_file } : {}),
       ...(testCase.model !== undefined ? { model: testCase.model } : {}),
       ...(!showLanguage && testCase.language !== undefined
         ? { language: testCase.language }
@@ -297,6 +307,14 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
     // (when set). Cases are intrinsically scoped to a language for
     // multilingual specs; opening one should match.
     if (language) setSimulateLanguage(language);
+
+    // Load the case's vars file into Simulate's contextVars (when set).
+    // vars files are shared resources; the case's binding is just a
+    // reference. Resolve by stripping the "tests/vars." and ".json" to
+    // get the store key.
+    if (varsFileName && varsFiles[varsFileName]) {
+      setSimulateContextVars(varsFiles[varsFileName]);
+    }
 
     // Bind the active case so the SimulatePanel can show the
     // Active-case header strip and the ▶ Run case button.
@@ -407,6 +425,27 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
               </select>
             </div>
           )}
+        </div>
+
+        <div>
+          <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+            vars
+          </label>
+          <select
+            value={varsFileName}
+            onChange={(e) => setVarsFileName(e.target.value)}
+            className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700"
+            title="Vars file injected into Simulate's contextVars on Open in Sim. Sourced from tests/vars.<name>.json."
+          >
+            <option value="">— none —</option>
+            {Object.keys(varsFiles)
+              .sort()
+              .map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+          </select>
         </div>
 
         <div>
@@ -577,6 +616,15 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
       </div>
     </div>
   );
+}
+
+// vars_file in the case schema is a full project-relative path
+// ("tests/vars.bau.json"); the editor's picker uses just the name
+// ("bau") to look up varsFiles[name]. Strip the prefix and suffix.
+function parseVarsFilePath(path: string | undefined): string {
+  if (!path) return "";
+  const match = /^tests\/vars\.(.+)\.json$/.exec(path);
+  return match ? match[1] : "";
 }
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
