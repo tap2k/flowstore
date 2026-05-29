@@ -699,6 +699,11 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             onJudgeModelChange={setSimulateJudgeModel}
             onJudgeRubrics={() => void judgeBoundRubrics()}
             judging={Object.values(rubricVerdicts).some((v) => v === "pending")}
+            // Rubrics judge the *final* transcript. While the run is in
+            // progress or an LLM call is mid-flight the transcript is
+            // incomplete, so the button stays disabled until things
+            // settle. Designers can still re-judge later by clicking again.
+            canJudge={!isRunning && !busy}
           />
         )}
         {hasSession && transcript.length > 0 && !busy && !isRunning && (
@@ -961,6 +966,7 @@ function RubricsCard({
   onJudgeModelChange,
   onJudgeRubrics,
   judging,
+  canJudge,
 }: {
   testCase: TestCase;
   rubrics: Rubric[];
@@ -969,6 +975,7 @@ function RubricsCard({
   onJudgeModelChange: (m: string) => void;
   onJudgeRubrics: () => void;
   judging: boolean;
+  canJudge: boolean;
 }) {
   const evaluatorIds = (testCase.evaluators ?? []).filter((id) =>
     rubrics.some((r) => r.id === id),
@@ -1016,9 +1023,13 @@ function RubricsCard({
         <button
           type="button"
           onClick={onJudgeRubrics}
-          disabled={judging}
+          disabled={judging || !canJudge}
           className="ml-auto rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-          title="Score each bound rubric with the judge LLM."
+          title={
+            !canJudge
+              ? "Wait for the conversation to finish — rubrics judge the final transcript."
+              : "Score each bound rubric with the judge LLM."
+          }
         >
           {judging ? "judging…" : "Judge rubrics"}
         </button>
