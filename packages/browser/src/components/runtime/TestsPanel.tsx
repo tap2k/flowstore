@@ -637,101 +637,94 @@ function TranscriptAssertionList({
   return (
     <SubSection label="transcript-level">
       {assertions.map((a, i) => (
-        <div key={i} className="rounded border border-zinc-200 bg-white p-2 space-y-1">
-          <div className="flex items-center gap-2">
-            <select
-              value={a.kind}
-              onChange={(e) =>
-                update(i, { kind: e.target.value as TranscriptAssn["kind"] })
-              }
-              className="rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px]"
-            >
-              <option value="substring">substring</option>
-              <option value="regex">regex</option>
-              <option value="count">count</option>
-              <option value="must_terminate_within">must_terminate_within</option>
-            </select>
-            <button
-              type="button"
-              onClick={() => remove(i)}
-              className="ml-auto rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-50"
-            >
-              ✕
-            </button>
-          </div>
+        <div key={i} className="flex items-center gap-1">
+          <select
+            value={a.kind}
+            onChange={(e) =>
+              update(i, { kind: e.target.value as TranscriptAssn["kind"] })
+            }
+            className="rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px]"
+          >
+            <option value="substring">substring</option>
+            <option value="regex">regex</option>
+            <option value="count">count</option>
+            <option value="must_terminate_within">terminate</option>
+          </select>
           {(a.kind === "substring" || a.kind === "regex" || a.kind === "count") && (
             <input
               type="text"
-              placeholder={a.kind === "regex" ? "regex (case-sensitive; (?i) for i)" : "pattern"}
+              placeholder={a.kind === "regex" ? "regex" : "pattern"}
               value={a.pattern ?? ""}
               onChange={(e) => update(i, { pattern: e.target.value })}
-              className="w-full rounded border border-zinc-300 px-2 py-1 text-[11px]"
+              className="flex-1 min-w-0 rounded border border-zinc-300 px-2 py-0.5 text-[11px]"
             />
           )}
           {(a.kind === "substring" || a.kind === "regex") && (
             <select
               value={a.must_appear === false ? "false" : "true"}
-              onChange={(e) =>
-                update(i, { must_appear: e.target.value === "true" })
-              }
+              onChange={(e) => update(i, { must_appear: e.target.value === "true" })}
               title="Whether the pattern should appear at least once in the agent's combined transcript."
               className="rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] text-zinc-700"
             >
               <option value="true">should appear</option>
-              <option value="false">should not appear</option>
+              <option value="false">should not</option>
             </select>
           )}
           {a.kind === "count" && (
-            <div className="flex items-center gap-2 text-[10px] text-zinc-700">
-              <label className="flex items-center gap-1">
-                min:
-                <input
-                  type="number"
-                  min={0}
-                  value={a.min_occurrences ?? ""}
-                  onChange={(e) =>
-                    update(i, {
-                      min_occurrences:
-                        e.target.value === "" ? undefined : parseInt(e.target.value, 10),
-                    })
-                  }
-                  className="w-14 rounded border border-zinc-300 px-1 py-0.5 text-[11px]"
-                />
-              </label>
-              <label className="flex items-center gap-1">
-                max:
-                <input
-                  type="number"
-                  min={0}
-                  value={a.max_occurrences ?? ""}
-                  onChange={(e) =>
-                    update(i, {
-                      max_occurrences:
-                        e.target.value === "" ? undefined : parseInt(e.target.value, 10),
-                    })
-                  }
-                  className="w-14 rounded border border-zinc-300 px-1 py-0.5 text-[11px]"
-                />
-              </label>
-            </div>
-          )}
-          {a.kind === "must_terminate_within" && (
-            <div className="flex items-center gap-1 text-[10px] text-zinc-700">
-              max_turns:
+            <>
               <input
                 type="number"
-                min={1}
-                value={a.max_turns ?? ""}
+                min={0}
+                placeholder="min"
+                value={a.min_occurrences ?? ""}
                 onChange={(e) =>
                   update(i, {
-                    max_turns:
+                    min_occurrences:
                       e.target.value === "" ? undefined : parseInt(e.target.value, 10),
                   })
                 }
-                className="w-14 rounded border border-zinc-300 px-1 py-0.5 text-[11px]"
+                title="Minimum occurrences"
+                className="w-12 rounded border border-zinc-300 px-1 py-0.5 text-[11px]"
               />
-            </div>
+              <input
+                type="number"
+                min={0}
+                placeholder="max"
+                value={a.max_occurrences ?? ""}
+                onChange={(e) =>
+                  update(i, {
+                    max_occurrences:
+                      e.target.value === "" ? undefined : parseInt(e.target.value, 10),
+                  })
+                }
+                title="Maximum occurrences"
+                className="w-12 rounded border border-zinc-300 px-1 py-0.5 text-[11px]"
+              />
+            </>
           )}
+          {a.kind === "must_terminate_within" && (
+            <input
+              type="number"
+              min={1}
+              placeholder="max agent turns"
+              value={a.max_turns ?? ""}
+              onChange={(e) =>
+                update(i, {
+                  max_turns:
+                    e.target.value === "" ? undefined : parseInt(e.target.value, 10),
+                })
+              }
+              title="Fail if the agent produces more than this many turns."
+              className="flex-1 min-w-0 rounded border border-zinc-300 px-2 py-0.5 text-[11px]"
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => remove(i)}
+            className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-50"
+          >
+            ✕
+          </button>
         </div>
       ))}
       <button
@@ -739,7 +732,7 @@ function TranscriptAssertionList({
         onClick={add}
         className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
       >
-        + add transcript-level assertion
+        + add
       </button>
     </SubSection>
   );
@@ -877,8 +870,8 @@ function EvaluatorsList({
 }) {
   const saveRubric = useTestsStore((s) => s.saveRubric);
   const uniqueRubricId = useTestsStore((s) => s.uniqueRubricId);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Available rubric ids that aren't already bound to this case.
   const available = rubrics
     .map((r) => r.id)
     .filter((id) => !evaluators.includes(id));
@@ -905,37 +898,61 @@ function EvaluatorsList({
         "Score (1-5):",
     });
     onChange([...evaluators, id]);
+    setExpandedId(id);
   }
+
   return (
     <SubSection label="evaluators">
       <div className="space-y-1">
         {evaluators.map((v, i) => {
           const rubric = rubrics.find((r) => r.id === v);
           const primary = rubric?.name || v;
+          const isExpanded = expandedId === v;
           return (
-            <div
-              key={i}
-              className="flex items-center gap-1 rounded border border-zinc-200 bg-white px-2 py-0.5"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="truncate text-[11px] text-zinc-800">{primary}</div>
-                {rubric?.name && rubric.name !== v && (
-                  <div className="truncate font-mono text-[10px] text-zinc-500">
-                    {v}
+            <div key={i} className="rounded border border-zinc-200 bg-white">
+              <div className="flex items-center gap-1 px-2 py-0.5">
+                <button
+                  type="button"
+                  onClick={() => rubric && setExpandedId(isExpanded ? null : v)}
+                  disabled={!rubric}
+                  className="flex-1 min-w-0 text-left"
+                  title={
+                    rubric
+                      ? "Edit rubric inline"
+                      : "Custom evaluator name — resolves to tests/evaluators/<name>.py (hand-authored)"
+                  }
+                >
+                  <div className="flex items-center gap-1">
+                    {rubric && (
+                      <span className="text-zinc-400 text-[10px]">
+                        {isExpanded ? "▾" : "▸"}
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[11px] text-zinc-800">{primary}</div>
+                      {rubric?.name && rubric.name !== v && (
+                        <div className="truncate font-mono text-[10px] text-zinc-500">
+                          {v}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => remove(i)}
+                  className="rounded border border-zinc-200 bg-white px-1 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-50"
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => remove(i)}
-                className="rounded border border-zinc-200 bg-white px-1 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-50"
-              >
-                ✕
-              </button>
+              {isExpanded && rubric && (
+                <RubricInlineEditor rubric={rubric} onSave={saveRubric} />
+              )}
             </div>
           );
         })}
-        <div className="flex items-center gap-1 pt-0.5">
+        <div className="flex flex-wrap items-center gap-1 pt-0.5">
           <select
             defaultValue=""
             onChange={(e) => {
@@ -944,7 +961,7 @@ function EvaluatorsList({
               addRubric(v);
             }}
             disabled={available.length === 0}
-            className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 disabled:opacity-40"
+            className="flex-1 min-w-0 rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 disabled:opacity-40"
           >
             <option value="">
               {available.length === 0
@@ -965,14 +982,123 @@ function EvaluatorsList({
           <button
             type="button"
             onClick={addNewRubric}
-            title="Create a placeholder rubric (id slugged from a default name) and bind it. Hand-edit tests/rubrics/<id>.rubric.json to refine criteria + prompt template."
-            className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
+            title="Create a new rubric and bind it. The inline editor opens — set criteria + prompt template right here."
+            className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 whitespace-nowrap"
           >
-            + new rubric
+            + new
           </button>
         </div>
       </div>
     </SubSection>
+  );
+}
+
+function RubricInlineEditor({
+  rubric,
+  onSave,
+}: {
+  rubric: Rubric;
+  onSave: (r: Rubric) => void;
+}) {
+  // Local draft so the user can edit without dirtying every keystroke
+  // (saveRubric marks the project dirty). Save commits the draft.
+  const [name, setName] = useState(rubric.name ?? "");
+  const [criteria, setCriteria] = useState(rubric.criteria);
+  const [promptTemplate, setPromptTemplate] = useState(rubric.prompt_template);
+  const [scaleMin, setScaleMin] = useState(rubric.scale.min);
+  const [scaleMax, setScaleMax] = useState(rubric.scale.max);
+
+  useEffect(() => {
+    setName(rubric.name ?? "");
+    setCriteria(rubric.criteria);
+    setPromptTemplate(rubric.prompt_template);
+    setScaleMin(rubric.scale.min);
+    setScaleMax(rubric.scale.max);
+  }, [rubric.id]);
+
+  const dirty =
+    name !== (rubric.name ?? "") ||
+    criteria !== rubric.criteria ||
+    promptTemplate !== rubric.prompt_template ||
+    scaleMin !== rubric.scale.min ||
+    scaleMax !== rubric.scale.max;
+
+  function handleSave() {
+    onSave({
+      $schema: "flowstore://test/rubric/v0",
+      id: rubric.id,
+      ...(name.trim() ? { name: name.trim() } : {}),
+      criteria,
+      scale: { min: scaleMin, max: scaleMax },
+      prompt_template: promptTemplate,
+      ...(rubric.model !== undefined ? { model: rubric.model } : {}),
+    });
+  }
+
+  return (
+    <div className="space-y-1.5 border-t border-zinc-100 bg-zinc-50/60 p-2">
+      <div>
+        <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+          name
+        </label>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px]"
+        />
+      </div>
+      <div>
+        <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+          criteria
+        </label>
+        <textarea
+          value={criteria}
+          onChange={(e) => setCriteria(e.target.value)}
+          rows={2}
+          placeholder="What the judge should check for."
+          className="w-full resize-y rounded border border-zinc-300 bg-white p-1.5 text-[11px] leading-snug"
+        />
+      </div>
+      <div className="flex items-center gap-2 text-[10px] text-zinc-600">
+        <span>scale</span>
+        <input
+          type="number"
+          value={scaleMin}
+          onChange={(e) => setScaleMin(Number(e.target.value))}
+          className="w-12 rounded border border-zinc-300 px-1 py-0.5 text-[11px]"
+        />
+        <span>—</span>
+        <input
+          type="number"
+          value={scaleMax}
+          onChange={(e) => setScaleMax(Number(e.target.value))}
+          className="w-12 rounded border border-zinc-300 px-1 py-0.5 text-[11px]"
+        />
+      </div>
+      <div>
+        <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+          prompt_template
+        </label>
+        <textarea
+          value={promptTemplate}
+          onChange={(e) => setPromptTemplate(e.target.value)}
+          rows={5}
+          placeholder="LLM-judge prompt. Placeholders: {transcript}, {criteria}, {gold_standard}."
+          className="w-full resize-y rounded border border-zinc-300 bg-white p-1.5 font-mono text-[10px] leading-snug"
+        />
+      </div>
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={!dirty}
+          className="rounded-md bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+        >
+          Save rubric
+        </button>
+      </div>
+    </div>
   );
 }
 
