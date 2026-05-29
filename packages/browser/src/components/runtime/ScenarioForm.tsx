@@ -14,7 +14,7 @@ import {
   scenarioToRuntime,
   buildScenarioFromRuntime,
 } from "@flowstore/core/runtime/scenarioRuntime";
-import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
+import { GENERATION_MODEL } from "@flowstore/core/files/models";
 import { CollapsibleGenerateSection } from "./CollapsibleGenerateSection";
 import { VarsEditor } from "./scenario/VarsEditor";
 import { MocksEditor } from "./scenario/MocksEditor";
@@ -204,11 +204,10 @@ export function ScenarioForm({ spec, disabled }: ScenarioFormProps) {
     setGenerating(true);
     setGenError(null);
     try {
-      const geminiModel = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
       const { vars, mocks } = await generateScenarioContent(
         spec,
         apiKey,
-        geminiModel,
+        GENERATION_MODEL,
       );
       if (Object.keys(vars).length > 0) setContextVars(vars);
       // Translate scenario mocks (cap_id → cap_name) into runtime shape.

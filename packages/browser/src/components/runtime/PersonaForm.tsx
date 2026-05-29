@@ -4,7 +4,7 @@ import { useTestsStore } from "@/lib/store/tests";
 import { hasKeyForModel, useSettingsStore } from "@/lib/store/settings";
 import { generatePersonaPrompt } from "@flowstore/core/runtime/personaGen";
 import { scenarioToRuntime } from "@flowstore/core/runtime/scenarioRuntime";
-import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
+import { GENERATION_MODEL } from "@flowstore/core/files/models";
 import { ModelPicker } from "./ModelPicker";
 import { useState } from "react";
 
@@ -126,8 +126,7 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
     try {
       // Force a Gemini model for the structured-output call regardless of
       // the picked persona-runtime model.
-      const geminiModel = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
-      const prompt = await generatePersonaPrompt({ spec, contextVars, apiKey: googleKey, model: geminiModel });
+      const prompt = await generatePersonaPrompt({ spec, contextVars, apiKey: googleKey, model: GENERATION_MODEL });
       setPersonaPrompt(prompt);
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Generation failed.");

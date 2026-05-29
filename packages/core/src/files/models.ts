@@ -70,6 +70,12 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
   roles: {},
 };
 
+// Single source of truth for the model used by LLM-generation flows
+// (Generate vars, mocks, persona prompt, scenario from name+notes). Structured-
+// output is Google-only today, so this stays a Gemini model regardless of
+// the chat-runtime model picker.
+export const GENERATION_MODEL: string = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
+
 // Endpoint resolution: explicit on the entry wins; otherwise infer from id
 // prefix for the unambiguous cases (gemini → google, gpt/o-series →
 // openai, anthropic/ prefix → openrouter, meta-llama/ prefix → deepinfra).

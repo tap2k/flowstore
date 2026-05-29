@@ -6,7 +6,7 @@ import { useSettingsStore } from "@/lib/store/settings";
 import { collectDeclaredVariables } from "@flowstore/core/runtime/contextVars";
 import { collectMockableCapabilities } from "@flowstore/core/runtime/capabilityMocks";
 import { generateScenarioContent } from "@flowstore/core/runtime/scenarioGen";
-import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
+import { GENERATION_MODEL } from "@flowstore/core/files/models";
 import { VarsEditor } from "./scenario/VarsEditor";
 import { MocksEditor } from "./scenario/MocksEditor";
 
@@ -50,11 +50,10 @@ export function ScenariosPanel() {
     if (!name && !notes) return;
     setGenerating({ ...generating, busy: true, error: null });
     try {
-      const geminiModel = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
       const { vars, mocks } = await generateScenarioContent(
         spec,
         apiKey,
-        geminiModel,
+        GENERATION_MODEL,
         { name: name || undefined, notes: notes || undefined },
       );
       const id = uniqueScenarioId(name || "scenario");

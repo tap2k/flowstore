@@ -227,7 +227,7 @@ What `flowstore-init-project` writes. Every collection accepts either form; the 
 | Collection | Default scaffold | When to switch |
 |---|---|---|
 | `flows/` | Directory (per-id `*.flow.json` + paired `*.scripts.csv`) | Stay in directory form. Collapsing loses Excel-editable scripts. |
-| `capabilities/` | Directory (per-id `*.capability.json` + paired `*.<variant>.mock.json`) | Stay in directory form. Filename-prefix pair the declaration with its mocks. |
+| `capabilities/` | Directory (per-id `*.capability.json`) | Stay in directory form. One declaration per file. |
 | `guardrails.json` | File (array) | Promote to `guardrails/<concern>.json` when stakeholders group by concern (regulatory, safety, tone). |
 | `business-goals.json` | File (array) | Promote to `business-goals/<track>.json` when goals span product tracks. |
 | `variables.json` | File (dict) | Promote to `variables/<domain>.json` when variables span domains. |
@@ -236,6 +236,7 @@ What `flowstore-init-project` writes. Every collection accepts either form; the 
 | `knowledge/tables/` | Directory (per-id `*.csv` + `*.meta.json`) | Stay in directory form (CSV affordance). |
 | `tests/cases/` | Directory (per-id `*.test.json`) | Stay in directory form; file form unwieldy. |
 | `tests/personas/` | Directory (per-id `*.persona.json`) | Collapse to file form if ≤3 small personas. |
+| `tests/scenarios/` | Directory (per-id `*.scenario.json`) | Stay in directory form. Each scenario bundles vars + per-cap mock returns inline; cases bind to one via `scenario_id`. |
 | `tests/rubrics/` | Directory (per-id `*.rubric.json`) | Stay in directory form (multi-paragraph templates). |
 | `tests/evaluators/` | Directory (Python files) | Not validated as JSON. Built-ins vendored; user-added go alongside. |
 | `tests/gold/` | Directory (per-id `*.gold.json`) | Golds are independent of cases; one gold may seed many derived cases. |
@@ -397,9 +398,10 @@ Roles are optional. Unset role → falls back to `default`. Per-file `model` fie
 Entries reference each other by stable `id`. The file path is not the contract — the id is.
 
 - `<flow>.exit_paths[].actions[].capability_id` → `capabilities/<id>.capability.json`
-- `<test-case>.scenario.mock_bindings.<capability_id>` → `capabilities/<capability_id>.<variant>.mock.json`
+- `<test-case>.scenario_id` → `tests/scenarios/<id>.scenario.json` (when present; optional)
 - `<test-case>.evaluators[]` (by name) → either `tests/evaluators/<name>.py` or `tests/rubrics/<name>.rubric.json`
-- `<test-case>.scenario.persona_id` → `tests/personas/<id>.persona.json` (when present; optional)
+- `<test-case>.persona_id` → `tests/personas/<id>.persona.json` (when present; optional)
+- `<persona>.default_scenario_id` → `tests/scenarios/<id>.scenario.json` (when present; Simulate-tab default)
 - `<flow>.exit_paths[].goto` → flow id, `END`, or `RETURN`. Resolution is agent-first, then project-level `flows/` (no resolution into another agent's flows). Unchanged from SCHEMA.md aside from the project-level fallback.
 - `agent.entry_flow_id` → flow id; resolves agent-first (this agent's `flows/`), then project-level `flows/`. No cross-agent resolution.
 - `<comment>.anchor` → spec entity by `(kind, agent_id?, id)`

@@ -6,7 +6,7 @@ import { useUiStore } from "@/lib/store/ui";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSettingsStore } from "@/lib/store/settings";
 import { generatePersonaPrompt } from "@flowstore/core/runtime/personaGen";
-import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
+import { GENERATION_MODEL } from "@flowstore/core/files/models";
 
 // Saved-persona library for the Run pill's Personas tab. Compact vertical
 // list, click a row to expand its editor inline. Personas are
@@ -55,12 +55,11 @@ export function PersonasPanel() {
     if (!name && !notes) return;
     setGenerating({ ...generating, busy: true, error: null });
     try {
-      const geminiModel = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
       const systemPrompt = await generatePersonaPrompt({
         spec,
         contextVars: {},
         apiKey,
-        model: geminiModel,
+        model: GENERATION_MODEL,
         personaContext: { name: name || undefined, notes: notes || undefined },
       });
       const id = uniquePersonaId(name || "persona");

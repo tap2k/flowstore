@@ -426,7 +426,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         const result = await translateBatchToEnglish(
           uncachedTurns.map((t) => ({ id: String(t.ts), text: t.text })),
           googleApiKey,
-          "gemini-2.5-flash",
+          GENERATION_MODEL,
         );
         setTranslations((prev) => {
           const next = new Map(prev);
