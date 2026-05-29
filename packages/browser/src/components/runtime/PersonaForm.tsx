@@ -1,10 +1,9 @@
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useSpecStore } from "@/lib/store/spec";
 import { useTestsStore } from "@/lib/store/tests";
-import { hasKeyForModel, useSettingsStore } from "@/lib/store/settings";
+import { hasKeyForModel, resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { generatePersonaPrompt } from "@flowstore/core/runtime/personaGen";
 import { scenarioToRuntime } from "@flowstore/core/runtime/scenarioRuntime";
-import { GENERATION_MODEL } from "@flowstore/core/files/models";
 import { ModelPicker } from "./ModelPicker";
 import { useState } from "react";
 
@@ -34,7 +33,9 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
   // which is Google-specific. It needs the Google key regardless of which
   // model the persona-runtime picker is set to. Multi-provider structured
   // output is a separate ticket.
-  const googleKey = useSettingsStore((s) => s.googleApiKey);
+  const defaultModel = useSettingsStore((s) => s.defaultModel);
+  const dispatch = resolveDispatch(defaultModel);
+  const dispatchKey = dispatch.apiKey;
   const model = useSettingsStore((s) => s.simulatePersonaModel);
   const setSimulatePersonaModel = useSettingsStore((s) => s.setSimulatePersonaModel);
   // The persona runtime uses whichever provider the picked model maps to.
@@ -115,7 +116,7 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
   }
 
   async function onGenerate() {
-    if (!googleKey || !spec) return;
+    if (!dispatchKey || !spec || !dispatch.provider) return;
     if (configured) {
       const ok = window.confirm("Replace the current persona prompt with a generated one?");
       if (!ok) return;
@@ -126,7 +127,13 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
     try {
       // Force a Gemini model for the structured-output call regardless of
       // the picked persona-runtime model.
-      const prompt = await generatePersonaPrompt({ spec, contextVars, apiKey: googleKey, model: GENERATION_MODEL });
+      const prompt = await generatePersonaPrompt({
+        spec,
+        contextVars,
+        provider: dispatch.provider,
+        apiKey: dispatchKey,
+        model: dispatch.wireModel,
+      });
       setPersonaPrompt(prompt);
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Generation failed.");
@@ -164,13 +171,13 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
               Clear
             </button>
           )}
-          {googleKey && (
+          {dispatchKey && (
             <button
               type="button"
               onClick={onGenerate}
               disabled={disabled || generating}
               className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-              title="Use Gemini to draft a persona prompt from the agent's purpose, business goals, and current variable values. (Requires a Google API key — uses Gemini's structured-output API regardless of the picker.)"
+              title="Draft a persona prompt from the agent's purpose, business goals, and current variable values. Uses the configured Generate model."
             >
               {generating ? "Generating…" : "✨ Generate"}
             </button>

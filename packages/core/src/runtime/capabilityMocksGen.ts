@@ -1,5 +1,6 @@
 import { coerceScalarValue, type Spec, type VariableDecl } from "@flowstore/core/schema/v0";
-import { generateJson } from "./geminiJson";
+import type { ProviderId } from "@flowstore/core/llm/types";
+import { generateStructuredJson } from "./structuredOutput";
 import { agentContextPreamble } from "./llmJson";
 import type { MockableCapability } from "./capabilityMocks";
 
@@ -28,6 +29,7 @@ function propertySchemaFor(decl: VariableDecl | undefined): Record<string, unkno
 
 export async function generateCapabilityMocks(
   spec: Spec,
+  provider: ProviderId,
   apiKey: string,
   model: string,
   capabilities: MockableCapability[],
@@ -90,7 +92,8 @@ export async function generateCapabilityMocks(
     .filter((s) => s !== null)
     .join("\n");
 
-  const parsed = await generateJson<Record<string, Record<string, unknown>>>(
+  const parsed = await generateStructuredJson<Record<string, Record<string, unknown>>>(
+    provider,
     apiKey,
     model,
     {

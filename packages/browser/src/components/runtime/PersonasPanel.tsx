@@ -4,9 +4,8 @@ import { useTestsStore } from "@/lib/store/tests";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useUiStore } from "@/lib/store/ui";
 import { useSpecStore } from "@/lib/store/spec";
-import { useSettingsStore } from "@/lib/store/settings";
+import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { generatePersonaPrompt } from "@flowstore/core/runtime/personaGen";
-import { GENERATION_MODEL } from "@flowstore/core/files/models";
 
 // Saved-persona library for the Run pill's Personas tab. Compact vertical
 // list, click a row to expand its editor inline. Personas are
@@ -24,7 +23,9 @@ export function PersonasPanel() {
   const setActiveCaseId = useSimulateStore((s) => s.setActiveCaseId);
   const setOpenSimulateTab = useUiStore((s) => s.setOpenSimulateTab);
   const spec = useSpecStore((s) => s.spec);
-  const apiKey = useSettingsStore((s) => s.googleApiKey);
+  const defaultModel = useSettingsStore((s) => s.defaultModel);
+  const dispatch = resolveDispatch(defaultModel);
+  const apiKey = dispatch.apiKey;
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [generating, setGenerating] = useState<
@@ -55,11 +56,13 @@ export function PersonasPanel() {
     if (!name && !notes) return;
     setGenerating({ ...generating, busy: true, error: null });
     try {
+      if (!dispatch.provider) throw new Error("Generate model has no provider");
       const systemPrompt = await generatePersonaPrompt({
         spec,
         contextVars: {},
+        provider: dispatch.provider,
         apiKey,
-        model: GENERATION_MODEL,
+        model: dispatch.wireModel,
         personaContext: { name: name || undefined, notes: notes || undefined },
       });
       const id = uniquePersonaId(name || "persona");

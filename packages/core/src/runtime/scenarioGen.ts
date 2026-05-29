@@ -1,5 +1,6 @@
 import type { Spec } from "@flowstore/core/schema/v0";
 import type { ScenarioMockBehavior } from "@flowstore/core/schema/files/scenario";
+import type { ProviderId } from "@flowstore/core/llm/types";
 import { collectDeclaredVariables } from "./contextVars";
 import { collectMockableCapabilities } from "./capabilityMocks";
 import { generateContextVars } from "./contextVarsGen";
@@ -13,6 +14,7 @@ import { runtimeToScenarioMocks } from "./scenarioRuntime";
 // (keyed by capability ID) ready to inline into a Scenario.
 export async function generateScenarioContent(
   spec: Spec,
+  provider: ProviderId,
   apiKey: string,
   model: string,
   scenarioContext?: { name?: string; notes?: string },
@@ -24,12 +26,13 @@ export async function generateScenarioContent(
   const caps = collectMockableCapabilities(spec);
   const vars =
     declared.length > 0
-      ? await generateContextVars(spec, apiKey, model, declared, scenarioContext)
+      ? await generateContextVars(spec, provider, apiKey, model, declared, scenarioContext)
       : {};
   const runtimeMockReturns =
     caps.length > 0
       ? await generateCapabilityMocks(
           spec,
+          provider,
           apiKey,
           model,
           caps,

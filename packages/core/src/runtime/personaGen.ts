@@ -1,4 +1,5 @@
-import { chat, DEFAULT_PROVIDER } from "@flowstore/core/llm/dispatch";
+import { chat } from "@flowstore/core/llm/dispatch";
+import type { ProviderId } from "@flowstore/core/llm/types";
 import type { Spec } from "@flowstore/core/schema/v0";
 import { agentContextPreamble } from "./llmJson";
 
@@ -17,11 +18,12 @@ Return ONLY the system prompt text. No commentary, no markdown fence, no preambl
 export async function generatePersonaPrompt(args: {
   spec: Spec;
   contextVars: Record<string, unknown>;
+  provider: ProviderId;
   apiKey: string;
   model: string;
   personaContext?: { name?: string; notes?: string };
 }): Promise<string> {
-  const { spec, contextVars, apiKey, model, personaContext } = args;
+  const { spec, contextVars, provider, apiKey, model, personaContext } = args;
 
   const goals = (spec.agent.business_goals ?? [])
     .map((g) => `- ${g.name}`)
@@ -57,7 +59,7 @@ export async function generatePersonaPrompt(args: {
     .filter((s) => s !== null)
     .join("\n");
 
-  const res = await chat(DEFAULT_PROVIDER, apiKey, model, {
+  const res = await chat(provider, apiKey, model, {
     systemPrompt: SYSTEM_PROMPT,
     messages: [{ role: "user", content: userPrompt }],
     tools: [],

@@ -2,11 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import type { Scenario, ScenarioMockBehavior } from "@flowstore/core/schema/files/scenario";
 import { useTestsStore } from "@/lib/store/tests";
 import { useSpecStore } from "@/lib/store/spec";
-import { useSettingsStore } from "@/lib/store/settings";
+import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { collectDeclaredVariables } from "@flowstore/core/runtime/contextVars";
 import { collectMockableCapabilities } from "@flowstore/core/runtime/capabilityMocks";
 import { generateScenarioContent } from "@flowstore/core/runtime/scenarioGen";
-import { GENERATION_MODEL } from "@flowstore/core/files/models";
 import { VarsEditor } from "./scenario/VarsEditor";
 import { MocksEditor } from "./scenario/MocksEditor";
 
@@ -20,7 +19,9 @@ export function ScenariosPanel() {
   const deleteScenario = useTestsStore((s) => s.deleteScenario);
   const uniqueScenarioId = useTestsStore((s) => s.uniqueScenarioId);
   const spec = useSpecStore((s) => s.spec);
-  const apiKey = useSettingsStore((s) => s.googleApiKey);
+  const defaultModel = useSettingsStore((s) => s.defaultModel);
+  const dispatch = resolveDispatch(defaultModel);
+  const apiKey = dispatch.apiKey;
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [generating, setGenerating] = useState<
@@ -50,10 +51,12 @@ export function ScenariosPanel() {
     if (!name && !notes) return;
     setGenerating({ ...generating, busy: true, error: null });
     try {
+      if (!dispatch.provider) throw new Error("Generate model has no provider");
       const { vars, mocks } = await generateScenarioContent(
         spec,
+        dispatch.provider,
         apiKey,
-        GENERATION_MODEL,
+        dispatch.wireModel,
         { name: name || undefined, notes: notes || undefined },
       );
       const id = uniqueScenarioId(name || "scenario");

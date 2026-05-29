@@ -1,4 +1,5 @@
-import { generateJson } from "./geminiJson";
+import { generateStructuredJson } from "./structuredOutput";
+import type { ProviderId } from "@flowstore/core/llm/types";
 import type { Rubric } from "@flowstore/core/schema/files/rubric";
 import type { Gold } from "@flowstore/core/schema/files/gold";
 
@@ -49,10 +50,11 @@ export async function judgeRubric(args: {
   rubric: Rubric;
   transcript: RubricTurn[];
   gold?: Gold | null;
+  provider: ProviderId;
   apiKey: string;
   model: string;
 }): Promise<RubricVerdict> {
-  const { rubric, transcript, gold, apiKey, model } = args;
+  const { rubric, transcript, gold, provider, apiKey, model } = args;
 
   // Skip very short transcripts — judging a 1-turn opener is noise. The
   // Python reference uses 3 as the floor; mirror.
@@ -72,7 +74,8 @@ export async function judgeRubric(args: {
     .replace("{scale.max}", String(scale.max));
 
   try {
-    const parsed = await generateJson<{ score: number; notes: string }>(
+    const parsed = await generateStructuredJson<{ score: number; notes: string }>(
+      provider,
       apiKey,
       rubric.model ?? model,
       {

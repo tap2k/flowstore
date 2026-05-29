@@ -1,5 +1,6 @@
 import { coerceScalarValue, type Spec, type VariableDecl } from "@flowstore/core/schema/v0";
-import { generateJson } from "./geminiJson";
+import type { ProviderId } from "@flowstore/core/llm/types";
+import { generateStructuredJson } from "./structuredOutput";
 import { agentContextPreamble } from "./llmJson";
 import type { DeclaredVariable } from "./contextVars";
 
@@ -30,6 +31,7 @@ function propertySchemaFor(decl: VariableDecl): Record<string, unknown> {
 
 export async function generateContextVars(
   spec: Spec,
+  provider: ProviderId,
   apiKey: string,
   model: string,
   declared: DeclaredVariable[],
@@ -69,7 +71,7 @@ export async function generateContextVars(
     `Return a JSON object mapping each variable name to a value.`,
   ].join("\n");
 
-  const parsed = await generateJson<Record<string, unknown>>(apiKey, model, {
+  const parsed = await generateStructuredJson<Record<string, unknown>>(provider, apiKey, model, {
     systemPrompt: SYSTEM_PROMPT,
     userPrompt,
     responseSchema: {

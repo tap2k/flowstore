@@ -6,7 +6,7 @@ import type {
 } from "@flowstore/core/schema/files/scenario";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useTestsStore } from "@/lib/store/tests";
-import { useSettingsStore } from "@/lib/store/settings";
+import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { collectDeclaredVariables } from "@flowstore/core/runtime/contextVars";
 import { collectMockableCapabilities } from "@flowstore/core/runtime/capabilityMocks";
 import { generateScenarioContent } from "@flowstore/core/runtime/scenarioGen";
@@ -14,7 +14,6 @@ import {
   scenarioToRuntime,
   buildScenarioFromRuntime,
 } from "@flowstore/core/runtime/scenarioRuntime";
-import { GENERATION_MODEL } from "@flowstore/core/files/models";
 import { CollapsibleGenerateSection } from "./CollapsibleGenerateSection";
 import { VarsEditor } from "./scenario/VarsEditor";
 import { MocksEditor } from "./scenario/MocksEditor";
@@ -48,9 +47,11 @@ export function ScenarioForm({ spec, disabled }: ScenarioFormProps) {
   const deleteScenario = useTestsStore((s) => s.deleteScenario);
   const uniqueScenarioId = useTestsStore((s) => s.uniqueScenarioId);
 
-  // Generation uses Gemini structured output — Google-only regardless of
-  // the runtime chat model.
-  const apiKey = useSettingsStore((s) => s.googleApiKey);
+  // Generation runs against the user's configured generate model
+  // (Google or OpenAI structured output). hasKey gates the button.
+  const defaultModel = useSettingsStore((s) => s.defaultModel);
+  const dispatch = resolveDispatch(defaultModel);
+  const apiKey = dispatch.apiKey;
 
   const [open, setOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -204,10 +205,12 @@ export function ScenarioForm({ spec, disabled }: ScenarioFormProps) {
     setGenerating(true);
     setGenError(null);
     try {
+      if (!dispatch.provider) throw new Error("Generate model has no provider");
       const { vars, mocks } = await generateScenarioContent(
         spec,
+        dispatch.provider,
         apiKey,
-        GENERATION_MODEL,
+        dispatch.wireModel,
       );
       if (Object.keys(vars).length > 0) setContextVars(vars);
       // Translate scenario mocks (cap_id → cap_name) into runtime shape.

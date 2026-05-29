@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSpecStore, type Selection } from "@/lib/store/spec";
 import type { Spec } from "@flowstore/core/schema/v0";
+import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import {
   useSimulateStore,
@@ -293,12 +294,15 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       boundIds.map(async (id) => {
         const rubric = allRubrics.find((r) => r.id === id);
         if (!rubric) return;
+        const judgeDispatch = resolveDispatch(judgeModel);
+        if (!judgeDispatch.provider || !judgeDispatch.apiKey) return;
         const verdict = await judgeRubric({
           rubric,
           transcript: finalTranscript.map((t) => ({ role: t.role, text: t.text })),
           gold: goldRecord,
-          apiKey: googleApiKey,
-          model: judgeModel,
+          provider: judgeDispatch.provider,
+          apiKey: judgeDispatch.apiKey,
+          model: judgeDispatch.wireModel,
         });
         setRubricVerdicts((prev) => ({ ...prev, [id]: verdict }));
       }),
@@ -426,7 +430,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         const result = await translateBatchToEnglish(
           uncachedTurns.map((t) => ({ id: String(t.ts), text: t.text })),
           googleApiKey,
-          GENERATION_MODEL,
+          BUILT_IN_MODELS.default ?? "gemini-2.5-flash",
         );
         setTranslations((prev) => {
           const next = new Map(prev);
