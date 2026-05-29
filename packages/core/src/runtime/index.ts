@@ -1,5 +1,4 @@
 export * from "./capabilityMocks";
-export * from "./capabilityMocksGen";
 export * from "./contextVars";
 export * from "./contextVarsGen";
 export * from "./eventTypes";

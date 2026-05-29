@@ -72,17 +72,12 @@ export function App() {
     }
     const savedTests = loadSavedTests();
     if (savedTests) {
-      // Reuse setAll which expects the TestingArtifacts (flat) shape —
-      // we have the indexed `mocksByCapability` from localStorage. Cheap
-      // to flatten and round-trip; setAll re-indexes.
-      const capabilityMocks = Object.values(savedTests.mocksByCapability).flat();
       useTestsStore.getState().setAll({
         testCases: savedTests.cases,
         personas: savedTests.personas,
-        capabilityMocks,
+        scenarios: savedTests.scenarios,
         rubrics: savedTests.rubrics,
         golds: savedTests.golds,
-        varsFiles: savedTests.varsFiles ?? {},
       });
     }
     const savedSimAuth = loadSavedSimulateAuth();

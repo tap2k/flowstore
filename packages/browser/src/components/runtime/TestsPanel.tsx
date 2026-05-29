@@ -130,7 +130,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
   const deleteCase = useTestsStore((s) => s.deleteCase);
   const personas = useTestsStore((s) => s.personas);
   const rubrics = useTestsStore((s) => s.rubrics);
-  const mocksByCapability = useTestsStore((s) => s.mocksByCapability);
+  const scenarios = useTestsStore((s) => s.scenarios);
   const captureContext = useTestsStore((s) => s.captureContext);
   const casesCount = useTestsStore((s) => s.cases.length);
   const spec = useSpecStore((s) => s.spec);
@@ -154,9 +154,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
   );
   const [userTurns, setUserTurns] = useState<string[]>(testCase.user_turns ?? []);
   const [personaId, setPersonaId] = useState(testCase.persona_id ?? "");
-  const [mockBindings, setMockBindings] = useState<Record<string, string>>(
-    testCase.mock_bindings ?? {},
-  );
+  const [scenarioId, setScenarioId] = useState(testCase.scenario_id ?? "");
   const [perTurnRows, setPerTurnRows] = useState<PerTurnRow[]>(
     flattenPerTurn(testCase.assertions ?? []),
   );
@@ -171,15 +169,9 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
   const [notes, setNotes] = useState(testCase.notes ?? "");
   const [goldId, setGoldId] = useState(testCase.gold_id ?? "");
   const [language, setLanguage] = useState(testCase.language ?? "");
-  // vars_file is stored as a full project-relative path like
-  // "tests/vars.bau.json"; the picker shows just the name (between
-  // "tests/vars." and ".json"). Convert in/out at the boundary.
-  const [varsFileName, setVarsFileName] = useState<string>(
-    parseVarsFilePath(testCase.vars_file),
-  );
   const golds = useTestsStore((s) => s.golds);
-  const varsFiles = useTestsStore((s) => s.varsFiles);
   const setSimulateContextVars = useSimulateStore((s) => s.setContextVars);
+  const setMockError = useSimulateStore((s) => s.setMockError);
   const availableLanguages = spec?.agent.meta.languages ?? [];
   const showLanguage = availableLanguages.length > 1;
 
@@ -189,7 +181,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
     setSource(testCase.persona_id ? "persona" : "scripted");
     setUserTurns(testCase.user_turns ?? []);
     setPersonaId(testCase.persona_id ?? "");
-    setMockBindings(testCase.mock_bindings ?? {});
+    setScenarioId(testCase.scenario_id ?? "");
     setPerTurnRows(flattenPerTurn(testCase.assertions ?? []));
     setTranscriptAssertions(testCase.transcript_assertions ?? []);
     setStateAssertions(testCase.state_assertions ?? []);
@@ -198,7 +190,6 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
     setNotes(testCase.notes ?? "");
     setGoldId(testCase.gold_id ?? "");
     setLanguage(testCase.language ?? "");
-    setVarsFileName(parseVarsFilePath(testCase.vars_file));
   }, [testCase.id]);
 
   const spec_capabilities = useMemo(() => spec?.agent.capabilities ?? [], [spec]);
@@ -217,7 +208,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
     (source === "persona") !== (testCase.persona_id !== undefined && testCase.persona_id !== "") ||
     JSON.stringify(userTurns) !== JSON.stringify(testCase.user_turns ?? []) ||
     personaId !== (testCase.persona_id ?? "") ||
-    JSON.stringify(mockBindings) !== JSON.stringify(testCase.mock_bindings ?? {}) ||
+    scenarioId !== (testCase.scenario_id ?? "") ||
     JSON.stringify(groupPerTurn(perTurnRows)) !==
       JSON.stringify(testCase.assertions ?? []) ||
     JSON.stringify(transcriptAssertions) !==
@@ -229,8 +220,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
     JSON.stringify(evaluators) !== JSON.stringify(testCase.evaluators ?? []) ||
     notes !== (testCase.notes ?? "") ||
     goldId !== (testCase.gold_id ?? "") ||
-    language !== (testCase.language ?? "") ||
-    varsFileName !== parseVarsFilePath(testCase.vars_file);
+    language !== (testCase.language ?? "");
 
   function handleSave() {
     const next: TestCase = {
@@ -249,9 +239,8 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
         : {}),
       ...(notes.trim() ? { notes: notes.trim() } : {}),
       ...(goldId ? { gold_id: goldId } : {}),
-      ...(varsFileName ? { vars_file: `tests/vars.${varsFileName}.json` } : {}),
+      ...(scenarioId ? { scenario_id: scenarioId } : {}),
       ...(showLanguage && language ? { language } : {}),
-      ...(Object.keys(mockBindings).length > 0 ? { mock_bindings: mockBindings } : {}),
       ...(perTurnRows.length > 0 ? { assertions: groupPerTurn(perTurnRows) } : {}),
       ...(transcriptAssertions.length > 0
         ? { transcript_assertions: transcriptAssertions }
@@ -261,9 +250,8 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
         ? { capability_assertions: capabilityAssertions }
         : {}),
       ...(evaluators.length > 0 ? { evaluators } : {}),
-      // Preserve fields the editor doesn't surface (per the planning doc:
-      // vars_file / model / tags stay in the schema but not in the form).
-      // language is preserved when not editable (monolingual project).
+      // Preserve fields the editor doesn't surface (model / tags); language
+      // is preserved when not editable (monolingual project).
       ...(testCase.model !== undefined ? { model: testCase.model } : {}),
       ...(!showLanguage && testCase.language !== undefined
         ? { language: testCase.language }
@@ -286,34 +274,35 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
       const p = personas.find((x) => x.id === personaId);
       if (p) setPersonaPrompt(p.system_prompt);
     }
-    // Mock load: for each bound (capability_id, variant), find the
-    // matching saved mock and hydrate mockReturns under the capability's
-    // runtime name. This needs the spec to map capability id → name.
-    const nextMockReturns: Record<string, Record<string, unknown>> = {};
-    for (const [capId, variant] of Object.entries(mockBindings)) {
-      const capability = spec_capabilities.find((c) => c.id === capId);
-      if (!capability) continue;
-      const mocks = mocksByCapability[capId] ?? [];
-      const mock = mocks.find((m) => m.variant === variant) ?? mocks[0];
-      if (!mock || mock.behavior.kind !== "static") continue;
-      const returns = mock.behavior.returns;
-      if (typeof returns !== "object" || returns === null) continue;
-      nextMockReturns[capability.name] = returns as Record<string, unknown>;
+    // Scenario load: hydrate contextVars + mockReturns + mockErrors from
+    // the bound scenario. Mocks are keyed by capability id in the scenario
+    // but mockReturns/mockErrors are keyed by capability NAME at runtime —
+    // the spec provides the id→name mapping.
+    if (scenarioId) {
+      const sc = scenarios.find((s) => s.id === scenarioId);
+      if (sc) {
+        if (sc.vars) setSimulateContextVars(sc.vars);
+        const nextReturns: Record<string, Record<string, unknown>> = {};
+        for (const [capId, behavior] of Object.entries(sc.mocks ?? {})) {
+          const capability = spec_capabilities.find((c) => c.id === capId);
+          if (!capability) continue;
+          if (behavior.kind === "error") {
+            setMockError(capability.name, behavior.error);
+          } else {
+            const r = behavior.returns;
+            if (typeof r === "object" && r !== null && !Array.isArray(r)) {
+              nextReturns[capability.name] = r as Record<string, unknown>;
+            }
+          }
+        }
+        if (Object.keys(nextReturns).length > 0) setMockReturns(nextReturns);
+      }
     }
-    if (Object.keys(nextMockReturns).length > 0) setMockReturns(nextMockReturns);
 
     // Override Simulate's language picker with the case's language
     // (when set). Cases are intrinsically scoped to a language for
     // multilingual specs; opening one should match.
     if (language) setSimulateLanguage(language);
-
-    // Load the case's vars file into Simulate's contextVars (when set).
-    // vars files are shared resources; the case's binding is just a
-    // reference. Resolve by stripping the "tests/vars." and ".json" to
-    // get the store key.
-    if (varsFileName && varsFiles[varsFileName]) {
-      setSimulateContextVars(varsFiles[varsFileName]);
-    }
 
     // Bind the active case so the SimulatePanel can show the
     // Active-case header strip and the ▶ Run case button.
@@ -436,22 +425,20 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
 
         <div>
           <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
-            vars
+            scenario
           </label>
           <select
-            value={varsFileName}
-            onChange={(e) => setVarsFileName(e.target.value)}
+            value={scenarioId}
+            onChange={(e) => setScenarioId(e.target.value)}
             className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700"
-            title="Vars file injected into Simulate's contextVars on Open in Sim. Sourced from tests/vars.<name>.json."
+            title="The world (vars + per-cap mocks) this case runs in. Authored under tests/scenarios/."
           >
             <option value="">— none —</option>
-            {Object.keys(varsFiles)
-              .sort()
-              .map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
+            {scenarios.map((sc) => (
+              <option key={sc.id} value={sc.id}>
+                {sc.name || sc.id}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -502,52 +489,6 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
             </div>
           )}
         </div>
-
-        {spec_capabilities.length > 0 && (
-          <Section label="mock these capabilities">
-            <ul className="space-y-1">
-              {spec_capabilities.map((cap) => {
-                const mocks = mocksByCapability[cap.id] ?? [];
-                const bound = mockBindings[cap.id];
-                const disabled = mocks.length === 0;
-                return (
-                  <li key={cap.id} className="flex items-center gap-1.5">
-                    <span className="flex-1 min-w-0 font-mono text-[11px] text-zinc-800 truncate">
-                      {cap.id}
-                    </span>
-                    {disabled ? (
-                      <span className="text-[10px] text-zinc-400 italic">no mocks</span>
-                    ) : (
-                      <select
-                        value={bound ?? ""}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          if (v === "") {
-                            const next = { ...mockBindings };
-                            delete next[cap.id];
-                            setMockBindings(next);
-                          } else {
-                            setMockBindings({ ...mockBindings, [cap.id]: v });
-                          }
-                        }}
-                        className="rounded border border-zinc-300 bg-white px-1 py-0.5 text-[10px] font-mono text-zinc-700"
-                        title="Pick which mock variant fires for this capability when the case runs. Leave blank to call the real capability."
-                      >
-                        <option value="">—</option>
-                        {mocks.map((m) => (
-                          <option key={m.variant} value={m.variant}>
-                            {m.variant}
-                            {m.behavior.kind === "error" ? " (error)" : ""}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </Section>
-        )}
 
         <Section label="assertions">
           <PerTurnAssertionList rows={perTurnRows} onChange={setPerTurnRows} />
@@ -612,15 +553,6 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
       </div>
     </div>
   );
-}
-
-// vars_file in the case schema is a full project-relative path
-// ("tests/vars.bau.json"); the editor's picker uses just the name
-// ("bau") to look up varsFiles[name]. Strip the prefix and suffix.
-function parseVarsFilePath(path: string | undefined): string {
-  if (!path) return "";
-  const match = /^tests\/vars\.(.+)\.json$/.exec(path);
-  return match ? match[1] : "";
 }
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
