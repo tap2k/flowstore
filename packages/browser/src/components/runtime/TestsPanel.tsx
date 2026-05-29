@@ -895,7 +895,9 @@ function EvaluatorsList({
       prompt_template:
         "Evaluate the following transcript against the criteria.\n\n" +
         "Criteria: {criteria}\n\nTranscript:\n{transcript}\n\n" +
-        "Score (1-5):",
+        "Return a JSON object with `score` (integer {scale.min}-{scale.max}) " +
+        "and `notes` (one-sentence explanation citing the specific turn(s) " +
+        "that drove the score; turn 1 is the agent's first message).",
     });
     onChange([...evaluators, id]);
     setExpandedId(id);
