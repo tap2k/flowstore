@@ -3,6 +3,7 @@ import { useSpecStore } from "@/lib/store/spec";
 import { useTestsStore } from "@/lib/store/tests";
 import { hasKeyForModel, useSettingsStore } from "@/lib/store/settings";
 import { generatePersonaPrompt } from "@flowstore/core/runtime/personaGen";
+import { scenarioToRuntime } from "@flowstore/core/runtime/scenarioRuntime";
 import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
 import { ModelPicker } from "./ModelPicker";
 import { useState } from "react";
@@ -60,30 +61,18 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
     setPersonaPrompt(persona.system_prompt);
     setLoadedPersonaId(id);
     setOpen(true);
-    // If this persona has a default scenario, hydrate the world from it
-    // (vars + per-cap mocks). Reproducibility lives at the case level; this
-    // is purely a Simulate-tab convenience for free exploration.
+    // If this persona has a default scenario, hydrate the world from it.
+    // Reproducibility lives at the case level; this is purely a Simulate-
+    // tab convenience for free exploration.
     if (persona.default_scenario_id && spec) {
       const sc = scenarios.find((s) => s.id === persona.default_scenario_id);
       if (sc) {
-        if (sc.vars) setContextVars(sc.vars);
-        for (const cap of spec.agent.capabilities ?? []) {
-          setMockError(cap.name, null);
+        const { vars, returns, errors } = scenarioToRuntime(spec, sc);
+        setContextVars(vars);
+        setMockReturns(returns);
+        for (const [name, err] of Object.entries(errors)) {
+          setMockError(name, err);
         }
-        const nextReturns: Record<string, Record<string, unknown>> = {};
-        for (const [capId, behavior] of Object.entries(sc.mocks ?? {})) {
-          const capability = spec.agent.capabilities?.find((c) => c.id === capId);
-          if (!capability) continue;
-          if (behavior.kind === "error") {
-            setMockError(capability.name, behavior.error);
-          } else {
-            const r = behavior.returns;
-            if (typeof r === "object" && r !== null && !Array.isArray(r)) {
-              nextReturns[capability.name] = r as Record<string, unknown>;
-            }
-          }
-        }
-        if (Object.keys(nextReturns).length > 0) setMockReturns(nextReturns);
       }
     }
   }

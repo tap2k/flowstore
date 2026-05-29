@@ -5,6 +5,7 @@ import { useTestsStore } from "@/lib/store/tests";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useUiStore } from "@/lib/store/ui";
+import { scenarioToRuntime } from "@flowstore/core/runtime/scenarioRuntime";
 
 // Tests-tab case library + editor. List view by default; click a row to
 // land in the editor view (Personas-tab tried inline expand, but Tests
@@ -274,28 +275,16 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
       const p = personas.find((x) => x.id === personaId);
       if (p) setPersonaPrompt(p.system_prompt);
     }
-    // Scenario load: hydrate contextVars + mockReturns + mockErrors from
-    // the bound scenario. Mocks are keyed by capability id in the scenario
-    // but mockReturns/mockErrors are keyed by capability NAME at runtime —
-    // the spec provides the id→name mapping.
-    if (scenarioId) {
+    // Scenario load: hydrate buffer from the bound scenario.
+    if (scenarioId && spec) {
       const sc = scenarios.find((s) => s.id === scenarioId);
       if (sc) {
-        if (sc.vars) setSimulateContextVars(sc.vars);
-        const nextReturns: Record<string, Record<string, unknown>> = {};
-        for (const [capId, behavior] of Object.entries(sc.mocks ?? {})) {
-          const capability = spec_capabilities.find((c) => c.id === capId);
-          if (!capability) continue;
-          if (behavior.kind === "error") {
-            setMockError(capability.name, behavior.error);
-          } else {
-            const r = behavior.returns;
-            if (typeof r === "object" && r !== null && !Array.isArray(r)) {
-              nextReturns[capability.name] = r as Record<string, unknown>;
-            }
-          }
+        const { vars, returns, errors } = scenarioToRuntime(spec, sc);
+        setSimulateContextVars(vars);
+        setMockReturns(returns);
+        for (const [name, err] of Object.entries(errors)) {
+          setMockError(name, err);
         }
-        if (Object.keys(nextReturns).length > 0) setMockReturns(nextReturns);
       }
     }
 

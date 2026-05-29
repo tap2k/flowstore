@@ -7,27 +7,22 @@ import type {
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useTestsStore } from "@/lib/store/tests";
 import { useSettingsStore } from "@/lib/store/settings";
+import { collectDeclaredVariables } from "@flowstore/core/runtime/contextVars";
+import { collectMockableCapabilities } from "@flowstore/core/runtime/capabilityMocks";
+import { generateScenarioContent } from "@flowstore/core/runtime/scenarioGen";
 import {
-  collectDeclaredVariables,
-  type DeclaredVariable,
-} from "@flowstore/core/runtime/contextVars";
-import {
-  collectMockableCapabilities,
-  type MockableCapability,
-} from "@flowstore/core/runtime/capabilityMocks";
-import { generateContextVars } from "@flowstore/core/runtime/contextVarsGen";
-import { generateCapabilityMocks } from "@flowstore/core/runtime/capabilityMocksGen";
+  scenarioToRuntime,
+  buildScenarioFromRuntime,
+} from "@flowstore/core/runtime/scenarioRuntime";
 import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
 import { CollapsibleGenerateSection } from "./CollapsibleGenerateSection";
-import { TypedValueInput } from "./TypedValueInput";
+import { VarsEditor } from "./scenario/VarsEditor";
+import { MocksEditor } from "./scenario/MocksEditor";
 
-// Run-pill "Scenario" section. Two collapsible sub-sections (Vars, Mocks)
-// render the live simulate-store buffer that the next run will use.
-//
-// The buffer IS the source of truth; "load saved" copies a scenario file
-// into the buffer, "save" writes the buffer back to the loaded file, and
-// "save as…" mints a new scenario file from the buffer. Edits stay
-// in-memory until persisted.
+// Run-pill "Scenario" section. Live view onto the simulate-store buffer
+// (the world the next run will use). Vars + Mocks editors mutate the
+// buffer directly; load/save copies file ↔ buffer; Generate fills both
+// halves from the agent's purpose.
 
 interface ScenarioFormProps {
   spec: Spec;
@@ -60,8 +55,6 @@ export function ScenarioForm({ spec, disabled }: ScenarioFormProps) {
   const [open, setOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
-  // Tracks which saved scenario the current buffer was loaded from (or
-  // saved-as). Cleared on Clear.
   const [loadedScenarioId, setLoadedScenarioId] = useState<string | null>(null);
   const [savingAsName, setSavingAsName] = useState<string | null>(null);
 
@@ -73,82 +66,61 @@ export function ScenarioForm({ spec, disabled }: ScenarioFormProps) {
     (d) => contextVars[d.name] !== undefined,
   ).length;
   const setMocksCount = mockableCaps.filter((c) => {
-    const hasReturns =
-      Object.keys(mockReturns[c.capabilityName] ?? {}).length > 0;
+    const hasReturns = Object.keys(mockReturns[c.capabilityName] ?? {}).length > 0;
     const hasError = mockErrors[c.capabilityName] !== undefined;
     return hasReturns || hasError;
   }).length;
 
-  function buildScenarioFromBuffer(id: string, name: string): Scenario {
-    // Translate the simulate-store buffer back into the scenario shape.
-    // Mock returns are keyed by capability NAME at runtime; scenarios
-    // store by capability ID. Spec provides the mapping.
-    const vars: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(contextVars)) {
-      if (v === undefined || v === null || v === "") continue;
-      vars[k] = v;
-    }
-    const mocks: Record<string, ScenarioMockBehavior> = {};
-    const nameToId = new Map<string, string>();
-    for (const cap of spec.agent.capabilities ?? []) {
-      nameToId.set(cap.name, cap.id);
-    }
+  // Adapt the runtime store shape into the editor's Behavior dict.
+  // Keyed by capability NAME (the runtime dimension); MocksEditor's keyOf
+  // returns the cap.capabilityName so reads land in this dict.
+  const behaviorsByName = useMemo(() => {
+    const out: Record<string, ScenarioMockBehavior> = {};
     for (const cap of mockableCaps) {
-      const cid = nameToId.get(cap.capabilityName);
-      if (!cid) continue;
       const err = mockErrors[cap.capabilityName];
       if (err !== undefined && err !== null) {
-        mocks[cid] = { kind: "error", error: err };
+        out[cap.capabilityName] = { kind: "error", error: err };
         continue;
       }
       const returns = mockReturns[cap.capabilityName] ?? {};
-      const cleaned: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(returns)) {
-        if (v === undefined || v === null || v === "") continue;
-        cleaned[k] = v;
-      }
-      if (Object.keys(cleaned).length > 0) {
-        mocks[cid] = { kind: "static", returns: cleaned };
+      if (Object.keys(returns).length > 0) {
+        out[cap.capabilityName] = { kind: "static", returns };
       }
     }
-    return {
-      $schema: "flowstore://test/scenario/v0",
-      id,
-      ...(name.trim() ? { name: name.trim() } : {}),
-      ...(Object.keys(vars).length > 0 ? { vars } : {}),
-      ...(Object.keys(mocks).length > 0 ? { mocks } : {}),
-    };
+    return out;
+  }, [mockableCaps, mockReturns, mockErrors]);
+
+  function onMocksEditorChange(capName: string, behavior: ScenarioMockBehavior | undefined) {
+    if (behavior === undefined) {
+      // Clear both halves for this cap.
+      setMockError(capName, null);
+      for (const outName of Object.keys(mockReturns[capName] ?? {})) {
+        setMockOutput(capName, outName, undefined);
+      }
+      return;
+    }
+    if (behavior.kind === "error") {
+      setMockError(capName, behavior.error);
+      return;
+    }
+    // static — clear error, then write each output
+    setMockError(capName, null);
+    const prev = mockReturns[capName] ?? {};
+    const next = (behavior.returns ?? {}) as Record<string, unknown>;
+    // Drop outputs that disappeared
+    for (const outName of Object.keys(prev)) {
+      if (!(outName in next)) setMockOutput(capName, outName, undefined);
+    }
+    for (const [outName, v] of Object.entries(next)) {
+      setMockOutput(capName, outName, v);
+    }
   }
 
   function hydrateBufferFromScenario(sc: Scenario) {
-    // Replace contextVars wholesale (the loaded scenario IS the world).
-    setContextVars(sc.vars ?? {});
-    // Apply mocks per cap; caps NOT listed in the scenario get cleared so
-    // no stale state lingers from a previously-loaded scenario.
-    const idToName = new Map<string, string>();
-    for (const cap of spec.agent.capabilities ?? []) {
-      idToName.set(cap.id, cap.name);
-    }
-    const nextReturns: Record<string, Record<string, unknown>> = {};
-    const nextErrors: Record<string, string | null> = {};
-    for (const cap of spec.agent.capabilities ?? []) {
-      nextErrors[cap.name] = null;
-    }
-    for (const [capId, behavior] of Object.entries(sc.mocks ?? {})) {
-      const name = idToName.get(capId);
-      if (!name) continue;
-      if (behavior.kind === "error") {
-        nextErrors[name] = behavior.error;
-      } else if (
-        typeof behavior.returns === "object" &&
-        behavior.returns !== null &&
-        !Array.isArray(behavior.returns)
-      ) {
-        nextReturns[name] = behavior.returns as Record<string, unknown>;
-      }
-    }
-    setMockReturns(nextReturns);
-    for (const [name, err] of Object.entries(nextErrors)) {
+    const { vars, returns, errors } = scenarioToRuntime(spec, sc);
+    setContextVars(vars);
+    setMockReturns(returns);
+    for (const [name, err] of Object.entries(errors)) {
       setMockError(name, err);
     }
   }
@@ -165,7 +137,15 @@ export function ScenarioForm({ spec, disabled }: ScenarioFormProps) {
   function onSaveScenario() {
     if (!loadedScenario) return;
     saveScenario(
-      buildScenarioFromBuffer(loadedScenario.id, loadedScenario.name ?? ""),
+      buildScenarioFromRuntime(
+        spec,
+        loadedScenario.id,
+        loadedScenario.name,
+        loadedScenario.notes,
+        contextVars,
+        mockReturns,
+        mockErrors,
+      ),
     );
   }
 
@@ -177,7 +157,17 @@ export function ScenarioForm({ spec, disabled }: ScenarioFormProps) {
     const name = savingAsName.trim();
     if (name === "") return;
     const id = uniqueScenarioId(name);
-    saveScenario(buildScenarioFromBuffer(id, name));
+    saveScenario(
+      buildScenarioFromRuntime(
+        spec,
+        id,
+        name,
+        undefined,
+        contextVars,
+        mockReturns,
+        mockErrors,
+      ),
+    );
     setLoadedScenarioId(id);
     setSavingAsName(null);
   }
@@ -215,16 +205,25 @@ export function ScenarioForm({ spec, disabled }: ScenarioFormProps) {
     setGenError(null);
     try {
       const geminiModel = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
-      // Fill vars first so the mock generator can ground its returns
-      // against realistic context (e.g., caller_name matches policyholder).
-      const vars = declaredVars.length > 0
-        ? await generateContextVars(spec, apiKey, geminiModel, declaredVars)
-        : {};
+      const { vars, mocks } = await generateScenarioContent(
+        spec,
+        apiKey,
+        geminiModel,
+      );
       if (Object.keys(vars).length > 0) setContextVars(vars);
-      const mocks = mockableCaps.length > 0
-        ? await generateCapabilityMocks(spec, apiKey, geminiModel, mockableCaps, vars)
-        : {};
-      if (Object.keys(mocks).length > 0) setMockReturns(mocks);
+      // Translate scenario mocks (cap_id → cap_name) into runtime shape.
+      const idToName = new Map<string, string>();
+      for (const cap of spec.agent.capabilities ?? []) idToName.set(cap.id, cap.name);
+      const nextReturns: Record<string, Record<string, unknown>> = {};
+      for (const [capId, behavior] of Object.entries(mocks)) {
+        const name = idToName.get(capId);
+        if (!name || behavior.kind !== "static") continue;
+        const r = behavior.returns;
+        if (typeof r === "object" && r !== null && !Array.isArray(r)) {
+          nextReturns[name] = r as Record<string, unknown>;
+        }
+      }
+      if (Object.keys(nextReturns).length > 0) setMockReturns(nextReturns);
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Generation failed.");
     } finally {
@@ -240,12 +239,12 @@ export function ScenarioForm({ spec, disabled }: ScenarioFormProps) {
       countLabel={configured ? "configured" : "empty"}
       open={open}
       onToggle={() => setOpen((o) => !o)}
-      onClear={filledVarsCount > 0 || setMocksCount > 0 ? onClear : undefined}
+      onClear={configured ? onClear : undefined}
       onGenerate={onGenerate}
       apiKey={apiKey}
       disabled={disabled}
       generating={generating}
-      generateTitle="Use the LLM to fill realistic happy-path vars + mock returns. Mocks are grounded against the generated vars."
+      generateTitle="Use the LLM to fill realistic happy-path vars + mock returns."
     >
       <div className="space-y-3 px-4 pb-4">
         {genError && (
@@ -268,33 +267,24 @@ export function ScenarioForm({ spec, disabled }: ScenarioFormProps) {
           onDeleteScenario={onDeleteScenario}
         />
 
-        {declaredVars.length > 0 && (
-          <VarsSection
-            declared={declaredVars}
-            values={contextVars}
-            disabled={disabled || generating}
-            onChange={(name, value) => setContextVar(name, value)}
-            filledCount={filledVarsCount}
-          />
-        )}
+        <VarsEditor
+          declared={declaredVars}
+          values={contextVars}
+          disabled={disabled || generating}
+          onChange={(name, value) => setContextVar(name, value)}
+        />
 
-        {mockableCaps.length > 0 && (
-          <MocksSection
-            caps={mockableCaps}
-            returns={mockReturns}
-            errors={mockErrors}
-            disabled={disabled || generating}
-            onChangeReturn={(capName, outName, v) => setMockOutput(capName, outName, v)}
-            onChangeError={(capName, err) => setMockError(capName, err)}
-            setMocksCount={setMocksCount}
-          />
-        )}
+        <MocksEditor
+          caps={mockableCaps}
+          behaviors={behaviorsByName}
+          disabled={disabled || generating}
+          keyOf={(cap) => cap.capabilityName}
+          onChange={onMocksEditorChange}
+        />
       </div>
     </CollapsibleGenerateSection>
   );
 }
-
-// ---- Load / save row ----
 
 interface ScenarioLoadSaveRowProps {
   scenarios: Scenario[];
@@ -403,224 +393,6 @@ function ScenarioLoadSaveRow({
         >
           delete
         </button>
-      )}
-    </div>
-  );
-}
-
-// ---- Vars sub-section ----
-
-interface VarsSectionProps {
-  declared: DeclaredVariable[];
-  values: Record<string, unknown>;
-  disabled: boolean;
-  onChange: (name: string, value: unknown) => void;
-  filledCount: number;
-}
-
-function VarsSection({ declared, values, disabled, onChange, filledCount }: VarsSectionProps) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="rounded border border-zinc-200 bg-white">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between px-2 py-1.5 text-left hover:bg-zinc-50"
-      >
-        <span className="text-[10px] uppercase tracking-wide text-zinc-500">
-          vars ({filledCount}/{declared.length} filled)
-        </span>
-        <span className="text-zinc-400">{open ? "▾" : "▸"}</span>
-      </button>
-      {open && (
-        <div className="space-y-1 border-t border-zinc-100 px-2 py-2">
-          {declared.map((d) => (
-            <div key={d.name} className="space-y-0.5">
-              <label className="block text-[11px] font-mono text-zinc-700">
-                {d.name}
-                {d.scope === "flow" && (
-                  <span className="ml-1 text-zinc-400">· flow {d.flowId}</span>
-                )}
-              </label>
-              <TypedValueInput
-                decl={d.decl}
-                value={values[d.name]}
-                disabled={disabled}
-                onChange={(v) => onChange(d.name, v)}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---- Mocks sub-section ----
-
-interface MocksSectionProps {
-  caps: MockableCapability[];
-  returns: Record<string, Record<string, unknown>>;
-  errors: Record<string, string>;
-  disabled: boolean;
-  onChangeReturn: (capName: string, outName: string, v: unknown) => void;
-  onChangeError: (capName: string, err: string | null) => void;
-  setMocksCount: number;
-}
-
-function MocksSection({
-  caps,
-  returns,
-  errors,
-  disabled,
-  onChangeReturn,
-  onChangeError,
-  setMocksCount,
-}: MocksSectionProps) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="rounded border border-zinc-200 bg-white">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between px-2 py-1.5 text-left hover:bg-zinc-50"
-      >
-        <span className="text-[10px] uppercase tracking-wide text-zinc-500">
-          mocks ({setMocksCount}/{caps.length} set)
-        </span>
-        <span className="text-zinc-400">{open ? "▾" : "▸"}</span>
-      </button>
-      {open && (
-        <div className="space-y-1.5 border-t border-zinc-100 px-2 py-2">
-          {caps.map((cap) => (
-            <CapMockRow
-              key={cap.capabilityId}
-              cap={cap}
-              values={returns[cap.capabilityName] ?? {}}
-              error={errors[cap.capabilityName] ?? null}
-              disabled={disabled}
-              onChangeReturn={(outName, v) =>
-                onChangeReturn(cap.capabilityName, outName, v)
-              }
-              onChangeError={(err) => onChangeError(cap.capabilityName, err)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface CapMockRowProps {
-  cap: MockableCapability;
-  values: Record<string, unknown>;
-  error: string | null;
-  disabled: boolean;
-  onChangeReturn: (outName: string, v: unknown) => void;
-  onChangeError: (err: string | null) => void;
-}
-
-function CapMockRow({
-  cap,
-  values,
-  error,
-  disabled,
-  onChangeReturn,
-  onChangeError,
-}: CapMockRowProps) {
-  const [open, setOpen] = useState(false);
-  const inErrorMode = error !== null;
-  const filledHere = Object.keys(values).filter((k) => values[k] !== undefined).length;
-  const subtitle = inErrorMode
-    ? "error"
-    : cap.outputs.length === 0
-      ? "side-effect"
-      : `${filledHere}/${cap.outputs.length}`;
-  const isSet = inErrorMode || filledHere > 0;
-
-  return (
-    <div className="rounded border border-zinc-200 bg-white">
-      <div className="flex items-center gap-1 px-2 py-1.5">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="flex min-w-0 flex-1 flex-col items-start text-left hover:bg-zinc-50 -mx-2 -my-1.5 px-2 py-1.5"
-        >
-          <span className="truncate font-mono text-[11px] text-zinc-800 max-w-full">
-            {cap.capabilityName}
-          </span>
-          <span className="font-mono text-[10px] text-zinc-500">
-            {isSet ? subtitle : "—"}
-          </span>
-        </button>
-        <select
-          value={inErrorMode ? "error" : isSet ? "static" : "none"}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (v === "none") {
-              onChangeError(null);
-              for (const outName of Object.keys(values)) {
-                onChangeReturn(outName, undefined);
-              }
-              return;
-            }
-            if (v === "error") {
-              onChangeError("");
-              setOpen(true);
-              return;
-            }
-            // static
-            onChangeError(null);
-            setOpen(true);
-          }}
-          disabled={disabled}
-          className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-600"
-        >
-          <option value="none">— none —</option>
-          <option value="static">static</option>
-          <option value="error">error</option>
-        </select>
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="text-zinc-400 hover:text-zinc-900"
-          title={open ? "Collapse" : "Expand"}
-        >
-          {open ? "▾" : "▸"}
-        </button>
-      </div>
-      {open && isSet && (
-        <div className="space-y-1.5 border-t border-zinc-100 px-2 py-2">
-          {inErrorMode ? (
-            <input
-              type="text"
-              value={error ?? ""}
-              onChange={(e) => onChangeError(e.target.value)}
-              disabled={disabled}
-              placeholder="Error message the LLM sees as the tool result"
-              className="w-full rounded border border-red-300 bg-red-50 px-2 py-1 text-[11px] text-red-900 focus:outline-none focus:ring-1 focus:ring-red-400"
-            />
-          ) : cap.outputs.length === 0 ? (
-            <div className="text-[10px] text-zinc-500 italic">
-              Capability has no declared outputs (side-effect only); returns = {`{}`}.
-            </div>
-          ) : (
-            cap.outputs.map((out) => (
-              <div key={out.name} className="space-y-0.5">
-                <label className="block text-[11px] font-mono text-zinc-700">
-                  {out.name}
-                  {!out.decl && <span className="ml-1 text-zinc-400">· undeclared</span>}
-                </label>
-                <TypedValueInput
-                  decl={out.decl}
-                  value={values[out.name]}
-                  disabled={disabled}
-                  onChange={(v) => onChangeReturn(out.name, v)}
-                />
-              </div>
-            ))
-          )}
-        </div>
       )}
     </div>
   );

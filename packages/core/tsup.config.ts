@@ -50,6 +50,8 @@ export default defineConfig({
     "runtime/contextVarsGen": "src/runtime/contextVarsGen.ts",
     "runtime/capabilityMocks": "src/runtime/capabilityMocks.ts",
     "runtime/capabilityMocksGen": "src/runtime/capabilityMocksGen.ts",
+    "runtime/scenarioRuntime": "src/runtime/scenarioRuntime.ts",
+    "runtime/scenarioGen": "src/runtime/scenarioGen.ts",
     "runtime/personaGen": "src/runtime/personaGen.ts",
     "runtime/personaClient": "src/runtime/personaClient.ts",
     "runtime/promptClient": "src/runtime/promptClient.ts",
