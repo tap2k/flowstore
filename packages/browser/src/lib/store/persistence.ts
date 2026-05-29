@@ -187,7 +187,7 @@ export function startSimulateAuthPersistence(debounceMs = 100): () => void {
 // was on (Simulate / Tests / Personas) across reloads.
 
 interface PersistedUi {
-  openSimulateTab: "simulate" | "tests" | "personas";
+  openSimulateTab: "simulate" | "tests" | "personas" | "golds";
 }
 
 export function loadSavedUi(): PersistedUi | null {
@@ -199,7 +199,8 @@ export function loadSavedUi(): PersistedUi | null {
     if (
       parsed.openSimulateTab !== "simulate" &&
       parsed.openSimulateTab !== "tests" &&
-      parsed.openSimulateTab !== "personas"
+      parsed.openSimulateTab !== "personas" &&
+      parsed.openSimulateTab !== "golds"
     ) {
       return null;
     }

@@ -63,6 +63,7 @@ export interface TestsState {
   uniqueCaseId: (base: string) => string;
 
   saveGold: (gold: Gold) => void;
+  deleteGold: (id: string) => void;
   uniqueGoldId: (base: string) => string;
 
   saveRubric: (rubric: Rubric) => void;
@@ -169,6 +170,22 @@ export const useTestsStore = create<TestsState>((set, get) => ({
       const next =
         i === -1 ? [...s.golds, gold] : s.golds.map((g, idx) => (idx === i ? gold : g));
       return { golds: next };
+    });
+    useDirtyStore.getState().setDirty(true);
+  },
+
+  deleteGold: (id) => {
+    set((s) => {
+      // Cascade: cases referencing the deleted gold drop their gold_id.
+      const cases = s.cases.map((c) => {
+        if (c.gold_id !== id) return c;
+        const { gold_id: _drop, ...rest } = c;
+        return rest;
+      });
+      return {
+        golds: s.golds.filter((g) => g.id !== id),
+        cases,
+      };
     });
     useDirtyStore.getState().setDirty(true);
   },

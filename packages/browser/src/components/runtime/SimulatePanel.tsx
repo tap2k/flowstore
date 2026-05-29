@@ -16,6 +16,7 @@ import { VariablesForm } from "./VariablesForm";
 import { CapabilityMocksForm } from "./CapabilityMocksForm";
 import { PersonaForm } from "./PersonaForm";
 import { PersonasPanel } from "./PersonasPanel";
+import { GoldsPanel } from "./GoldsPanel";
 import { TestsPanel } from "./TestsPanel";
 import { useUiStore } from "@/lib/store/ui";
 import { useTestsStore } from "@/lib/store/tests";
@@ -538,9 +539,14 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         <TabButton active={openSimulateTab === "personas"} onClick={() => setOpenSimulateTab("personas")}>
           Personas
         </TabButton>
+        <TabButton active={openSimulateTab === "golds"} onClick={() => setOpenSimulateTab("golds")}>
+          Golds
+        </TabButton>
       </div>
 
       {openSimulateTab === "personas" && <PersonasPanel />}
+
+      {openSimulateTab === "golds" && <GoldsPanel />}
 
       {openSimulateTab === "tests" && <TestsPanel />}
 

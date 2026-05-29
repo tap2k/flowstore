@@ -31,8 +31,8 @@ interface UiState {
   // existing live-simulate body; "tests" and "personas" are the new test
   // surfaces. Tab state is panel-local (not URL-routed) — closing and
   // reopening Run resets to simulate.
-  openSimulateTab: "simulate" | "tests" | "personas";
-  setOpenSimulateTab: (tab: "simulate" | "tests" | "personas") => void;
+  openSimulateTab: "simulate" | "tests" | "personas" | "golds";
+  setOpenSimulateTab: (tab: "simulate" | "tests" | "personas" | "golds") => void;
 }
 
 export const useUiStore = create<UiState>((set) => ({
