@@ -30,6 +30,15 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
   );
   const clearMockReturns = useSimulateStore((s) => s.clearMockReturns);
   const mocksByCapability = useTestsStore((s) => s.mocksByCapability);
+  const saveCapabilityMock = useTestsStore((s) => s.saveCapabilityMock);
+  const deleteCapabilityMock = useTestsStore((s) => s.deleteCapabilityMock);
+  const uniqueMockVariant = useTestsStore((s) => s.uniqueMockVariant);
+  // Tracks which saved variant the current values were loaded from,
+  // per capability id. Cleared on Clear / Generate / load none.
+  const [loadedVariantByCap, setLoadedVariantByCap] = useState<Record<string, string>>({});
+  // Inline save-as: { [capability_id]: in-progress-name }. Replaces a
+  // window.prompt with the same pattern VariablesForm uses.
+  const [savingAsByCap, setSavingAsByCap] = useState<Record<string, string>>({});
   // ✨ Generate uses Gemini structured output (responseSchema) — Google-only.
   // Force a Gemini model regardless of the chatModel picker.
   const apiKey = useSettingsStore((s) => s.googleApiKey);
@@ -94,19 +103,28 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
           const savedForCap = (mocksByCapability[cap.capabilityId] ?? []).filter(
             (m) => m.behavior.kind === "static",
           );
+          const loadedVariant = loadedVariantByCap[cap.capabilityId] ?? null;
+          const savingAsName = savingAsByCap[cap.capabilityId] ?? null;
+          const currentValues = mockReturns[cap.capabilityName] ?? {};
           return (
             <CapabilityBlock
               key={cap.capabilityName}
               cap={cap}
-              values={mockReturns[cap.capabilityName] ?? {}}
+              values={currentValues}
               savedMocks={savedForCap}
+              loadedVariant={loadedVariant}
+              savingAsName={savingAsName}
               disabled={disabled || generating}
-              onChange={(outName, v) => setMockOutput(cap.capabilityName, outName, v)}
-              onClear={() => clearMockReturnsForCapability(cap.capabilityName)}
+              onChange={(outName, v) => {
+                setMockOutput(cap.capabilityName, outName, v);
+              }}
+              onClear={() => {
+                clearMockReturnsForCapability(cap.capabilityName);
+                const next = { ...loadedVariantByCap };
+                delete next[cap.capabilityId];
+                setLoadedVariantByCap(next);
+              }}
               onLoadSaved={(mock) => {
-                // Static-only path (filtered above). Replace the in-memory
-                // mockReturns for this capability with the saved mock's
-                // returns object — keys should match output names.
                 if (mock.behavior.kind !== "static") return;
                 const returns = mock.behavior.returns;
                 if (typeof returns !== "object" || returns === null) return;
@@ -114,6 +132,62 @@ export function CapabilityMocksForm({ spec, disabled }: CapabilityMocksFormProps
                   ...mockReturns,
                   [cap.capabilityName]: returns as Record<string, unknown>,
                 });
+                setLoadedVariantByCap({
+                  ...loadedVariantByCap,
+                  [cap.capabilityId]: mock.variant,
+                });
+              }}
+              onSave={() => {
+                if (!loadedVariant) return;
+                saveCapabilityMock({
+                  $schema: "flowstore://test/mock/v0",
+                  capability_id: cap.capabilityId,
+                  variant: loadedVariant,
+                  behavior: { kind: "static", returns: currentValues },
+                });
+              }}
+              onStartSaveAs={() => {
+                const defaultName = uniqueMockVariant(
+                  cap.capabilityId,
+                  loadedVariant ?? "happy",
+                );
+                setSavingAsByCap({ ...savingAsByCap, [cap.capabilityId]: defaultName });
+              }}
+              onChangeSaveAsName={(name) => {
+                setSavingAsByCap({ ...savingAsByCap, [cap.capabilityId]: name });
+              }}
+              onCommitSaveAs={() => {
+                const name = (savingAsName ?? "").trim();
+                if (name === "") return;
+                saveCapabilityMock({
+                  $schema: "flowstore://test/mock/v0",
+                  capability_id: cap.capabilityId,
+                  variant: name,
+                  behavior: { kind: "static", returns: currentValues },
+                });
+                setLoadedVariantByCap({
+                  ...loadedVariantByCap,
+                  [cap.capabilityId]: name,
+                });
+                const nextSavingAs = { ...savingAsByCap };
+                delete nextSavingAs[cap.capabilityId];
+                setSavingAsByCap(nextSavingAs);
+              }}
+              onCancelSaveAs={() => {
+                const next = { ...savingAsByCap };
+                delete next[cap.capabilityId];
+                setSavingAsByCap(next);
+              }}
+              onDelete={() => {
+                if (!loadedVariant) return;
+                const ok = window.confirm(
+                  `Delete mock "${cap.capabilityId}.${loadedVariant}"? Cases binding it will lose the binding.`,
+                );
+                if (!ok) return;
+                deleteCapabilityMock(cap.capabilityId, loadedVariant);
+                const next = { ...loadedVariantByCap };
+                delete next[cap.capabilityId];
+                setLoadedVariantByCap(next);
               }}
             />
           );
@@ -127,20 +201,36 @@ interface CapabilityBlockProps {
   cap: MockableCapability;
   values: Record<string, unknown>;
   savedMocks: CapabilityMock[];
+  loadedVariant: string | null;
+  savingAsName: string | null;
   disabled: boolean;
   onChange: (outputName: string, value: unknown) => void;
   onClear: () => void;
   onLoadSaved: (mock: CapabilityMock) => void;
+  onSave: () => void;
+  onStartSaveAs: () => void;
+  onChangeSaveAsName: (name: string) => void;
+  onCommitSaveAs: () => void;
+  onCancelSaveAs: () => void;
+  onDelete: () => void;
 }
 
 function CapabilityBlock({
   cap,
   values,
   savedMocks,
+  loadedVariant,
+  savingAsName,
   disabled,
   onChange,
   onClear,
   onLoadSaved,
+  onSave,
+  onStartSaveAs,
+  onChangeSaveAsName,
+  onCommitSaveAs,
+  onCancelSaveAs,
+  onDelete,
 }: CapabilityBlockProps) {
   const filledHere = Object.keys(values).filter((k) => values[k] !== undefined).length;
 
@@ -158,10 +248,9 @@ function CapabilityBlock({
         <div className="flex items-center gap-1">
           {savedMocks.length > 0 && (
             <select
-              defaultValue=""
+              value={loadedVariant ?? ""}
               onChange={(e) => {
                 const v = e.target.value;
-                e.target.value = "";
                 if (v === "") return;
                 const m = savedMocks.find((mock) => mock.variant === v);
                 if (m) onLoadSaved(m);
@@ -179,13 +268,79 @@ function CapabilityBlock({
               ))}
             </select>
           )}
+          {loadedVariant && (
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={disabled}
+              title={`Update capabilities/${cap.capabilityId}.${loadedVariant}.mock.json with current values.`}
+              className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-50 disabled:opacity-40"
+            >
+              save
+            </button>
+          )}
+          {savingAsName === null ? (
+            filledHere > 0 && (
+              <button
+                type="button"
+                onClick={onStartSaveAs}
+                disabled={disabled}
+                title="Save current values as a new mock variant for this capability."
+                className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-50 disabled:opacity-40"
+              >
+                save as…
+              </button>
+            )
+          ) : (
+            <>
+              <input
+                type="text"
+                autoFocus
+                value={savingAsName}
+                onChange={(e) => onChangeSaveAsName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") onCommitSaveAs();
+                  else if (e.key === "Escape") onCancelSaveAs();
+                }}
+                placeholder="variant"
+                className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[10px] font-mono text-zinc-800"
+                style={{ width: "5rem" }}
+              />
+              <button
+                type="button"
+                onClick={onCancelSaveAs}
+                className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
+              >
+                cancel
+              </button>
+              <button
+                type="button"
+                onClick={onCommitSaveAs}
+                disabled={savingAsName.trim() === ""}
+                className="rounded-md bg-zinc-900 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+              >
+                save
+              </button>
+            </>
+          )}
+          {loadedVariant && (
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={disabled}
+              title={`Delete capabilities/${cap.capabilityId}.${loadedVariant}.mock.json (cascade-strips case bindings).`}
+              className="rounded border border-red-300 bg-white px-1.5 py-0.5 text-[10px] text-red-700 hover:bg-red-50 disabled:opacity-40"
+            >
+              delete
+            </button>
+          )}
           {filledHere > 0 && (
             <button
               type="button"
               onClick={onClear}
               disabled={disabled}
               className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-50 disabled:opacity-40"
-              title="Clear values for this capability."
+              title="Clear values for this capability (in-session only)."
             >
               clear
             </button>
