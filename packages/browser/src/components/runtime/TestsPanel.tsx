@@ -185,6 +185,25 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
       ? captureContext.transcript
       : null;
 
+  // Dirty = any editable field diverged from the saved record. Matches
+  // the persona-row pattern so the Save button greys out after a save
+  // (testCase prop updates → draft already matches → dirty becomes false).
+  // JSON.stringify is good enough for the small case shape; saves writing
+  // a deep-equal helper.
+  const dirty =
+    name !== (testCase.name ?? "") ||
+    (source === "persona") !== (testCase.persona_id !== undefined && testCase.persona_id !== "") ||
+    JSON.stringify(userTurns) !== JSON.stringify(testCase.user_turns ?? []) ||
+    personaId !== (testCase.persona_id ?? "") ||
+    JSON.stringify(mockBindings) !== JSON.stringify(testCase.mock_bindings ?? {}) ||
+    JSON.stringify(groupPerTurn(perTurnRows)) !==
+      JSON.stringify(testCase.assertions ?? []) ||
+    JSON.stringify(transcriptAssertions) !==
+      JSON.stringify(testCase.transcript_assertions ?? []) ||
+    JSON.stringify(stateAssertions) !==
+      JSON.stringify(testCase.state_assertions ?? []) ||
+    JSON.stringify(evaluators) !== JSON.stringify(testCase.evaluators ?? []);
+
   function handleSave() {
     const next: TestCase = {
       $schema: "flowstore://test/case/v0",
@@ -274,8 +293,9 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
           <button
             type="button"
             onClick={handleSave}
-            className="rounded-md bg-zinc-900 px-2 py-1 text-[11px] font-medium text-white hover:bg-zinc-700"
-            title="Save changes to this case."
+            disabled={!dirty}
+            className="rounded-md bg-zinc-900 px-2 py-1 text-[11px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+            title={dirty ? "Save changes to this case." : "No unsaved edits."}
           >
             Save
           </button>
