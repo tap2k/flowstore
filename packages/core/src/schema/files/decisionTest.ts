@@ -1,9 +1,5 @@
 import { Type, type Static } from "@sinclair/typebox";
 
-// Per-capability mock binding — same shape as test-case/v0; decision tests
-// may need mocks if the prefix or any branch exercises a capability call.
-const MockBindings = Type.Record(Type.String(), Type.String());
-
 // One branch of a decision test: "given the prefix-state, what does the
 // agent do when the user says <user_input>?". Substring assertions are
 // the v0 verdict mechanism; capability_assertions[] additionally check
@@ -65,10 +61,9 @@ export const DecisionTestSchema = Type.Object(
     notes: Type.Optional(Type.String()),
     prefix_turns: Type.Array(Type.String()),
     branches: Type.Array(DecisionBranch),
-    mock_bindings: Type.Optional(MockBindings),
+    scenario_id: Type.Optional(Type.String()),
     model: Type.Optional(Type.String()),
     language: Type.Optional(Type.String()),
-    vars_file: Type.Optional(Type.String()),
     tags: Type.Optional(Type.Array(Type.String())),
   },
   { additionalProperties: false },

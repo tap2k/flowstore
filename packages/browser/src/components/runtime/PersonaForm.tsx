@@ -25,6 +25,10 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
   const savePersona = useTestsStore((s) => s.savePersona);
   const deletePersona = useTestsStore((s) => s.deletePersona);
   const uniquePersonaId = useTestsStore((s) => s.uniquePersonaId);
+  const scenarios = useTestsStore((s) => s.scenarios);
+  const setMockReturns = useSimulateStore((s) => s.setMockReturns);
+  const setMockError = useSimulateStore((s) => s.setMockError);
+  const setContextVars = useSimulateStore((s) => s.setContextVars);
   // ✨ Generate uses Gemini structured-output (responseSchema) directly,
   // which is Google-specific. It needs the Google key regardless of which
   // model the persona-runtime picker is set to. Multi-provider structured
@@ -62,6 +66,32 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
     setPersonaPrompt(persona.system_prompt);
     setLoadedPersonaId(id);
     setOpen(true);
+    // If this persona has a default scenario, hydrate the world from it
+    // (vars + per-cap mocks). Reproducibility lives at the case level; this
+    // is purely a Simulate-tab convenience for free exploration.
+    if (persona.default_scenario_id && spec) {
+      const sc = scenarios.find((s) => s.id === persona.default_scenario_id);
+      if (sc) {
+        if (sc.vars) setContextVars(sc.vars);
+        for (const cap of spec.agent.capabilities ?? []) {
+          setMockError(cap.name, null);
+        }
+        const nextReturns: Record<string, Record<string, unknown>> = {};
+        for (const [capId, behavior] of Object.entries(sc.mocks ?? {})) {
+          const capability = spec.agent.capabilities?.find((c) => c.id === capId);
+          if (!capability) continue;
+          if (behavior.kind === "error") {
+            setMockError(capability.name, behavior.error);
+          } else {
+            const r = behavior.returns;
+            if (typeof r === "object" && r !== null && !Array.isArray(r)) {
+              nextReturns[capability.name] = r as Record<string, unknown>;
+            }
+          }
+        }
+        if (Object.keys(nextReturns).length > 0) setMockReturns(nextReturns);
+      }
+    }
   }
 
   function onSavePersona() {

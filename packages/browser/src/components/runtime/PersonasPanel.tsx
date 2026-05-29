@@ -116,19 +116,25 @@ function PersonaRow({
   const [name, setName] = useState(persona.name ?? "");
   const [notes, setNotes] = useState(persona.notes ?? "");
   const [systemPrompt, setSystemPrompt] = useState(persona.system_prompt);
+  const [defaultScenarioId, setDefaultScenarioId] = useState(
+    persona.default_scenario_id ?? "",
+  );
+  const scenarios = useTestsStore((s) => s.scenarios);
 
   useEffect(() => {
     if (expanded) {
       setName(persona.name ?? "");
       setNotes(persona.notes ?? "");
       setSystemPrompt(persona.system_prompt);
+      setDefaultScenarioId(persona.default_scenario_id ?? "");
     }
   }, [expanded, persona]);
 
   const dirty =
     name !== (persona.name ?? "") ||
     notes !== (persona.notes ?? "") ||
-    systemPrompt !== persona.system_prompt;
+    systemPrompt !== persona.system_prompt ||
+    defaultScenarioId !== (persona.default_scenario_id ?? "");
 
   function handleSave() {
     const updated: Persona = {
@@ -139,6 +145,7 @@ function PersonaRow({
       ...(persona.model !== undefined ? { model: persona.model } : {}),
       ...(name.trim() ? { name: name.trim() } : {}),
       ...(notes.trim() ? { notes: notes.trim() } : {}),
+      ...(defaultScenarioId ? { default_scenario_id: defaultScenarioId } : {}),
     };
     onSave(updated);
   }
@@ -198,6 +205,25 @@ function PersonaRow({
               placeholder="System prompt for the persona playing the user."
               className="w-full resize-y rounded border border-zinc-300 bg-white p-2 font-mono text-[11px] leading-snug text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400"
             />
+          </div>
+
+          <div>
+            <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+              default scenario
+            </label>
+            <select
+              value={defaultScenarioId}
+              onChange={(e) => setDefaultScenarioId(e.target.value)}
+              title="Optional. When this persona is loaded in Simulate, its world (vars + mocks) hydrates from this scenario."
+              className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700"
+            >
+              <option value="">— none —</option>
+              {scenarios.map((sc) => (
+                <option key={sc.id} value={sc.id}>
+                  {sc.name || sc.id}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex items-center justify-between gap-2 pt-1">
