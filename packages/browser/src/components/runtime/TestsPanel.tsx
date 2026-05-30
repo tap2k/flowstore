@@ -959,7 +959,7 @@ function StateAssertionList({
         onClick={add}
         className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
       >
-        + add state assertion
+        + add
       </button>
     </SubSection>
   );
@@ -1032,7 +1032,7 @@ function CapabilityAssertionList({
         disabled={capabilities.length === 0}
         className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
       >
-        + add capability assertion
+        + add
       </button>
     </SubSection>
   );
