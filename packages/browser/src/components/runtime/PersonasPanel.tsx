@@ -466,19 +466,19 @@ function PersonaRow({
               )}
               <button
                 type="button"
-                onClick={onCopy}
-                title="Duplicate this persona as a new one — handy for variant authoring (tweak one mock)."
-                className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
-              >
-                Copy
-              </button>
-              <button
-                type="button"
                 onClick={onUseInSimulate}
                 title="Load this persona's prompt + world (vars + mocks) into the Simulate tab buffer."
                 className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
               >
                 Use in Simulate
+              </button>
+              <button
+                type="button"
+                onClick={onCopy}
+                title="Duplicate this persona as a new one — handy for variant authoring (tweak one mock)."
+                className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
+              >
+                Copy
               </button>
               <button
                 type="button"
