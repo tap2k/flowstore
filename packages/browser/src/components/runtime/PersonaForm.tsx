@@ -17,10 +17,11 @@ import { MocksEditor } from "./persona/MocksEditor";
 
 // Run-pill "Persona" section. Live view onto the simulate-store buffer:
 // system_prompt + vars + mocks editors mutate the buffer directly. Load /
-// save copies file ↔ buffer; ✨ Generate fills all three from name+notes
-// (or, when neither is provided, grounds against the agent's purpose +
-// business goals alone). Auto-run knobs (model picker, turn limit, ▶/■)
-// stay attached to this section since the persona is what drives them.
+// save copies file ↔ buffer; ✨ Generate (shown only when no saved persona
+// is loaded, sitting by "save as…") fills all three, seeding off the prompt
+// box as notes — or grounding against the agent's purpose + business goals
+// when it's empty. Auto-run knobs (model picker, turn limit, ▶/■) stay
+// attached to this section since the persona is what drives them.
 
 interface PersonaFormProps {
   spec: Spec;
@@ -198,19 +199,18 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
 
   async function onGenerate() {
     if (!dispatchKey || !dispatch.provider) return;
-    if (configured) {
-      const ok = window.confirm("Replace the current persona (prompt + world) with a generated one?");
-      if (!ok) return;
-    }
     setOpen(true);
     setGenerating(true);
     setGenError(null);
     try {
+      // Seed generation with whatever's in the prompt box (treated as notes);
+      // empty falls back to grounding against agent purpose + business goals.
       const { systemPrompt: nextPrompt, vars, mocks } = await generatePersonaContent(
         spec,
         dispatch.provider,
         dispatchKey,
         dispatch.wireModel,
+        { notes: personaPrompt.trim() || undefined },
       );
       setPersonaPrompt(nextPrompt);
       if (Object.keys(vars).length > 0) setContextVars(vars);
@@ -283,17 +283,6 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
           </button>
           {autoRun && (
             <span className="text-[10px] text-zinc-400">· {personaTurnsLeft} left</span>
-          )}
-          {dispatchKey && (
-            <button
-              type="button"
-              onClick={onGenerate}
-              disabled={disabled || generating}
-              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-              title="Draft a persona (prompt + vars + mocks) from the agent's purpose and business goals. Uses the configured Generate model."
-            >
-              {generating ? "Generating…" : "✨ Generate"}
-            </button>
           )}
         </div>
       </div>
@@ -374,6 +363,17 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
                 </button>
               </>
             )}
+            {!loadedPersona && dispatchKey && (
+              <button
+                type="button"
+                onClick={onGenerate}
+                disabled={disabled || generating}
+                title="Draft a full persona (prompt + vars + mocks), seeded by the prompt text below — or grounded against the agent's purpose + business goals when it's empty. Uses the configured Generate model."
+                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+              >
+                {generating ? "Generating…" : "✨ Generate"}
+              </button>
+            )}
             {loadedPersona && (
               <button
                 type="button"
@@ -419,17 +419,15 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
               onChange={setSimulatePersonaModel}
               className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
             />
-            {configured && (
-              <button
-                type="button"
-                onClick={onClear}
-                disabled={disabled || generating}
-                className="ml-auto rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-                title="Clear the persona prompt + world from the buffer."
-              >
-                Clear
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={onClear}
+              disabled={disabled || generating || !configured}
+              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+              title="Clear the persona prompt + world from the buffer."
+            >
+              Clear
+            </button>
           </div>
         </div>
       )}
