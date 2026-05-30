@@ -1,5 +1,5 @@
 import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
-import { hasKeyForModel, resolveDispatch } from "@/lib/store/settings";
+import { hasKeyForModel, resolveDispatch, supportsStructuredOutput } from "@/lib/store/settings";
 
 interface ModelPickerProps {
   value: string;
@@ -11,6 +11,10 @@ interface ModelPickerProps {
   // hidden. Set true if a screen wants to show the picker as-is for
   // discoverability and surface a separate "missing key" error on submit.
   showUnconfigured?: boolean;
+  // When true, only models whose provider supports strict structured output
+  // (Google / OpenAI) are listed — for pickers that back schema-constrained
+  // generation, where any other model would throw at dispatch.
+  structuredOnly?: boolean;
 }
 
 // Shared model picker. Filters by which provider keys are present in
@@ -24,6 +28,7 @@ export function ModelPicker({
   disabled,
   title,
   showUnconfigured = false,
+  structuredOnly = false,
 }: ModelPickerProps) {
   return (
     <select
@@ -34,7 +39,14 @@ export function ModelPicker({
       title={title}
     >
       {Object.entries(BUILT_IN_MODELS.models)
-        .filter(([id]) => showUnconfigured || hasKeyForModel(id) || id === value)
+        .filter(([id]) => {
+          // Always keep the current selection visible, else the select
+          // renders blank when value is filtered out.
+          if (id === value) return true;
+          if (structuredOnly && !supportsStructuredOutput(id)) return false;
+          if (!showUnconfigured && !hasKeyForModel(id)) return false;
+          return true;
+        })
         .map(([id, m]) => {
           const r = resolveDispatch(id);
           const missing = !r.apiKey;

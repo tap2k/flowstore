@@ -6,10 +6,6 @@ import type { ProviderId } from "@flowstore/core/llm/types";
 const KEY = "flowstore:settings:google_api_key";
 const OPENAI_KEY = "flowstore:settings:openai_api_key";
 const OPENROUTER_KEY = "flowstore:settings:openrouter_api_key";
-const CHAT_MODEL_KEY = "flowstore:settings:chat_model";
-const AGENT_SIMULATE_MODEL_KEY = "flowstore:settings:simulate_agent_model";
-const PERSONA_SIMULATE_MODEL_KEY = "flowstore:settings:simulate_persona_model";
-const JUDGE_SIMULATE_MODEL_KEY = "flowstore:settings:simulate_judge_model";
 const DEFAULT_MODEL_KEY = "flowstore:settings:default_model";
 const RUNNER_KEY = "flowstore:settings:runner_url";
 const GITHUB_PAT_KEY = "flowstore:settings:github_pat";
@@ -22,27 +18,27 @@ const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
 // value starts empty so an empty field communicates "configure to enable
 // runner mode" rather than "this is set, ready to go."
 export const DEFAULT_RUNNER_URL = "http://localhost:8000";
-const DEFAULT_MODEL_ID = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
+export const DEFAULT_MODEL_ID = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
 
 interface SettingsState {
   googleApiKey: string;
   openaiApiKey: string;
   openrouterApiKey: string;
-  // Per-role model selection. Chat = LLM-assisted spec authoring (chat panel).
-  // simulateAgent = the agent's side of a simulate session (prompt mode).
-  // simulatePersona = the LLM-as-user persona that drives the simulate
-  // panel's auto-run.
+  // defaultModel is the ONE persisted model choice: the value used wherever
+  // no explicit per-location pick is made (Generate vars/mocks/persona-from-
+  // name+notes; Translate). Must be structured-output-capable (Google Gemini
+  // or OpenAI) — strict-schema is the contract.
+  defaultModel: string;
+  // The four per-location picks are transient — seeded from defaultModel on
+  // load, overridable in their UI spot for the session, never persisted and
+  // never written to the project (git) envelope. chat = spec-authoring chat
+  // panel. simulateAgent = the agent's side of a simulate session (prompt
+  // mode). simulatePersona = the LLM-as-user that drives auto-run.
+  // simulateJudge = LLM-judge for rubric/guardrail scoring.
   chatModel: string;
   simulateAgentModel: string;
   simulatePersonaModel: string;
-  // simulateJudge = the LLM-judge model used for rubric scoring on
-  // completed runs. Structured-output-capable (Google or OpenAI).
   simulateJudgeModel: string;
-  // defaultModel = the fallback LLM for flows without an explicit
-  // per-role picker (today: Generate vars/mocks/persona-from-
-  // name+notes; Translate). Must be a structured-output-capable model
-  // (Google Gemini or OpenAI) — strict-schema is the contract.
-  defaultModel: string;
   runnerUrl: string;
   githubPat: string;
   // Identity echoed from `GET /user` after a PAT is set. Used by Comments
@@ -112,22 +108,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     persistString(OPENROUTER_KEY, key);
     set({ openrouterApiKey: key });
   },
-  setChatModel: (model) => {
-    persistString(CHAT_MODEL_KEY, model);
-    set({ chatModel: model });
-  },
-  setSimulateAgentModel: (model) => {
-    persistString(AGENT_SIMULATE_MODEL_KEY, model);
-    set({ simulateAgentModel: model });
-  },
-  setSimulatePersonaModel: (model) => {
-    persistString(PERSONA_SIMULATE_MODEL_KEY, model);
-    set({ simulatePersonaModel: model });
-  },
-  setSimulateJudgeModel: (model) => {
-    persistString(JUDGE_SIMULATE_MODEL_KEY, model);
-    set({ simulateJudgeModel: model });
-  },
+  // Per-location picks are transient — set in memory only, no persistString.
+  setChatModel: (model) => set({ chatModel: model }),
+  setSimulateAgentModel: (model) => set({ simulateAgentModel: model }),
+  setSimulatePersonaModel: (model) => set({ simulatePersonaModel: model }),
+  setSimulateJudgeModel: (model) => set({ simulateJudgeModel: model }),
   setGenerateModel: (model) => {
     persistString(DEFAULT_MODEL_KEY, model);
     set({ defaultModel: model });
@@ -215,6 +200,22 @@ export function hasKeyForModel(modelId: string): boolean {
   return !!r.apiKey;
 }
 
+// Providers whose adapter implements strict structured output
+// (generateStructuredJson). OpenRouter / openai-compatible bare models don't,
+// so models that resolve to them can't back schema-constrained generation.
+const STRUCTURED_OUTPUT_PROVIDERS: ReadonlySet<ProviderId> = new Set([
+  "google",
+  "openai",
+]);
+
+// True iff the model dispatches to a provider that supports strict structured
+// output. Mirrors generateStructuredJson's provider switch so the picker
+// filter can't drift from what the runtime actually supports.
+export function supportsStructuredOutput(modelId: string): boolean {
+  const p = resolveDispatch(modelId).provider;
+  return p !== null && STRUCTURED_OUTPUT_PROVIDERS.has(p);
+}
+
 export function loadSavedSettings(): void {
   if (typeof window === "undefined") return;
   try {
@@ -222,10 +223,6 @@ export function loadSavedSettings(): void {
     const googleKey = window.localStorage.getItem(KEY) ?? "";
     const openaiKey = window.localStorage.getItem(OPENAI_KEY) ?? "";
     const openrouterKey = window.localStorage.getItem(OPENROUTER_KEY) ?? "";
-    const chat = window.localStorage.getItem(CHAT_MODEL_KEY) ?? "";
-    const simulateAgent = window.localStorage.getItem(AGENT_SIMULATE_MODEL_KEY) ?? "";
-    const simulatePersona = window.localStorage.getItem(PERSONA_SIMULATE_MODEL_KEY) ?? "";
-    const simulateJudge = window.localStorage.getItem(JUDGE_SIMULATE_MODEL_KEY) ?? "";
     const defaultModel = window.localStorage.getItem(DEFAULT_MODEL_KEY) ?? "";
     const runner = window.localStorage.getItem(RUNNER_KEY);
     const pat = window.localStorage.getItem(GITHUB_PAT_KEY) ?? "";
@@ -235,11 +232,15 @@ export function loadSavedSettings(): void {
     if (googleKey) patch.googleApiKey = googleKey;
     if (openaiKey) patch.openaiApiKey = openaiKey;
     if (openrouterKey) patch.openrouterApiKey = openrouterKey;
-    if (chat && validModelIds.has(chat)) patch.chatModel = chat;
-    if (simulateAgent && validModelIds.has(simulateAgent)) patch.simulateAgentModel = simulateAgent;
-    if (simulatePersona && validModelIds.has(simulatePersona)) patch.simulatePersonaModel = simulatePersona;
-    if (simulateJudge && validModelIds.has(simulateJudge)) patch.simulateJudgeModel = simulateJudge;
-    if (defaultModel && validModelIds.has(defaultModel)) patch.defaultModel = defaultModel;
+    // Only defaultModel persists. Seed the transient per-location picks from
+    // it so they all start on the user's default until overridden in-session.
+    if (defaultModel && validModelIds.has(defaultModel)) {
+      patch.defaultModel = defaultModel;
+      patch.chatModel = defaultModel;
+      patch.simulateAgentModel = defaultModel;
+      patch.simulatePersonaModel = defaultModel;
+      patch.simulateJudgeModel = defaultModel;
+    }
     if (runner !== null) patch.runnerUrl = runner;
     if (pat) patch.githubPat = pat;
     if (login) patch.githubLogin = login;

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { SheetShell } from "./SheetShell";
-import { useSettingsStore, DEFAULT_RUNNER_URL } from "@/lib/store/settings";
+import { useSettingsStore, DEFAULT_RUNNER_URL, DEFAULT_MODEL_ID } from "@/lib/store/settings";
+import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { makeGitHubClient, testConnection } from "@flowstore/core/files/github";
 
 interface SettingsSheetProps {
@@ -24,6 +25,8 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   const setRunnerUrl = useSettingsStore((s) => s.setRunnerUrl);
   const storedGithubPat = useSettingsStore((s) => s.githubPat);
   const setGithubPat = useSettingsStore((s) => s.setGithubPat);
+  const defaultModel = useSettingsStore((s) => s.defaultModel);
+  const setGenerateModel = useSettingsStore((s) => s.setGenerateModel);
 
   const [google, setGoogle] = useState(storedGoogle);
   const [openai, setOpenai] = useState(storedOpenai);
@@ -32,6 +35,9 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   const [pat, setPat] = useState(storedGithubPat);
   const [patReveal, setPatReveal] = useState(false);
   const [ghStatus, setGhStatus] = useState<GhTestStatus>({ kind: "idle" });
+  // Two-step guard: first click arms, second click wipes. Clearing erases
+  // API keys and the GitHub PAT from localStorage, so a stray click is costly.
+  const [clearArmed, setClearArmed] = useState(false);
 
   function save() {
     setGoogleApiKey(google.trim());
@@ -40,6 +46,25 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
     setRunnerUrl(runnerUrl);
     setGithubPat(pat);
     onClose();
+  }
+
+  // Wipe every stored setting: keys + PAT (and cached identity) from
+  // localStorage, runner URL, and the default model back to the built-in.
+  // Drafts reset too so the open sheet reflects the cleared state.
+  function clearAll() {
+    setGoogleApiKey("");
+    setOpenaiApiKey("");
+    setOpenrouterApiKey("");
+    setRunnerUrl("");
+    setGithubPat("");
+    setGenerateModel(DEFAULT_MODEL_ID);
+    setGoogle("");
+    setOpenai("");
+    setOpenrouter("");
+    setRunnerUrlInput("");
+    setPat("");
+    setGhStatus({ kind: "idle" });
+    setClearArmed(false);
   }
 
   async function testGithub() {
@@ -59,7 +84,12 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   }
 
   return (
-    <SheetShell title="Settings" onClose={onClose} maxWidth="max-w-lg">
+    <SheetShell
+      title="Settings"
+      onClose={onClose}
+      maxWidth="max-w-lg"
+      bodyClass="flex-1 overflow-auto px-5 py-4 space-y-4"
+    >
       <ApiKeyRow
         label="Google API key"
         placeholder="AIza…"
@@ -126,7 +156,22 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         access to this browser can read them.
       </p>
 
-      <div className="space-y-2 pt-3">
+      <div className="space-y-2">
+        <label className="text-xs font-medium text-zinc-700">Default model</label>
+        <ModelPicker
+          value={defaultModel}
+          onChange={setGenerateModel}
+          showUnconfigured
+          structuredOnly
+          className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+        />
+        <p className="text-[11px] text-zinc-500">
+          Used wherever no explicit model is picked — generating personas,
+          variables and mocks, and translating transcripts. Pick a structured-output model (Gemini or GPT). 
+        </p>
+      </div>
+
+      <div className="space-y-2">
         <label className="text-xs font-medium text-zinc-700">GitHub PAT</label>
         <div className="flex gap-2">
           <input
@@ -182,7 +227,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
       </div>
 
       {import.meta.env.VITE_DEV === "1" && (
-        <div className="space-y-2 pt-3">
+        <div className="space-y-2">
           <label className="text-xs font-medium text-zinc-700">Runner URL</label>
           <div className="flex gap-2">
             <input
@@ -199,7 +244,23 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         </div>
       )}
 
-      <div className="flex items-center justify-end gap-2 pt-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => (clearArmed ? clearAll() : setClearArmed(true))}
+            className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+          >
+            {clearArmed ? "Confirm clear" : "Clear"}
+          </button>
+          {clearArmed && (
+            <button
+              onClick={() => setClearArmed(false)}
+              className="text-xs text-zinc-500 hover:text-zinc-900"
+            >
+              cancel
+            </button>
+          )}
+        </div>
         <button
           onClick={save}
           className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
@@ -222,7 +283,7 @@ interface ApiKeyRowProps {
 function ApiKeyRow({ label, placeholder, value, onChange, help }: ApiKeyRowProps) {
   const [reveal, setReveal] = useState(false);
   return (
-    <div className="space-y-2 pt-3 first:pt-0">
+    <div className="space-y-2">
       <label className="text-xs font-medium text-zinc-700">{label}</label>
       <div className="flex gap-2">
         <input
