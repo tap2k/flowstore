@@ -11,7 +11,6 @@ import { CapabilitiesSheet } from "@/components/sheets/CapabilitiesSheet";
 import { KnowledgeSheet } from "@/components/sheets/KnowledgeSheet";
 import { GitHubOpenModal } from "@/components/toolbar/GitHubOpenModal";
 import { GitHubProjectControls } from "@/components/toolbar/GitHubProjectControls";
-import { generateSystemPrompt } from "@flowstore/core/codegen/promptGenerator";
 import { decomposeSpec, decomposeTestingArtifacts, loadProject } from "@flowstore/core/files";
 import { useCommentsStore } from "@/lib/store/comments";
 import { useTestsStore } from "@/lib/store/tests";
@@ -205,16 +204,6 @@ export function ImportExportToolbar({
     setExportOpen(false);
   }
 
-  async function copySystemPrompt() {
-    if (!spec) return;
-    try {
-      await navigator.clipboard.writeText(generateSystemPrompt(spec));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not copy to clipboard.");
-    }
-    setExportOpen(false);
-  }
-
   async function exportZip() {
     if (!spec) return;
     const name = sanitizeFilename(spec.agent.id || "spec");
@@ -356,7 +345,7 @@ export function ImportExportToolbar({
           <ImportIcon />
         </button>
 
-        {/* Export dropdown — spec JSON + compiled system prompt. */}
+        {/* Export dropdown — spec JSON + decomposed-project ZIP. */}
         <div ref={exportAnchorRef} className="relative">
           <button
             onClick={() => setExportOpen((o) => !o)}
@@ -373,10 +362,7 @@ export function ImportExportToolbar({
                 Export JSON
               </button>
               <button onClick={exportZip} className={menuItemClass}>
-                Export ZIP (decomposed)
-              </button>
-              <button onClick={copySystemPrompt} className={menuItemClass}>
-                Copy System Prompt
+                Export ZIP
               </button>
             </div>
           )}
