@@ -39,7 +39,7 @@ interface SettingsState {
   // completed runs. Structured-output-capable (Google or OpenAI).
   simulateJudgeModel: string;
   // defaultModel = the fallback LLM for flows without an explicit
-  // per-role picker (today: Generate vars/mocks/persona/scenario-from-
+  // per-role picker (today: Generate vars/mocks/persona-from-
   // name+notes; Translate). Must be a structured-output-capable model
   // (Google Gemini or OpenAI) — strict-schema is the contract.
   defaultModel: string;

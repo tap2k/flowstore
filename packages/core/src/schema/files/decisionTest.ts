@@ -6,7 +6,8 @@ import { Type, type Static } from "@sinclair/typebox";
 // whether the branch fired (or refrained from firing) a capability call
 // — useful when the routing exit is "silent" (e.g. cap_transfer_to_human
 // with no narration). Same `{capability, invoked?}` shape as on test/case/v0;
-// duplicated inline to match the MockBindings convention in this file.
+// duplicated inline because both schemas read better self-contained than
+// sharing a Type.
 // `expected_class` is informational (route / flow / intent label the author
 // expected) — not asserted by v0 runners but useful for downstream filtering.
 const CapabilityAssertion = Type.Object(
@@ -61,7 +62,11 @@ export const DecisionTestSchema = Type.Object(
     notes: Type.Optional(Type.String()),
     prefix_turns: Type.Array(Type.String()),
     branches: Type.Array(DecisionBranch),
-    scenario_id: Type.Optional(Type.String()),
+    // Optional persona binding for the world (vars + per-cap mocks) the
+    // routing branches run against. Only the persona's vars + mocks are
+    // consumed — system_prompt is unused (decision tests script their own
+    // prefix_turns and branch inputs).
+    persona_id: Type.Optional(Type.String()),
     model: Type.Optional(Type.String()),
     language: Type.Optional(Type.String()),
     tags: Type.Optional(Type.Array(Type.String())),

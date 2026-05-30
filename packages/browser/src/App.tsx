@@ -75,7 +75,6 @@ export function App() {
       useTestsStore.getState().setAll({
         testCases: savedTests.cases,
         personas: savedTests.personas,
-        scenarios: savedTests.scenarios,
         rubrics: savedTests.rubrics,
         golds: savedTests.golds,
       });

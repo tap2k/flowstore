@@ -1,18 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Persona } from "@flowstore/core/schema/files/persona";
+import type { MockBehavior } from "@flowstore/core/schema/files/mockBehavior";
 import { useTestsStore } from "@/lib/store/tests";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useUiStore } from "@/lib/store/ui";
 import { useSpecStore } from "@/lib/store/spec";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
-import { generatePersonaPrompt } from "@flowstore/core/runtime/personaGen";
+import { collectDeclaredVariables } from "@flowstore/core/runtime/contextVars";
+import { collectMockableCapabilities } from "@flowstore/core/runtime/capabilityMocks";
+import { generatePersonaContent } from "@flowstore/core/runtime/personaContentGen";
+import { personaToRuntime } from "@flowstore/core/runtime/personaRuntime";
+import { VarsEditor } from "./persona/VarsEditor";
+import { MocksEditor } from "./persona/MocksEditor";
 
-// Saved-persona library for the Run pill's Personas tab. Compact vertical
-// list, click a row to expand its editor inline. Personas are
-// file-backed (tests/personas/<id>.persona.json); save / delete mark the
-// project dirty and ride on the next GitHub Save. The Simulate-tab
-// PersonaForm (a separate component) edits the in-memory `personaPrompt`
-// buffer; this panel manages the persisted records.
+// Saved-persona library for the Run pill's Personas tab. Each row expands
+// inline to edit name + notes + system_prompt + the persona's world (vars
+// + mocks). Personas are file-backed (tests/personas/<id>.persona.json);
+// save / delete mark the project dirty and ride on the next GitHub Save.
 
 export function PersonasPanel() {
   const personas = useTestsStore((s) => s.personas);
@@ -21,6 +25,9 @@ export function PersonasPanel() {
   const uniquePersonaId = useTestsStore((s) => s.uniquePersonaId);
   const setPersonaPrompt = useSimulateStore((s) => s.setPersonaPrompt);
   const setActiveCaseId = useSimulateStore((s) => s.setActiveCaseId);
+  const setContextVars = useSimulateStore((s) => s.setContextVars);
+  const setMockReturns = useSimulateStore((s) => s.setMockReturns);
+  const setMockError = useSimulateStore((s) => s.setMockError);
   const setOpenSimulateTab = useUiStore((s) => s.setOpenSimulateTab);
   const spec = useSpecStore((s) => s.spec);
   const defaultModel = useSettingsStore((s) => s.defaultModel);
@@ -39,7 +46,6 @@ export function PersonasPanel() {
     savePersona({
       $schema: "flowstore://test/persona/v0",
       id,
-      system_prompt: "",
       name: defaultName,
     });
     setSelectedId(id);
@@ -57,21 +63,22 @@ export function PersonasPanel() {
     setGenerating({ ...generating, busy: true, error: null });
     try {
       if (!dispatch.provider) throw new Error("Generate model has no provider");
-      const systemPrompt = await generatePersonaPrompt({
+      const { systemPrompt, vars, mocks } = await generatePersonaContent(
         spec,
-        contextVars: {},
-        provider: dispatch.provider,
+        dispatch.provider,
         apiKey,
-        model: dispatch.wireModel,
-        personaContext: { name: name || undefined, notes: notes || undefined },
-      });
+        dispatch.wireModel,
+        { name: name || undefined, notes: notes || undefined },
+      );
       const id = uniquePersonaId(name || "persona");
       savePersona({
         $schema: "flowstore://test/persona/v0",
         id,
         ...(name ? { name } : {}),
         ...(notes ? { notes } : {}),
-        system_prompt: systemPrompt,
+        ...(systemPrompt.trim() ? { system_prompt: systemPrompt } : {}),
+        ...(Object.keys(vars).length > 0 ? { vars } : {}),
+        ...(Object.keys(mocks).length > 0 ? { mocks } : {}),
       });
       setSelectedId(id);
       setGenerating(null);
@@ -85,7 +92,17 @@ export function PersonasPanel() {
   }
 
   function useInSimulate(p: Persona) {
-    setPersonaPrompt(p.system_prompt);
+    setPersonaPrompt(p.system_prompt ?? "");
+    // Hydrate the simulate buffer with this persona's world so exploration
+    // starts in a coherent context.
+    if (spec) {
+      const { vars, returns, errors } = personaToRuntime(spec, p);
+      setContextVars(vars);
+      setMockReturns(returns);
+      for (const [name, err] of Object.entries(errors)) {
+        setMockError(name, err);
+      }
+    }
     // Picking a persona = starting a free exploration. Drop any
     // active-case binding so the Active-case strip and verdict surfaces
     // don't linger and conflict with what's actually being run.
@@ -105,7 +122,7 @@ export function PersonasPanel() {
               type="button"
               onClick={startGenerate}
               disabled={generating !== null}
-              title="Generate a new persona from a name + notes prompt."
+              title="Generate a new persona (system prompt + vars + mocks) from a name + notes prompt."
               className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
             >
               ✨ Generate
@@ -114,7 +131,7 @@ export function PersonasPanel() {
           <button
             type="button"
             onClick={startNew}
-            title="Create a placeholder persona — fill prompt inline."
+            title="Create a placeholder persona — fill prompt + world inline."
             className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50"
           >
             + New
@@ -209,7 +226,7 @@ export function PersonasPanel() {
                   setSelectedId(newId);
                 }}
                 onDelete={() => {
-                  const ok = window.confirm(`Delete persona "${p.name || p.id}"?`);
+                  const ok = window.confirm(`Delete persona "${p.name || p.id}"? Cases bound to it will lose the binding.`);
                   if (!ok) return;
                   deletePersona(p.id);
                   if (selectedId === p.id) setSelectedId(null);
@@ -243,43 +260,94 @@ function PersonaRow({
   onDelete,
   onUseInSimulate,
 }: PersonaRowProps) {
+  const spec = useSpecStore((s) => s.spec);
+  const defaultModel = useSettingsStore((s) => s.defaultModel);
+  const dispatch = resolveDispatch(defaultModel);
+  const apiKey = dispatch.apiKey;
+  const declaredVars = useMemo(() => collectDeclaredVariables(spec), [spec]);
+  const mockableCaps = useMemo(() => collectMockableCapabilities(spec), [spec]);
+
   // Local draft so edits can be cancelled by collapsing without saving. On
   // expand, hydrate from the saved record. On Save, push to the store.
   const [name, setName] = useState(persona.name ?? "");
   const [notes, setNotes] = useState(persona.notes ?? "");
-  const [systemPrompt, setSystemPrompt] = useState(persona.system_prompt);
-  const [defaultScenarioId, setDefaultScenarioId] = useState(
-    persona.default_scenario_id ?? "",
-  );
-  const scenarios = useTestsStore((s) => s.scenarios);
+  const [systemPrompt, setSystemPrompt] = useState(persona.system_prompt ?? "");
+  const [vars, setVars] = useState<Record<string, unknown>>(persona.vars ?? {});
+  const [mocks, setMocks] = useState<Record<string, MockBehavior>>(persona.mocks ?? {});
+  const [regenerating, setRegenerating] = useState(false);
+  const [regenError, setRegenError] = useState<string | null>(null);
 
   useEffect(() => {
     if (expanded) {
       setName(persona.name ?? "");
       setNotes(persona.notes ?? "");
-      setSystemPrompt(persona.system_prompt);
-      setDefaultScenarioId(persona.default_scenario_id ?? "");
+      setSystemPrompt(persona.system_prompt ?? "");
+      setVars(persona.vars ?? {});
+      setMocks(persona.mocks ?? {});
+      setRegenError(null);
     }
   }, [expanded, persona]);
+
+  const varsCount = Object.keys(vars).length;
+  const mocksCount = Object.keys(mocks).length;
 
   const dirty =
     name !== (persona.name ?? "") ||
     notes !== (persona.notes ?? "") ||
-    systemPrompt !== persona.system_prompt ||
-    defaultScenarioId !== (persona.default_scenario_id ?? "");
+    systemPrompt !== (persona.system_prompt ?? "") ||
+    JSON.stringify(vars) !== JSON.stringify(persona.vars ?? {}) ||
+    JSON.stringify(mocks) !== JSON.stringify(persona.mocks ?? {});
 
   function handleSave() {
     const updated: Persona = {
       $schema: "flowstore://test/persona/v0",
       id: persona.id,
-      system_prompt: systemPrompt,
       // Preserve optional fields the editor doesn't surface (model).
       ...(persona.model !== undefined ? { model: persona.model } : {}),
       ...(name.trim() ? { name: name.trim() } : {}),
       ...(notes.trim() ? { notes: notes.trim() } : {}),
-      ...(defaultScenarioId ? { default_scenario_id: defaultScenarioId } : {}),
+      ...(systemPrompt.trim() ? { system_prompt: systemPrompt } : {}),
+      ...(Object.keys(vars).length > 0 ? { vars } : {}),
+      ...(Object.keys(mocks).length > 0 ? { mocks } : {}),
     };
     onSave(updated);
+  }
+
+  async function handleRegenerate() {
+    if (!spec || !apiKey || !dispatch.provider) return;
+    // Regenerate is a full overwrite (prompt + vars + mocks). Confirm
+    // when anything is already filled — world-only personas (empty
+    // system_prompt but populated mocks) and hand-tuned personas both
+    // lose curated content otherwise.
+    const hasContent =
+      systemPrompt.trim().length > 0 ||
+      Object.keys(vars).length > 0 ||
+      Object.keys(mocks).length > 0;
+    if (hasContent) {
+      const ok = window.confirm(
+        "Regenerate replaces system_prompt + vars + mocks from this row's name + notes. Continue?",
+      );
+      if (!ok) return;
+    }
+    setRegenerating(true);
+    setRegenError(null);
+    try {
+      const { systemPrompt: nextPrompt, vars: nextVars, mocks: nextMocks } =
+        await generatePersonaContent(
+          spec,
+          dispatch.provider,
+          apiKey,
+          dispatch.wireModel,
+          { name: name.trim() || undefined, notes: notes.trim() || undefined },
+        );
+      setSystemPrompt(nextPrompt);
+      setVars(nextVars);
+      setMocks(nextMocks);
+    } catch (e) {
+      setRegenError(e instanceof Error ? e.message : "Regenerate failed.");
+    } finally {
+      setRegenerating(false);
+    }
   }
 
   return (
@@ -293,13 +361,20 @@ function PersonaRow({
           <div className="truncate text-[12px] font-medium text-zinc-900">
             {persona.name || persona.id}
           </div>
-          <div className="truncate font-mono text-[10px] text-zinc-500">{persona.id}</div>
+          <div className="truncate font-mono text-[10px] text-zinc-500">
+            {persona.id} | {varsCount} vars · {mocksCount} mocks
+          </div>
         </div>
         <span className="ml-2 text-zinc-400">{expanded ? "▾" : "▸"}</span>
       </button>
 
       {expanded && (
-        <div className="space-y-2 border-t border-zinc-100 bg-zinc-50/50 px-3 py-2">
+        <div className="space-y-3 border-t border-zinc-100 bg-zinc-50/50 px-3 py-2 text-[11px]">
+          {regenError && (
+            <div className="rounded border border-red-200 bg-red-50 px-2 py-1 text-red-700">
+              {regenError}
+            </div>
+          )}
           <div>
             <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
               name
@@ -339,24 +414,34 @@ function PersonaRow({
             />
           </div>
 
-          <div>
-            <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
-              default scenario
-            </label>
-            <select
-              value={defaultScenarioId}
-              onChange={(e) => setDefaultScenarioId(e.target.value)}
-              title="Optional. When this persona is loaded in Simulate, its world (vars + mocks) hydrates from this scenario."
-              className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700"
-            >
-              <option value="">— none —</option>
-              {scenarios.map((sc) => (
-                <option key={sc.id} value={sc.id}>
-                  {sc.name || sc.id}
-                </option>
-              ))}
-            </select>
-          </div>
+          <VarsEditor
+            declared={declaredVars}
+            values={vars}
+            onChange={(name, value) => {
+              const next = { ...vars };
+              if (value === undefined || value === null || value === "") {
+                delete next[name];
+              } else {
+                next[name] = value;
+              }
+              setVars(next);
+            }}
+          />
+
+          <MocksEditor
+            caps={mockableCaps}
+            behaviors={mocks}
+            keyOf={(cap) => cap.capabilityId}
+            onChange={(k, behavior) => {
+              const next = { ...mocks };
+              if (behavior === undefined) {
+                delete next[k];
+              } else {
+                next[k] = behavior;
+              }
+              setMocks(next);
+            }}
+          />
 
           <div className="flex items-center justify-between gap-2 pt-1">
             <button
@@ -367,11 +452,22 @@ function PersonaRow({
             >
               Delete
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              {apiKey && (
+                <button
+                  type="button"
+                  onClick={handleRegenerate}
+                  disabled={regenerating}
+                  title="Regenerate system_prompt + vars + mocks from this row's name + notes (replaces them; save to persist)."
+                  className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+                >
+                  {regenerating ? "Regenerating…" : "✨ Regenerate"}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onCopy}
-                title="Duplicate this persona as a new one — handy for variant authoring."
+                title="Duplicate this persona as a new one — handy for variant authoring (tweak one mock)."
                 className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
               >
                 Copy
@@ -379,7 +475,7 @@ function PersonaRow({
               <button
                 type="button"
                 onClick={onUseInSimulate}
-                title="Load this persona's system_prompt into the Simulate tab buffer."
+                title="Load this persona's prompt + world (vars + mocks) into the Simulate tab buffer."
                 className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
               >
                 Use in Simulate

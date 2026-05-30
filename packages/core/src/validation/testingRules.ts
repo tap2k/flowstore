@@ -4,8 +4,7 @@ import type { TestingArtifacts } from "@flowstore/core/files/types";
 export type TestingIssueLocation =
   | { kind: "test_case"; id: string }
   | { kind: "persona"; id: string }
-  | { kind: "rubric"; id: string }
-  | { kind: "scenario"; id: string };
+  | { kind: "rubric"; id: string };
 
 export interface TestingIssue {
   at: TestingIssueLocation;
@@ -13,10 +12,8 @@ export interface TestingIssue {
 }
 
 // Cross-file checks across testing artifacts and the spec:
-//   - scenario.mocks keys refer to known capabilities
-//   - persona.default_scenario_id refers to an existing scenario
+//   - persona.mocks keys refer to known capabilities
 //   - test_case.persona_id refers to a known persona
-//   - test_case.scenario_id refers to a known scenario
 //   - test_case.capability_assertions[].capability refers to a known capability
 //   - duplicate ids within each collection
 export function validateTesting(
@@ -34,31 +31,13 @@ export function validateTesting(
     } else {
       personaIds.add(p.id);
     }
-  }
-
-  const scenarioIds = new Set<string>();
-  for (const s of artifacts.scenarios) {
-    if (scenarioIds.has(s.id)) {
-      issues.push({ at: { kind: "scenario", id: s.id }, message: "Duplicate scenario id" });
-    } else {
-      scenarioIds.add(s.id);
-    }
-    for (const capId of Object.keys(s.mocks ?? {})) {
+    for (const capId of Object.keys(p.mocks ?? {})) {
       if (spec && !capabilityIds.has(capId)) {
         issues.push({
-          at: { kind: "scenario", id: s.id },
+          at: { kind: "persona", id: p.id },
           message: `mocks key "${capId}" is not in agent.capabilities`,
         });
       }
-    }
-  }
-
-  for (const p of artifacts.personas) {
-    if (p.default_scenario_id && !scenarioIds.has(p.default_scenario_id)) {
-      issues.push({
-        at: { kind: "persona", id: p.id },
-        message: `default_scenario_id "${p.default_scenario_id}" not in tests/scenarios/`,
-      });
     }
   }
 
@@ -83,13 +62,7 @@ export function validateTesting(
     if (!hasTurns && !hasPersona) {
       issues.push({
         at: { kind: "test_case", id: t.id },
-        message: "must have user_turns (scripted) or persona_id (persona-driven)",
-      });
-    }
-    if (hasTurns && hasPersona) {
-      issues.push({
-        at: { kind: "test_case", id: t.id },
-        message: "must not have both user_turns and persona_id — pick one shape",
+        message: "must have user_turns (scripted) or persona_id (persona-driven, or scripted with a bound persona for the world)",
       });
     }
     if (t.max_turns !== undefined && hasTurns) {
@@ -102,12 +75,6 @@ export function validateTesting(
       issues.push({
         at: { kind: "test_case", id: t.id },
         message: `persona_id "${t.persona_id}" not in tests/personas/`,
-      });
-    }
-    if (t.scenario_id && !scenarioIds.has(t.scenario_id)) {
-      issues.push({
-        at: { kind: "test_case", id: t.id },
-        message: `scenario_id "${t.scenario_id}" not in tests/scenarios/`,
       });
     }
     for (const ca of t.capability_assertions ?? []) {

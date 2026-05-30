@@ -41,7 +41,7 @@ The canvas is the canonical editing surface. Text views are entry and export onl
 - **Export as JSON** — the exported file is the same shape the declarative import accepts; round-trip preserves the spec.
 - **Export as system prompt** — deterministic codegen ([packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts)) that flattens the spec into a single monolithic system prompt. For copy-paste into runtimes that take a system prompt (OpenAI, Claude, Voiceflow, etc.); a graph-native runtime consumes the JSON directly.
 - **Simulate panel** — text chat against a paired runtime, BYOK Gemini, against the spec currently being edited. Canvas highlights the active flow and last-traversed edge live during the run.
-- **Eval-on-canvas (post-MVP).** Findings from the testing surface (test cases, mocks, rubrics, run results — all in flowstore per [FILE-MODEL.md](./FILE-MODEL.md)) overlay onto the same node and edge IDs the spec defines — guardrail-fail rates pinned to guardrail nodes, scenario coverage on flow nodes. The canvas is the eval view; there is no separate findings tab.
+- **Eval-on-canvas (post-MVP).** Findings from the testing surface (test cases, personas, rubrics, run results — all in flowstore per [FILE-MODEL.md](./FILE-MODEL.md)) overlay onto the same node and edge IDs the spec defines — guardrail-fail rates pinned to guardrail nodes, test coverage on flow nodes. The canvas is the eval view; there is no separate findings tab.
 
 ## Tech Stack
 

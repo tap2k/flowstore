@@ -2,10 +2,10 @@ import { useState } from "react";
 import type { DeclaredVariable } from "@flowstore/core/runtime/contextVars";
 import { TypedValueInput } from "../TypedValueInput";
 
-// Collapsible vars editor for a scenario authoring context. Shape-agnostic
-// of where state lives: the caller passes values + an onChange that
+// Collapsible vars editor for a persona/case world. Shape-agnostic of
+// where state lives: the caller passes values + an onChange that
 // receives one (name, value) at a time. Used in both the run-pill
-// ScenarioForm (writes to simulate store) and the ScenariosPanel inline
+// PersonaForm (writes to simulate store) and the PersonasPanel inline
 // row (writes to local row state).
 
 interface Props {

@@ -6,7 +6,7 @@ import type { DeclaredVariable } from "./contextVars";
 
 const SYSTEM_PROMPT = `You generate realistic test values for variables declared in an agent specification.
 
-Make values coherent — variables that describe a single user/scenario should be consistent (a phone number, name, account id, balance, etc., should all describe the same plausible person). Use realistic-sounding values, NOT obvious placeholders like "Test User" or "12345".
+Make values coherent — variables that describe a single user/persona should be consistent (a phone number, name, account id, balance, etc., should all describe the same plausible person). Use realistic-sounding values, NOT obvious placeholders like "Test User" or "12345".
 
 For enums, pick from the provided allowed values.`;
 
@@ -35,19 +35,19 @@ export async function generateContextVars(
   apiKey: string,
   model: string,
   declared: DeclaredVariable[],
-  scenarioContext?: { name?: string; notes?: string },
+  personaContext?: { name?: string; notes?: string },
 ): Promise<Record<string, unknown>> {
   if (declared.length === 0) return {};
 
   const properties: Record<string, unknown> = {};
   for (const d of declared) properties[d.name] = propertySchemaFor(d.decl);
 
-  const scenarioPreamble = scenarioContext && (scenarioContext.name || scenarioContext.notes)
+  const personaPreamble = personaContext && (personaContext.name || personaContext.notes)
     ? [
-        "Scenario you're generating values FOR:",
-        scenarioContext.name ? `  Name: ${scenarioContext.name}` : null,
-        scenarioContext.notes ? `  Notes: ${scenarioContext.notes}` : null,
-        "Choose values consistent with this scenario.",
+        "Persona you're generating values FOR:",
+        personaContext.name ? `  Name: ${personaContext.name}` : null,
+        personaContext.notes ? `  Notes: ${personaContext.notes}` : null,
+        "Choose values consistent with this persona.",
         "",
       ].filter((s) => s !== null) as string[]
     : [];
@@ -55,7 +55,7 @@ export async function generateContextVars(
   const userPrompt = [
     ...agentContextPreamble(spec),
     "",
-    ...scenarioPreamble,
+    ...personaPreamble,
     `Declared variables:`,
     JSON.stringify(
       declared.map((d) => ({

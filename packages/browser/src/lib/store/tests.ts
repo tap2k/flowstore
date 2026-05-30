@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import type { TestCase } from "@flowstore/core/schema/files/testCase";
 import type { Persona } from "@flowstore/core/schema/files/persona";
-import type { Scenario } from "@flowstore/core/schema/files/scenario";
 import type { Rubric } from "@flowstore/core/schema/files/rubric";
 import type { Gold } from "@flowstore/core/schema/files/gold";
 import type { TestingArtifacts } from "@flowstore/core/files";
@@ -15,9 +14,9 @@ import { toSlug } from "@/lib/slug";
 // in GitHubProjectControls reads from here via decomposeTests and merges
 // with decomposeSpec output before writing.
 //
-// Scenarios are the "world" unit (vars + mock returns inline). Cases
-// reference scenarios via scenario_id; personas may default to one for
-// Simulate-tab exploration.
+// Personas own their world (vars + mock returns inline). Cases bind to
+// a persona for persona-driven runs (and inherit its world), or carry
+// their own vars+mocks for scripted runs.
 
 // When the user captures a Simulate transcript as a test case, the Tests
 // tab editor needs the full agent+user transcript to show as a read-only
@@ -35,7 +34,6 @@ export interface TestsState {
   cases: TestCase[];
   golds: Gold[];
   personas: Persona[];
-  scenarios: Scenario[];
   rubrics: Rubric[];
   captureContext: CaptureContext | null;
 
@@ -45,8 +43,9 @@ export interface TestsState {
 
   // Persona CRUD — file-backed; marks the project dirty so the next
   // GitHub Save commits the change. Save is upsert by id; delete removes
-  // by id (silently no-op if missing). uniquePersonaId mints an unused
-  // slug from a free-text base.
+  // by id (silently no-op if missing) and strips persona_id from cases
+  // that bound it. uniquePersonaId mints an unused slug from a free-text
+  // base.
   savePersona: (persona: Persona) => void;
   deletePersona: (id: string) => void;
   uniquePersonaId: (base: string) => string;
@@ -64,13 +63,6 @@ export interface TestsState {
   deleteRubric: (id: string) => void;
   uniqueRubricId: (base: string) => string;
 
-  // Scenario CRUD. Upsert by id; delete cascades into cases (strips
-  // scenario_id on cases that referenced it) and personas (clears
-  // default_scenario_id when it pointed at the deleted scenario).
-  saveScenario: (scenario: Scenario) => void;
-  deleteScenario: (id: string) => void;
-  uniqueScenarioId: (base: string) => string;
-
   setCaptureContext: (ctx: CaptureContext | null) => void;
 }
 
@@ -78,7 +70,6 @@ export const useTestsStore = create<TestsState>((set, get) => ({
   cases: [],
   golds: [],
   personas: [],
-  scenarios: [],
   rubrics: [],
   captureContext: null,
 
@@ -87,7 +78,6 @@ export const useTestsStore = create<TestsState>((set, get) => ({
       cases: artifacts.testCases,
       golds: artifacts.golds,
       personas: artifacts.personas,
-      scenarios: artifacts.scenarios,
       rubrics: artifacts.rubrics,
       captureContext: null,
     });
@@ -98,7 +88,6 @@ export const useTestsStore = create<TestsState>((set, get) => ({
       cases: [],
       golds: [],
       personas: [],
-      scenarios: [],
       rubrics: [],
       captureContext: null,
     });
@@ -109,7 +98,6 @@ export const useTestsStore = create<TestsState>((set, get) => ({
     return {
       testCases: s.cases,
       personas: s.personas,
-      scenarios: s.scenarios,
       rubrics: s.rubrics,
       golds: s.golds,
     };
@@ -128,7 +116,19 @@ export const useTestsStore = create<TestsState>((set, get) => ({
   },
 
   deletePersona: (id) => {
-    set((s) => ({ personas: s.personas.filter((p) => p.id !== id) }));
+    set((s) => {
+      // Cascade: cases bound to this persona lose the binding (they fall
+      // back to whatever vars/mocks they carry directly, if any).
+      const cases = s.cases.map((c) => {
+        if (c.persona_id !== id) return c;
+        const { persona_id: _drop, ...rest } = c;
+        return rest;
+      });
+      return {
+        personas: s.personas.filter((p) => p.id !== id),
+        cases,
+      };
+    });
     useDirtyStore.getState().setDirty(true);
   },
 
@@ -210,43 +210,6 @@ export const useTestsStore = create<TestsState>((set, get) => ({
   },
 
   uniqueRubricId: (base) => uniqueId(get().rubrics, base, "rubric"),
-
-  saveScenario: (scenario) => {
-    set((s) => {
-      const i = s.scenarios.findIndex((sc) => sc.id === scenario.id);
-      const next =
-        i === -1
-          ? [...s.scenarios, scenario]
-          : s.scenarios.map((sc, idx) => (idx === i ? scenario : sc));
-      return { scenarios: next };
-    });
-    useDirtyStore.getState().setDirty(true);
-  },
-
-  deleteScenario: (id) => {
-    set((s) => {
-      // Cascade: cases referencing the scenario drop their binding, and
-      // personas defaulting to it clear the default.
-      const cases = s.cases.map((c) => {
-        if (c.scenario_id !== id) return c;
-        const { scenario_id: _drop, ...rest } = c;
-        return rest;
-      });
-      const personas = s.personas.map((p) => {
-        if (p.default_scenario_id !== id) return p;
-        const { default_scenario_id: _drop, ...rest } = p;
-        return rest;
-      });
-      return {
-        scenarios: s.scenarios.filter((sc) => sc.id !== id),
-        cases,
-        personas,
-      };
-    });
-    useDirtyStore.getState().setDirty(true);
-  },
-
-  uniqueScenarioId: (base) => uniqueId(get().scenarios, base, "scenario"),
 
   setCaptureContext: (ctx) => {
     set({ captureContext: ctx });

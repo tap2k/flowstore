@@ -1,52 +1,69 @@
+import { useMemo, useState } from "react";
+import type { Spec } from "@flowstore/core/schema/v0";
+import type { MockBehavior } from "@flowstore/core/schema/files/mockBehavior";
 import { useSimulateStore } from "@/lib/store/simulate";
-import { useSpecStore } from "@/lib/store/spec";
 import { useTestsStore } from "@/lib/store/tests";
 import { hasKeyForModel, resolveDispatch, useSettingsStore } from "@/lib/store/settings";
-import { generatePersonaPrompt } from "@flowstore/core/runtime/personaGen";
-import { scenarioToRuntime } from "@flowstore/core/runtime/scenarioRuntime";
+import { generatePersonaContent } from "@flowstore/core/runtime/personaContentGen";
+import {
+  buildPersonaFromRuntime,
+  personaToRuntime,
+} from "@flowstore/core/runtime/personaRuntime";
+import { collectDeclaredVariables } from "@flowstore/core/runtime/contextVars";
+import { collectMockableCapabilities } from "@flowstore/core/runtime/capabilityMocks";
 import { ModelPicker } from "./ModelPicker";
-import { useState } from "react";
+import { VarsEditor } from "./persona/VarsEditor";
+import { MocksEditor } from "./persona/MocksEditor";
+
+// Run-pill "Persona" section. Live view onto the simulate-store buffer:
+// system_prompt + vars + mocks editors mutate the buffer directly. Load /
+// save copies file ↔ buffer; ✨ Generate fills all three from name+notes
+// (or, when neither is provided, grounds against the agent's purpose +
+// business goals alone). Auto-run knobs (model picker, turn limit, ▶/■)
+// stay attached to this section since the persona is what drives them.
 
 interface PersonaFormProps {
+  spec: Spec;
   disabled: boolean;
 }
 
-export function PersonaForm({ disabled }: PersonaFormProps) {
+export function PersonaForm({ spec, disabled }: PersonaFormProps) {
+  const declaredVars = useMemo(() => collectDeclaredVariables(spec), [spec]);
+  const mockableCaps = useMemo(() => collectMockableCapabilities(spec), [spec]);
+
   const personaPrompt = useSimulateStore((s) => s.personaPrompt);
   const autoRun = useSimulateStore((s) => s.autoRun);
-  const contextVars = useSimulateStore((s) => s.contextVars);
   const personaTurnLimit = useSimulateStore((s) => s.personaTurnLimit);
   const personaTurnsLeft = useSimulateStore((s) => s.personaTurnsLeft);
   const setPersonaPrompt = useSimulateStore((s) => s.setPersonaPrompt);
   const setAutoRun = useSimulateStore((s) => s.setAutoRun);
   const setPersonaTurnLimit = useSimulateStore((s) => s.setPersonaTurnLimit);
-  const spec = useSpecStore((s) => s.spec);
+
+  const contextVars = useSimulateStore((s) => s.contextVars);
+  const setContextVar = useSimulateStore((s) => s.setContextVar);
+  const setContextVars = useSimulateStore((s) => s.setContextVars);
+  const clearContextVars = useSimulateStore((s) => s.clearContextVars);
+  const mockReturns = useSimulateStore((s) => s.mockReturns);
+  const mockErrors = useSimulateStore((s) => s.mockErrors);
+  const setMockOutput = useSimulateStore((s) => s.setMockOutput);
+  const setMockReturns = useSimulateStore((s) => s.setMockReturns);
+  const setMockError = useSimulateStore((s) => s.setMockError);
+
   const personas = useTestsStore((s) => s.personas);
   const savePersona = useTestsStore((s) => s.savePersona);
   const deletePersona = useTestsStore((s) => s.deletePersona);
   const uniquePersonaId = useTestsStore((s) => s.uniquePersonaId);
-  const scenarios = useTestsStore((s) => s.scenarios);
-  const setMockReturns = useSimulateStore((s) => s.setMockReturns);
-  const setMockError = useSimulateStore((s) => s.setMockError);
-  const setContextVars = useSimulateStore((s) => s.setContextVars);
-  // ✨ Generate uses Gemini structured-output (responseSchema) directly,
-  // which is Google-specific. It needs the Google key regardless of which
-  // model the persona-runtime picker is set to. Multi-provider structured
-  // output is a separate ticket.
+
   const defaultModel = useSettingsStore((s) => s.defaultModel);
   const dispatch = resolveDispatch(defaultModel);
   const dispatchKey = dispatch.apiKey;
   const model = useSettingsStore((s) => s.simulatePersonaModel);
   const setSimulatePersonaModel = useSettingsStore((s) => s.setSimulatePersonaModel);
-  // The persona runtime uses whichever provider the picked model maps to.
-  // Auto-Run gates on the picked model having a configured key.
   const personaHasKey = hasKeyForModel(model);
 
   const [open, setOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
-  // Tracks which saved persona the buffer was loaded from (or saved as).
-  // Stays set across edits; the save button updates the saved record.
   const [loadedPersonaId, setLoadedPersonaId] = useState<string | null>(null);
   const [savingAsName, setSavingAsName] = useState<string | null>(null);
 
@@ -55,32 +72,81 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
     ? personas.find((p) => p.id === loadedPersonaId) ?? null
     : null;
 
+  // Adapt the runtime store shape into the editor's Behavior dict, keyed
+  // by capability NAME (the runtime dimension). MocksEditor's keyOf
+  // returns cap.capabilityName so reads land in this dict.
+  const behaviorsByName = useMemo(() => {
+    const out: Record<string, MockBehavior> = {};
+    for (const cap of mockableCaps) {
+      const err = mockErrors[cap.capabilityName];
+      if (err !== undefined && err !== null) {
+        out[cap.capabilityName] = { kind: "error", error: err };
+        continue;
+      }
+      const returns = mockReturns[cap.capabilityName] ?? {};
+      if (Object.keys(returns).length > 0) {
+        out[cap.capabilityName] = { kind: "static", returns };
+      }
+    }
+    return out;
+  }, [mockableCaps, mockReturns, mockErrors]);
+
+  function onMocksEditorChange(capName: string, behavior: MockBehavior | undefined) {
+    if (behavior === undefined) {
+      setMockError(capName, null);
+      for (const outName of Object.keys(mockReturns[capName] ?? {})) {
+        setMockOutput(capName, outName, undefined);
+      }
+      return;
+    }
+    if (behavior.kind === "error") {
+      setMockError(capName, behavior.error);
+      return;
+    }
+    setMockError(capName, null);
+    const prev = mockReturns[capName] ?? {};
+    const next = (behavior.returns ?? {}) as Record<string, unknown>;
+    for (const outName of Object.keys(prev)) {
+      if (!(outName in next)) setMockOutput(capName, outName, undefined);
+    }
+    for (const [outName, v] of Object.entries(next)) {
+      setMockOutput(capName, outName, v);
+    }
+  }
+
   function onLoadPersona(id: string) {
     if (id === "") return;
     const persona = personas.find((p) => p.id === id);
     if (!persona) return;
-    setPersonaPrompt(persona.system_prompt);
+    setPersonaPrompt(persona.system_prompt ?? "");
+    // Hydrate the buffer with this persona's full world so exploration
+    // starts in the configured state. Reproducibility lives at the case
+    // level; this is the convenience hookup for the free-explore path.
+    const { vars, returns, errors } = personaToRuntime(spec, persona);
+    setContextVars(vars);
+    setMockReturns(returns);
+    for (const [name, err] of Object.entries(errors)) {
+      setMockError(name, err);
+    }
     setLoadedPersonaId(id);
     setOpen(true);
-    // If this persona has a default scenario, hydrate the world from it.
-    // Reproducibility lives at the case level; this is purely a Simulate-
-    // tab convenience for free exploration.
-    if (persona.default_scenario_id && spec) {
-      const sc = scenarios.find((s) => s.id === persona.default_scenario_id);
-      if (sc) {
-        const { vars, returns, errors } = scenarioToRuntime(spec, sc);
-        setContextVars(vars);
-        setMockReturns(returns);
-        for (const [name, err] of Object.entries(errors)) {
-          setMockError(name, err);
-        }
-      }
-    }
   }
 
   function onSavePersona() {
     if (!loadedPersona) return;
-    savePersona({ ...loadedPersona, system_prompt: personaPrompt });
+    savePersona(
+      buildPersonaFromRuntime({
+        spec,
+        id: loadedPersona.id,
+        name: loadedPersona.name,
+        notes: loadedPersona.notes,
+        systemPrompt: personaPrompt,
+        vars: contextVars,
+        returns: mockReturns,
+        errors: mockErrors,
+        model: loadedPersona.model,
+      }),
+    );
   }
 
   function onStartSaveAs() {
@@ -92,12 +158,17 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
     const name = savingAsName.trim();
     if (name === "") return;
     const id = uniquePersonaId(name);
-    savePersona({
-      $schema: "flowstore://test/persona/v0",
-      id,
-      name,
-      system_prompt: personaPrompt,
-    });
+    savePersona(
+      buildPersonaFromRuntime({
+        spec,
+        id,
+        name,
+        systemPrompt: personaPrompt,
+        vars: contextVars,
+        returns: mockReturns,
+        errors: mockErrors,
+      }),
+    );
     setLoadedPersonaId(id);
     setSavingAsName(null);
   }
@@ -115,26 +186,47 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
     setLoadedPersonaId(null);
   }
 
+  function onClear() {
+    setPersonaPrompt("");
+    clearContextVars();
+    setMockReturns({});
+    for (const cap of spec.agent.capabilities ?? []) {
+      setMockError(cap.name, null);
+    }
+    setLoadedPersonaId(null);
+  }
+
   async function onGenerate() {
-    if (!dispatchKey || !spec || !dispatch.provider) return;
+    if (!dispatchKey || !dispatch.provider) return;
     if (configured) {
-      const ok = window.confirm("Replace the current persona prompt with a generated one?");
+      const ok = window.confirm("Replace the current persona (prompt + world) with a generated one?");
       if (!ok) return;
     }
     setOpen(true);
     setGenerating(true);
     setGenError(null);
     try {
-      // Force a Gemini model for the structured-output call regardless of
-      // the picked persona-runtime model.
-      const prompt = await generatePersonaPrompt({
+      const { systemPrompt: nextPrompt, vars, mocks } = await generatePersonaContent(
         spec,
-        contextVars,
-        provider: dispatch.provider,
-        apiKey: dispatchKey,
-        model: dispatch.wireModel,
-      });
-      setPersonaPrompt(prompt);
+        dispatch.provider,
+        dispatchKey,
+        dispatch.wireModel,
+      );
+      setPersonaPrompt(nextPrompt);
+      if (Object.keys(vars).length > 0) setContextVars(vars);
+      // Translate persona mocks (cap_id → cap_name) into runtime shape.
+      const idToName = new Map<string, string>();
+      for (const cap of spec.agent.capabilities ?? []) idToName.set(cap.id, cap.name);
+      const nextReturns: Record<string, Record<string, unknown>> = {};
+      for (const [capId, behavior] of Object.entries(mocks)) {
+        const name = idToName.get(capId);
+        if (!name || behavior.kind !== "static") continue;
+        const r = behavior.returns;
+        if (typeof r === "object" && r !== null && !Array.isArray(r)) {
+          nextReturns[name] = r as Record<string, unknown>;
+        }
+      }
+      if (Object.keys(nextReturns).length > 0) setMockReturns(nextReturns);
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Generation failed.");
     } finally {
@@ -160,13 +252,10 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
           {configured && (
             <button
               type="button"
-              onClick={() => {
-                setPersonaPrompt("");
-                setLoadedPersonaId(null);
-              }}
+              onClick={onClear}
               disabled={disabled || generating}
               className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-              title="Clear the persona prompt buffer."
+              title="Clear the persona prompt + world from the buffer."
             >
               Clear
             </button>
@@ -177,7 +266,7 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
               onClick={onGenerate}
               disabled={disabled || generating}
               className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-              title="Draft a persona prompt from the agent's purpose, business goals, and current variable values. Uses the configured Generate model."
+              title="Draft a persona (prompt + vars + mocks) from the agent's purpose and business goals. Uses the configured Generate model."
             >
               {generating ? "Generating…" : "✨ Generate"}
             </button>
@@ -213,7 +302,7 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
                 type="button"
                 onClick={onSavePersona}
                 disabled={disabled || generating}
-                title={`Update tests/personas/${loadedPersona.id}.persona.json with the current prompt.`}
+                title={`Update tests/personas/${loadedPersona.id}.persona.json with the current buffer.`}
                 className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
               >
                 save
@@ -224,7 +313,7 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
                 type="button"
                 onClick={onStartSaveAs}
                 disabled={disabled || generating || !configured}
-                title="Save current prompt as a new persona file."
+                title="Save current buffer (prompt + vars + mocks) as a new persona file."
                 className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
               >
                 save as…
@@ -283,6 +372,22 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
             }
             className="w-full resize-y rounded border border-zinc-300 bg-white p-2 font-mono text-[11px] leading-snug text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
           />
+
+          <VarsEditor
+            declared={declaredVars}
+            values={contextVars}
+            disabled={disabled || generating}
+            onChange={(name, value) => setContextVar(name, value)}
+          />
+
+          <MocksEditor
+            caps={mockableCaps}
+            behaviors={behaviorsByName}
+            disabled={disabled || generating}
+            keyOf={(cap) => cap.capabilityName}
+            onChange={onMocksEditorChange}
+          />
+
           <div className="flex items-center gap-2 text-[10px] text-zinc-500">
             <span>Model:</span>
             <ModelPicker
@@ -309,7 +414,7 @@ export function PersonaForm({ disabled }: PersonaFormProps) {
                 !personaHasKey
                   ? "Add an API key in Settings for the model the persona picker is set to."
                   : !configured
-                    ? "Write a persona system prompt below to start."
+                    ? "Write a persona system prompt above to start."
                     : autoRun
                       ? "Stop the persona. An in-flight reply is dropped."
                       : "Start: persona runs for the configured number of turns, then pauses. Click again for more."

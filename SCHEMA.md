@@ -404,6 +404,56 @@ Example: `total_due_amount.visible_when: "identity_confirmed"` — the model nev
 
 ---
 
+## Testing Artifact Schemas
+
+The schemas above (Agent, Flow, Variables) define the runtime contract. The **testing surface** — personas, test cases, decision tests, rubrics, golds — lives alongside the spec but is not compiled into the runtime artifact. Each carries its own `$schema` URI and file home (see [FILE-MODEL.md](./FILE-MODEL.md) for paths). The TypeBox definitions live in [`packages/core/src/schema/files/`](./packages/core/src/schema/files/) — those are authoritative; the sketches below are the field-level summary.
+
+### Persona (`flowstore://test/persona/v0`)
+
+A persona is the user side of a conversation under test. It bundles three things:
+
+- `system_prompt?: string` — drives an LLM-as-user when a test is persona-driven (no scripted turns). Optional: "world-only" personas omit it entirely and exist purely to hold vars+mocks for scripted runs.
+- `vars?: Record<string, unknown>` — free-form `{variable_name: value}` dict, coerced against `agent.variables` declarations at run time. The persona's world.
+- `mocks?: Record<capability_id, MockBehavior>` — per-capability return behavior, keyed by capability id (not name). Caps not listed fall through to the live capability.
+
+Also: `id`, optional `name`, `notes`, `model` (per-file user-simulation model override).
+
+A persona always owns its world — there is no separate "scenario" artifact. Cases bind a persona by `persona_id` to inherit that world.
+
+### Test Case (`flowstore://test/case/v0`)
+
+Two shapes share this file type, distinguished by which field is set:
+
+- **Scripted** — carries `user_turns: string[]`; the runner feeds these verbatim. May also bind a `persona_id` purely for the world (`persona.system_prompt` is ignored when `user_turns` is set).
+- **Persona-driven** — carries `persona_id`; an LLM-as-user driven by the persona's `system_prompt` converses freely with the agent. `max_turns` caps the loop (default per-runner).
+
+A case must carry one of `user_turns` or `persona_id` (enforced in the loader, not the schema).
+
+Optional fields: `assertions[]` (per-turn substring), `transcript_assertions[]` (substring/regex/count/terminate-within over the whole transcript), `state_assertions[]` (against final variable state; runner target only), `capability_assertions[]` (was this capability invoked?), `evaluators[]` (rubric names resolving to `tests/rubrics/<n>.rubric.json` or `tests/evaluators/<n>.py`), `gold_id` (reference transcript for gold-comparing rubrics), `language`, `model`, `tags[]`.
+
+### Decision Test (`flowstore://test/decision-test/v0`)
+
+Many branches off a shared conversational prefix. Maps 1:1 to a flow's `exit_paths[].condition` — each exit's routing classifier is one decision test, every candidate input one branch. v0 runners replay the prefix once per branch.
+
+- `prefix_turns: string[]` — user inputs that bring the conversation to the state under test.
+- `branches: { user_input, expected_class?, must_contain?, must_not_contain?, capability_assertions?, notes? }[]`
+- `persona_id?` — optional binding for the world (vars + mocks). `system_prompt` is unused; the branches script their own inputs.
+
+No persona-driven mode here — decision tests are always scripted.
+
+### Mock Behavior
+
+The union type behind `persona.mocks[capability_id]`:
+
+```
+{ kind: "static", returns: <object> }    // resolve the call to a literal object
+{ kind: "error",  error: <string> }      // raise this error string as a tool error
+```
+
+Lives in [`packages/core/src/schema/files/mockBehavior.ts`](./packages/core/src/schema/files/mockBehavior.ts) so any artifact that ever needs per-capability behaviors can reuse the same union.
+
+---
+
 ## Open Questions
 
 Forward-looking concepts surfaced by mapping the schema against runtimes or by deferred MVP work. Not designed yet — recorded so they aren't invented twice. When any of these ship, they enter the schema as an additive `$schema` version bump; the schema today does not reserve placeholder fields.

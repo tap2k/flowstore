@@ -13,11 +13,9 @@ import type { RuntimeEvent } from "@flowstore/core/runtime/eventTypes";
 import { formatEvent, formatValueTruncated } from "@flowstore/core/runtime/formatEvent";
 import { translateBatchToEnglish } from "@flowstore/core/runtime/translate";
 import { ModelPicker } from "./ModelPicker";
-import { ScenarioForm } from "./ScenarioForm";
 import { PersonaForm } from "./PersonaForm";
 import { PersonasPanel } from "./PersonasPanel";
 import { GoldsPanel } from "./GoldsPanel";
-import { ScenariosPanel } from "./ScenariosPanel";
 import { TestsPanel } from "./TestsPanel";
 import { useUiStore } from "@/lib/store/ui";
 import { useTestsStore } from "@/lib/store/tests";
@@ -549,18 +547,11 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         <TabButton active={openSimulateTab === "golds"} onClick={() => setOpenSimulateTab("golds")}>
           Golds
         </TabButton>
-        {import.meta.env.VITE_DEV && (
-          <TabButton active={openSimulateTab === "scenarios"} onClick={() => setOpenSimulateTab("scenarios")}>
-            Scenarios
-          </TabButton>
-        )}
       </div>
 
       {openSimulateTab === "personas" && <PersonasPanel />}
 
       {openSimulateTab === "golds" && <GoldsPanel />}
-
-      {openSimulateTab === "scenarios" && <ScenariosPanel />}
 
       {openSimulateTab === "tests" && <TestsPanel />}
 
@@ -620,17 +611,15 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         )}
       </div>
 
-      {/* Scenario subsumes vars + per-cap mocks: load picks the world for
-          the next run; vars/mocks are inline in the Scenarios tab. */}
-      {spec && <ScenarioForm spec={spec} disabled={busy || ready} />}
-
       {hasSession && mode === "prompt" && specChanged && (
         <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
           Spec changed since session start. Reset to re-render the system prompt.
         </div>
       )}
 
-      {spec && <PersonaForm disabled={false} />}
+      {/* Persona owns the world: prompt + vars + per-cap mocks. Load
+          picks the next run's persona; vars/mocks editors are inline. */}
+      {spec && <PersonaForm spec={spec} disabled={false} />}
 
       <div ref={scrollRef} className="flex-1 overflow-auto p-3 space-y-3 text-sm">
         {!hasSession && status !== "starting" && (

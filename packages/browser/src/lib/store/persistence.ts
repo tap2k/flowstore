@@ -55,16 +55,15 @@ export function startSpecPersistence(debounceMs = 300): () => void {
 }
 
 // ----- Tests store -----
-// Persists cases / golds / personas / scenarios / rubrics — the
-// file-backed authoring artifacts the editor manages. captureContext is
-// intentionally NOT persisted: the planning doc treats the reference
-// transcript as ephemeral session state.
+// Persists cases / golds / personas / rubrics — the file-backed authoring
+// artifacts the editor manages. captureContext is intentionally NOT
+// persisted: the planning doc treats the reference transcript as
+// ephemeral session state.
 
 interface PersistedTestsShape {
   cases: TestsState["cases"];
   golds: TestsState["golds"];
   personas: TestsState["personas"];
-  scenarios: TestsState["scenarios"];
   rubrics: TestsState["rubrics"];
 }
 
@@ -78,8 +77,7 @@ export function loadSavedTests(): PersistedTestsShape | null {
       !Array.isArray(parsed.cases) ||
       !Array.isArray(parsed.golds) ||
       !Array.isArray(parsed.personas) ||
-      !Array.isArray(parsed.rubrics) ||
-      !Array.isArray(parsed.scenarios)
+      !Array.isArray(parsed.rubrics)
     ) {
       return null;
     }
@@ -87,7 +85,6 @@ export function loadSavedTests(): PersistedTestsShape | null {
       cases: parsed.cases,
       golds: parsed.golds,
       personas: parsed.personas,
-      scenarios: parsed.scenarios,
       rubrics: parsed.rubrics,
     };
   } catch {
@@ -115,7 +112,6 @@ export function startTestsPersistence(debounceMs = 300): () => void {
           cases: state.cases,
           golds: state.golds,
           personas: state.personas,
-          scenarios: state.scenarios,
           rubrics: state.rubrics,
         };
         window.localStorage.setItem(TESTS_STORAGE_KEY, JSON.stringify(payload));
@@ -183,10 +179,10 @@ export function startSimulateAuthPersistence(debounceMs = 100): () => void {
 
 // ----- UI state -----
 // Only openSimulateTab for now — preserves which Run-pill tab the user
-// was on (Simulate / Tests / Personas) across reloads.
+// was on (Simulate / Tests / Personas / Golds) across reloads.
 
 interface PersistedUi {
-  openSimulateTab: "simulate" | "tests" | "personas" | "golds" | "scenarios";
+  openSimulateTab: "simulate" | "tests" | "personas" | "golds";
 }
 
 export function loadSavedUi(): PersistedUi | null {
@@ -199,8 +195,7 @@ export function loadSavedUi(): PersistedUi | null {
       parsed.openSimulateTab !== "simulate" &&
       parsed.openSimulateTab !== "tests" &&
       parsed.openSimulateTab !== "personas" &&
-      parsed.openSimulateTab !== "golds" &&
-      parsed.openSimulateTab !== "scenarios"
+      parsed.openSimulateTab !== "golds"
     ) {
       return null;
     }

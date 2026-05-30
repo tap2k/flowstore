@@ -1,14 +1,12 @@
 import { validateFile, formatErrors } from "@flowstore/core/validation/ajv";
 import { TestCaseSchema, type TestCase } from "@flowstore/core/schema/files/testCase";
 import { PersonaSchema, type Persona } from "@flowstore/core/schema/files/persona";
-import { ScenarioSchema, type Scenario } from "@flowstore/core/schema/files/scenario";
 import { RubricSchema, type Rubric } from "@flowstore/core/schema/files/rubric";
 import { GoldSchema, type Gold } from "@flowstore/core/schema/files/gold";
 import type { FileMap, LoadError, TestingArtifacts } from "./types";
 
 const TEST_CASE_RE = /^tests\/cases\/(.+)\.test\.json$/;
 const PERSONA_RE = /^tests\/personas\/(.+)\.persona\.json$/;
-const SCENARIO_RE = /^tests\/scenarios\/(.+)\.scenario\.json$/;
 const RUBRIC_RE = /^tests\/rubrics\/(.+)\.rubric\.json$/;
 const GOLD_RE = /^tests\/gold\/(.+)\.gold\.json$/;
 
@@ -73,20 +71,6 @@ export function loadTestingArtifacts(
         }
       },
     ),
-    scenarios: loadCollection<Scenario>(
-      files,
-      errors,
-      SCENARIO_RE,
-      ScenarioSchema,
-      (parsed, baseId, path) => {
-        if (parsed.id !== baseId) {
-          errors.push({
-            path,
-            message: `id "${parsed.id}" does not match filename "${baseId}.scenario.json"`,
-          });
-        }
-      },
-    ),
   };
 }
 
@@ -108,9 +92,6 @@ export function decomposeTestingArtifacts(
   }
   for (const g of artifacts.golds) {
     out[`tests/gold/${g.id}.gold.json`] = stringifyJson(g);
-  }
-  for (const s of artifacts.scenarios) {
-    out[`tests/scenarios/${s.id}.scenario.json`] = stringifyJson(s);
   }
   return out;
 }

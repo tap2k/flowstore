@@ -6,7 +6,7 @@ import type { MockableCapability } from "./capabilityMocks";
 
 const SYSTEM_PROMPT = `You generate realistic, coherent capability return values for an agent specification. These are mock return values used to simulate the agent's tools without calling real endpoints.
 
-Make values plausible and consistent across capabilities — a claim_id returned by file_claim should match the agent's naming conventions; a policy_active boolean returned by verify_policy should reflect a happy-path scenario unless context suggests otherwise. Use realistic-sounding values, NOT obvious placeholders like "Test" or "12345". Default to happy-path values that let the agent proceed through the flow successfully.
+Make values plausible and consistent across capabilities — a claim_id returned by file_claim should match the agent's naming conventions; a policy_active boolean returned by verify_policy should reflect a happy path unless the persona context suggests otherwise. Use realistic-sounding values, NOT obvious placeholders like "Test" or "12345". Default to happy-path values that let the agent proceed through the flow successfully.
 
 For enums, pick from the provided allowed values.`;
 
@@ -34,7 +34,7 @@ export async function generateCapabilityMocks(
   model: string,
   capabilities: MockableCapability[],
   contextVars: Record<string, unknown> = {},
-  scenarioContext?: { name?: string; notes?: string },
+  personaContext?: { name?: string; notes?: string },
 ): Promise<Record<string, Record<string, unknown>>> {
   if (capabilities.length === 0) return {};
 
@@ -54,12 +54,12 @@ export async function generateCapabilityMocks(
     Object.entries(contextVars).filter(([, v]) => v !== undefined && v !== null && v !== ""),
   );
 
-  const scenarioPreamble = scenarioContext && (scenarioContext.name || scenarioContext.notes)
+  const personaPreamble = personaContext && (personaContext.name || personaContext.notes)
     ? [
-        "Scenario you're generating returns FOR:",
-        scenarioContext.name ? `  Name: ${scenarioContext.name}` : null,
-        scenarioContext.notes ? `  Notes: ${scenarioContext.notes}` : null,
-        "Choose returns consistent with this scenario — e.g. if the scenario notes describe a failure path, surface that in the returns where it matters.",
+        "Persona you're generating returns FOR:",
+        personaContext.name ? `  Name: ${personaContext.name}` : null,
+        personaContext.notes ? `  Notes: ${personaContext.notes}` : null,
+        "Choose returns consistent with this persona — e.g. if the persona notes describe a failure path, surface that in the returns where it matters.",
         "",
       ].filter((s) => s !== null) as string[]
     : [];
@@ -67,7 +67,7 @@ export async function generateCapabilityMocks(
   const userPrompt = [
     ...agentContextPreamble(spec),
     "",
-    ...scenarioPreamble,
+    ...personaPreamble,
     Object.keys(filledVars).length > 0
       ? `Variables already set in scope (use these as anchors — outputs should be coherent with them; an output whose name matches one of these should default to the same value unless context suggests divergence):\n${JSON.stringify(filledVars, null, 2)}\n`
       : null,

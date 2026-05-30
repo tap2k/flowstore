@@ -1,7 +1,7 @@
 import { Type, type Static } from "@sinclair/typebox";
 
 // A gold is a verbatim reference transcript — the canonical example of
-// how a scenario should go. Independent artifact: not 1:1 with a test
+// how a conversation should go. Independent artifact: not 1:1 with a test
 // case (a single gold may seed many derived cases; a captured gold may
 // have no case yet). Authored in two ways today: extracted from
 // customer source material via prompts/GOLD-EXTRACTION-PROMPT.txt, or

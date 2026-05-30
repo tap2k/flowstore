@@ -5,7 +5,7 @@ import { useTestsStore } from "@/lib/store/tests";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useUiStore } from "@/lib/store/ui";
-import { scenarioToRuntime } from "@flowstore/core/runtime/scenarioRuntime";
+import { personaToRuntime } from "@flowstore/core/runtime/personaRuntime";
 
 // Tests-tab case library + editor. List view by default; click a row to
 // land in the editor view (Personas-tab tried inline expand, but Tests
@@ -132,7 +132,6 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
   const uniqueCaseId = useTestsStore((s) => s.uniqueCaseId);
   const personas = useTestsStore((s) => s.personas);
   const rubrics = useTestsStore((s) => s.rubrics);
-  const scenarios = useTestsStore((s) => s.scenarios);
   const captureContext = useTestsStore((s) => s.captureContext);
   const casesCount = useTestsStore((s) => s.cases.length);
   const spec = useSpecStore((s) => s.spec);
@@ -151,12 +150,14 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
   // Draft state mirrors the saved record; Save commits the draft into the
   // store, which dirties the project for the next GitHub Save.
   const [name, setName] = useState(testCase.name ?? "");
+  // Source = how the conversation is driven. user_turns wins as the
+  // tell — a scripted case may also bind a persona purely for its world,
+  // but the script overrides the persona's system_prompt.
   const [source, setSource] = useState<"scripted" | "persona">(
-    testCase.persona_id ? "persona" : "scripted",
+    testCase.user_turns ? "scripted" : "persona",
   );
   const [userTurns, setUserTurns] = useState<string[]>(testCase.user_turns ?? []);
   const [personaId, setPersonaId] = useState(testCase.persona_id ?? "");
-  const [scenarioId, setScenarioId] = useState(testCase.scenario_id ?? "");
   const [perTurnRows, setPerTurnRows] = useState<PerTurnRow[]>(
     flattenPerTurn(testCase.assertions ?? []),
   );
@@ -180,10 +181,9 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
   // Re-hydrate draft when the selected case identity changes.
   useEffect(() => {
     setName(testCase.name ?? "");
-    setSource(testCase.persona_id ? "persona" : "scripted");
+    setSource(testCase.user_turns ? "scripted" : "persona");
     setUserTurns(testCase.user_turns ?? []);
     setPersonaId(testCase.persona_id ?? "");
-    setScenarioId(testCase.scenario_id ?? "");
     setPerTurnRows(flattenPerTurn(testCase.assertions ?? []));
     setTranscriptAssertions(testCase.transcript_assertions ?? []);
     setStateAssertions(testCase.state_assertions ?? []);
@@ -207,10 +207,9 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
   // a deep-equal helper.
   const dirty =
     name !== (testCase.name ?? "") ||
-    (source === "persona") !== (testCase.persona_id !== undefined && testCase.persona_id !== "") ||
+    (source === "persona") !== !testCase.user_turns ||
     JSON.stringify(userTurns) !== JSON.stringify(testCase.user_turns ?? []) ||
     personaId !== (testCase.persona_id ?? "") ||
-    scenarioId !== (testCase.scenario_id ?? "") ||
     JSON.stringify(groupPerTurn(perTurnRows)) !==
       JSON.stringify(testCase.assertions ?? []) ||
     JSON.stringify(transcriptAssertions) !==
@@ -230,18 +229,17 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
       id: testCase.id,
       ...(name.trim() ? { name: name.trim() } : {}),
       ...(source === "scripted" ? { user_turns: userTurns } : {}),
-      ...(source === "persona" && personaId
-        ? {
-            persona_id: personaId,
-            // max_turns is controlled from the Simulate panel
-            // (personaTurnLimit) at run time; preserve any pre-existing
-            // value in the case file but don't surface in the editor.
-            ...(testCase.max_turns !== undefined ? { max_turns: testCase.max_turns } : {}),
-          }
+      // Persona binding is independent of source: persona-driven needs it
+      // for the system_prompt, scripted may use it purely for the world
+      // (vars + mocks). max_turns is controlled from the Simulate panel
+      // (personaTurnLimit) at run time; preserve any pre-existing value
+      // but don't surface in the editor.
+      ...(personaId ? { persona_id: personaId } : {}),
+      ...(source === "persona" && testCase.max_turns !== undefined
+        ? { max_turns: testCase.max_turns }
         : {}),
       ...(notes.trim() ? { notes: notes.trim() } : {}),
       ...(goldId ? { gold_id: goldId } : {}),
-      ...(scenarioId ? { scenario_id: scenarioId } : {}),
       ...(showLanguage && language ? { language } : {}),
       ...(perTurnRows.length > 0 ? { assertions: groupPerTurn(perTurnRows) } : {}),
       ...(transcriptAssertions.length > 0
@@ -282,20 +280,21 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
   }
 
   function handleOpenInSimulate() {
-    // Persona load (when persona-driven and persona exists in store).
-    if (source === "persona" && personaId) {
+    // World comes from the bound persona (if any). Scripted cases can
+    // also bind a persona for the world; only the persona's system_prompt
+    // is conditional — load it only for persona-driven runs (no
+    // user_turns) so a scripted case doesn't pollute the buffer.
+    if (personaId) {
       const p = personas.find((x) => x.id === personaId);
-      if (p) setPersonaPrompt(p.system_prompt);
-    }
-    // Scenario load: hydrate buffer from the bound scenario.
-    if (scenarioId && spec) {
-      const sc = scenarios.find((s) => s.id === scenarioId);
-      if (sc) {
-        const { vars, returns, errors } = scenarioToRuntime(spec, sc);
-        setSimulateContextVars(vars);
-        setMockReturns(returns);
-        for (const [name, err] of Object.entries(errors)) {
-          setMockError(name, err);
+      if (p) {
+        if (source === "persona") setPersonaPrompt(p.system_prompt ?? "");
+        if (spec) {
+          const { vars, returns, errors } = personaToRuntime(spec, p);
+          setSimulateContextVars(vars);
+          setMockReturns(returns);
+          for (const [name, err] of Object.entries(errors)) {
+            setMockError(name, err);
+          }
         }
       }
     }
@@ -321,7 +320,7 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
           <button
             type="button"
             onClick={handleCopy}
-            title="Duplicate this case — handy for variant authoring (same scenario, different assertions)."
+            title="Duplicate this case — handy for variant authoring (same persona, different assertions)."
             className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
           >
             Copy
@@ -434,21 +433,27 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
 
         <div>
           <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
-            scenario
+            persona
           </label>
-          <select
-            value={scenarioId}
-            onChange={(e) => setScenarioId(e.target.value)}
-            className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700"
-            title="The world (vars + per-cap mocks) this case runs in. Authored under tests/scenarios/."
-          >
-            <option value="">— none —</option>
-            {scenarios.map((sc) => (
-              <option key={sc.id} value={sc.id}>
-                {sc.name || sc.id}
-              </option>
-            ))}
-          </select>
+          {personas.length === 0 ? (
+            <div className="text-[11px] text-zinc-500 italic">
+              No saved personas. Create one in the Personas tab.
+            </div>
+          ) : (
+            <select
+              value={personaId}
+              onChange={(e) => setPersonaId(e.target.value)}
+              title="Source of this case's world (vars + mocks). Required for persona-driven; optional but recommended for scripted (the persona's system_prompt is ignored when user_turns is set)."
+              className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-800"
+            >
+              <option value="">— none —</option>
+              {personas.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name || p.id}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div>
@@ -473,29 +478,6 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
 
           {source === "scripted" && (
             <UserTurnsList turns={userTurns} onChange={setUserTurns} />
-          )}
-
-          {source === "persona" && (
-            <div className="mt-2">
-              {personas.length === 0 ? (
-                <div className="text-[11px] text-zinc-500 italic">
-                  No saved personas. Create one in the Personas tab.
-                </div>
-              ) : (
-                <select
-                  value={personaId}
-                  onChange={(e) => setPersonaId(e.target.value)}
-                  className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-800"
-                >
-                  <option value="">— pick a persona —</option>
-                  {personas.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name || p.id}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
           )}
         </div>
 

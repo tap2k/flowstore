@@ -2,24 +2,24 @@ import { useState } from "react";
 import type {
   MockableCapability,
 } from "@flowstore/core/runtime/capabilityMocks";
-import type { ScenarioMockBehavior } from "@flowstore/core/schema/files/scenario";
+import type { MockBehavior } from "@flowstore/core/schema/files/mockBehavior";
 import { TypedValueInput } from "../TypedValueInput";
 
 // Collapsible mocks editor. Behavior per capability is the unified
-// ScenarioMockBehavior union — both callers (run-pill ScenarioForm and
-// ScenariosPanel row) normalize their store shape into this at the
+// MockBehavior union — both callers (run-pill PersonaForm and
+// PersonasPanel row) normalize their store shape into this at the
 // boundary, then pass an onChange that writes back. Editor itself stays
 // shape-agnostic.
 
 interface Props {
   caps: MockableCapability[];
-  behaviors: Record<string, ScenarioMockBehavior>;
+  behaviors: Record<string, MockBehavior>;
   disabled?: boolean;
   // Key is whatever stable key the caller uses to identify a cap — name
-  // (runtime) or id (scenario). Editor only reads/writes through this
+  // (runtime) or id (persona/case). Editor only reads/writes through this
   // key; the caller decides which dimension it is.
   keyOf: (cap: MockableCapability) => string;
-  onChange: (key: string, behavior: ScenarioMockBehavior | undefined) => void;
+  onChange: (key: string, behavior: MockBehavior | undefined) => void;
 }
 
 export function MocksEditor({ caps, behaviors, disabled, keyOf, onChange }: Props) {
@@ -60,9 +60,9 @@ export function MocksEditor({ caps, behaviors, disabled, keyOf, onChange }: Prop
 
 interface CapMockRowProps {
   cap: MockableCapability;
-  behavior: ScenarioMockBehavior | undefined;
+  behavior: MockBehavior | undefined;
   disabled?: boolean;
-  onChange: (behavior: ScenarioMockBehavior | undefined) => void;
+  onChange: (behavior: MockBehavior | undefined) => void;
 }
 
 function CapMockRow({ cap, behavior, disabled, onChange }: CapMockRowProps) {

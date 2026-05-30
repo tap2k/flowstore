@@ -105,10 +105,6 @@ export const TestCaseSchema = Type.Object(
     name: Type.Optional(Type.String()),
     notes: Type.Optional(Type.String()),
     user_turns: Type.Optional(Type.Array(Type.String())),
-    // The "world" the case runs in: vars + mock returns. Resolves to
-    // tests/scenarios/<scenario_id>.scenario.json. Optional — omit for
-    // trivial cases that don't need mock setup.
-    scenario_id: Type.Optional(Type.String()),
     evaluators: Type.Optional(Type.Array(Type.String())),
     assertions: Type.Optional(Type.Array(Assertion)),
     state_assertions: Type.Optional(Type.Array(StateAssertion)),
