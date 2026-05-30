@@ -15,6 +15,8 @@ import {
   cleanMockReturns,
   resolveMockedCall,
 } from "@flowstore/core/runtime/capabilityMocks";
+import type { GuardrailVerdict } from "@flowstore/core/runtime/judgeGuardrails";
+import type { RubricVerdict } from "@flowstore/core/runtime/judgeRubric";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { useUiStore } from "@/lib/store/ui";
 import { createScopedJsonStorage, isPlainObject } from "@/lib/store/scopedStorage";
@@ -129,6 +131,15 @@ interface SimulateState {
   // "Open in Sim" can override the picker from case.language.
   language: string | undefined;
 
+  // Evaluation results for the current transcript. Lifted out of
+  // SimulatePanel local state so the ChatPanel (and anything else) can read
+  // them without recomputing. Both go stale the moment the conversation
+  // continues, so start/reset/send/fork clear them. guardrailVerdict is the
+  // holistic "Evaluate" result (judgeGuardrails); rubricVerdicts is keyed by
+  // rubric id, with "pending" while a judge call is in flight.
+  guardrailVerdict: GuardrailVerdict | null;
+  rubricVerdicts: Record<string, RubricVerdict | "pending">;
+
   setMode: (mode: SimulateMode) => void;
   start: (args: StartArgs) => Promise<void>;
   send: (userText: string) => Promise<void>;
@@ -158,6 +169,10 @@ interface SimulateState {
   autoStep: () => Promise<void>;
   setActiveCaseId: (id: string | null) => void;
   setLanguage: (lang: string | undefined) => void;
+  setGuardrailVerdict: (verdict: GuardrailVerdict | null) => void;
+  setRubricVerdicts: (verdicts: Record<string, RubricVerdict | "pending">) => void;
+  patchRubricVerdict: (id: string, verdict: RubricVerdict | "pending") => void;
+  clearEvaluation: () => void;
 }
 
 const varsStorage = createScopedJsonStorage<Record<string, unknown>>({
@@ -235,6 +250,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   personaTurnsLeft: 0,
   activeCaseId: null,
   language: undefined,
+  guardrailVerdict: null,
+  rubricVerdicts: {},
 
   setMode: (mode) => {
     if (get().sessionId) return; // mode is frozen during an active session
@@ -417,6 +434,22 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     set({ language: lang });
   },
 
+  setGuardrailVerdict: (verdict) => {
+    set({ guardrailVerdict: verdict });
+  },
+
+  setRubricVerdicts: (verdicts) => {
+    set({ rubricVerdicts: verdicts });
+  },
+
+  patchRubricVerdict: (id, verdict) => {
+    set({ rubricVerdicts: { ...get().rubricVerdicts, [id]: verdict } });
+  },
+
+  clearEvaluation: () => {
+    set({ guardrailVerdict: null, rubricVerdicts: {} });
+  },
+
   autoStep: async () => {
     const {
       personaPrompt,
@@ -509,6 +542,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       systemPrompt: null,
       specSnapshot: null,
       lastUsage: null,
+      guardrailVerdict: null,
+      rubricVerdicts: {},
     });
 
     if (mode === "prompt") {
@@ -660,6 +695,9 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       status: "thinking",
       transcript: nextTranscript,
       error: null,
+      // The conversation moved on — any prior evaluation is now stale.
+      guardrailVerdict: null,
+      rubricVerdicts: {},
     });
 
     if (mode === "prompt") {
@@ -772,6 +810,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       status: "ready",
       error: null,
       autoRun: false,
+      guardrailVerdict: null,
+      rubricVerdicts: {},
     });
   },
 
@@ -799,6 +839,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       autoStepping: false,
       autoRun: false,
       personaTurnsLeft: 0,
+      guardrailVerdict: null,
+      rubricVerdicts: {},
     });
   },
 

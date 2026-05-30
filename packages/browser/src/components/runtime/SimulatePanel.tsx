@@ -23,6 +23,7 @@ import type { TestCase } from "@flowstore/core/schema/files/testCase";
 import type { Gold } from "@flowstore/core/schema/files/gold";
 import { evaluateCaseAgainstTranscript, type CaseVerdicts } from "@/lib/caseVerdicts";
 import { judgeRubric, type RubricVerdict } from "@flowstore/core/runtime/judgeRubric";
+import { judgeGuardrails, type GuardrailVerdict } from "@flowstore/core/runtime/judgeGuardrails";
 import type { Rubric } from "@flowstore/core/schema/files/rubric";
 
 interface SimulatePanelProps {
@@ -90,11 +91,15 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   // boundary — same UX as the persona-driven autoRun loop.
   const stopRequestedRef = useRef(false);
   // Rubric verdicts for the current run, populated on completion by
-  // judgeRubric() — one entry per bound rubric. Cleared at the start of
-  // each run.
-  const [rubricVerdicts, setRubricVerdicts] = useState<
-    Record<string, RubricVerdict | "pending">
-  >({});
+  // judgeRubric() — one entry per bound rubric. Lives in the simulate store
+  // (not local state) so ChatPanel can read it; cleared on each new turn.
+  const rubricVerdicts = useSimulateStore((s) => s.rubricVerdicts);
+  const setRubricVerdicts = useSimulateStore((s) => s.setRubricVerdicts);
+  const patchRubricVerdict = useSimulateStore((s) => s.patchRubricVerdict);
+  // Holistic guardrail/business-goal verdict for the current transcript.
+  const guardrailVerdict = useSimulateStore((s) => s.guardrailVerdict);
+  const setGuardrailVerdict = useSimulateStore((s) => s.setGuardrailVerdict);
+  const [evaluating, setEvaluating] = useState(false);
   const verdicts: CaseVerdicts = evaluateCaseAgainstTranscript(
     activeCase,
     transcript,
@@ -115,6 +120,12 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const language = useSimulateStore((s) => s.language);
   const setLanguage = useSimulateStore((s) => s.setLanguage);
   const hasCapabilities = (spec?.agent.capabilities?.length ?? 0) > 0;
+  // The holistic Evaluate action only makes sense when the agent has stated
+  // invariants to judge against; hide it otherwise.
+  const hasGuardrailsOrGoals =
+    (spec?.agent.guardrails?.some((g) => g.statement?.trim()) ?? false) ||
+    (spec?.agent.business_goals?.some((g) => g.expression?.trim() || g.name?.trim()) ??
+      false);
 
   // Default is "all" (undefined) — emit every language bucket. Reset to "all"
   // when the active agent changes, or when the current selection is no longer
@@ -302,9 +313,52 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           apiKey: judgeDispatch.apiKey,
           model: judgeDispatch.wireModel,
         });
-        setRubricVerdicts((prev) => ({ ...prev, [id]: verdict }));
+        patchRubricVerdict(id, verdict);
       }),
     );
+  }
+
+  async function evaluateGuardrails() {
+    if (evaluating) return;
+    const current = useSpecStore.getState().spec;
+    if (!current) return;
+    const guardrails = (current.agent.guardrails ?? [])
+      .map((g) => g.statement?.trim())
+      .filter((s): s is string => !!s);
+    const businessGoals = (current.agent.business_goals ?? [])
+      .filter((g) => g.expression?.trim() || g.name?.trim())
+      .map((g) => ({ id: g.id, name: g.name ?? g.id, expression: g.expression ?? "" }));
+    if (guardrails.length === 0 && businessGoals.length === 0) return;
+    const judgeDispatch = resolveDispatch(judgeModel);
+    if (!judgeDispatch.provider || !judgeDispatch.apiKey) {
+      setGuardrailVerdict({
+        status: "skipped",
+        summary: `judge skipped — no API key configured for "${judgeModel}" (pick a Google or OpenAI model).`,
+        verdict: "pass",
+        failure_mode: "none",
+        failure_turns: [],
+        guardrails: [],
+        business_goals: [],
+      });
+      return;
+    }
+    setEvaluating(true);
+    setGuardrailVerdict(null);
+    try {
+      const finalTranscript = useSimulateStore.getState().transcript;
+      const verdict = await judgeGuardrails({
+        guardrails,
+        businessGoals,
+        systemPrompt: useSimulateStore.getState().systemPrompt,
+        transcript: finalTranscript.map((t) => ({ role: t.role, text: t.text })),
+        provider: judgeDispatch.provider,
+        apiKey: judgeDispatch.apiKey,
+        model: judgeDispatch.wireModel,
+      });
+      setGuardrailVerdict(verdict);
+    } finally {
+      setEvaluating(false);
+    }
   }
 
   function stopActiveCase() {
@@ -713,6 +767,10 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             canJudge={!isRunning && !busy}
           />
         )}
+        {evaluating && !guardrailVerdict && (
+          <div className="text-xs text-zinc-500 italic">evaluating guardrails…</div>
+        )}
+        {guardrailVerdict && <GuardrailEvalCard verdict={guardrailVerdict} />}
         {hasSession && transcript.length > 0 && !busy && !isRunning && (
           <div className="flex items-center justify-end gap-1 pt-1">
             <button
@@ -789,14 +847,26 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             ) : (
               <span />
             )}
-            <button
-              onClick={onSend}
-              disabled={busy || !canSend}
-              title={input.trim() ? "Send" : "Send empty user message"}
-              className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
-            >
-              Send
-            </button>
+            <div className="flex items-center gap-1.5">
+              {hasGuardrailsOrGoals && transcript.length > 0 && (
+                <button
+                  onClick={() => void evaluateGuardrails()}
+                  disabled={evaluating || busy || isRunning}
+                  title="Holistically judge the transcript so far against the agent's guardrails and business goals."
+                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
+                >
+                  {evaluating ? "Evaluating…" : "Evaluate"}
+                </button>
+              )}
+              <button
+                onClick={onSend}
+                disabled={busy || !canSend}
+                title={input.trim() ? "Send" : "Send empty user message"}
+                className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+              >
+                Send
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -813,6 +883,16 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
                 className="rounded px-2 py-1 text-zinc-600 hover:bg-zinc-100 disabled:opacity-40"
               >
                 🌐 {translateLabel}
+              </button>
+            )}
+            {hasGuardrailsOrGoals && transcript.length > 0 && (
+              <button
+                onClick={() => void evaluateGuardrails()}
+                disabled={evaluating}
+                title="Holistically judge the transcript against the agent's guardrails and business goals."
+                className="rounded border border-zinc-300 px-2 py-1 text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
+              >
+                {evaluating ? "Evaluating…" : "Evaluate"}
               </button>
             )}
             <button
@@ -1047,6 +1127,74 @@ function RubricsCard({
           {judging ? "judging…" : "Judge rubrics"}
         </button>
       </div>
+    </div>
+  );
+}
+
+// Holistic guardrail / business-goal verdict for the current transcript.
+// Results-only display — the trigger is the "Evaluate" button in the footer
+// next to Send. Unlike RubricsCard this needs no active case (it judges
+// against the agent's own stated invariants), so it renders on any session
+// once a verdict exists. The "met" markers mirror the rubric card's vocabulary.
+function GuardrailEvalCard({ verdict }: { verdict: GuardrailVerdict }) {
+  const skipped = verdict.status === "skipped";
+  const color = skipped
+    ? "border-zinc-200 bg-white text-zinc-900"
+    : verdict.verdict === "fail"
+      ? "border-red-200 bg-red-50 text-red-900"
+      : verdict.verdict === "partial"
+        ? "border-amber-200 bg-amber-50 text-amber-900"
+        : "border-emerald-200 bg-emerald-50 text-emerald-900";
+  const headIcon = skipped
+    ? "○"
+    : verdict.verdict === "fail"
+      ? "✗"
+      : verdict.verdict === "partial"
+        ? "◐"
+        : "✓";
+  const metIcon = (met: string) => (met === "no" ? "✗" : met === "yes" ? "✓" : "·");
+  return (
+    <div className={`rounded border ${color} p-2 text-[11px] space-y-1`}>
+      <div className="font-medium">
+        {headIcon} guardrail evaluation
+        {!skipped && <span className="font-mono"> · {verdict.verdict}</span>}
+        {!skipped && verdict.failure_mode !== "none" && (
+          <span className="font-mono text-[10px] text-zinc-500">
+            {" · "}
+            {verdict.failure_mode}
+          </span>
+        )}
+      </div>
+      <div className="text-[10px] text-zinc-600">{verdict.summary}</div>
+      {!skipped && (
+        <>
+          {verdict.guardrails.map((g, i) => (
+            <div key={`g-${i}`} className="text-[10px]">
+              <span className={g.met === "no" ? "text-red-700" : "text-zinc-600"}>
+                {metIcon(g.met)} {g.statement}
+              </span>
+              {g.reason && <span className="text-zinc-500"> — {g.reason}</span>}
+            </div>
+          ))}
+          {verdict.business_goals.map((g, i) => (
+            <div key={`bg-${i}`} className="text-[10px]">
+              <span
+                className={
+                  g.met === "no"
+                    ? "text-red-700"
+                    : g.met === "partially"
+                      ? "text-amber-700"
+                      : "text-zinc-600"
+                }
+              >
+                {g.met === "no" ? "✗" : g.met === "yes" ? "✓" : g.met === "partially" ? "◐" : "·"}{" "}
+                goal: {g.id}
+              </span>
+              {g.reason && <span className="text-zinc-500"> — {g.reason}</span>}
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }

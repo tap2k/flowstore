@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { useSimulateStore, type TranscriptTurn } from "@/lib/store/simulate";
+import { useTestsStore } from "@/lib/store/tests";
+import { evaluateCaseAgainstTranscript, type CaseVerdicts } from "@/lib/caseVerdicts";
+import type { GuardrailVerdict } from "@flowstore/core/runtime/judgeGuardrails";
+import type { Rubric } from "@flowstore/core/schema/files/rubric";
 import { chat } from "@flowstore/core/llm/dispatch";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { findTool, toolDefinitions } from "@/lib/chat/tools";
@@ -149,9 +153,10 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
     setAttachments([]);
     const initialSpec = useSpecStore.getState().spec;
     const sim = useSimulateStore.getState();
+    const evaluation = collectEvaluation(sim);
     let history: ChatMessage[] = [
       ...messages,
-      { role: "user", content: buildUserContent(text, initialSpec, sim, attached) },
+      { role: "user", content: buildUserContent(text, initialSpec, sim, attached, evaluation) },
     ];
     setMessages(history);
     setBusy(true);
@@ -500,16 +505,69 @@ interface SimContext {
   events: RuntimeEvent[];
 }
 
+interface RubricScore {
+  name: string;
+  score: number | null;
+  max: number;
+  notes: string;
+}
+
+interface EvaluationContext {
+  guardrail: GuardrailVerdict | null;
+  caseName: string | null;
+  caseVerdicts: CaseVerdicts | null;
+  rubricScores: RubricScore[];
+}
+
+// Snapshot the current evaluation state so the assistant can act on it ("fix
+// the failing guardrail", "why did this assertion fail"). Rubrics are
+// test-specific, so we only surface the ones actually judged for the active
+// run — sim.rubricVerdicts is already scoped to the active case's bound
+// evaluators — and resolve each name individually rather than pulling the
+// whole rubric library into context.
+function collectEvaluation(
+  sim: ReturnType<typeof useSimulateStore.getState>,
+): EvaluationContext {
+  const tests = useTestsStore.getState();
+  const activeCase = sim.activeCaseId
+    ? tests.cases.find((c) => c.id === sim.activeCaseId) ?? null
+    : null;
+  const runComplete =
+    sim.status !== "thinking" && sim.status !== "starting" && sim.transcript.length > 0;
+  const caseVerdicts = activeCase
+    ? evaluateCaseAgainstTranscript(activeCase, sim.transcript, runComplete)
+    : null;
+  const rubricScores: RubricScore[] = [];
+  for (const [id, v] of Object.entries(sim.rubricVerdicts)) {
+    if (v === "pending") continue;
+    const r: Rubric | undefined = tests.rubrics.find((rr) => rr.id === id);
+    rubricScores.push({
+      name: r?.name || id,
+      score: v.score,
+      max: r?.scale?.max ?? 5,
+      notes: v.notes,
+    });
+  }
+  return {
+    guardrail: sim.guardrailVerdict,
+    caseName: activeCase?.name ?? activeCase?.id ?? null,
+    caseVerdicts,
+    rubricScores,
+  };
+}
+
 function buildUserContent(
   userText: string,
   spec: Spec | null,
   sim: SimContext,
   attachments: SourceFile[],
+  evaluation: EvaluationContext,
 ): string {
   const specBlock = spec
     ? `<spec>\n${JSON.stringify(spec, null, 2)}\n</spec>`
     : `<spec>(empty — no spec loaded yet)</spec>`;
   const simBlock = sim.sessionId ? `\n\n${renderSimBlock(sim)}` : "";
+  const evalBlock = sim.sessionId ? renderEvaluationBlock(evaluation) : "";
   const filesBlock =
     attachments.length > 0
       ? `\n\n<files>\n${attachments
@@ -520,12 +578,55 @@ function buildUserContent(
   // bubble shows what was attached; the <files> block above is for the model.
   const note =
     attachments.length > 0 ? `📎 ${attachments.map((f) => f.name).join(", ")}\n\n` : "";
-  return `${specBlock}${simBlock}${filesBlock}\n\n${note}${userText}`;
+  return `${specBlock}${simBlock}${evalBlock}${filesBlock}\n\n${note}${userText}`;
+}
+
+// Compact rendering of the evaluation snapshot for the model. Each subsection
+// is omitted when empty, so an unevaluated session contributes nothing.
+function renderEvaluationBlock(e: EvaluationContext): string {
+  const lines: string[] = [];
+  const g = e.guardrail;
+  if (g && g.status === "ok") {
+    lines.push(
+      `guardrails: ${g.verdict.toUpperCase()}${g.failure_mode !== "none" ? ` (${g.failure_mode})` : ""} — ${g.summary}`,
+    );
+    for (const gr of g.guardrails) {
+      const mark = gr.met === "no" ? "✗" : gr.met === "yes" ? "✓" : "·";
+      lines.push(`  ${mark} ${gr.statement}${gr.reason ? ` — ${gr.reason}` : ""}`);
+    }
+    if (g.business_goals.length > 0) {
+      lines.push("business goals:");
+      for (const bg of g.business_goals) {
+        const mark =
+          bg.met === "no" ? "✗" : bg.met === "yes" ? "✓" : bg.met === "partially" ? "◐" : "·";
+        lines.push(`  ${mark} ${bg.id}${bg.reason ? ` — ${bg.reason}` : ""}`);
+      }
+    }
+  }
+  const cv = e.caseVerdicts;
+  if (cv && cv.evaluable > 0) {
+    lines.push(
+      `assertions${e.caseName ? ` (case "${e.caseName}")` : ""}: ${cv.passed}/${cv.evaluable} passed`,
+    );
+    for (const v of [...cv.perTurn, ...cv.transcript]) {
+      if (v.verdict === "fail") lines.push(`  ✗ ${v.reason ?? "failed"}`);
+    }
+  }
+  if (e.rubricScores.length > 0) {
+    lines.push("rubrics:");
+    for (const r of e.rubricScores) {
+      lines.push(
+        `  ${r.name}: ${r.score === null ? "n/a" : `${r.score}/${r.max}`}${r.notes ? ` — ${r.notes}` : ""}`,
+      );
+    }
+  }
+  if (lines.length === 0) return "";
+  return `\n\n<evaluation>\n${lines.join("\n")}\n</evaluation>`;
 }
 
 function stripSpec(content: string): string {
   // Hide injected context blocks from the user view so the bubble shows just their words.
-  const markers = ["</files>", "</simulation>", "</spec>"];
+  const markers = ["</files>", "</evaluation>", "</simulation>", "</spec>"];
   let idx = -1;
   let markerLen = 0;
   for (const m of markers) {
