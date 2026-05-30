@@ -108,23 +108,33 @@ export function App() {
     <>
       <div className="flex flex-col h-screen bg-zinc-50">
         <header className="flex items-center gap-4 border-b border-zinc-200 bg-white px-6 py-3">
-          <div className="flex flex-col">
-            <h1 className="text-lg font-semibold text-zinc-900 leading-tight">
-              {spec ? spec.agent.meta.name : "flowstore"}
-            </h1>
-            {githubLocation ? (
-              <div className="text-[11px] text-zinc-500 font-mono leading-tight">
-                {githubLocation.owner}/{githubLocation.repo}@{githubLocation.ref}
-                {!githubCanWrite && (
-                  <span className="ml-1 font-sans">· read-only</span>
-                )}
-              </div>
-            ) : spec ? (
-              <div className="text-[11px] text-zinc-500 leading-tight">
-                Working locally
-              </div>
-            ) : null}
-          </div>
+          {/* Project identity stays top-left; the flowstore wordmark lives on
+              the canvas bottom-left (see BrandMark in Canvas). */}
+          {spec ? (
+            <div className="flex min-w-0 flex-col">
+              <h1 className="truncate text-lg font-semibold leading-tight text-zinc-900">
+                {spec.agent.meta.name}
+              </h1>
+              {githubLocation ? (
+                <div className="flex items-center gap-1 leading-tight">
+                  <a
+                    href={`https://github.com/${githubLocation.owner}/${githubLocation.repo}/tree/${githubLocation.ref}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={`${githubLocation.owner}/${githubLocation.repo}@${githubLocation.ref}`}
+                    className="truncate font-mono text-[11px] text-zinc-500 hover:text-zinc-900 hover:underline"
+                  >
+                    {githubLocation.owner}/{githubLocation.repo}@{githubLocation.ref}
+                  </a>
+                  {!githubCanWrite && (
+                    <span className="shrink-0 text-[11px] text-zinc-400">· read-only</span>
+                  )}
+                </div>
+              ) : (
+                <div className="text-[11px] leading-tight text-zinc-500">Working locally</div>
+              )}
+            </div>
+          ) : null}
           <div className="ml-auto flex items-center gap-3">
             <SaveStatePill />
             <ImportExportToolbar

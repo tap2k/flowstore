@@ -56,6 +56,16 @@ function RelayoutIcon() {
   );
 }
 
+// Brand wordmark, parked at the canvas bottom-left beside the zoom controls.
+// Font matches the public site's logo (font-mono, semibold, tracking-tight).
+function BrandMark() {
+  return (
+    <span className="select-none font-mono text-base font-semibold tracking-tight text-zinc-500">
+      flowstore
+    </span>
+  );
+}
+
 const SAVE_DEBOUNCE_MS = 300;
 
 function truncate(s: string, n: number) {
@@ -149,6 +159,9 @@ function EmptyCanvas() {
         <Background gap={20} size={1} color="#e4e4e7" />
         <Panel position="top-left">
           <NewFlowButton />
+        </Panel>
+        <Panel position="bottom-left">
+          <BrandMark />
         </Panel>
       </ReactFlow>
     </div>
@@ -338,6 +351,11 @@ function CanvasInner({ spec }: { spec: Spec }) {
             <RelayoutIcon />
           </ControlButton>
         </Controls>
+        {/* Sits just right of the bottom-left controls, sharing their baseline.
+            marginLeft clears the controls column (left:15 + ~26 wide). */}
+        <Panel position="bottom-left" style={{ marginLeft: 52 }}>
+          <BrandMark />
+        </Panel>
         <MiniMap pannable zoomable />
       </ReactFlow>
     </div>
