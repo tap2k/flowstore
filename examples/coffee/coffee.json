@@ -170,7 +170,7 @@
         {
           "id": "tbl_menu",
           "name": "Drink menu",
-          "purpose": "Catalog of drink styles available, used by the order flows to validate patron requests and quote prices.",
+          "notes": "Catalog of drink styles available, used by the order flows to validate patron requests and quote prices.",
           "structure": [
             {
               "field": "drink_type",
