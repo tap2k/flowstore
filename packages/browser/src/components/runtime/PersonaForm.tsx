@@ -249,16 +249,40 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
           </span>
         </button>
         <div className="flex items-center gap-1">
-          {configured && (
-            <button
-              type="button"
-              onClick={onClear}
-              disabled={disabled || generating}
-              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-              title="Clear the persona prompt + world from the buffer."
-            >
-              Clear
-            </button>
+          <span className="text-[10px] text-zinc-500">Turns:</span>
+          <input
+            type="number"
+            min={1}
+            max={200}
+            value={personaTurnLimit}
+            onChange={(e) => setPersonaTurnLimit(parseInt(e.target.value, 10))}
+            disabled={disabled || autoRun}
+            title="Hard cap on user turns. Stops the loop if the agent gets stuck."
+            className="w-10 rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
+          />
+          <button
+            type="button"
+            onClick={() => setAutoRun(!autoRun)}
+            disabled={!configured || !personaHasKey}
+            title={
+              !personaHasKey
+                ? "Add an API key in Settings for the model the persona picker is set to."
+                : !configured
+                  ? "Write a persona system prompt to start."
+                  : autoRun
+                    ? "Stop the persona. An in-flight reply is dropped."
+                    : "Start: persona runs for the configured number of turns, then pauses. Click again for more."
+            }
+            className={
+              autoRun
+                ? "rounded border border-red-300 bg-red-50 px-2 py-0.5 text-[11px] text-red-700 hover:bg-red-100 disabled:opacity-40"
+                : "rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+            }
+          >
+            {autoRun ? "■" : "▶"}
+          </button>
+          {autoRun && (
+            <span className="text-[10px] text-zinc-400">· {personaTurnsLeft} left</span>
           )}
           {dispatchKey && (
             <button
@@ -395,40 +419,16 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
               onChange={setSimulatePersonaModel}
               className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
             />
-            <span className="ml-2">Turns:</span>
-            <input
-              type="number"
-              min={1}
-              max={200}
-              value={personaTurnLimit}
-              onChange={(e) => setPersonaTurnLimit(parseInt(e.target.value, 10))}
-              disabled={disabled || autoRun}
-              title="Hard cap on user turns. Stops the loop if the agent gets stuck."
-              className="w-10 rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
-            />
-            <button
-              type="button"
-              onClick={() => setAutoRun(!autoRun)}
-              disabled={!configured || !personaHasKey}
-              title={
-                !personaHasKey
-                  ? "Add an API key in Settings for the model the persona picker is set to."
-                  : !configured
-                    ? "Write a persona system prompt above to start."
-                    : autoRun
-                      ? "Stop the persona. An in-flight reply is dropped."
-                      : "Start: persona runs for the configured number of turns, then pauses. Click again for more."
-              }
-              className={
-                autoRun
-                  ? "rounded border border-red-300 bg-red-50 px-2 py-0.5 text-[11px] text-red-700 hover:bg-red-100 disabled:opacity-40"
-                  : "rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-              }
-            >
-              {autoRun ? "■" : "▶"}
-            </button>
-            {autoRun && (
-              <span className="text-zinc-400">· {personaTurnsLeft} left</span>
+            {configured && (
+              <button
+                type="button"
+                onClick={onClear}
+                disabled={disabled || generating}
+                className="ml-auto rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+                title="Clear the persona prompt + world from the buffer."
+              >
+                Clear
+              </button>
             )}
           </div>
         </div>
