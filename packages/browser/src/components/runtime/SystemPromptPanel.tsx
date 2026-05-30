@@ -65,6 +65,7 @@ function clickHint(kind: PromptKind): string {
     case "interrupt":
       return "Show on the canvas";
     case "role":
+    case "templateWrapper":
       return "Open agent settings";
     case "guardrails":
       return "Open guardrails";
@@ -137,6 +138,7 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
         setSelection({ kind: "flow", id: source.flowId });
         break;
       case "role":
+      case "templateWrapper":
         setOpenSheet("agent");
         break;
       case "guardrails":

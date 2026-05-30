@@ -259,7 +259,7 @@ Two collections use CSV + paired meta JSON:
 | File | Contents |
 |---|---|
 | `flowstore.json` | Project manifest. Minimal: `{ "$schema": "flowstore://spec/project/v0" }`. |
-| `agent.json` | Per-agent envelope: `meta` (name, purpose, client, tone, languages), `chatbot_initiates`, `entry_flow_id`, plus optional agent-scope `guardrails[]` / `business_goals[]` / `variables{}` / `knowledge.faq[]` inline. At project root in single-agent; under `agents/<id>/` in multi-agent. |
+| `agent.json` | Per-agent envelope: `meta` (name, purpose, client, tone, languages), `chatbot_initiates`, `entry_flow_id`, plus optional agent-scope `guardrails[]` / `business_goals[]` / `variables{}` / `knowledge.faq[]` / `system_prompt` inline. At project root in single-agent; under `agents/<id>/` in multi-agent. |
 
 ### Scope collections — physical layout
 

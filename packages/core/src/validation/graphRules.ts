@@ -1,5 +1,6 @@
 import type { Spec } from "@flowstore/core/schema/v0";
-import { isFlowGoto } from "@flowstore/core/schema/v0";
+import { isFlowGoto, resolveLocalized, defaultLanguage } from "@flowstore/core/schema/v0";
+import { GENERATED_PLACEHOLDER } from "@flowstore/core/codegen/promptGenerator";
 
 export type IssueLocation =
   | { kind: "flow"; flowId: string }
@@ -32,6 +33,27 @@ export function validateGraph(spec: Spec): GraphIssue[] {
       at: { kind: "global" },
       message: `agent.entry_flow_id "${spec.agent.entry_flow_id}" does not match any flow`,
     });
+  }
+
+  // agent.system_prompt template checks. Both are soft advisories — the
+  // compiler accepts either case — but the author probably wants to know.
+  if (spec.agent.system_prompt !== undefined) {
+    const defaultLang = defaultLanguage(spec.agent.meta.languages);
+    const resolved = resolveLocalized(spec.agent.system_prompt, defaultLang, defaultLang);
+    if (resolved.length > 0) {
+      const first = resolved.indexOf(GENERATED_PLACEHOLDER);
+      if (first < 0) {
+        issues.push({
+          at: { kind: "global" },
+          message: `agent.system_prompt omits ${GENERATED_PLACEHOLDER} — all spec-derived sections will be excluded from the compiled prompt`,
+        });
+      } else if (resolved.indexOf(GENERATED_PLACEHOLDER, first + GENERATED_PLACEHOLDER.length) >= 0) {
+        issues.push({
+          at: { kind: "global" },
+          message: `agent.system_prompt contains multiple ${GENERATED_PLACEHOLDER} placeholders — only the first is replaced`,
+        });
+      }
+    }
   }
 
   const capabilityIds = new Set((spec.agent.capabilities ?? []).map((c) => c.id));

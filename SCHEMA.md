@@ -163,6 +163,8 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
 
   "chatbot_initiates": "boolean",
 
+  "system_prompt": "string | { <lang>: string }",
+
   "guardrails": [
     { "id": "string", "statement": "string" }
   ],
@@ -235,6 +237,7 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
 - **`meta.tone`** — optional one-phrase voice/register descriptor (e.g. "warm and conversational, like a real barista"). Appended to the synthesized role line. Voice only — behavioral rules go in `guardrails`.
 - **`meta.languages`** — language codes supported by this agent. Drives translation columns.
 - **`chatbot_initiates`** — whether the agent sends the first message.
+- **`system_prompt`** — optional author-owned template wrapping the compiled prompt. `LocalizedString` (plain string for monolingual specs, `{ <lang>: string }` for multilingual). The reserved placeholder `{generated}` expands to all spec-derived sections (role, runtime context, guardrails, flows, interrupts, knowledge); text on either side becomes preamble/postamble. `{variable}` substitution applies as elsewhere. Omitting `{generated}` is a deliberate full override — codegen surfaces a warning but emits the template as-is. An author-defined variable named `generated` would collide with the placeholder and is reserved by convention. Prefer guardrails or per-flow instructions when the rule fits there; reach for `system_prompt` only when the framing doesn't.
 - **`guardrails`** — cross-cutting behavioral invariants. Each is a stable `id` and a single `statement`. Conditional rules written inline as natural language; executable conditional routing belongs in interrupt flows, not guardrails.
 - **`business_goals`** — end-to-end outcome criteria for evaluation. Each entry has a stable `id`, a `name`, and a checkable criterion using the standard three methods. Distinct from `guardrails` (turn-by-turn invariants).
 - **`capabilities`** — declared catalog of external integrations. Each entry has an `id` (editor-generated), a `name` (snake_case, runtime dispatch identifier), a `description` (when/why), a `kind` (`retrieval` or `function`), optional `inputs`, and optional `outputs`. Endpoints, headers, and credentials live in the execution layer, not the spec.

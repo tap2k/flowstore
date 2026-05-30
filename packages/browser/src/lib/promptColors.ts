@@ -92,5 +92,7 @@ export function labelFor(source: PromptSource): string {
       return "Knowledge";
     case "runtimeContext":
       return "Runtime context";
+    case "templateWrapper":
+      return "System prompt template";
   }
 }

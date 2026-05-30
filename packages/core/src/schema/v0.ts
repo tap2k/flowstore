@@ -237,6 +237,12 @@ export const AgentSchema = Type.Object(
     version: Type.Optional(Type.String()),
     meta: AgentMetaSchema,
     chatbot_initiates: Type.Optional(Type.Boolean()),
+    // Optional author-owned wrapper around the compiled system prompt.
+    // The placeholder `{generated}` expands to all spec-derived sections
+    // (role, guardrails, flows, knowledge…). Omitting the placeholder is a
+    // deliberate full override; codegen surfaces a warning but allows it.
+    // `{variable}` substitution applies just as in flow instructions.
+    system_prompt: Type.Optional(LocalizedString),
     variables: Type.Optional(Type.Record(Type.String(), VariableDeclSchema)),
     guardrails: Type.Optional(Type.Array(GuardrailSchema)),
     business_goals: Type.Optional(Type.Array(BusinessGoalSchema)),

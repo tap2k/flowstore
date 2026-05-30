@@ -16,13 +16,20 @@ import {
 // A segment maps a [start, end) range of the compiled text back to the spec
 // entity that produced it. `runtimeContext` is derived from variable *values*
 // rather than a single editable entity, so consumers treat it as un-linkable.
+// `templateWrapper` is the author-owned text on either side of `{generated}`
+// in `agent.system_prompt`; clicking it should land in the AgentSheet.
 export type PromptSource =
   | { kind: "role" }
   | { kind: "runtimeContext" }
   | { kind: "guardrails" }
   | { kind: "flow"; flowId: string; name: string }
   | { kind: "interrupt"; flowId: string; name: string }
-  | { kind: "knowledge" };
+  | { kind: "knowledge" }
+  | { kind: "templateWrapper" };
+
+// Reserved placeholder in `agent.system_prompt`. Expands to all spec-derived
+// sections (role/guardrails/flows/knowledge…). Omitting it is full override.
+export const GENERATED_PLACEHOLDER = "{generated}";
 
 export interface PromptSegment {
   start: number; // inclusive offset into text
@@ -57,6 +64,75 @@ export function compileSystemPrompt(
   const ctx: RenderCtx = { lang, defaultLang };
   const sub = (t: string) => (vars ? substituteVars(t, vars) : t);
 
+  const inner = compileInnerRaw(spec, ctx, sub, vars);
+  const tmpl = loc(spec.agent.system_prompt, ctx);
+
+  let untrimmed: string;
+  let segments: PromptSegment[];
+
+  if (!tmpl) {
+    untrimmed = inner.text;
+    segments = inner.segments;
+  } else {
+    // Splice on the RAW template before sub runs so `{generated}` is never
+    // exposed to `{var}` substitution and a caller-supplied vars.generated
+    // can't clobber the placeholder.
+    const idx = tmpl.indexOf(GENERATED_PLACEHOLDER);
+    if (idx < 0) {
+      // Full override — codegen middle is intentionally dropped. Validation
+      // surfaces a warning so this is deliberate, not silent.
+      untrimmed = sub(tmpl);
+      segments = untrimmed.length
+        ? [{ start: 0, end: untrimmed.length, source: { kind: "templateWrapper" } }]
+        : [];
+    } else {
+      const pre = sub(tmpl.slice(0, idx));
+      const post = sub(tmpl.slice(idx + GENERATED_PLACEHOLDER.length));
+      untrimmed = pre + inner.text + post;
+      segments = [];
+      if (pre.length)
+        segments.push({ start: 0, end: pre.length, source: { kind: "templateWrapper" } });
+      for (const seg of inner.segments) {
+        segments.push({
+          start: seg.start + pre.length,
+          end: seg.end + pre.length,
+          source: seg.source,
+        });
+      }
+      if (post.length)
+        segments.push({
+          start: pre.length + inner.text.length,
+          end: untrimmed.length,
+          source: { kind: "templateWrapper" },
+        });
+    }
+  }
+
+  // Normalize trailing whitespace exactly as the legacy generator did. Leading
+  // whitespace can only appear if an author led their template with it — shift
+  // segments left by however much trim() dropped.
+  const text = untrimmed.trim() + "\n";
+  const leftStrip = untrimmed.length - untrimmed.trimStart().length;
+  const clamped = segments
+    .map((s) => ({
+      start: Math.max(0, s.start - leftStrip),
+      end: Math.min(s.end - leftStrip, text.length),
+      source: s.source,
+    }))
+    .filter((s) => s.end > s.start);
+
+  return { text, segments: clamped };
+}
+
+// Builds the spec-derived prompt body and its segments without applying the
+// final trim()+"\n" — the outer compileSystemPrompt owns whitespace
+// normalization so it can splice `{generated}` cleanly.
+function compileInnerRaw(
+  spec: Spec,
+  ctx: RenderCtx,
+  sub: (t: string) => string,
+  vars?: Record<string, unknown>,
+): { text: string; segments: PromptSegment[] } {
   type Group =
     | { type: "single"; source: PromptSource; text: string }
     | { type: "multi"; leadText: string; items: { source: PromptSource; text: string }[] };
@@ -121,15 +197,9 @@ export function compileSystemPrompt(
     }
   });
 
-  // Legacy parity: the old generator trimmed the joined body and appended a
-  // trailing newline. Renderers emit no leading/trailing whitespace, so the
-  // trim is a no-op on offsets; clamp ends defensively in case a spec changes.
-  const text = body.trim() + "\n";
-  const clamped = segments
-    .map((s) => ({ ...s, end: Math.min(s.end, text.length) }))
-    .filter((s) => s.end > s.start);
-
-  return { text, segments: clamped };
+  // Caller (compileSystemPrompt) owns trim+newline normalization so it can
+  // splice `{generated}` cleanly. Inner body and segments are returned raw.
+  return { text: body, segments };
 }
 
 export function generateSystemPrompt(
