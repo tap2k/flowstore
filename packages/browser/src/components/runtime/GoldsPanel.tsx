@@ -15,7 +15,10 @@ export function GoldsPanel() {
   const deleteGold = useTestsStore((s) => s.deleteGold);
   const uniqueGoldId = useTestsStore((s) => s.uniqueGoldId);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Selection lives in the store so a Simulate capture (capture ▾ → as
+  // gold) can open the freshly created gold's editor on tab switch.
+  const selectedId = useTestsStore((s) => s.selectedGoldId);
+  const setSelectedId = useTestsStore((s) => s.setSelectedGoldId);
 
   function startNew() {
     const defaultName = `Gold ${golds.length + 1}`;

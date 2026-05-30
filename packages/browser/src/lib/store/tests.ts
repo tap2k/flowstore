@@ -38,6 +38,10 @@ export interface TestsState {
   personas: Persona[];
   rubrics: Rubric[];
   captureContext: CaptureContext | null;
+  // Which gold is expanded in the Golds tab editor. Ephemeral session
+  // state (not persisted) — set on capture/new/copy so the freshly
+  // created gold opens inline, mirroring captureContext for cases.
+  selectedGoldId: string | null;
 
   setAll: (artifacts: TestingArtifacts) => void;
   clear: () => void;
@@ -66,6 +70,7 @@ export interface TestsState {
   uniqueRubricId: (base: string) => string;
 
   setCaptureContext: (ctx: CaptureContext | null) => void;
+  setSelectedGoldId: (id: string | null) => void;
 }
 
 // Persisted under "flowstore:tests" — the file-backed authoring artifacts
@@ -83,6 +88,7 @@ export const useTestsStore = create<TestsState>()(
       personas: [],
       rubrics: [],
       captureContext: null,
+      selectedGoldId: null,
 
       setAll: (artifacts) => {
         set({
@@ -91,6 +97,7 @@ export const useTestsStore = create<TestsState>()(
           personas: artifacts.personas,
           rubrics: artifacts.rubrics,
           captureContext: null,
+          selectedGoldId: null,
         });
       },
 
@@ -101,6 +108,7 @@ export const useTestsStore = create<TestsState>()(
           personas: [],
           rubrics: [],
           captureContext: null,
+          selectedGoldId: null,
         });
       },
 
@@ -224,6 +232,10 @@ export const useTestsStore = create<TestsState>()(
 
       setCaptureContext: (ctx) => {
         set({ captureContext: ctx });
+      },
+
+      setSelectedGoldId: (id) => {
+        set({ selectedGoldId: id });
       },
     }),
     {

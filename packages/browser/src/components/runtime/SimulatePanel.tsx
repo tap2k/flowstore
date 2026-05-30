@@ -76,6 +76,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const uniqueCaseId = useTestsStore((s) => s.uniqueCaseId);
   const uniqueGoldId = useTestsStore((s) => s.uniqueGoldId);
   const setCaptureContext = useTestsStore((s) => s.setCaptureContext);
+  const setSelectedGoldId = useTestsStore((s) => s.setSelectedGoldId);
   const allCases = useTestsStore((s) => s.cases);
   const allRubrics = useTestsStore((s) => s.rubrics);
   const allGolds = useTestsStore((s) => s.golds);
@@ -398,8 +399,9 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
 
   function onCaptureGold() {
     if (transcript.length === 0) return;
-    // Auto-name; no gold editor exists in v1, so renaming requires
-    // hand-editing the JSON file. Document path in the toast.
+    // Auto-name; user renames in the Golds-tab editor (mirrors case
+    // capture). Open the new gold inline there so the save is self-
+    // evident — no blocking alert needed.
     const defaultName = `Captured gold ${useTestsStore.getState().golds.length + 1}`;
     const id = uniqueGoldId(defaultName);
     const turns = transcript
@@ -412,9 +414,8 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       turns,
     };
     saveGold(gold);
-    window.alert(
-      `Saved gold to tests/gold/${id}.gold.json. Rename via Claude Code / GitHub web UI.`,
-    );
+    setSelectedGoldId(id);
+    setOpenSimulateTab("golds");
   }
 
   function onDownload() {
