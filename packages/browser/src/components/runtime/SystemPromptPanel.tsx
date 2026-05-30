@@ -86,6 +86,8 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
   const setOpenSheet = useUiStore((s) => s.setOpenSheet);
 
   const [mode, setMode] = useState<"view" | "edit">("view");
+  const [copied, setCopied] = useState(false);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const availableLanguages = spec?.agent.meta.languages ?? [];
   const defaultLang = availableLanguages.length ? defaultLanguage(availableLanguages) : undefined;
@@ -128,6 +130,9 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
     // display-trimmed text — what you paste must match what the LLM receives.
     // See bodyForDisplay for the deliberate View-mode divergence.
     void navigator.clipboard.writeText(mode === "edit" ? editorValue : compiledText);
+    setCopied(true);
+    if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(() => setCopied(false), 1500);
   }
 
   function onSegmentClick(source: PromptSource) {
@@ -155,12 +160,23 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
     <aside className="flex flex-col h-full w-[380px] border-l border-zinc-200 bg-white">
       <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2">
         <div className="text-sm font-semibold text-zinc-900">System prompt</div>
-        <button
-          onClick={onClose}
-          className="rounded px-2 py-1 text-[11px] text-zinc-600 hover:bg-zinc-100"
-        >
-          close
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={copy}
+            title="Copy the prompt to the clipboard as plain text."
+            className={`rounded px-2 py-1 text-[11px] ${
+              copied ? "text-emerald-600" : "text-zinc-600 hover:bg-zinc-100"
+            }`}
+          >
+            {copied ? "copied ✓" : "copy"}
+          </button>
+          <button
+            onClick={onClose}
+            className="rounded px-2 py-1 text-[11px] text-zinc-600 hover:bg-zinc-100"
+          >
+            close
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 border-b border-zinc-200 px-4 py-1.5 text-[11px]">
@@ -172,13 +188,6 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
             Edit raw
           </ToggleButton>
         </div>
-        <button
-          onClick={copy}
-          title="Copy the prompt to the clipboard as plain text."
-          className="rounded px-2 py-0.5 text-zinc-600 hover:bg-zinc-100"
-        >
-          Copy
-        </button>
         {availableLanguages.length > 1 && (
           <select
             value={language ?? ""}
