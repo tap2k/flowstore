@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSpecStore, type Selection } from "@/lib/store/spec";
 import type { Spec } from "@flowstore/core/schema/v0";
-import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import {
   useSimulateStore,
@@ -44,6 +43,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const setSimulatePersonaModel = useSettingsStore((s) => s.setSimulatePersonaModel);
   const judgeModel = useSettingsStore((s) => s.simulateJudgeModel);
   const setSimulateJudgeModel = useSettingsStore((s) => s.setSimulateJudgeModel);
+  const defaultModel = useSettingsStore((s) => s.defaultModel);
   const runnerUrl = useSettingsStore((s) => s.runnerUrl);
   const mode = useSimulateStore((s) => s.mode);
   const sessionId = useSimulateStore((s) => s.sessionId);
@@ -483,7 +483,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         const result = await translateBatchToEnglish(
           uncachedTurns.map((t) => ({ id: String(t.ts), text: t.text })),
           googleApiKey,
-          BUILT_IN_MODELS.default ?? "gemini-2.5-flash",
+          defaultModel,
         );
         setTranslations((prev) => {
           const next = new Map(prev);
@@ -551,30 +551,12 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
               >
                 download
               </button>
-              {transcript.length > 0 && (
-                <select
-                  defaultValue=""
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    e.target.value = "";
-                    if (v === "case") onCaptureCase();
-                    else if (v === "gold") onCaptureGold();
-                  }}
-                  title="Capture the current transcript as a test case (saved + opened in Tests tab) or a gold (verbatim reference)."
-                  className="rounded border border-transparent bg-transparent px-1 py-1 text-[11px] text-zinc-600 hover:bg-zinc-100 cursor-pointer"
-                >
-                  <option value="" disabled>capture ▾</option>
-                  <option value="case">as test case</option>
-                  <option value="gold">as gold</option>
-                </select>
-              )}
               <button
                 onClick={onReset}
-                disabled={busy}
                 title="End the current session and start fresh against the same spec — even if the agent didn't end it."
-                className="rounded px-2 py-1 text-[11px] text-zinc-600 hover:bg-zinc-100 disabled:opacity-40"
+                className="rounded px-2 py-1 text-[11px] text-zinc-600 hover:bg-zinc-100"
               >
-                reset
+                clear
               </button>
             </>
           )}
@@ -800,11 +782,10 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           {hasSession && (
             <button
               onClick={onReset}
-              disabled={busy}
               title="End this session and start fresh against the same spec."
-              className="shrink-0 rounded border border-red-300 bg-white px-2 py-0.5 text-red-700 hover:bg-red-100 disabled:opacity-40"
+              className="shrink-0 rounded border border-red-300 bg-white px-2 py-0.5 text-red-700 hover:bg-red-100"
             >
-              Reset
+              Clear
             </button>
           )}
         </div>
@@ -900,7 +881,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
               onClick={onReset}
               className="rounded bg-zinc-900 px-2 py-1 text-white hover:bg-zinc-700"
             >
-              Reset
+              Clear
             </button>
           </div>
         </div>
