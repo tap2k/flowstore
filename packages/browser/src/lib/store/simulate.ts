@@ -200,6 +200,39 @@ const personaStorage = createScopedJsonStorage<{ prompt: string }>({
   isEmpty: (v) => !v.prompt,
 });
 
+// Active-case binding is the one bit of this otherwise-runtime store worth
+// surviving a reload (and an HMR module re-eval). It's a single global value,
+// so it gets a lightweight read/write rather than wrapping the whole store in
+// persist; hydration is inline in the initial state below, which re-runs on
+// every module re-eval — the same module-load-time trick settings.ts uses. The
+// transcript / sessionId / events are runtime artifacts and re-derive from the
+// next Run.
+const ACTIVE_CASE_KEY = "flowstore:simulate_auth";
+
+function loadActiveCaseId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(ACTIVE_CASE_KEY);
+    // Pre-persist builds stored a JSON envelope ({"activeCaseId":"…"}) under
+    // this key. Ignore that shape so it can't hydrate as a bogus case id; the
+    // next setActiveCaseId overwrites it with a bare id.
+    if (!raw || raw.startsWith("{")) return null;
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+function persistActiveCaseId(id: string | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (id) window.localStorage.setItem(ACTIVE_CASE_KEY, id);
+    else window.localStorage.removeItem(ACTIVE_CASE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 function reduceEvents(
   state: Pick<SimulateState, "currentFlowId" | "traversedEdgeIds" | "traversedFlowIds" | "variables" | "status">,
   events: RuntimeEvent[],
@@ -248,7 +281,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   autoStepping: false,
   personaTurnLimit: 10,
   personaTurnsLeft: 0,
-  activeCaseId: null,
+  activeCaseId: loadActiveCaseId(),
   language: undefined,
   guardrailVerdict: null,
   rubricVerdicts: {},
@@ -427,6 +460,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   },
 
   setActiveCaseId: (id) => {
+    persistActiveCaseId(id);
     set({ activeCaseId: id });
   },
 

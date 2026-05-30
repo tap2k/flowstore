@@ -3,8 +3,8 @@ import { useSpecStore } from "./spec";
 
 // Tracks whether the in-memory spec has un-saved-to-GitHub edits. Powers the
 // header pill, the beforeunload guard, and Cmd+S routing. "Saved" here means
-// "successfully committed to GitHub" — local autosave (persistence.ts) is
-// crash safety, not the save-state of record.
+// "successfully committed to GitHub" — the spec store's localStorage autosave
+// (persist middleware) is crash safety, not the save-state of record.
 interface DirtyState {
   isDirty: boolean;
   // ms timestamp of the last successful GitHub-side save, or null if no save
@@ -23,9 +23,10 @@ export const useDirtyStore = create<DirtyState>((set) => ({
   markSaved: () => set({ isDirty: false, lastSavedAt: Date.now() }),
 }));
 
-// Subscribes to spec changes and flips isDirty=true. Caller is responsible
-// for starting this AFTER initial hydration so the loadSavedSpec setSpec
-// doesn't get counted as a user edit. Returns the unsubscribe.
+// Subscribes to spec changes and flips isDirty=true. Safe to start on mount:
+// the spec store rehydrates from localStorage at creation time (persist
+// middleware), before any subscriber attaches, so the restored spec is the
+// baseline `prevSpec` rather than a counted edit. Returns the unsubscribe.
 export function startDirtyTracking(): () => void {
   let prevSpec = useSpecStore.getState().spec;
   return useSpecStore.subscribe((state) => {

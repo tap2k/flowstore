@@ -10,28 +10,12 @@ import { SystemPromptPanel } from "@/components/runtime/SystemPromptPanel";
 import { SaveToNewRepoModal } from "@/components/toolbar/SaveToNewRepoModal";
 import { ShareModal } from "@/components/toolbar/ShareModal";
 import { useSpecStore } from "@/lib/store/spec";
-import {
-  clearSavedSpec,
-  loadSavedSpec,
-  loadSavedSimulateAuth,
-  loadSavedTests,
-  loadSavedUi,
-  startSimulateAuthPersistence,
-  startSpecPersistence,
-  startTestsPersistence,
-  startUiPersistence,
-} from "@/lib/store/persistence";
-import { useTestsStore } from "@/lib/store/tests";
-import { useSimulateStore } from "@/lib/store/simulate";
-import { useUiStore } from "@/lib/store/ui";
-import { loadSavedSettings, useSettingsStore } from "@/lib/store/settings";
+import { useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
 import { startDirtyTracking, useDirtyStore } from "@/lib/store/dirty";
-import { validateSpec } from "@flowstore/core/validation/ajv";
 
 export function App() {
   const spec = useSpecStore((s) => s.spec);
-  const setSpec = useSpecStore((s) => s.setSpec);
   // Any configured LLM provider unlocks the prompt-mode panels (Run in
   // prompt mode + Assistant). Google-only here would have hidden them
   // for OpenAI-only / OpenRouter-only users.
@@ -41,7 +25,6 @@ export function App() {
   const runnerUrl = useSettingsStore((s) => s.runnerUrl);
   const githubLocation = useGithubProjectStore((s) => s.location);
   const githubCanWrite = useGithubProjectStore((s) => s.canWrite);
-  const [hydrating, setHydrating] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [simulateOpen, setSimulateOpen] = useState(false);
@@ -49,55 +32,12 @@ export function App() {
   const [saveRepoOpen, setSaveRepoOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
 
-  useEffect(() => {
-    const stop1 = startSpecPersistence();
-    const stop2 = startTestsPersistence();
-    const stop3 = startSimulateAuthPersistence();
-    const stop4 = startUiPersistence();
-    return () => {
-      stop1();
-      stop2();
-      stop3();
-      stop4();
-    };
-  }, []);
-
-  useEffect(() => {
-    loadSavedSettings();
-    const saved = loadSavedSpec();
-    if (saved) {
-      const result = validateSpec(saved);
-      if (result.valid) setSpec(result.spec);
-      else clearSavedSpec();
-    }
-    const savedTests = loadSavedTests();
-    if (savedTests) {
-      useTestsStore.getState().setAll({
-        testCases: savedTests.cases,
-        personas: savedTests.personas,
-        rubrics: savedTests.rubrics,
-        golds: savedTests.golds,
-      });
-    }
-    const savedSimAuth = loadSavedSimulateAuth();
-    if (savedSimAuth?.activeCaseId) {
-      useSimulateStore.getState().setActiveCaseId(savedSimAuth.activeCaseId);
-    }
-    const savedUi = loadSavedUi();
-    if (savedUi) {
-      useUiStore.getState().setOpenSimulateTab(savedUi.openSimulateTab);
-    }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setHydrating(false);
-  }, [setSpec]);
-
-  // Start tracking edits as "dirty" only after initial hydration — otherwise
-  // the loadSavedSpec setSpec at boot would itself count as an edit and the
-  // pill would mislead the user about save state on first paint.
-  useEffect(() => {
-    if (hydrating) return;
-    return startDirtyTracking();
-  }, [hydrating]);
+  // Each store hydrates itself from localStorage at module-creation time (spec
+  // / tests / ui via persist middleware, simulate's active-case binding inline,
+  // settings at module load). So by first paint the spec is already restored —
+  // no mount-time load step, and dirty tracking can start immediately: the
+  // hydrated spec is the baseline, so it won't be miscounted as a user edit.
+  useEffect(() => startDirtyTracking(), []);
 
   // Cmd/Ctrl+S: routes by current state. Connected + writable is handled by
   // GitHubProjectControls (which has access to its own doSave); local /
@@ -163,8 +103,6 @@ export function App() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
-
-  if (hydrating) return null;
 
   return (
     <>

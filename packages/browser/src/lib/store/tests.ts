@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
+import { debouncedLocalStorage } from "./scopedStorage";
 import type { TestCase } from "@flowstore/core/schema/files/testCase";
 import type { Persona } from "@flowstore/core/schema/files/persona";
 import type { Rubric } from "@flowstore/core/schema/files/rubric";
@@ -66,155 +68,187 @@ export interface TestsState {
   setCaptureContext: (ctx: CaptureContext | null) => void;
 }
 
-export const useTestsStore = create<TestsState>((set, get) => ({
-  cases: [],
-  golds: [],
-  personas: [],
-  rubrics: [],
-  captureContext: null,
-
-  setAll: (artifacts) => {
-    set({
-      cases: artifacts.testCases,
-      golds: artifacts.golds,
-      personas: artifacts.personas,
-      rubrics: artifacts.rubrics,
-      captureContext: null,
-    });
-  },
-
-  clear: () => {
-    set({
+// Persisted under "flowstore:tests" — the file-backed authoring artifacts
+// (cases / golds / personas / rubrics) survive a reload and an HMR module
+// re-eval, since persist rehydrates at store-creation time. captureContext is
+// deliberately excluded from partialize: the reference transcript is ephemeral
+// session state, re-captured on the next Simulate run, not re-derived from a
+// case file. merge coerces any non-array slice back to [] (robustness against
+// a hand-edited localStorage blob).
+export const useTestsStore = create<TestsState>()(
+  persist(
+    (set, get) => ({
       cases: [],
       golds: [],
       personas: [],
       rubrics: [],
       captureContext: null,
-    });
-  },
 
-  toTestingArtifacts: () => {
-    const s = get();
-    return {
-      testCases: s.cases,
-      personas: s.personas,
-      rubrics: s.rubrics,
-      golds: s.golds,
-    };
-  },
+      setAll: (artifacts) => {
+        set({
+          cases: artifacts.testCases,
+          golds: artifacts.golds,
+          personas: artifacts.personas,
+          rubrics: artifacts.rubrics,
+          captureContext: null,
+        });
+      },
 
-  savePersona: (persona) => {
-    set((s) => {
-      const i = s.personas.findIndex((p) => p.id === persona.id);
-      const next =
-        i === -1
-          ? [...s.personas, persona]
-          : s.personas.map((p, idx) => (idx === i ? persona : p));
-      return { personas: next };
-    });
-    useDirtyStore.getState().setDirty(true);
-  },
+      clear: () => {
+        set({
+          cases: [],
+          golds: [],
+          personas: [],
+          rubrics: [],
+          captureContext: null,
+        });
+      },
 
-  deletePersona: (id) => {
-    set((s) => {
-      // Cascade: cases bound to this persona lose the binding (they fall
-      // back to whatever vars/mocks they carry directly, if any).
-      const cases = s.cases.map((c) => {
-        if (c.persona_id !== id) return c;
-        const { persona_id: _drop, ...rest } = c;
-        return rest;
-      });
-      return {
-        personas: s.personas.filter((p) => p.id !== id),
-        cases,
-      };
-    });
-    useDirtyStore.getState().setDirty(true);
-  },
+      toTestingArtifacts: () => {
+        const s = get();
+        return {
+          testCases: s.cases,
+          personas: s.personas,
+          rubrics: s.rubrics,
+          golds: s.golds,
+        };
+      },
 
-  uniquePersonaId: (base) => uniqueId(get().personas, base, "persona"),
+      savePersona: (persona) => {
+        set((s) => {
+          const i = s.personas.findIndex((p) => p.id === persona.id);
+          const next =
+            i === -1
+              ? [...s.personas, persona]
+              : s.personas.map((p, idx) => (idx === i ? persona : p));
+          return { personas: next };
+        });
+        useDirtyStore.getState().setDirty(true);
+      },
 
-  saveCase: (testCase) => {
-    set((s) => {
-      const i = s.cases.findIndex((c) => c.id === testCase.id);
-      const next =
-        i === -1
-          ? [...s.cases, testCase]
-          : s.cases.map((c, idx) => (idx === i ? testCase : c));
-      return { cases: next };
-    });
-    useDirtyStore.getState().setDirty(true);
-  },
+      deletePersona: (id) => {
+        set((s) => {
+          // Cascade: cases bound to this persona lose the binding (they fall
+          // back to whatever vars/mocks they carry directly, if any).
+          const cases = s.cases.map((c) => {
+            if (c.persona_id !== id) return c;
+            const { persona_id: _drop, ...rest } = c;
+            return rest;
+          });
+          return {
+            personas: s.personas.filter((p) => p.id !== id),
+            cases,
+          };
+        });
+        useDirtyStore.getState().setDirty(true);
+      },
 
-  deleteCase: (id) => {
-    set((s) => ({ cases: s.cases.filter((c) => c.id !== id) }));
-    useDirtyStore.getState().setDirty(true);
-  },
+      uniquePersonaId: (base) => uniqueId(get().personas, base, "persona"),
 
-  uniqueCaseId: (base) => uniqueId(get().cases, base, "case"),
+      saveCase: (testCase) => {
+        set((s) => {
+          const i = s.cases.findIndex((c) => c.id === testCase.id);
+          const next =
+            i === -1
+              ? [...s.cases, testCase]
+              : s.cases.map((c, idx) => (idx === i ? testCase : c));
+          return { cases: next };
+        });
+        useDirtyStore.getState().setDirty(true);
+      },
 
-  saveGold: (gold) => {
-    set((s) => {
-      const i = s.golds.findIndex((g) => g.id === gold.id);
-      const next =
-        i === -1 ? [...s.golds, gold] : s.golds.map((g, idx) => (idx === i ? gold : g));
-      return { golds: next };
-    });
-    useDirtyStore.getState().setDirty(true);
-  },
+      deleteCase: (id) => {
+        set((s) => ({ cases: s.cases.filter((c) => c.id !== id) }));
+        useDirtyStore.getState().setDirty(true);
+      },
 
-  deleteGold: (id) => {
-    set((s) => {
-      // Cascade: cases referencing the deleted gold drop their gold_id.
-      const cases = s.cases.map((c) => {
-        if (c.gold_id !== id) return c;
-        const { gold_id: _drop, ...rest } = c;
-        return rest;
-      });
-      return {
-        golds: s.golds.filter((g) => g.id !== id),
-        cases,
-      };
-    });
-    useDirtyStore.getState().setDirty(true);
-  },
+      uniqueCaseId: (base) => uniqueId(get().cases, base, "case"),
 
-  uniqueGoldId: (base) => uniqueId(get().golds, base, "gold"),
+      saveGold: (gold) => {
+        set((s) => {
+          const i = s.golds.findIndex((g) => g.id === gold.id);
+          const next =
+            i === -1 ? [...s.golds, gold] : s.golds.map((g, idx) => (idx === i ? gold : g));
+          return { golds: next };
+        });
+        useDirtyStore.getState().setDirty(true);
+      },
 
-  saveRubric: (rubric) => {
-    set((s) => {
-      const i = s.rubrics.findIndex((r) => r.id === rubric.id);
-      const next =
-        i === -1 ? [...s.rubrics, rubric] : s.rubrics.map((r, idx) => (idx === i ? rubric : r));
-      return { rubrics: next };
-    });
-    useDirtyStore.getState().setDirty(true);
-  },
+      deleteGold: (id) => {
+        set((s) => {
+          // Cascade: cases referencing the deleted gold drop their gold_id.
+          const cases = s.cases.map((c) => {
+            if (c.gold_id !== id) return c;
+            const { gold_id: _drop, ...rest } = c;
+            return rest;
+          });
+          return {
+            golds: s.golds.filter((g) => g.id !== id),
+            cases,
+          };
+        });
+        useDirtyStore.getState().setDirty(true);
+      },
 
-  deleteRubric: (id) => {
-    set((s) => {
-      // Cascade: strip the deleted rubric's id from every case's
-      // evaluators[] so we don't leave orphaned references behind.
-      const cases = s.cases.map((c) => {
-        if (!c.evaluators?.includes(id)) return c;
-        const filtered = c.evaluators.filter((e) => e !== id);
-        const { evaluators: _drop, ...rest } = c;
-        return filtered.length > 0 ? { ...rest, evaluators: filtered } : rest;
-      });
-      return {
-        rubrics: s.rubrics.filter((r) => r.id !== id),
-        cases,
-      };
-    });
-    useDirtyStore.getState().setDirty(true);
-  },
+      uniqueGoldId: (base) => uniqueId(get().golds, base, "gold"),
 
-  uniqueRubricId: (base) => uniqueId(get().rubrics, base, "rubric"),
+      saveRubric: (rubric) => {
+        set((s) => {
+          const i = s.rubrics.findIndex((r) => r.id === rubric.id);
+          const next =
+            i === -1 ? [...s.rubrics, rubric] : s.rubrics.map((r, idx) => (idx === i ? rubric : r));
+          return { rubrics: next };
+        });
+        useDirtyStore.getState().setDirty(true);
+      },
 
-  setCaptureContext: (ctx) => {
-    set({ captureContext: ctx });
-  },
-}));
+      deleteRubric: (id) => {
+        set((s) => {
+          // Cascade: strip the deleted rubric's id from every case's
+          // evaluators[] so we don't leave orphaned references behind.
+          const cases = s.cases.map((c) => {
+            if (!c.evaluators?.includes(id)) return c;
+            const filtered = c.evaluators.filter((e) => e !== id);
+            const { evaluators: _drop, ...rest } = c;
+            return filtered.length > 0 ? { ...rest, evaluators: filtered } : rest;
+          });
+          return {
+            rubrics: s.rubrics.filter((r) => r.id !== id),
+            cases,
+          };
+        });
+        useDirtyStore.getState().setDirty(true);
+      },
+
+      uniqueRubricId: (base) => uniqueId(get().rubrics, base, "rubric"),
+
+      setCaptureContext: (ctx) => {
+        set({ captureContext: ctx });
+      },
+    }),
+    {
+      name: "flowstore:tests",
+      // Debounced: case / persona / rubric editors patch per keystroke.
+      storage: createJSONStorage(() => debouncedLocalStorage()),
+      partialize: (s) => ({
+        cases: s.cases,
+        golds: s.golds,
+        personas: s.personas,
+        rubrics: s.rubrics,
+      }),
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Record<string, unknown>;
+        return {
+          ...current,
+          cases: Array.isArray(p.cases) ? (p.cases as TestCase[]) : [],
+          golds: Array.isArray(p.golds) ? (p.golds as Gold[]) : [],
+          personas: Array.isArray(p.personas) ? (p.personas as Persona[]) : [],
+          rubrics: Array.isArray(p.rubrics) ? (p.rubrics as Rubric[]) : [],
+        };
+      },
+    },
+  ),
+);
 
 function uniqueId<T extends { id: string }>(
   items: T[],
