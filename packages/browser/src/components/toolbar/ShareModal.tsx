@@ -228,7 +228,7 @@ export function ShareModal({ onClose }: ShareModalProps) {
                   {c.login !== selfLogin && (
                     <button
                       onClick={() => void remove(c.login)}
-                      className="text-[11px] text-zinc-500 hover:text-red-700"
+                      className="text-[11px] text-red-600 hover:text-red-700"
                     >
                       remove
                     </button>
