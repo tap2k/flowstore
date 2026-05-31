@@ -31,7 +31,29 @@ npm workspaces monorepo (`packages/*`):
 - LLM-assisted spec authoring (bring your own LLM API key — Google, OpenAI, or OpenRouter).
 - Simulate panel — chat against a generated system prompt, or against a paired runtime with live canvas highlighting.
 
+## Compile
+
+The same codegen the editor uses is exposed as a CLI in `@flowstore/core`, for compiling a spec outside the browser (CI, test harnesses, scripting):
+
+```bash
+# System prompt + tool schemas (JSON), from a single-file spec or a decomposed project dir:
+npm -w @flowstore/core run --silent flowstore-compile -- examples/coffee/coffee.json --format prompt
+
+# Resolved spec (single runtime-canonical JSON doc):
+npm -w @flowstore/core run --silent flowstore-compile -- examples/coffee/coffee.json --format spec
+```
+
+Flags: `--format prompt|spec` (required), `--language <code>` (defaults to the first declared language — pass it for any other), `--vars-file <path.json>` / `--vars k=v` (substitute `{placeholder}` pre-context), `--out <path>`. A separate project repo points at a flowstore checkout via a `FLOWSTORE_COMPILE_CMD` env override (see the testing docs below); when flowstore ships a published CLI this collapses to `flowstore-compile`.
+
 ## Docs
+
+- [GETTING-STARTED.md](./GETTING-STARTED.md) — first pass through the core loop: author a spec, simulate it, export a system prompt.
+- [SCHEMA.md](./SCHEMA.md) — authoritative spec data model.
+- [FILE-MODEL.md](./FILE-MODEL.md) — how a flowstore project decomposes into files on disk.
+- [docs/testing-from-scripts.md](./docs/testing-from-scripts.md) — the bring-your-own-runner testing path: the compile contract, test-file shapes, and what a runner must do.
+- [docs/test-driven-prompts.md](./docs/test-driven-prompts.md) — the methodology: authoring agent prompts test-first (golds, assertions, A/B, when to fix the spec vs the generator).
+- [AGENTS.md](./AGENTS.md) — architecture, tech stack, design principles.
+- [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) — LLM prompt that parses source material into spec JSON.
 
 - [GETTING-STARTED.md](./GETTING-STARTED.md) — first pass through the core loop: author a spec, simulate it, export a system prompt.
 - [SCHEMA.md](./SCHEMA.md) — authoritative spec data model.
