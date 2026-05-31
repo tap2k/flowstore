@@ -59,23 +59,6 @@ function bodyForDisplay(kind: PromptKind, text: string): string {
   }
 }
 
-function clickHint(kind: PromptKind): string {
-  switch (kind) {
-    case "flow":
-    case "interrupt":
-      return "Show on the canvas";
-    case "role":
-    case "templateWrapper":
-      return "Open agent settings";
-    case "guardrails":
-      return "Open guardrails";
-    case "knowledge":
-      return "Open knowledge";
-    default:
-      return "";
-  }
-}
-
 export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
   const spec = useSpecStore((s) => s.spec);
   const requestFocus = useSpecStore((s) => s.requestFocus);
@@ -227,6 +210,9 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
 
       {mode === "view" ? (
         <div className="flex-1 space-y-2 overflow-auto p-3">
+          <p className="px-1 pb-1 text-[10px] text-zinc-400">
+            Click a section heading to jump to its source.
+          </p>
           {compiled.segments.map((seg, i) => {
             const text = compiledText.slice(seg.start, seg.end);
             const src = seg.source;
@@ -246,11 +232,16 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
                   <button
                     type="button"
                     onClick={() => onSegmentClick(seg.source)}
-                    title={clickHint(seg.source.kind)}
-                    className={`mb-1 flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-[10px] font-semibold uppercase tracking-wide focus:outline-none focus-visible:ring-2 ${style.header} ${style.hover} ${style.ring}`}
+                    title="Open"
+                    className={`group/seg mb-1 flex w-full cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-left text-[10px] font-semibold uppercase tracking-wide focus:outline-none focus-visible:ring-2 ${style.header} ${style.hover} ${style.ring}`}
                   >
                     <span className="flex-1 truncate">{label}</span>
-                    <span aria-hidden>→</span>
+                    <span className="truncate text-[9px] font-normal normal-case opacity-60 transition-opacity group-hover/seg:opacity-100">
+                      Open
+                    </span>
+                    <span aria-hidden className="transition-transform group-hover/seg:translate-x-0.5">
+                      →
+                    </span>
                   </button>
                 ) : (
                   <div
