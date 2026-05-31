@@ -226,7 +226,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         </p>
       </div>
 
-      {import.meta.env.VITE_DEV === "1" && (
+      {(import.meta.env.VITE_DEV === "1" || storedRunnerUrl !== "") && (
         <div className="space-y-2">
           <label className="text-xs font-medium text-zinc-700">Runner URL</label>
           <div className="flex gap-2">
