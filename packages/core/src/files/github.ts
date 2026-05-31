@@ -418,3 +418,43 @@ export function isForbidden(e: unknown): boolean {
     (e as { status: unknown }).status === 403
   );
 }
+
+// Flatten an Octokit error into searchable text: the top-level message plus
+// any `response.data.message` and per-field `errors[].message` GitHub returns.
+function errorText(e: unknown): string {
+  if (typeof e !== "object" || e === null) return "";
+  const err = e as {
+    message?: unknown;
+    response?: { data?: { message?: unknown; errors?: Array<{ message?: unknown }> } };
+  };
+  const parts: string[] = [];
+  if (typeof err.message === "string") parts.push(err.message);
+  const data = err.response?.data;
+  if (data) {
+    if (typeof data.message === "string") parts.push(data.message);
+    if (Array.isArray(data.errors)) {
+      for (const x of data.errors) if (x && typeof x.message === "string") parts.push(x.message);
+    }
+  }
+  return parts.join(" ");
+}
+
+// True when a direct ref update was rejected by *branch protection* — a
+// required pull request, required reviews/status checks, or an update-via-API
+// restriction. GitHub returns 422 with a message naming the protection. The
+// write itself was permitted (the user has push access), so the caller can
+// offer both "Save to a new branch" (then open a PR) and "Save a copy"
+// — unlike isForbidden, a flat read-only 403 where creating a branch would
+// fail too.
+export function isProtectedBranch(e: unknown): boolean {
+  if (typeof e !== "object" || e === null || !("status" in e)) return false;
+  if ((e as { status: unknown }).status !== 422) return false;
+  const msg = errorText(e).toLowerCase();
+  return (
+    msg.includes("protected branch") ||
+    msg.includes("branch protection") ||
+    msg.includes("required status check") ||
+    msg.includes("approving review") ||
+    msg.includes("pull request")
+  );
+}

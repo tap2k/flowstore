@@ -5,6 +5,7 @@ import { useGithubProjectStore } from "@/lib/store/githubProject";
 import {
   ConflictError,
   isForbidden,
+  isProtectedBranch,
   makeGitHubClient,
   readRepoToFileMap,
   writeFileMapToRepo,
@@ -82,6 +83,7 @@ export function GitHubProjectControls({
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflictRemoteSha, setConflictRemoteSha] = useState<string | null>(null);
+  const [protectedBlocked, setProtectedBlocked] = useState(false);
   const [newBranchOpen, setNewBranchOpen] = useState(false);
   const [saveMenuOpen, setSaveMenuOpen] = useState(false);
   const saveMenuRef = useRef<HTMLDivElement>(null);
@@ -142,6 +144,7 @@ export function GitHubProjectControls({
     if (!location || !spec) return;
     setSaving(true);
     setError(null);
+    setProtectedBlocked(false);
     try {
       const client = makeGitHubClient(pat);
       const fileMap = {
@@ -173,6 +176,11 @@ export function GitHubProjectControls({
     } catch (e) {
       if (e instanceof ConflictError) {
         setConflictRemoteSha(e.actual ?? "");
+      } else if (isProtectedBranch(e)) {
+        // Branch protection blocked a direct push to this ref. The user has
+        // write access (the write was permitted, the *branch* refused it), so
+        // offer both escape hatches inline instead of a raw GitHub error.
+        setProtectedBlocked(true);
       } else if (isForbidden(e)) {
         // Token-scope read-only, or perms changed since open: re-route the
         // user to "Save a copy" rather than surface a raw 403.
@@ -331,6 +339,16 @@ export function GitHubProjectControls({
             >
               Save to a new branch…
             </button>
+            <div className="my-1 border-t border-zinc-100" />
+            <button
+              onClick={() => {
+                setSaveMenuOpen(false);
+                onSaveToGitHub();
+              }}
+              className={menuItemClass}
+            >
+              Save a copy to a new repo…
+            </button>
           </div>
         )}
       </div>
@@ -360,6 +378,41 @@ export function GitHubProjectControls({
           <button onClick={() => setError(null)} className="ml-2 text-red-600 hover:text-red-900">
             dismiss
           </button>
+        </div>
+      )}
+
+      {protectedBlocked && (
+        <div className="absolute top-full right-6 mt-2 z-30 w-72 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-md">
+          <p className="mb-2">
+            <span className="font-mono">{location.ref}</span> is a protected branch — direct
+            saves are blocked. Save your work elsewhere:
+          </p>
+          <div className="space-y-1.5">
+            <button
+              onClick={() => {
+                setProtectedBlocked(false);
+                setNewBranchOpen(true);
+              }}
+              className="w-full rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
+            >
+              Save to a new branch…
+            </button>
+            <button
+              onClick={() => {
+                setProtectedBlocked(false);
+                onSaveToGitHub();
+              }}
+              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+            >
+              Save a copy to a new repo…
+            </button>
+            <button
+              onClick={() => setProtectedBlocked(false)}
+              className="w-full px-3 py-1 text-xs text-amber-700 hover:text-amber-900"
+            >
+              dismiss
+            </button>
+          </div>
         </div>
       )}
 
