@@ -242,9 +242,6 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
 
       {mode === "view" ? (
         <div className="flex-1 space-y-2 overflow-auto p-3">
-          <p className="px-1 pb-1 text-[10px] text-zinc-400">
-            Click a section heading to jump to its source.
-          </p>
           {compiled.segments.map((seg, i) => {
             const text = compiledText.slice(seg.start, seg.end);
             const src = seg.source;

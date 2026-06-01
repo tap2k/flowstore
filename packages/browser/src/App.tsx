@@ -4,7 +4,7 @@ import { FlowInspector } from "@/components/inspector/FlowInspector";
 import { EdgeInspector } from "@/components/inspector/EdgeInspector";
 import { ImportExportToolbar } from "@/components/toolbar/ImportExport";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
-import { ChatPanel } from "@/components/chat/ChatPanel";
+import { ChatPanel } from "@/components/runtime/ChatPanel";
 import { SimulatePanel } from "@/components/runtime/SimulatePanel";
 import { SystemPromptPanel } from "@/components/runtime/SystemPromptPanel";
 import { SaveToNewRepoModal } from "@/components/toolbar/SaveToNewRepoModal";
