@@ -12,11 +12,14 @@
     "build": "npm -w @flowstore/browser run build",
     "preview": "npm -w @flowstore/browser run preview",
     "preview-prompt": "npm -w @flowstore/core run preview-prompt",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "dev:site": "npm -w @flowstore/site run dev",
     "build:site": "npm -w @flowstore/site run build",
     "preview:site": "npm -w @flowstore/site run preview"
   },
   "devDependencies": {
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.8"
   }
 }
