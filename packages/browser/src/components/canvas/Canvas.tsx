@@ -22,6 +22,7 @@ import { loadPositions, savePositions, type Positions } from "./positions";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { validateGraph, groupIssuesByFlow, groupIssuesByEdge } from "@flowstore/core/validation/graphRules";
+import { worstSeverity } from "@/lib/diagnostics";
 
 const ACTIVE_EDGE_STROKE = "#0ea5e9";
 
@@ -100,6 +101,7 @@ function buildGraph(spec: Spec): { nodes: Node[]; edges: Edge[] } {
       isEntry: f.id === entryId,
       isJunction: isCalcRouteJunction(f),
       issues: issuesByFlow.get(f.id)?.map((i) => i.message),
+      issueLevel: worstSeverity(issuesByFlow.get(f.id) ?? []),
     } satisfies FlowNodeData,
   }));
 
@@ -110,9 +112,13 @@ function buildGraph(spec: Spec): { nodes: Node[]; edges: Edge[] } {
       const edgeId = `${f.id}__${xp.id}`;
       const edgeIssues = issuesByEdge.get(edgeId);
       const targetType = flowsById.get(xp.goto)?.type;
-      const stroke = edgeIssues
-        ? "#ef4444"
-        : EDGE_STROKE_BY_TYPE[targetType ?? ""] ?? "#a1a1aa";
+      const edgeLevel = worstSeverity(edgeIssues ?? []);
+      const stroke =
+        edgeLevel === "error"
+          ? "#ef4444"
+          : edgeLevel === "warning"
+          ? "#f59e0b"
+          : EDGE_STROKE_BY_TYPE[targetType ?? ""] ?? "#a1a1aa";
       const label = xp.condition?.expression
         ? truncate(xp.condition.expression, 32)
         : undefined;

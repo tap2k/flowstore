@@ -9,6 +9,16 @@ export interface FlowNodeData {
   isEntry: boolean;
   isJunction: boolean;
   issues?: string[];
+  // Worst severity among this flow's issues — drives border/ring color.
+  issueLevel?: "error" | "warning";
+}
+
+// Border + ring classes for a node carrying issues (red = error, amber = warning).
+function issueBorder(level: "error" | "warning" | undefined, fallback: string): string {
+  return level === "error" ? "border-red-500" : level === "warning" ? "border-amber-500" : fallback;
+}
+function issueRing(level: "error" | "warning" | undefined): string | null {
+  return level === "error" ? "ring-1 ring-red-300 shadow-sm" : level === "warning" ? "ring-1 ring-amber-300 shadow-sm" : null;
 }
 
 const typeStyles: Record<FlowType, { border: string; badge: string; label: string }> = {
@@ -23,6 +33,7 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
   const style = typeStyles[data.flowType];
   const hasIssues = (data.issues?.length ?? 0) > 0;
   const issueTitle = hasIssues ? data.issues!.join("\n") : undefined;
+  const level = data.issueLevel;
   const isActive = useSimulateStore((s) => s.currentFlowId === id);
   const unresolvedComments = useCommentsStore(
     (s) => (s.commentsByAnchor.get(`flow/${id}`) ?? []).filter((c) => !c.resolved).length,
@@ -33,7 +44,7 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
       <JunctionNode
         id={id}
         name={data.name}
-        hasIssues={hasIssues}
+        issueLevel={level}
         issueTitle={issueTitle}
         isActive={isActive}
         selected={selected}
@@ -44,16 +55,12 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
   return (
     <div
       title={issueTitle}
-      className={`relative rounded-md border-2 ${
-        hasIssues ? "border-red-500" : style.border
-      } bg-white px-3.5 py-2.5 min-w-[200px] max-w-[260px] text-left ${
+      className={`relative rounded-md border-2 ${issueBorder(level, style.border)} bg-white px-3.5 py-2.5 min-w-[200px] max-w-[260px] text-left ${
         selected
           ? "ring-2 ring-zinc-900 ring-offset-1 shadow-md"
           : isActive
           ? "ring-2 ring-sky-500 ring-offset-1 shadow-md"
-          : hasIssues
-          ? "ring-1 ring-red-300 shadow-sm"
-          : "shadow-sm"
+          : issueRing(level) ?? "shadow-sm"
       }`}
     >
       {unresolvedComments > 0 && <CommentBadge count={unresolvedComments} />}
@@ -76,14 +83,14 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
 
 function JunctionNode({
   name,
-  hasIssues,
+  issueLevel,
   issueTitle,
   isActive,
   selected,
 }: {
   id: string;
   name: string;
-  hasIssues: boolean;
+  issueLevel: "error" | "warning" | undefined;
   issueTitle: string | undefined;
   isActive: boolean;
   selected: boolean;
@@ -92,14 +99,14 @@ function JunctionNode({
   // wrapper above so it stays upright. Width/height are equal so the bounding
   // box is symmetric — the handles attach at the rotated mid-points (which are
   // the visual side tips of the diamond).
-  const ring = hasIssues
-    ? "ring-1 ring-red-300 shadow-sm"
-    : selected
+  const ring =
+    issueRing(issueLevel) ??
+    (selected
       ? "ring-2 ring-zinc-900 ring-offset-1 shadow-md"
       : isActive
         ? "ring-2 ring-sky-500 ring-offset-1 shadow-md"
-        : "shadow-sm";
-  const border = hasIssues ? "border-red-500" : "border-sky-400";
+        : "shadow-sm");
+  const border = issueBorder(issueLevel, "border-sky-400");
 
   return (
     <div className="relative" title={issueTitle} style={{ width: 96, height: 96 }}>

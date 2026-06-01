@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Canvas } from "@/components/canvas/Canvas";
 import { FlowInspector } from "@/components/inspector/FlowInspector";
 import { EdgeInspector } from "@/components/inspector/EdgeInspector";
 import { ImportExportToolbar } from "@/components/toolbar/ImportExport";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
-import { ChatPanel } from "@/components/chat/ChatPanel";
+import { ChatPanel } from "@/components/runtime/ChatPanel";
 import { SimulatePanel } from "@/components/runtime/SimulatePanel";
 import { SystemPromptPanel } from "@/components/runtime/SystemPromptPanel";
 import { SaveToNewRepoModal } from "@/components/toolbar/SaveToNewRepoModal";
@@ -13,6 +13,7 @@ import { useSpecStore } from "@/lib/store/spec";
 import { useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
 import { startDirtyTracking, useDirtyStore } from "@/lib/store/dirty";
+import { computeDiagnostics, diagnosticCounts } from "@/lib/diagnostics";
 
 export function App() {
   const spec = useSpecStore((s) => s.spec);
@@ -31,6 +32,10 @@ export function App() {
   const [promptOpen, setPromptOpen] = useState(false);
   const [saveRepoOpen, setSaveRepoOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const { errors: diagErrors, warnings: diagWarnings } = useMemo(
+    () => diagnosticCounts(spec ? computeDiagnostics(spec) : []),
+    [spec],
+  );
 
   // Each store hydrates itself from localStorage at module-creation time (spec
   // / tests / ui via persist middleware, simulate's active-case binding inline,
@@ -156,6 +161,16 @@ export function App() {
                 >
                   <PromptIcon />
                   Prompt
+                  {diagErrors > 0 && (
+                    <span className="ml-0.5 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-red-700">
+                      {diagErrors}
+                    </span>
+                  )}
+                  {diagErrors === 0 && diagWarnings > 0 && (
+                    <span className="ml-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-amber-700">
+                      {diagWarnings}
+                    </span>
+                  )}
                 </button>
               )}
               {spec && (hasLlmKey || runnerUrl) && !simulateOpen && (

@@ -96,6 +96,61 @@ describe("validateGraph", () => {
     expect(w[0].message).toContain("nope");
   });
 
+  describe("unreachable (orphaned) flows", () => {
+    it("warns on a flow with no path from the entry flow", () => {
+      const issues = validateGraph(
+        spec({
+          entry: "f1",
+          flows: [
+            { id: "f1", type: "happy", exit_paths: [] },
+            { id: "f2", type: "happy", exit_paths: [] }, // nothing routes to f2
+          ],
+        }),
+      );
+      const w = byCode(issues, "unreachable-flow");
+      expect(w).toHaveLength(1);
+      expect(w[0].severity).toBe("warning");
+      expect(w[0].at).toEqual({ kind: "flow", flowId: "f2" });
+    });
+
+    it("does not warn when the flow is reachable", () => {
+      const issues = validateGraph(
+        spec({
+          entry: "f1",
+          flows: [
+            { id: "f1", type: "happy", exit_paths: [{ id: "x1", goto: "f2" }] },
+            { id: "f2", type: "happy", exit_paths: [] },
+          ],
+        }),
+      );
+      expect(byCode(issues, "unreachable-flow")).toEqual([]);
+    });
+
+    it("exempts interrupt flows (globally callable, not orphans)", () => {
+      const issues = validateGraph(
+        spec({
+          entry: "f1",
+          flows: [
+            { id: "f1", type: "happy", exit_paths: [] },
+            { id: "int1", type: "interrupt", entry_condition: { method: "llm", expression: "x" }, exit_paths: [] },
+          ],
+        }),
+      );
+      expect(byCode(issues, "unreachable-flow")).toEqual([]);
+    });
+
+    it("is skipped entirely when the entry flow is broken", () => {
+      const issues = validateGraph(
+        spec({
+          entry: "ghost",
+          flows: [{ id: "f1", type: "happy", exit_paths: [] }],
+        }),
+      );
+      expect(byCode(issues, "unreachable-flow")).toEqual([]);
+      expect(byCode(issues, "entry-flow-unknown")).toHaveLength(1);
+    });
+  });
+
   describe("system_prompt template warnings", () => {
     it("warns (severity warning) when the template omits {generated}", () => {
       const w = byCode(validateGraph(spec({ system_prompt: "You are a bot." })), "system-prompt-missing-generated");

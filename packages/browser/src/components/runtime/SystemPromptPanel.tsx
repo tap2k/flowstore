@@ -5,8 +5,9 @@ import {
   compileSystemPrompt,
   type PromptSource,
 } from "@flowstore/core/codegen/promptGenerator";
-import { defaultLanguage } from "@flowstore/core/schema/v0";
+import { defaultLanguage, type Spec } from "@flowstore/core/schema/v0";
 import { styleForSource, isClickable, labelFor, type PromptKind } from "@/lib/promptColors";
+import { computeDiagnostics, diagnosticCounts, anchorLabel, type Diagnostic } from "@/lib/diagnostics";
 
 interface SystemPromptPanelProps {
   open: boolean;
@@ -69,6 +70,7 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
   const setOpenSheet = useUiStore((s) => s.setOpenSheet);
 
   const [mode, setMode] = useState<"view" | "edit">("view");
+  const [problemsOpen, setProblemsOpen] = useState(true);
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -94,6 +96,8 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
     [spec, language],
   );
 
+  const diagnostics = useMemo(() => (spec ? computeDiagnostics(spec) : []), [spec]);
+
   if (!open || !spec || !compiled) return null;
 
   const compiledText = compiled.text;
@@ -116,6 +120,23 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
     setCopied(true);
     if (copiedTimer.current) clearTimeout(copiedTimer.current);
     copiedTimer.current = setTimeout(() => setCopied(false), 1500);
+  }
+
+  // A diagnostic is jumpable unless it's a schema error with no entity anchor.
+  function canJump(d: Diagnostic): boolean {
+    return d.at.kind !== "global" || d.source === "graph";
+  }
+
+  function jumpToDiagnostic(d: Diagnostic) {
+    if (d.at.kind === "flow") {
+      requestFocus("flow", d.at.flowId);
+      setSelection({ kind: "flow", id: d.at.flowId });
+    } else if (d.at.kind === "edge") {
+      setSelection({ kind: "edge", flowId: d.at.flowId, exitPathId: d.at.exitPathId });
+    } else if (d.source === "graph") {
+      // entry-flow / system_prompt / global casing all live on the agent envelope.
+      setOpenSheet("agent");
+    }
   }
 
   function onSegmentClick(source: PromptSource) {
@@ -192,6 +213,17 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
         )}
       </div>
 
+      {diagnostics.length > 0 && (
+        <ProblemsSection
+          diagnostics={diagnostics}
+          spec={spec}
+          open={problemsOpen}
+          onToggle={() => setProblemsOpen((v) => !v)}
+          canJump={canJump}
+          onJump={jumpToDiagnostic}
+        />
+      )}
+
       {(specChangedSinceEdit || edited) && (
         <div className="flex items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
           <span>
@@ -210,9 +242,6 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
 
       {mode === "view" ? (
         <div className="flex-1 space-y-2 overflow-auto p-3">
-          <p className="px-1 pb-1 text-[10px] text-zinc-400">
-            Click a section heading to jump to its source.
-          </p>
           {compiled.segments.map((seg, i) => {
             const text = compiledText.slice(seg.start, seg.end);
             const src = seg.source;
@@ -268,6 +297,81 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
         </div>
       )}
     </aside>
+  );
+}
+
+// IDE-style Problems pane for the compile output: errors then warnings, each
+// row click-jumps to its anchor (flow/edge on canvas, or the agent sheet).
+function ProblemsSection({
+  diagnostics,
+  spec,
+  open,
+  onToggle,
+  canJump,
+  onJump,
+}: {
+  diagnostics: Diagnostic[];
+  spec: Spec;
+  open: boolean;
+  onToggle: () => void;
+  canJump: (d: Diagnostic) => boolean;
+  onJump: (d: Diagnostic) => void;
+}) {
+  const { errors, warnings } = diagnosticCounts(diagnostics);
+  return (
+    <div className="border-b border-zinc-200 text-[11px]">
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center gap-2 px-4 py-1.5 hover:bg-zinc-50"
+      >
+        <span className="font-semibold text-zinc-900">Problems</span>
+        {errors > 0 && <Count tone="error" n={errors} />}
+        {warnings > 0 && <Count tone="warning" n={warnings} />}
+        <span className="ml-auto text-zinc-400" aria-hidden>
+          {open ? "▾" : "▸"}
+        </span>
+      </button>
+      {open && (
+        <ul className="max-h-48 overflow-auto px-2 pb-2">
+          {diagnostics.map((d, i) => {
+            const jumpable = canJump(d);
+            return (
+              <li key={i}>
+                <button
+                  disabled={!jumpable}
+                  onClick={() => onJump(d)}
+                  title={jumpable ? "Jump to source" : undefined}
+                  className={`flex w-full items-start gap-2 rounded px-2 py-1 text-left ${
+                    jumpable ? "cursor-pointer hover:bg-zinc-100" : "cursor-default"
+                  }`}
+                >
+                  <span
+                    className={`mt-px ${d.severity === "error" ? "text-red-500" : "text-amber-500"}`}
+                    aria-label={d.severity}
+                  >
+                    {d.severity === "error" ? "●" : "▲"}
+                  </span>
+                  <span className="flex-1">
+                    <span className="text-zinc-800">{d.message}</span>
+                    <span className="ml-1 whitespace-nowrap text-zinc-400">· {anchorLabel(d.at, spec)}</span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function Count({ tone, n }: { tone: "error" | "warning"; n: number }) {
+  const cls = tone === "error" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700";
+  const noun = tone === "error" ? "error" : "warning";
+  return (
+    <span className={`rounded px-1.5 py-0.5 ${cls}`}>
+      {n} {n === 1 ? noun : `${noun}s`}
+    </span>
   );
 }
 
