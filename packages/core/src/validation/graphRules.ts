@@ -20,6 +20,7 @@ export type GraphIssueCode =
   | "goto-unknown"
   | "max-turns-with-condition"
   | "unknown-capability"
+  | "unreachable-flow"
   | "variable-casing";
 
 export interface GraphIssue {
@@ -113,6 +114,38 @@ export function validateGraph(spec: Spec): GraphIssue[] {
             message: `capability_id "${action.capability_id}" not in agent.capabilities`,
           });
         }
+      }
+    }
+  }
+
+  // Unreachable (orphaned) flows: a non-interrupt flow with no path from the
+  // entry flow. Interrupts are globally callable (they fire on entry_condition),
+  // so they seed reachability rather than being orphans. Skipped entirely when
+  // the entry flow itself is missing/unknown — that error is the thing to fix
+  // first, and running this then would flag nearly everything.
+  if (spec.agent.entry_flow_id && flowIds.has(spec.agent.entry_flow_id)) {
+    const byId = new Map(spec.flows.map((f) => [f.id, f]));
+    const reachable = new Set<string>();
+    const stack = [
+      spec.agent.entry_flow_id,
+      ...spec.flows.filter((f) => f.type === "interrupt").map((f) => f.id),
+    ];
+    while (stack.length) {
+      const id = stack.pop()!;
+      if (reachable.has(id)) continue;
+      reachable.add(id);
+      for (const xp of byId.get(id)?.exit_paths ?? []) {
+        if (isFlowGoto(xp.goto) && !reachable.has(xp.goto)) stack.push(xp.goto);
+      }
+    }
+    for (const f of spec.flows) {
+      if (f.type !== "interrupt" && !reachable.has(f.id)) {
+        issues.push({
+          code: "unreachable-flow",
+          at: { kind: "flow", flowId: f.id },
+          severity: "warning",
+          message: `Flow "${f.name || f.id}" is unreachable — no path to it from the entry flow`,
+        });
       }
     }
   }
