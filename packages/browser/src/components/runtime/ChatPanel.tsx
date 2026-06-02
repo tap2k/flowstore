@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
+import { useGithubProjectStore } from "@/lib/store/githubProject";
 import { useSimulateStore, type TranscriptTurn } from "@/lib/store/simulate";
 import { useTestsStore } from "@/lib/store/tests";
 import { evaluateCaseAgainstTranscript, type CaseVerdicts } from "@/lib/caseVerdicts";
@@ -566,6 +567,7 @@ function buildUserContent(
   const specBlock = spec
     ? `<spec>\n${JSON.stringify(spec, null, 2)}\n</spec>`
     : `<spec>(empty — no spec loaded yet)</spec>`;
+  const gitBlock = `\n\n${renderGitBlock()}`;
   const simBlock = sim.sessionId ? `\n\n${renderSimBlock(sim)}` : "";
   const evalBlock = sim.sessionId ? renderEvaluationBlock(evaluation) : "";
   const filesBlock =
@@ -578,7 +580,24 @@ function buildUserContent(
   // bubble shows what was attached; the <files> block above is for the model.
   const note =
     attachments.length > 0 ? `📎 ${attachments.map((f) => f.name).join(", ")}\n\n` : "";
-  return `${specBlock}${simBlock}${evalBlock}${filesBlock}\n\n${note}${userText}`;
+  return `${specBlock}${gitBlock}${simBlock}${evalBlock}${filesBlock}\n\n${note}${userText}`;
+}
+
+// One-line git situational awareness, built purely from local project state —
+// no network call. It tells the model that git context exists and is
+// inspectable; the actual history/diffs are pulled on demand via the
+// git_* tools, keeping the per-turn context flat.
+function renderGitBlock(): string {
+  const gp = useGithubProjectStore.getState();
+  if (!gp.location) {
+    return "<git>local only — not connected to a GitHub repo; git_* tools unavailable</git>";
+  }
+  const sha = gp.lastKnownCommitSha ? gp.lastKnownCommitSha.slice(0, 7) : "uncommitted";
+  const ro = gp.canWrite ? "" : " · read-only";
+  return (
+    `<git>repo: ${gp.location.owner}/${gp.location.repo} · branch: ${gp.location.ref} · saved @ ${sha}${ro}\n` +
+    `Use git_diff_unsaved / git_diff_refs / git_log / git_list_branches to inspect diffs and history.</git>`
+  );
 }
 
 // Compact rendering of the evaluation snapshot for the model. Each subsection
@@ -626,7 +645,7 @@ function renderEvaluationBlock(e: EvaluationContext): string {
 
 function stripSpec(content: string): string {
   // Hide injected context blocks from the user view so the bubble shows just their words.
-  const markers = ["</files>", "</evaluation>", "</simulation>", "</spec>"];
+  const markers = ["</files>", "</evaluation>", "</simulation>", "</git>", "</spec>"];
   let idx = -1;
   let markerLen = 0;
   for (const m of markers) {
