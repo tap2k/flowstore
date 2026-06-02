@@ -125,6 +125,13 @@ interface SimulateState {
   // header strip, the ▶ Run case button, and inline per-turn assertion
   // verdicts in the transcript.
   activeCaseId: string | null;
+  // Active-gold binding. Set when the designer clicks "▶ Run" on a saved
+  // gold in the Golds tab. Mutually exclusive with activeCaseId (setting
+  // one clears the other) — the Simulate tab shows at most one active
+  // strip. Drives the active-gold header strip, the ▶ Run gold button, and
+  // the turn-aligned gold-vs-live comparison card. In-memory only: a gold
+  // run is a quick action, not a binding worth surviving a reload.
+  activeGoldId: string | null;
   // Language scope for the current session. undefined = emit all
   // declared languages; a specific code restricts scripts/FAQ to that
   // bucket. Lifted from SimulatePanel's prior useState so a Tests-tab
@@ -168,6 +175,7 @@ interface SimulateState {
   setPersonaTurnLimit: (n: number) => void;
   autoStep: () => Promise<void>;
   setActiveCaseId: (id: string | null) => void;
+  setActiveGoldId: (id: string | null) => void;
   setLanguage: (lang: string | undefined) => void;
   setGuardrailVerdict: (verdict: GuardrailVerdict | null) => void;
   setRubricVerdicts: (verdicts: Record<string, RubricVerdict | "pending">) => void;
@@ -282,6 +290,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   personaTurnLimit: 10,
   personaTurnsLeft: 0,
   activeCaseId: loadActiveCaseId(),
+  activeGoldId: null,
   language: undefined,
   guardrailVerdict: null,
   rubricVerdicts: {},
@@ -461,7 +470,14 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
 
   setActiveCaseId: (id) => {
     persistActiveCaseId(id);
-    set({ activeCaseId: id });
+    // A case and a gold can't both be the active binding — clear the gold.
+    set({ activeCaseId: id, ...(id ? { activeGoldId: null } : {}) });
+  },
+
+  setActiveGoldId: (id) => {
+    // Binding a gold supersedes any active case (and its persisted key).
+    if (id) persistActiveCaseId(null);
+    set({ activeGoldId: id, ...(id ? { activeCaseId: null } : {}) });
   },
 
   setLanguage: (lang) => {

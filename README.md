@@ -55,12 +55,6 @@ Flags: `--format prompt|spec` (required), `--language <code>` (defaults to the f
 - [AGENTS.md](./AGENTS.md) — architecture, tech stack, design principles.
 - [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) — LLM prompt that parses source material into spec JSON.
 
-- [GETTING-STARTED.md](./GETTING-STARTED.md) — first pass through the core loop: author a spec, simulate it, export a system prompt.
-- [SCHEMA.md](./SCHEMA.md) — authoritative spec data model.
-- [FILE-MODEL.md](./FILE-MODEL.md) — how a flowstore project decomposes into files on disk.
-- [AGENTS.md](./AGENTS.md) — architecture, tech stack, design principles.
-- [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) — LLM prompt that parses source material into spec JSON.
-
 ## Examples
 
 - [`examples/coffee`](./examples/coffee) — a minimal single-file spec; the ten-minute introduction.
