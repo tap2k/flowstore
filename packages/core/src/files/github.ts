@@ -223,7 +223,6 @@ export async function readRepoToFileMap(
   loc: GitHubLocation,
   opts: ReadOptions = {},
 ): Promise<ReadResult> {
-  const include = opts.includePath ?? defaultIncludePath;
   const ref = await loc.client.rest.git.getRef({
     owner: loc.owner,
     repo: loc.repo,
@@ -235,7 +234,34 @@ export async function readRepoToFileMap(
     repo: loc.repo,
     commit_sha: commitSha,
   });
-  const treeSha = commit.data.tree.sha;
+  return readRepoAtTree(loc, commitSha, commit.data.tree.sha, opts);
+}
+
+// Resolve a commit-ish — a branch name, tag, or commit SHA (abbreviated SHAs
+// from git_log work too) — to its concrete commit + tree SHAs via the commits
+// API. One cheap request. Callers that cache immutable trees resolve first,
+// then skip the tree+blob read on a cache hit.
+export async function resolveCommit(
+  loc: GitHubLocation,
+  commitish: string,
+): Promise<{ commitSha: string; treeSha: string }> {
+  const commit = await loc.client.rest.repos.getCommit({
+    owner: loc.owner,
+    repo: loc.repo,
+    ref: commitish,
+  });
+  return { commitSha: commit.data.sha, treeSha: commit.data.commit.tree.sha };
+}
+
+// Fetch every included blob under a known tree into an in-memory FileMap.
+// Trees are immutable, so results are safe to cache by commit/tree SHA.
+export async function readRepoAtTree(
+  loc: GitHubLocation,
+  commitSha: string,
+  treeSha: string,
+  opts: ReadOptions = {},
+): Promise<ReadResult> {
+  const include = opts.includePath ?? defaultIncludePath;
   const tree = await loc.client.rest.git.getTree({
     owner: loc.owner,
     repo: loc.repo,

@@ -16,6 +16,7 @@
     "./validation/*": "./src/validation/*.ts",
     "./files": "./src/files/index.ts",
     "./files/*": "./src/files/*.ts",
+    "./spec/*": "./src/spec/*.ts",
     "./llm": "./src/llm/index.ts",
     "./llm/*": "./src/llm/*.ts",
     "./llm/providers/*": "./src/llm/providers/*.ts",
