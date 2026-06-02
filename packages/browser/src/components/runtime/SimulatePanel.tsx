@@ -85,6 +85,17 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const activeCase = activeCaseId
     ? allCases.find((c) => c.id === activeCaseId) ?? null
     : null;
+  const activeGoldId = useSimulateStore((s) => s.activeGoldId);
+  const setActiveGoldId = useSimulateStore((s) => s.setActiveGoldId);
+  const activeGold = activeGoldId
+    ? allGolds.find((g) => g.id === activeGoldId) ?? null
+    : null;
+  // Gold agent turns, paired by agent-turn index against the live agent's
+  // turns for the inline gold-vs-live reference rendered under each agent
+  // bubble during a gold run.
+  const goldAgentTurns = activeGold
+    ? activeGold.turns.filter((t) => t.role === "agent").map((t) => t.text)
+    : [];
   const [isRunning, setIsRunning] = useState(false);
   // Set by the Stop button; the run loop checks before each `send()` and
   // breaks. An in-flight LLM call still completes (we can't abort the
@@ -270,6 +281,37 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     // block when they're ready. Clear out any "pending" markers we set
     // above so the block doesn't show a stuck spinner.
     setRubricVerdicts({});
+  }
+
+  // Replay a gold's user turns through the live agent. A gold is a coupled
+  // reference transcript; the only side we can feed an agent is the user
+  // turns, exactly like a scripted case. The gold's agent turns are then
+  // shown inline beneath each live agent bubble (GoldTurnRef) as a
+  // deterministic drift check. Divergence at turn N means later user turns
+  // (which answered the gold's agent turns) no longer fit, so the inline
+  // refs degrade after the first divergence — which is itself the signal.
+  async function runGold() {
+    if (!activeGold || isRunning) return;
+    const goldUserTurns = activeGold.turns
+      .filter((t) => t.role === "user")
+      .map((t) => t.text);
+    if (goldUserTurns.length === 0) return;
+    setIsRunning(true);
+    stopRequestedRef.current = false;
+    try {
+      if (hasSession) await reset();
+      await startSession();
+      if (useSimulateStore.getState().status === "error") return;
+      for (const turn of goldUserTurns) {
+        if (stopRequestedRef.current) break;
+        const s = useSimulateStore.getState().status;
+        if (s === "ended" || s === "error") break;
+        await send(turn);
+      }
+    } finally {
+      setIsRunning(false);
+      stopRequestedRef.current = false;
+    }
   }
 
   async function judgeBoundRubrics() {
@@ -606,6 +648,17 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           onUnload={() => setActiveCaseId(null)}
         />
       )}
+      {activeGold && (
+        <ActiveGoldStrip
+          gold={activeGold}
+          isRunning={isRunning}
+          hasSession={hasSession}
+          busy={busy}
+          onRun={() => void runGold()}
+          onStop={stopActiveCase}
+          onUnload={() => setActiveGoldId(null)}
+        />
+      )}
       <div className="flex items-center gap-2 border-b border-zinc-200 px-4 py-1.5 text-[11px]">
         {runnerUrl && (
           <div className="flex overflow-hidden rounded border border-zinc-200">
@@ -687,6 +740,13 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
                   }))
                   .filter((row) => row.assertion.turn === agentIndex)
               : [];
+          // During a gold run, attach the gold's agent turn at this index
+          // beneath the live agent bubble. undefined = the agent produced
+          // more turns than the gold has (drift past the gold's end).
+          const goldRef =
+            activeGold && agentIndex !== null
+              ? { text: goldAgentTurns[agentIndex - 1] }
+              : null;
           return (
             <div key={i} className="space-y-1">
               <TurnView
@@ -696,6 +756,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
                 displayText={showTranslated ? translations.get(t.ts) : undefined}
                 onFork={mode === "prompt" ? onForkTurn : undefined}
               />
+              {goldRef && <GoldTurnRef goldText={goldRef.text} liveText={t.text} />}
               {turnVerdicts.map((row, ri) => {
                 const v = row.verdict;
                 const pending = v?.verdict === "pending" || !v;
@@ -748,6 +809,12 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             // incomplete, so the button stays disabled until things
             // settle. Designers can still re-judge later by clicking again.
             canJudge={!isRunning && !busy}
+          />
+        )}
+        {activeGold && hasSession && transcript.length > 0 && (
+          <GoldTailNote
+            goldAgentCount={goldAgentTurns.length}
+            liveAgentCount={transcript.filter((t) => t.role === "agent").length}
           />
         )}
         {evaluating && !guardrailVerdict && (
@@ -984,6 +1051,132 @@ function ActiveCaseStrip({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ActiveGoldStrip({
+  gold,
+  isRunning,
+  hasSession,
+  busy,
+  onRun,
+  onStop,
+  onUnload,
+}: {
+  gold: Gold;
+  isRunning: boolean;
+  hasSession: boolean;
+  busy: boolean;
+  onRun: () => void;
+  onStop: () => void;
+  onUnload: () => void;
+}) {
+  const userTurns = gold.turns.filter((t) => t.role === "user").length;
+  const agentTurns = gold.turns.filter((t) => t.role === "agent").length;
+  return (
+    <div className="border-b border-zinc-200 bg-sky-50/60 px-3 py-1.5 text-[11px]">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="truncate text-[11px] font-medium text-zinc-900">
+            Running gold: {gold.name || gold.id}
+          </div>
+          <div className="truncate text-[10px] text-zinc-600">
+            replay · {userTurns} user turn{userTurns === 1 ? "" : "s"} · compare vs{" "}
+            {agentTurns} gold agent turn{agentTurns === 1 ? "" : "s"}
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          {isRunning ? (
+            <button
+              type="button"
+              onClick={onStop}
+              aria-label="Stop gold run"
+              className="rounded border border-red-300 bg-red-50 px-2 py-1 text-[12px] font-medium text-red-700 hover:bg-red-100"
+              title="Stop. Any in-flight LLM call still completes; the loop halts on the next turn."
+            >
+              ■
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onRun}
+              disabled={busy || userTurns === 0}
+              aria-label={hasSession ? "Re-run gold" : "Run gold"}
+              className="rounded bg-zinc-900 px-2 py-1 text-[12px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+              title={
+                hasSession
+                  ? "Re-replay this gold's user turns against the current spec."
+                  : "Replay this gold's user turns against the current spec."
+              }
+            >
+              {hasSession ? "↻" : "▶"}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onUnload}
+            disabled={isRunning}
+            aria-label="Unload gold"
+            className="rounded border border-zinc-300 bg-white px-2 py-1 text-[12px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+            title="Unload the active gold binding."
+          >
+            ×
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Inline gold reference shown beneath a live agent bubble during a gold
+// run. Pairs by agent-turn index. Exact text matches are rare for LLM
+// output, so the "≈"/"≠" marker only flags whether the normalized text is
+// identical, not whether the meaning diverged — it's a reading aid, not a
+// verdict. undefined goldText = the agent ran past the gold's last turn.
+function GoldTurnRef({
+  goldText,
+  liveText,
+}: {
+  goldText: string | undefined;
+  liveText: string;
+}) {
+  if (goldText === undefined) {
+    return (
+      <div className="ml-6 text-[10px] text-zinc-400">
+        <span className="font-mono">•</span> past gold — no reference turn
+      </div>
+    );
+  }
+  const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+  const exact = norm(goldText) === norm(liveText);
+  return (
+    <div className="ml-6 text-[10px] leading-snug">
+      <span className={`font-mono ${exact ? "text-emerald-600" : "text-amber-600"}`}>
+        {exact ? "≈" : "≠"}
+      </span>{" "}
+      <span className="uppercase tracking-wide text-zinc-400">gold</span>{" "}
+      <span className="whitespace-pre-wrap text-zinc-500">{goldText}</span>
+    </div>
+  );
+}
+
+// Trailing note for the inline gold view: the gold expected more agent
+// turns than the live run produced (agent ended early). The over-run case
+// is covered inline by GoldTurnRef's "past gold" markers, so this only
+// handles the under-run tail that has no live bubble to attach to.
+function GoldTailNote({
+  goldAgentCount,
+  liveAgentCount,
+}: {
+  goldAgentCount: number;
+  liveAgentCount: number;
+}) {
+  const missing = goldAgentCount - liveAgentCount;
+  if (missing <= 0) return null;
+  return (
+    <div className="ml-6 text-[10px] text-amber-600">
+      gold expected {missing} more agent turn{missing === 1 ? "" : "s"} (agent ended early)
     </div>
   );
 }

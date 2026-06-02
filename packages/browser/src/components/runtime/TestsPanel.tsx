@@ -16,7 +16,24 @@ import { personaToRuntime } from "@flowstore/core/runtime/personaRuntime";
 
 export function TestsPanel() {
   const cases = useTestsStore((s) => s.cases);
+  const saveCase = useTestsStore((s) => s.saveCase);
+  const uniqueCaseId = useTestsStore((s) => s.uniqueCaseId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Shared by the list header and the editor header so "+ New" is always
+  // reachable — matching the inline-expand panels, where the list (and its
+  // + New) never disappears behind an editor.
+  function createCase() {
+    const defaultName = `Case ${cases.length + 1}`;
+    const id = uniqueCaseId(defaultName);
+    saveCase({
+      $schema: "flowstore://test/case/v0",
+      id,
+      name: defaultName,
+      user_turns: [],
+    });
+    setSelectedId(id);
+  }
 
   // If a capture just happened, jump straight to the editor for that case.
   // Track which captureContext we've already auto-selected so navigating
@@ -41,35 +58,23 @@ export function TestsPanel() {
       <CaseEditor
         testCase={selected}
         onBack={() => setSelectedId(null)}
+        onNew={createCase}
       />
     );
   }
 
-  return <CaseList cases={cases} onSelect={(id) => setSelectedId(id)} />;
+  return <CaseList cases={cases} onSelect={(id) => setSelectedId(id)} onNew={createCase} />;
 }
 
 function CaseList({
   cases,
   onSelect,
+  onNew,
 }: {
   cases: TestCase[];
   onSelect: (id: string) => void;
+  onNew: () => void;
 }) {
-  const saveCase = useTestsStore((s) => s.saveCase);
-  const uniqueCaseId = useTestsStore((s) => s.uniqueCaseId);
-
-  function startNew() {
-    const defaultName = `Case ${cases.length + 1}`;
-    const id = uniqueCaseId(defaultName);
-    saveCase({
-      $schema: "flowstore://test/case/v0",
-      id,
-      name: defaultName,
-      user_turns: [],
-    });
-    onSelect(id);
-  }
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-1.5">
@@ -78,7 +83,7 @@ function CaseList({
         </div>
         <button
           type="button"
-          onClick={startNew}
+          onClick={onNew}
           title="Create a new test case (rename + fill it in the editor). You can also capture from the Simulate tab."
           className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50"
         >
@@ -124,9 +129,10 @@ function CaseList({
 interface CaseEditorProps {
   testCase: TestCase;
   onBack: () => void;
+  onNew: () => void;
 }
 
-function CaseEditor({ testCase, onBack }: CaseEditorProps) {
+function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
   const saveCase = useTestsStore((s) => s.saveCase);
   const deleteCase = useTestsStore((s) => s.deleteCase);
   const uniqueCaseId = useTestsStore((s) => s.uniqueCaseId);
@@ -316,33 +322,14 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
         <div className="text-[11px] text-zinc-500">
           {casesCount} {casesCount === 1 ? "case" : "cases"}
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={handleCopy}
-            title="Duplicate this case — handy for variant authoring (same persona, different assertions)."
-            className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
-          >
-            Copy
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!dirty}
-            className="rounded-md bg-zinc-900 px-2 py-1 text-[11px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
-            title={dirty ? "Save changes to this case." : "No unsaved edits."}
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            onClick={handleOpenInSimulate}
-            className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
-            title="Load this case's persona/mocks into the Simulate tab and switch to it."
-          >
-            Open in Sim ▶
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onNew}
+          title="Create a new test case (rename + fill it in the editor). You can also capture from the Simulate tab."
+          className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50"
+        >
+          + New
+        </button>
       </div>
 
       <button
@@ -532,14 +519,42 @@ function CaseEditor({ testCase, onBack }: CaseEditorProps) {
           </Section>
         )}
 
-        <div className="pt-2 border-t border-zinc-200">
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-200">
           <button
             type="button"
             onClick={handleDelete}
+            title="Delete this case."
             className="rounded border border-red-300 bg-white px-2 py-1 text-[11px] text-red-700 hover:bg-red-50"
           >
-            Delete case
+            Delete
           </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleOpenInSimulate}
+              title="Load this case's persona/mocks into the Simulate tab and switch to it."
+              className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
+            >
+              Open in Sim ▶
+            </button>
+            <button
+              type="button"
+              onClick={handleCopy}
+              title="Duplicate this case — handy for variant authoring (same persona, different assertions)."
+              className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
+            >
+              Copy
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!dirty}
+              title={dirty ? "Save changes to this case." : "No unsaved edits."}
+              className="rounded-md bg-zinc-900 px-3 py-1 text-[11px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+            >
+              Save
+            </button>
+          </div>
         </div>
       </div>
     </div>

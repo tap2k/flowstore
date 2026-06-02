@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Gold } from "@flowstore/core/schema/files/gold";
 import { useTestsStore } from "@/lib/store/tests";
+import { useSimulateStore } from "@/lib/store/simulate";
+import { useUiStore } from "@/lib/store/ui";
 
 // Saved-gold library for the Run pill's Golds tab. Same vertical
 // list-with-inline-expand pattern as Personas. Golds are file-backed
@@ -19,6 +21,12 @@ export function GoldsPanel() {
   // gold) can open the freshly created gold's editor on tab switch.
   const selectedId = useTestsStore((s) => s.selectedGoldId);
   const setSelectedId = useTestsStore((s) => s.setSelectedGoldId);
+
+  // "▶ Run" replays a gold's user turns through the live agent on the
+  // Simulate tab; the SimulatePanel reads activeGoldId to drive the run and
+  // the gold-vs-live comparison.
+  const setActiveGoldId = useSimulateStore((s) => s.setActiveGoldId);
+  const setOpenSimulateTab = useUiStore((s) => s.setOpenSimulateTab);
 
   function startNew() {
     const defaultName = `Gold ${golds.length + 1}`;
@@ -62,6 +70,10 @@ export function GoldsPanel() {
                 gold={g}
                 expanded={selectedId === g.id}
                 onToggle={() => setSelectedId(selectedId === g.id ? null : g.id)}
+                onRun={() => {
+                  setActiveGoldId(g.id);
+                  setOpenSimulateTab("simulate");
+                }}
                 onSave={(updated) => saveGold(updated)}
                 onCopy={() => {
                   const base = g.name ? `${g.name} copy` : `${g.id}-copy`;
@@ -92,15 +104,17 @@ interface GoldRowProps {
   gold: Gold;
   expanded: boolean;
   onToggle: () => void;
+  onRun: () => void;
   onSave: (g: Gold) => void;
   onCopy: () => void;
   onDelete: () => void;
 }
 
-function GoldRow({ gold, expanded, onToggle, onSave, onCopy, onDelete }: GoldRowProps) {
+function GoldRow({ gold, expanded, onToggle, onRun, onSave, onCopy, onDelete }: GoldRowProps) {
   const [name, setName] = useState(gold.name ?? "");
   const [notes, setNotes] = useState(gold.notes ?? "");
   const [turns, setTurns] = useState(gold.turns);
+  const rowRef = useRef<HTMLLIElement>(null);
 
   useEffect(() => {
     if (expanded) {
@@ -109,6 +123,13 @@ function GoldRow({ gold, expanded, onToggle, onSave, onCopy, onDelete }: GoldRow
       setTurns(gold.turns);
     }
   }, [expanded, gold]);
+
+  // A freshly captured / "+ New" gold is appended at the bottom of the
+  // list and opens expanded — scroll it into view so it isn't stranded
+  // below the fold when the Golds tab mounts after a Simulate capture.
+  useEffect(() => {
+    if (expanded) rowRef.current?.scrollIntoView({ block: "nearest" });
+  }, [expanded]);
 
   const dirty =
     name !== (gold.name ?? "") ||
@@ -161,9 +182,11 @@ function GoldRow({ gold, expanded, onToggle, onSave, onCopy, onDelete }: GoldRow
     );
   }
   const firstRole = turns[0]?.role ?? "agent";
+  // A gold can only be replayed if it has user turns to feed the agent.
+  const userTurnCount = gold.turns.filter((t) => t.role === "user").length;
 
   return (
-    <li>
+    <li ref={rowRef}>
       <button
         type="button"
         onClick={onToggle}
@@ -266,6 +289,19 @@ function GoldRow({ gold, expanded, onToggle, onSave, onCopy, onDelete }: GoldRow
               Delete
             </button>
             <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={onRun}
+                disabled={userTurnCount === 0}
+                title={
+                  userTurnCount === 0
+                    ? "This gold has no user turns to replay — add some, or capture one from a Simulate run."
+                    : "Load this gold into the Simulate tab; press ▶ Run there to replay its user turns and compare against the gold."
+                }
+                className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+              >
+                Open in Sim ▶
+              </button>
               <button
                 type="button"
                 onClick={onCopy}
