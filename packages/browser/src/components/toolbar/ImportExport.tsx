@@ -11,7 +11,13 @@ import { CapabilitiesSheet } from "@/components/sheets/CapabilitiesSheet";
 import { KnowledgeSheet } from "@/components/sheets/KnowledgeSheet";
 import { GitHubOpenModal } from "@/components/toolbar/GitHubOpenModal";
 import { GitHubProjectControls } from "@/components/toolbar/GitHubProjectControls";
-import { decomposeSpec, decomposeTestingArtifacts, loadProject } from "@flowstore/core/files";
+import {
+  decomposeSpec,
+  decomposeTestingArtifacts,
+  decomposeComments,
+  loadProject,
+} from "@flowstore/core/files";
+import { loadSpec, type LoadSpecOptions } from "@/lib/store/loadSpec";
 import { useCommentsStore } from "@/lib/store/comments";
 import { useTestsStore } from "@/lib/store/tests";
 import { useUiStore } from "@/lib/store/ui";
@@ -210,6 +216,9 @@ export function ImportExportToolbar({
     const fileMap = {
       ...decomposeSpec(spec),
       ...decomposeTestingArtifacts(useTestsStore.getState().toTestingArtifacts()),
+      // Comments too — a ZIP is the complete project archive (and import reads
+      // them back), unlike GitHub which writes comment files on authoring.
+      ...decomposeComments(useCommentsStore.getState().comments),
     };
     const blob = await makeZip(fileMap);
     const url = URL.createObjectURL(blob);
@@ -259,11 +268,14 @@ export function ImportExportToolbar({
   }
 
   // --- Spec import ---------------------------------------------------------
-  function commitImport(parsed: unknown) {
+  // opts carries testing artifacts + comments for project-backed imports
+  // (ZIP/folder); a bare JSON import omits them so loadSpec clears the prior
+  // spec's tests/comments rather than letting them orphan onto the new spec.
+  function commitImport(parsed: unknown, opts?: LoadSpecOptions) {
     const result = validateSpec(parsed);
     if (!result.valid) return formatErrors(result.errors);
     if (spec && !window.confirm("Replace the current spec?")) return null;
-    setSpec(result.spec);
+    loadSpec(result.spec, opts);
     // Imported specs are portable artifacts — they have no claim to whichever
     // GitHub repo we were previously connected to. Clearing the connection
     // means the next Save creates a fresh repo, not an accidental overwrite
@@ -275,7 +287,7 @@ export function ImportExportToolbar({
 
   function clearSpec() {
     if (!window.confirm("Clear the current spec? This cannot be undone.")) return;
-    setSpec(null);
+    loadSpec(null);
     clearGithubProject();
   }
 
@@ -431,7 +443,7 @@ export function ImportExportToolbar({
 
 interface ImportModalProps {
   onClose: () => void;
-  onCommit: (parsed: unknown) => string[] | null;
+  onCommit: (parsed: unknown, opts?: LoadSpecOptions) => string[] | null;
 }
 
 function ImportModal({ onClose, onCommit }: ImportModalProps) {
@@ -440,9 +452,9 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
   const [dragOver, setDragOver] = useState(false);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
-  function handleParsed(data: unknown) {
+  function handleParsed(data: unknown, opts?: LoadSpecOptions) {
     setErrors([]);
-    const result = onCommit(data);
+    const result = onCommit(data, opts);
     if (result) setErrors(result);
   }
 
@@ -465,9 +477,9 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
       );
       return;
     }
-    useCommentsStore.getState().setAll(comments);
-    useTestsStore.getState().setAll(testingArtifacts);
-    handleParsed(spec);
+    // Project-backed import: hand the artifacts + comments to loadSpec via the
+    // commit path so they replace (not orphan onto) whatever was loaded before.
+    handleParsed(spec, { testingArtifacts, comments });
   }
 
   function readFile(file: File) {

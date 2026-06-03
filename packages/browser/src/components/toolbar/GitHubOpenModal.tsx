@@ -8,8 +8,7 @@ import {
   type Octokit,
 } from "@flowstore/core/files/github";
 import { loadProject } from "@flowstore/core/files";
-import { useCommentsStore } from "@/lib/store/comments";
-import { useTestsStore } from "@/lib/store/tests";
+import { loadSpec } from "@/lib/store/loadSpec";
 import { useDirtyStore } from "@/lib/store/dirty";
 import { scaffoldNewProject } from "@flowstore/core/files/scaffold";
 
@@ -46,7 +45,6 @@ interface BranchSummary {
 export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProps) {
   const pat = useSettingsStore((s) => s.githubPat);
   const existingSpec = useSpecStore((s) => s.spec);
-  const setSpec = useSpecStore((s) => s.setSpec);
   const setLoaded = useGithubProjectStore((s) => s.setLoaded);
 
   const [client] = useState<Octokit | null>(() => (pat ? makeGitHubClient(pat) : null));
@@ -149,15 +147,13 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
         setError(msg);
         return;
       }
-      setSpec(spec);
+      loadSpec(spec, { testingArtifacts, comments });
       setLoaded(
         { owner: repo.owner, repo: repo.repo, ref: selectedBranch },
         commitSha,
         repo.canWrite,
         repo.canAdmin,
       );
-      useCommentsStore.getState().setAll(comments);
-      useTestsStore.getState().setAll(testingArtifacts);
       // Just-loaded from GitHub — local matches remote, not dirty. Don't
       // stamp lastSavedAt; this wasn't a save by the user.
       useDirtyStore.getState().setDirty(false);
@@ -173,10 +169,8 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
     if (!initOffer) return;
     const { repo, branch, commitSha } = initOffer;
     const scaffold = scaffoldNewProject({ name: repo.repo });
-    setSpec(scaffold);
+    loadSpec(scaffold);
     setLoaded({ owner: repo.owner, repo: repo.repo, ref: branch }, commitSha);
-    useCommentsStore.getState().setAll([]);
-    useTestsStore.getState().clear();
     onClose();
   }
 

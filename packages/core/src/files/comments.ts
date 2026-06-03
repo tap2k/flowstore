@@ -38,6 +38,18 @@ export function commentPath(comment: Comment): string {
   return `comments/${comment.id}.comment.json`;
 }
 
+// Inverse of loadComments: produces FileMap entries for comment threads in
+// their canonical paths. The GitHub path writes comments file-by-file as they
+// are authored, so it doesn't need this — the ZIP export does, since a ZIP has
+// no such side channel and would otherwise drop every thread.
+export function decomposeComments(comments: Comment[]): FileMap {
+  const out: FileMap = {};
+  for (const c of comments) {
+    out[commentPath(c)] = JSON.stringify(c, null, 2) + "\n";
+  }
+  return out;
+}
+
 // Index keyed by serialized anchor (`<kind>/<id>`). Renderers do an O(1)
 // lookup against the anchor they care about. Sorted oldest-first inside
 // each bucket.

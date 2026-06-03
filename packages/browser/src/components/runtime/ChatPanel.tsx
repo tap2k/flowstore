@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
+import { loadSpec } from "@/lib/store/loadSpec";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
 import { useSimulateStore, type TranscriptTurn } from "@/lib/store/simulate";
@@ -119,7 +120,9 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
         setError(res.errors?.length ? `${res.error}\n${res.errors.join("\n")}` : res.error);
         return;
       }
-      useSpecStore.getState().setSpec(res.spec);
+      // Brand-new spec built from source — a bare load, so clear any prior
+      // tests/comments/sim session rather than orphaning them onto it.
+      loadSpec(res.spec);
       setAttachments([]);
       setInput("");
       setMessages((m) => [

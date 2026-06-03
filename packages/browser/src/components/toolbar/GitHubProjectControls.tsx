@@ -11,7 +11,7 @@ import {
   writeFileMapToRepo,
 } from "@flowstore/core/files/github";
 import { decomposeSpec, decomposeTestingArtifacts, loadProject } from "@flowstore/core/files";
-import { useCommentsStore } from "@/lib/store/comments";
+import { loadSpec } from "@/lib/store/loadSpec";
 import { useTestsStore } from "@/lib/store/tests";
 import { toSlug } from "@/lib/slug";
 import { useDirtyStore } from "@/lib/store/dirty";
@@ -74,7 +74,6 @@ export function GitHubProjectControls({
   const lastSha = useGithubProjectStore((s) => s.lastKnownCommitSha);
   const canWrite = useGithubProjectStore((s) => s.canWrite);
   const canAdmin = useGithubProjectStore((s) => s.canAdmin);
-  const setSpec = useSpecStore((s) => s.setSpec);
   const setLoaded = useGithubProjectStore((s) => s.setLoaded);
   const setCommitSha = useGithubProjectStore((s) => s.setCommitSha);
   const setCanWrite = useGithubProjectStore((s) => s.setCanWrite);
@@ -213,10 +212,8 @@ export function GitHubProjectControls({
         setError(errors.map((e) => e.message).join("; ") || "Refresh failed");
         return;
       }
-      setSpec(loaded);
+      loadSpec(loaded, { testingArtifacts, comments });
       setCommitSha(commitSha);
-      useCommentsStore.getState().setAll(comments);
-      useTestsStore.getState().setAll(testingArtifacts);
       // Refresh reloaded the spec from GitHub — local matches remote, so
       // we're not dirty. Don't stamp lastSavedAt; this wasn't a save.
       useDirtyStore.getState().setDirty(false);
