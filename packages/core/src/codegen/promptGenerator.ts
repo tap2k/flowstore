@@ -316,6 +316,9 @@ function renderFlowRoutingInline(flow: Flow, flowNames: Map<string, string>): st
   const exits = flow.exit_paths ?? [];
   if (!exits.length) return "";
   const lines: string[] = [];
+  // Count the transitions the model actually chooses among (everything except
+  // runtime-enforced turn-budget escapes).
+  let decidable = 0;
   for (const ep of exits) {
     const target = renderInlineTarget(ep, flowNames);
     if (ep.max_turns !== undefined) {
@@ -334,10 +337,30 @@ function renderFlowRoutingInline(flow: Flow, flowNames: Map<string, string>): st
         `   - Turn-budget escape (runtime-enforced): if no other exit fires within ${ep.max_turns} ${t} in this flow, ${target}.`,
       );
     } else if (ep.condition) {
+      decidable++;
       lines.push(`   - ${renderConditionClause(ep.condition)}, ${target}.`);
     } else {
+      decidable++;
       lines.push(`   - Otherwise, ${target}.`);
     }
+  }
+  // Comparative routing frame. When a flow has more than one model-decidable
+  // transition, present them as a single mutually-exclusive choice rather than a
+  // list of independent "if X" clauses. The monolith reasons over the whole graph
+  // in one pass and otherwise tends to fire the first plausible clause; an
+  // explicit "weigh all, take the single best, else stay" preamble makes it
+  // compare siblings the way the per-flow runner does natively. This is what lets
+  // exit conditions stay clean per-edge predicates: cross-exit disambiguation is
+  // synthesized here (global view) instead of being hand-authored into one edge's
+  // condition (which helps the monolith but breaks the runner). Single-exit flows
+  // need no comparison, so the frame is omitted there.
+  if (decidable >= 2) {
+    lines.unshift(
+      "   At the end of this turn, choose exactly ONE transition below: weigh the " +
+        "customer's latest message against all options and take the single best " +
+        "match — do not default to the first that seems plausible. If none clearly " +
+        "applies, stay in this flow rather than forcing a weak match.",
+    );
   }
   return lines.join("\n");
 }
