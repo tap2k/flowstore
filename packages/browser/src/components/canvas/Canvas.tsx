@@ -16,6 +16,7 @@ import {
 import type { Spec } from "@flowstore/core/schema/v0";
 import { isFlowGoto } from "@flowstore/core/schema/v0";
 import { FlowNode, type FlowNodeData } from "./FlowNode";
+import { ParallelEdge } from "./ParallelEdge";
 import { isCalcRouteJunction } from "@flowstore/core/schema/flowJunction";
 import { autoLayout } from "./layout";
 import { loadPositions, savePositions, type Positions } from "./positions";
@@ -36,6 +37,7 @@ function withTraversed(edge: Edge, animated: boolean): Edge {
 }
 
 const nodeTypes = { flow: FlowNode };
+const edgeTypes = { parallel: ParallelEdge };
 
 function RelayoutIcon() {
   return (
@@ -126,6 +128,7 @@ function buildGraph(spec: Spec): { nodes: Node[]; edges: Edge[] } {
         id: edgeId,
         source: f.id,
         target: xp.goto,
+        type: "parallel",
         label,
         labelStyle: { fontSize: 11, fill: "#52525b" },
         labelBgStyle: { fill: "#fafafa" },
@@ -133,6 +136,21 @@ function buildGraph(spec: Spec): { nodes: Node[]; edges: Edge[] } {
         markerEnd: { type: MarkerType.ArrowClosed, color: stroke, width: 18, height: 18 },
       });
     }
+  }
+
+  // Fan out edges that share a source→target pair, so multiple exits between the
+  // same two flows don't render on the identical path (which hides all but one).
+  const groups = new Map<string, Edge[]>();
+  for (const e of edges) {
+    const key = `${e.source}->${e.target}`;
+    const arr = groups.get(key);
+    if (arr) arr.push(e);
+    else groups.set(key, [e]);
+  }
+  for (const group of groups.values()) {
+    group.forEach((e, i) => {
+      e.data = { ...(e.data ?? {}), offsetIndex: i, offsetCount: group.length };
+    });
   }
 
   return { nodes, edges };
@@ -341,6 +359,7 @@ function CanvasInner({ spec }: { spec: Spec }) {
           }
         }}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         minZoom={0.2}
         maxZoom={2}
