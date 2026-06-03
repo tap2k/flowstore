@@ -10,6 +10,10 @@ export type ToolCall = {
   id: string;
   name: string;
   arguments: unknown;
+  // Gemini 3.x attaches an opaque thoughtSignature to each functionCall part
+  // and requires it echoed back verbatim in history, or it warns and degrades.
+  // Carried here so the round-trip is faithful; ignored by other providers.
+  thoughtSignature?: string;
 };
 
 export type ChatMessage =

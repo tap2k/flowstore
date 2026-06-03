@@ -9,10 +9,13 @@ import type {
 
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
 
-type GeminiPart =
+// thoughtSignature is a part-level field Gemini 3.x emits alongside functionCall
+// (and sometimes text) parts; it must be sent back verbatim in subsequent turns.
+type GeminiPart = (
   | { text: string }
   | { functionCall: { name: string; args: Record<string, unknown> } }
-  | { functionResponse: { name: string; response: Record<string, unknown> } };
+  | { functionResponse: { name: string; response: Record<string, unknown> } }
+) & { thoughtSignature?: string };
 
 type GeminiContent = {
   role: "user" | "model";
@@ -137,12 +140,14 @@ function serializeMessages(messages: ChatMessage[]): GeminiContent[] {
       if (m.content) parts.push({ text: m.content });
       for (const tc of m.toolCalls ?? []) {
         toolCallNames.set(tc.id, tc.name);
-        parts.push({
+        const part: GeminiPart = {
           functionCall: {
             name: tc.name,
             args: (tc.arguments as Record<string, unknown>) ?? {},
           },
-        });
+        };
+        if (tc.thoughtSignature) part.thoughtSignature = tc.thoughtSignature;
+        parts.push(part);
       }
       out.push({ role: "model", parts });
       continue;
@@ -223,6 +228,7 @@ function parseCandidate(
         id: genId("tc"),
         name: part.functionCall.name,
         arguments: part.functionCall.args ?? {},
+        thoughtSignature: part.thoughtSignature,
       });
     }
   }
