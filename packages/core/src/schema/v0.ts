@@ -226,6 +226,15 @@ export const FlowSchema = Type.Object(
     // auto-injected into the system prompt as a "Retrieved context" block.
     // Runner enforces: each id must reference a kind:"retrieval" capability.
     retrieve_on_turn: Type.Optional(Type.Array(Type.String())),
+    // Allow-list of agent.capabilities ids exposed as model-callable tools
+    // while this flow is active. Omitted/unset = every agent capability is
+    // available (current behavior); present = only the listed ids are. Any
+    // capability kind may be listed (a kind:"retrieval" cap can be both
+    // model-callable here and auto-fired via retrieve_on_turn). This is the
+    // per-stage tool scoping a handoff runtime reads on each transition — it
+    // does not affect the compiled monolithic prompt. Validator rejects ids
+    // that don't resolve to an agent capability.
+    tools: Type.Optional(Type.Array(Type.String())),
   },
   strict
 );

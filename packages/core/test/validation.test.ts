@@ -96,6 +96,29 @@ describe("validateGraph", () => {
     expect(w[0].message).toContain("nope");
   });
 
+  it("flags a flow tools entry not in agent.capabilities", () => {
+    const issues = validateGraph(
+      spec({
+        flows: [{ id: "f1", type: "happy", exit_paths: [], tools: ["real_cap", "ghost"] }],
+        capabilities: [{ id: "real_cap" }],
+      }),
+    );
+    const w = byCode(issues, "unknown-capability");
+    expect(w).toHaveLength(1);
+    expect(w[0].message).toContain("ghost");
+    expect(w[0].at).toEqual({ kind: "flow", flowId: "f1" });
+  });
+
+  it("does not flag a flow tools allow-list of known capabilities", () => {
+    const issues = validateGraph(
+      spec({
+        flows: [{ id: "f1", type: "happy", exit_paths: [], tools: ["real_cap"] }],
+        capabilities: [{ id: "real_cap" }],
+      }),
+    );
+    expect(byCode(issues, "unknown-capability")).toHaveLength(0);
+  });
+
   describe("unreachable (orphaned) flows", () => {
     it("warns on a flow with no path from the entry flow", () => {
       const issues = validateGraph(

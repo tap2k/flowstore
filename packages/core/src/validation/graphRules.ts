@@ -91,6 +91,15 @@ export function validateGraph(spec: Spec): GraphIssue[] {
         message: "Interrupt flow is missing entry_condition",
       });
     }
+    for (const capId of f.tools ?? []) {
+      if (!capabilityIds.has(capId)) {
+        issues.push({
+          code: "unknown-capability",
+          at: { kind: "flow", flowId: f.id },
+          message: `tools entry "${capId}" not in agent.capabilities`,
+        });
+      }
+    }
     for (const xp of f.exit_paths) {
       if (isFlowGoto(xp.goto) && !flowIds.has(xp.goto)) {
         issues.push({
