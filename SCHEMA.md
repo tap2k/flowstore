@@ -321,7 +321,9 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
     }
   },
 
-  "retrieve_on_turn": ["<capability_id>"]
+  "retrieve_on_turn": ["<capability_id>"],
+
+  "tools": ["<capability_id>"]
 }
 ```
 
@@ -346,6 +348,7 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
 - **`knowledge.faq`** — flow-scoped FAQ entries. Same shape as agent-level.
 - **`variables`** — optional flow-scoped variable declarations. Same shape as agent-level.
 - **`retrieve_on_turn`** — array of `agent.capabilities[].id` values, each referencing a capability with `kind: "retrieval"`. Fires sequentially **pre-LLM each turn this flow is active**, with capability inputs resolved from variable scope (same rule as exit-path actions). Outputs bind to the variable bag (so retrieved values can be referenced via `{var}` substitution if useful); additionally, the first declared output's text is auto-injected into the system prompt as a `Retrieved context:` block above the flow sections. Validator rejects ids that don't exist or that reference `kind: "function"`. Empty/unset = no auto-fire on this flow. This is what makes the `kind: "retrieval"` distinction runtime-meaningful — without `retrieve_on_turn`, retrieval dispatches identically to function.
+- **`tools`** — array of `agent.capabilities[].id` values: the allow-list of capabilities exposed as **model-callable tools while this flow is active**. Unset/empty = every agent capability is available (the current, unscoped behavior); present = only the listed ids are callable in this flow. Any `kind` may be listed — a `kind: "retrieval"` capability can be both model-callable here *and* auto-fired via `retrieve_on_turn`. This is the per-stage tool scoping a handoff runtime (e.g. the OpenAI Agents realtime exporter) reads on each transition to populate the active agent's `tools`; it has **no effect on the compiled monolithic prompt**, since capabilities are never rendered into prompt text. Validator rejects ids that don't resolve to an `agent.capabilities[]` entry. Distinct from `retrieve_on_turn` (pre-LLM auto-fire) and `exit_paths[].actions` (fire-on-exit) — `tools` governs only *availability*, not invocation.
 
 ---
 

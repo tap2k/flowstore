@@ -33,6 +33,7 @@ export function FlowInspector() {
   const setSelection = useSpecStore((s) => s.setSelection);
   const [scriptsOpen, setScriptsOpen] = useState(false);
   const [retrievalPickerOpen, setRetrievalPickerOpen] = useState(false);
+  const [toolsPickerOpen, setToolsPickerOpen] = useState(false);
 
   if (!flow) return null;
 
@@ -224,6 +225,83 @@ export function FlowInspector() {
                       className="text-xs text-zinc-600 hover:text-zinc-900 underline"
                     >
                       + Add retrieval
+                    </button>
+                  ))}
+              </div>
+            </Field>
+          );
+        })()}
+
+        {import.meta.env.VITE_DEV === "1" && (capabilities ?? []).length > 0 && (() => {
+          const allCaps = capabilities ?? [];
+          const selectedIds = flow.tools ?? [];
+          const selectedCaps = selectedIds
+            .map((id) => allCaps.find((c) => c.id === id))
+            .filter((c): c is NonNullable<typeof c> => Boolean(c));
+          const unselectedCaps = allCaps.filter((c) => !selectedIds.includes(c.id));
+
+          return (
+            <Field label="Tools (available in this flow)">
+              <div className="space-y-2">
+                {selectedCaps.length === 0 && (
+                  <div className="text-xs text-zinc-400 italic">
+                    (none listed — all capabilities available)
+                  </div>
+                )}
+                {selectedCaps.map((cap) => (
+                  <div
+                    key={cap.id}
+                    className="flex items-start gap-2 rounded border border-zinc-200 px-2 py-1.5 text-xs"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="font-mono text-zinc-900 truncate">{cap.name}</div>
+                      {cap.description && (
+                        <div className="text-zinc-500 mt-0.5">{cap.description}</div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = selectedIds.filter((id) => id !== cap.id);
+                        patch({ tools: next.length ? next : undefined });
+                      }}
+                      className="text-zinc-400 hover:text-red-600 leading-none"
+                      title="remove"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                {unselectedCaps.length > 0 &&
+                  (toolsPickerOpen ? (
+                    <select
+                      autoFocus
+                      className={inputClass}
+                      defaultValue=""
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        if (!id) return;
+                        patch({ tools: [...selectedIds, id] });
+                        setToolsPickerOpen(false);
+                      }}
+                      onBlur={() => setToolsPickerOpen(false)}
+                    >
+                      <option value="" disabled>
+                        Select capability…
+                      </option>
+                      {unselectedCaps.map((cap) => (
+                        <option key={cap.id} value={cap.id}>
+                          {cap.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setToolsPickerOpen(true)}
+                      className="text-xs text-zinc-600 hover:text-zinc-900 underline"
+                    >
+                      + Add tool
                     </button>
                   ))}
               </div>
