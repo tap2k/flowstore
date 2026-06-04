@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
 import type { Flow, FlowType, Guardrail, Condition } from "@flowstore/core/schema/v0";
-import { defaultLanguage } from "@flowstore/core/schema/v0";
+import { defaultLanguage, isEndGoto, isReturnGoto } from "@flowstore/core/schema/v0";
 import { genId } from "@flowstore/core/ids";
 import { ListEditor } from "./ListEditor";
 import { FaqListEditor } from "./FaqListEditor";
@@ -28,6 +28,7 @@ export function FlowInspector() {
     () => (capabilities ?? []).filter((c) => c.kind === "retrieval"),
     [capabilities],
   );
+  const flows = useSpecStore((s) => s.spec?.flows) ?? [];
   const updateFlow = useSpecStore((s) => s.updateFlow);
   const removeFlow = useSpecStore((s) => s.removeFlow);
   const setSelection = useSpecStore((s) => s.setSelection);
@@ -45,6 +46,13 @@ export function FlowInspector() {
   }
 
   const isInterrupt = flow.type === "interrupt";
+  const flowId = flow.id;
+
+  function destLabel(goto: string): string {
+    if (isEndGoto(goto)) return "End conversation";
+    if (isReturnGoto(goto)) return "Return to caller";
+    return flows.find((f) => f.id === goto)?.name ?? goto;
+  }
 
   return (
     <aside className="w-[380px] shrink-0 border-l border-zinc-200 bg-white overflow-y-auto">
@@ -99,6 +107,41 @@ export function FlowInspector() {
             onChange={(e) => patch({ instructions: e.target.value || undefined })}
             placeholder="Behavioral prose: what to do, how to behave, what to ask."
           />
+        </Field>
+
+        <Field label="Exit paths">
+          {(flow.exit_paths ?? []).length === 0 ? (
+            <div className="text-xs text-zinc-400 italic">
+              (none — drag from this node on the canvas to add one)
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {(flow.exit_paths ?? []).map((xp) => (
+                <button
+                  key={xp.id}
+                  type="button"
+                  onClick={() =>
+                    setSelection({ kind: "edge", flowId, exitPathId: xp.id })
+                  }
+                  className="block w-full text-left rounded border border-zinc-200 px-2 py-1.5 text-xs hover:bg-zinc-50 hover:border-zinc-300"
+                >
+                  <div className="flex items-center gap-1.5">
+                    {xp.condition && (
+                      <span className="shrink-0 rounded bg-zinc-100 px-1 py-0.5 text-[9px] font-medium uppercase tracking-wide text-zinc-500">
+                        {xp.condition.method}
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-zinc-700">
+                      {xp.max_turns != null
+                        ? `after ${xp.max_turns} turn${xp.max_turns === 1 ? "" : "s"}`
+                        : xp.condition?.expression || "unconditional"}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 text-zinc-500">→ {destLabel(xp.goto)}</div>
+                </button>
+              ))}
+            </div>
+          )}
         </Field>
 
         <Field label="Notes">

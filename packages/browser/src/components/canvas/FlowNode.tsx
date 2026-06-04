@@ -76,7 +76,12 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
         )}
       </div>
       <div className="text-sm font-medium text-zinc-900 leading-tight">{data.name}</div>
-      <Handle type="source" position={Position.Right} className="!bg-zinc-400" />
+      <Handle
+        type="source"
+        position={Position.Right}
+        title="Drag to connect this flow to another"
+        className="!h-3.5 !w-3.5 !border-2 !border-zinc-400 !bg-white cursor-crosshair shadow-sm transition-transform hover:!scale-125 hover:!border-zinc-600"
+      />
     </div>
   );
 }
@@ -111,7 +116,16 @@ function JunctionNode({
   return (
     <div className="relative" title={issueTitle} style={{ width: 96, height: 96 }}>
       <div
-        className={`absolute inset-0 rotate-45 border-2 ${border} bg-white ${ring}`}
+        className={`absolute border-2 ${border} bg-white ${ring}`}
+        // 68 ≈ 96/√2 — sized so the rotated square's tips land exactly on the
+        // 96px box edge midpoints, where the left/right handles attach.
+        style={{
+          width: 68,
+          height: 68,
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%) rotate(45deg)",
+        }}
         aria-hidden
       />
       <Handle
@@ -123,7 +137,8 @@ function JunctionNode({
       <Handle
         type="source"
         position={Position.Right}
-        className="!bg-zinc-400"
+        title="Drag to connect this flow to another"
+        className="!h-3.5 !w-3.5 !border-2 !border-zinc-400 !bg-white cursor-crosshair shadow-sm transition-transform hover:!scale-125 hover:!border-zinc-600"
         style={{ top: "50%" }}
       />
       <div className="absolute inset-0 flex items-center justify-center px-2 text-center">

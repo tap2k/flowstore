@@ -13,8 +13,9 @@ const SPACING = 28;
  * perpendicular to the source→target line by its index in the group, so every
  * exit (and its label) is visible and individually clickable.
  *
- * `data.offsetIndex` / `data.offsetCount` are assigned by the edge builder.
- * A single edge (count 1, index 0) renders as a straight line.
+ * Only assigned to edges in a group of 2+; lone edges keep React Flow's
+ * built-in default bezier (see Canvas `buildGraph`). `data.offsetIndex` /
+ * `data.offsetCount` are set there.
  */
 export function ParallelEdge({
   id,

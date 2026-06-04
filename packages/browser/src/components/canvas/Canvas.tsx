@@ -26,6 +26,10 @@ import { validateGraph, groupIssuesByFlow, groupIssuesByEdge } from "@flowstore/
 import { worstSeverity } from "@/lib/diagnostics";
 
 const ACTIVE_EDGE_STROKE = "#0ea5e9";
+// zinc-900 — matches the node selection ring, so a selected edge reads the
+// same as a selected node. ParallelEdge ignores React Flow's `selected` flag
+// (it only renders the style we pass), so selection has to be styled here.
+const SELECTED_EDGE_STROKE = "#18181b";
 
 function withTraversed(edge: Edge, animated: boolean): Edge {
   return {
@@ -33,6 +37,15 @@ function withTraversed(edge: Edge, animated: boolean): Edge {
     style: { ...edge.style, stroke: ACTIVE_EDGE_STROKE, strokeWidth: 2.5 },
     markerEnd: { type: MarkerType.ArrowClosed, color: ACTIVE_EDGE_STROKE, width: 18, height: 18 },
     animated,
+  };
+}
+
+function withSelected(edge: Edge): Edge {
+  return {
+    ...edge,
+    selected: true,
+    style: { ...edge.style, stroke: SELECTED_EDGE_STROKE, strokeWidth: 2.5 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: SELECTED_EDGE_STROKE, width: 18, height: 18 },
   };
 }
 
@@ -147,8 +160,16 @@ function buildGraph(spec: Spec): { nodes: Node[]; edges: Edge[] } {
     if (arr) arr.push(e);
     else groups.set(key, [e]);
   }
+  // Lone edges render with React Flow's built-in default bezier (cleaner than
+  // the custom path); only siblings sharing a source→target pair need the
+  // perpendicular fan-out to avoid overlapping.
   for (const group of groups.values()) {
+    if (group.length === 1) {
+      group[0].type = undefined; // built-in default edge type
+      continue;
+    }
     group.forEach((e, i) => {
+      e.type = "parallel";
       e.data = { ...(e.data ?? {}), offsetIndex: i, offsetCount: group.length };
     });
   }
@@ -313,12 +334,15 @@ function CanvasInner({ spec }: { spec: Spec }) {
     const traversed = new Set(traversedEdgeIds);
     const lastId = traversedEdgeIds[traversedEdgeIds.length - 1] ?? null;
     const isLive = simulateStatus === "ready" || simulateStatus === "thinking";
+    const selectedEdgeId =
+      selection?.kind === "edge" ? `${selection.flowId}__${selection.exitPathId}` : null;
     setEdges(
-      initial.edges.map((e) =>
-        traversed.has(e.id) ? withTraversed(e, e.id === lastId && isLive) : e,
-      ),
+      initial.edges.map((e) => {
+        const styled = traversed.has(e.id) ? withTraversed(e, e.id === lastId && isLive) : e;
+        return e.id === selectedEdgeId ? withSelected(styled) : styled;
+      }),
     );
-  }, [initial, traversedEdgeIds, simulateStatus, setEdges]);
+  }, [initial, traversedEdgeIds, simulateStatus, selection, setEdges]);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
