@@ -124,6 +124,20 @@ export const CapabilitySchema = Type.Object(
     kind: CapabilityKind,
     inputs: Type.Optional(Type.Array(Type.String())),
     outputs: Type.Optional(Type.Array(Type.String())),
+    // When true, the runner dispatches this capability without blocking the
+    // conversation — it continues and the declared outputs bind to scope when
+    // they land. Only set when the result isn't needed immediately (a
+    // downstream entry_condition / next turn that reads the outputs may see
+    // them undefined until they land). Non-blocking is portable conversation
+    // behavior (it changes observable pacing), not execution: it travels with
+    // the spec, like `chatbot_initiates`, and names the behavior, not the
+    // runtime's concurrency mechanism. Applies to dispatch on exit-path
+    // actions; `retrieve_on_turn` is always pre-LLM/synchronous and ignores
+    // this. Absent/false = synchronous.
+    non_blocking: Type.Optional(Type.Boolean()),
+    // Optional holding line spoken when a non-blocking dispatch starts ("Let me
+    // pull that up…") so there's no dead air while the capability runs.
+    pending_message: Type.Optional(LocalizedString),
   },
   strict
 );

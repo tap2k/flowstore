@@ -1,5 +1,5 @@
 import { useSpecStore } from "@/lib/store/spec";
-import type { ExitPath, AssignValue, Method } from "@flowstore/core/schema/v0";
+import type { ExitPath, ExitPathAction, AssignValue, Method } from "@flowstore/core/schema/v0";
 import { GOTO_END, GOTO_RETURN, isReturnGoto } from "@flowstore/core/schema/v0";
 import { ListEditor } from "./ListEditor";
 import { ConditionEditor } from "./ConditionEditor";
@@ -176,7 +176,7 @@ export function EdgeInspector() {
         </Field>
 
         <Field label="Actions">
-          <ListEditor<{ capability_id: string }>
+          <ListEditor<ExitPathAction>
             items={exitPath.actions ?? []}
             onChange={(actions) => patch({ actions: actions.length ? actions : undefined })}
             newItem={() => ({ capability_id: "" })}
