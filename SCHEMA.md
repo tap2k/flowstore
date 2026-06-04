@@ -404,6 +404,7 @@ Example: `total_due_amount.visible_when: "identity_confirmed"` — the model nev
 
 - **Linear conversational flow** — `instructions` + `scripts`. Exit paths with `goto: <next_flow_id>`. The default.
 - **Free-form node** — `instructions` only, no scripts. The LLM handles conversation freely within guardrails.
+- **Playbook / slot-filler** — a free-form node that gathers a set of values before moving on: `instructions` naming what to collect + an **llm-method exit condition** that fires once they're collected (e.g. `condition.expression: "the customer has given name, date of birth, and policy number"`). The model both gathers and judges completeness — no separate "required variables" field is needed; the gate *is* the exit condition. Use the `calculation` method instead when the values are in scope deterministically (capability outputs / direct assigns) and you want a hard gate rather than model judgment.
 - **Interrupt** — `type: "interrupt"` + `entry_condition`. Exit paths typically include `goto: "RETURN"` so the user returns to the interrupted flow.
 - **Helper / utility subroutine** — `type: "utility"`. A flow with `goto: "RETURN"` exits, called by explicit edges from other flows. Callers push a frame on entry; the subroutine returns.
 - **Deterministic call tree** — calculation conditions on exits, direct assigns. No LLM judgment in routing.
