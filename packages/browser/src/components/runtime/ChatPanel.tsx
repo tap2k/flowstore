@@ -83,8 +83,9 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
   // material in one shot, in-editor (vs. round-tripping through an external LLM).
   async function buildFromSource() {
     if (working) return;
-    if (attachments.length === 0) {
-      setError("Attach source files first — build-from-source reads them to author the spec.");
+    const notes = input.trim();
+    if (attachments.length === 0 && !notes) {
+      setError("Attach source files or describe the agent — build-from-source needs something to author from.");
       return;
     }
     if (!provider) {
@@ -102,9 +103,13 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
 
     const names = attachments.map((a) => a.name);
     const count = attachments.length;
+    const userLabel =
+      count > 0
+        ? `Build a spec from source: ${names.join(", ")}${notes ? `\n\n${notes}` : ""}`
+        : `Build a spec from this:\n\n${notes}`;
     setMessages((m) => [
       ...m,
-      { role: "user", content: `Build a spec from source: ${names.join(", ")}` },
+      { role: "user", content: userLabel },
     ]);
     setParsing(true);
     try {
@@ -113,7 +118,7 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
         apiKey,
         dispatch.wireModel,
         attachments,
-        input.trim(),
+        notes,
         { baseUrl: dispatch.baseUrl },
       );
       if (!res.ok) {
@@ -125,11 +130,15 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
       loadSpec(res.spec);
       setAttachments([]);
       setInput("");
+      const builtFrom =
+        count > 0
+          ? `${count} source file${count === 1 ? "" : "s"}`
+          : "your description";
       setMessages((m) => [
         ...m,
         {
           role: "assistant",
-          content: `Built a spec from ${count} source file${count === 1 ? "" : "s"}. Review it on the canvas, then ask me to refine it.`,
+          content: `Built a spec from ${builtFrom}. Review it on the canvas, then ask me to refine it.`,
         },
       ]);
     } catch (e) {
@@ -362,11 +371,15 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
             Attach
           </button>
           <div className="flex items-center gap-1.5">
-            {attachments.length > 0 && (
+            {(attachments.length > 0 || input.trim()) && (
               <button
                 onClick={buildFromSource}
                 disabled={working || !apiKey}
-                title="Build a fresh spec from the attached source material"
+                title={
+                  attachments.length > 0
+                    ? "Build a fresh spec from the attached source material"
+                    : "Build a fresh spec from your description"
+                }
                 className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
               >
                 Build from source
