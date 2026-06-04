@@ -3,6 +3,7 @@
 declare global {
   interface Window {
     dataLayer: unknown[];
+    gtag: (...args: unknown[]) => void;
   }
 }
 
@@ -16,9 +17,11 @@ export function initAnalytics(): void {
   document.head.appendChild(s);
 
   window.dataLayer = window.dataLayer || [];
-  function gtag(...args: unknown[]) {
-    window.dataLayer.push(args);
-  }
-  gtag("js", new Date());
-  gtag("config", id);
+  // gtag.js requires the raw `arguments` object, not an array — pushing a
+  // plain array silently no-ops the command queue (no collect beacon fires).
+  window.gtag = function gtag() {
+    window.dataLayer.push(arguments);
+  };
+  window.gtag("js", new Date());
+  window.gtag("config", id);
 }
