@@ -5,6 +5,7 @@ import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
 import { useSimulateStore, type TranscriptTurn } from "@/lib/store/simulate";
 import { useTestsStore } from "@/lib/store/tests";
+import { useChatStore } from "@/lib/store/chat";
 import { evaluateCaseAgainstTranscript, type CaseVerdicts } from "@/lib/caseVerdicts";
 import type { GuardrailVerdict } from "@flowstore/core/runtime/judgeGuardrails";
 import type { Rubric } from "@flowstore/core/schema/files/rubric";
@@ -36,7 +37,8 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
   const dispatch = resolveDispatch(model);
   const apiKey = dispatch.apiKey;
   const provider = dispatch.provider;
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const messages = useChatStore((s) => s.messages);
+  const setMessages = useChatStore((s) => s.setMessages);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [parsing, setParsing] = useState(false);
