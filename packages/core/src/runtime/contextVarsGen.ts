@@ -37,10 +37,14 @@ export async function generateContextVars(
   declared: DeclaredVariable[],
   personaContext?: { name?: string; notes?: string },
 ): Promise<Record<string, unknown>> {
-  if (declared.length === 0) return {};
+  // Drop blank-named declarations: an empty/whitespace key is invalid in a
+  // Gemini responseSchema ("properties[]: key cannot be empty") and couldn't
+  // round-trip to a usable value anyway. Common mid-edit in the editor.
+  const usable = declared.filter((d) => d.name.trim() !== "");
+  if (usable.length === 0) return {};
 
   const properties: Record<string, unknown> = {};
-  for (const d of declared) properties[d.name] = propertySchemaFor(d.decl);
+  for (const d of usable) properties[d.name] = propertySchemaFor(d.decl);
 
   const personaPreamble = personaContext && (personaContext.name || personaContext.notes)
     ? [
@@ -58,7 +62,7 @@ export async function generateContextVars(
     ...personaPreamble,
     `Declared variables:`,
     JSON.stringify(
-      declared.map((d) => ({
+      usable.map((d) => ({
         name: d.name,
         type: d.decl.type ?? "string",
         description: d.decl.description ?? "",
@@ -77,11 +81,11 @@ export async function generateContextVars(
     responseSchema: {
       type: "OBJECT",
       properties,
-      required: declared.map((d) => d.name),
+      required: usable.map((d) => d.name),
     },
   });
 
-  const byName = new Map(declared.map((d) => [d.name, d.decl]));
+  const byName = new Map(usable.map((d) => [d.name, d.decl]));
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(parsed)) {
     const decl = byName.get(k);

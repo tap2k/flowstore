@@ -38,8 +38,17 @@ export async function generateCapabilityMocks(
 ): Promise<Record<string, Record<string, unknown>>> {
   if (capabilities.length === 0) return {};
 
+  // Drop blank-named capabilities/outputs: an empty/whitespace key is invalid
+  // in a Gemini responseSchema ("properties[]: key cannot be empty"), and a
+  // capability left with no usable outputs would be an empty OBJECT (also
+  // rejected). Common mid-edit in the editor.
+  const usableCaps = capabilities
+    .map((c) => ({ ...c, outputs: c.outputs.filter((o) => o.name.trim() !== "") }))
+    .filter((c) => c.capabilityName.trim() !== "" && c.outputs.length > 0);
+  if (usableCaps.length === 0) return {};
+
   const capProperties: Record<string, unknown> = {};
-  for (const c of capabilities) {
+  for (const c of usableCaps) {
     const outputProps: Record<string, unknown> = {};
     for (const o of c.outputs) outputProps[o.name] = propertySchemaFor(o.decl);
     capProperties[c.capabilityName] = {
@@ -73,7 +82,7 @@ export async function generateCapabilityMocks(
       : null,
     `Capabilities and their declared outputs:`,
     JSON.stringify(
-      capabilities.map((c) => ({
+      usableCaps.map((c) => ({
         name: c.capabilityName,
         description: c.description ?? "",
         outputs: c.outputs.map((o) => ({
@@ -102,7 +111,7 @@ export async function generateCapabilityMocks(
       responseSchema: {
         type: "OBJECT",
         properties: capProperties,
-        required: capabilities.map((c) => c.capabilityName),
+        required: usableCaps.map((c) => c.capabilityName),
       },
     },
   );
