@@ -615,11 +615,9 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         <TabButton active={openSimulateTab === "simulate"} onClick={() => setOpenSimulateTab("simulate")}>
           Simulate
         </TabButton>
-        {import.meta.env.VITE_DEV && (
-          <TabButton active={openSimulateTab === "tests"} onClick={() => setOpenSimulateTab("tests")}>
-            Tests
-          </TabButton>
-        )}
+        <TabButton active={openSimulateTab === "tests"} onClick={() => setOpenSimulateTab("tests")}>
+          Tests
+        </TabButton>
         <TabButton active={openSimulateTab === "personas"} onClick={() => setOpenSimulateTab("personas")}>
           Personas
         </TabButton>
