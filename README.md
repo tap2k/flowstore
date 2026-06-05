@@ -66,4 +66,4 @@ Vite 7 · React 19 · TypeScript · Tailwind v4 · `@xyflow/react`
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+Apache-2.0 — see [LICENSE](./LICENSE).
