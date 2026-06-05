@@ -163,6 +163,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           onChange={setGenerateModel}
           showUnconfigured
           structuredOnly
+          keyOverrides={{ google: google.trim(), openai: openai.trim() }}
           className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
         />
         <p className="text-[11px] text-zinc-500">

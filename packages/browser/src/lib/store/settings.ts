@@ -158,28 +158,38 @@ async function fetchAndSetGithubIdentity(pat: string): Promise<void> {
   }
 }
 
+// Draft keys, keyed by endpoint, that take precedence over the persisted
+// store when resolving an API key. The Settings sheet passes its in-progress
+// (unsaved) key fields so the picker reflects a just-typed key instead of
+// showing "(no key)" until Save.
+export type KeyOverrides = Partial<Record<EndpointId, string>>;
+
 // Look up the dispatch parameters for a given model id, consulting
 // BUILT_IN_MODELS for endpoint inference. Returns the provider, the API
 // key from settings, and (for openai-compatible hosts) the base URL.
 // Reads settings imperatively — call from event handlers, not during render.
+// Pass `keyOverrides` to resolve against unsaved draft keys instead.
 //
 // Project-level models config (`models/*.json`) entries aren't consulted
 // here yet — the editor still reads only the built-in catalog. When
 // project-level model dispatch lands, pass the resolved entry through.
-export function resolveDispatch(modelId: string): ResolvedDispatch {
+export function resolveDispatch(modelId: string, keyOverrides?: KeyOverrides): ResolvedDispatch {
   const builtinEntry = BUILT_IN_MODELS.models[modelId];
   const endpoint = resolveEndpoint(modelId, builtinEntry);
   const wireModel = wireModelId(modelId, builtinEntry);
   const s = useSettingsStore.getState();
+  // A draft value (including "") for the resolved endpoint wins over the store.
+  const keyFor = (e: EndpointId, stored: string) =>
+    keyOverrides && keyOverrides[e] !== undefined ? keyOverrides[e]! : stored;
   switch (endpoint) {
     case "google":
-      return { provider: "google", apiKey: s.googleApiKey, endpoint, wireModel };
+      return { provider: "google", apiKey: keyFor("google", s.googleApiKey), endpoint, wireModel };
     case "openai":
-      return { provider: "openai", apiKey: s.openaiApiKey, endpoint, wireModel };
+      return { provider: "openai", apiKey: keyFor("openai", s.openaiApiKey), endpoint, wireModel };
     case "openrouter":
       return {
         provider: "openai-compatible",
-        apiKey: s.openrouterApiKey,
+        apiKey: keyFor("openrouter", s.openrouterApiKey),
         baseUrl: OPENROUTER_BASE_URL,
         endpoint,
         wireModel,
@@ -194,10 +204,11 @@ export function resolveDispatch(modelId: string): ResolvedDispatch {
 }
 
 // True iff settings carries a key for the model's endpoint. Used by the
-// model picker to filter out models the user can't dispatch.
-export function hasKeyForModel(modelId: string): boolean {
-  const r = resolveDispatch(modelId);
-  return !!r.apiKey;
+// model picker to filter out models the user can't dispatch. Pass
+// `keyOverrides` to test against unsaved draft keys.
+export function hasKeyForModel(modelId: string, keyOverrides?: KeyOverrides): boolean {
+  const r = resolveDispatch(modelId, keyOverrides);
+  return !!r.apiKey.trim();
 }
 
 // Providers whose adapter implements strict structured output
