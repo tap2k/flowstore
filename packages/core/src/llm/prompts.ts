@@ -23,6 +23,21 @@ A spec describes a single agent. It has:
   - "RETURN" → return to the flow that called this one
 - A flow is "callable" (entering it pushes a call frame) iff it has at least one exit path with \`goto: "RETURN"\`. The runtime infers this from structure — no flag.
 - Interrupt flows are entered by the runtime when their entry_condition matches at any turn (not via an explicit goto).
+- Exit order matters. An exit with no condition is the fallback: it fires only when no sibling's condition matched. An exit whose condition is \`{ method: "direct", expression: "true" }\` always fires, so it shadows every sibling listed after it — use it only when the flow has no other conditional exits, and list it last.
+- The conversation ends only when an exit with \`goto: "END"\` is taken. Writing "end the call" in instructions does nothing on its own — back it with \`goto: "END"\`.
+- entry_condition is valid only on interrupt flows; never put one on a happy/sad/off/utility flow — those are reached only through a caller's exit condition.
+- An exit path may set variables (\`assigns\`) and invoke capabilities (\`actions\`) when taken. For an assigned value that comes from the conversation, use method "llm" (describe what to extract), not "direct" — "direct" is a literal and doesn't read variables or interpolate placeholders.
+
+# Naming
+
+- A flow's name is a short sentence-case label for the stage's goal ("Collect shipping address", "Confirm & place"), not its mechanism or a number. Prefix interrupt-flow names with "Interrupt — ".
+- Variable names are bare snake_case nouns: drink_type, policy_number, payout_estimate; booleans read as predicates: identity_verified, has_confirmed. A variable exists the moment you reference it, so a typo spawns a phantom — reuse the exact existing name rather than coining a near-duplicate.
+
+# Where knowledge and rules go
+
+- faq entries live at agent or flow level; glossary entries are agent-level only. Put an faq on a flow only when it's specific to that stage and should travel with it on reuse; otherwise put it on the agent.
+- Pick the shape: faq = an anticipated question paired with its answer; glossary = a term the agent must understand and use consistently (a definition, not a Q&A). Tables (parameterized lookup rows) are agent-level and authored in the Knowledge sheet, not from chat — like scripts.
+- Declare cross-cutting stance once at agent scope, not per flow. "Reply in one or two sentences" is a single agent guardrail (it compiles into every flow), and register lives once in meta.tone — don't repeat either in each flow's instructions. A flow's instructions carry only what's distinct to that stage.
 
 # Authoring conventions
 

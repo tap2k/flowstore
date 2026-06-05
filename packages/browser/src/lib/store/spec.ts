@@ -36,7 +36,7 @@ interface SpecState {
   updateFlow: (id: string, patch: Partial<Flow>) => void;
   updateAgent: (patch: Partial<Agent>) => void;
   updateExitPath: (flowId: string, exitPathId: string, patch: Partial<ExitPath>) => void;
-  addFlow: (select?: boolean) => string;
+  addFlow: (select?: boolean, seed?: string) => string;
   removeFlow: (id: string) => void;
   addExitPath: (
     sourceFlowId: string,
@@ -120,8 +120,8 @@ export const useSpecStore = create<SpecState>()(
             },
           };
         }),
-      addFlow: (select = false) => {
-        const newId = genId("flow");
+      addFlow: (select = false, seed) => {
+        const newId = genId("flow", seed);
         set((state) => {
           const flow = blankFlow(newId);
           const nextSelection: Selection = select ? { kind: "flow", id: newId } : state.selection;

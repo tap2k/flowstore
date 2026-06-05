@@ -202,7 +202,7 @@ const createFlowTool: Tool = {
       instructions?: string;
     };
     const s = store();
-    const id = s.addFlow();
+    const id = s.addFlow(false, a.name);
     const patch: Partial<Flow> = { name: a.name };
     if (a.type) patch.type = a.type;
     if (a.instructions !== undefined) patch.instructions = a.instructions;
