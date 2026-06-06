@@ -12,7 +12,9 @@ export interface TestingIssue {
 }
 
 // Cross-file checks across testing artifacts and the spec:
-//   - persona.mocks keys refer to known capabilities
+//   - persona.mocks / test_case.mocks keys refer to known capabilities
+//   - every case carries exactly one actor (user_turns | persona_id |
+//     system_prompt) — the binding invariant
 //   - test_case.persona_id refers to a known persona
 //   - test_case.capability_assertions[].capability refers to a known capability
 //   - duplicate ids within each collection
@@ -57,18 +59,29 @@ export function validateTesting(
     } else {
       testIds.add(t.id);
     }
+    // Binding invariant: exactly one actor drives the case. user_turns =
+    // scripted; persona_id = referenced simulated user; system_prompt = inline
+    // simulated user. A scripted case carries its fixture inline rather than
+    // binding a persona for it, so these never combine.
     const hasTurns = Array.isArray(t.user_turns);
     const hasPersona = typeof t.persona_id === "string";
-    if (!hasTurns && !hasPersona) {
+    const hasInlinePrompt = typeof t.system_prompt === "string";
+    const actorCount = (hasTurns ? 1 : 0) + (hasPersona ? 1 : 0) + (hasInlinePrompt ? 1 : 0);
+    if (actorCount === 0) {
       issues.push({
         at: { kind: "test_case", id: t.id },
-        message: "must have user_turns (scripted) or persona_id (persona-driven, or scripted with a bound persona for the world)",
+        message: "must carry exactly one actor: user_turns (scripted), persona_id (referenced), or system_prompt (inline)",
+      });
+    } else if (actorCount > 1) {
+      issues.push({
+        at: { kind: "test_case", id: t.id },
+        message: "exactly one actor allowed: user_turns, persona_id, and system_prompt are mutually exclusive (situational fixture goes in vars/mocks, not a bound persona)",
       });
     }
     if (t.max_turns !== undefined && hasTurns) {
       issues.push({
         at: { kind: "test_case", id: t.id },
-        message: "max_turns is only meaningful for persona-driven cases; user_turns is its own implicit cap",
+        message: "max_turns is only meaningful for simulated-user cases; user_turns is its own implicit cap",
       });
     }
     if (t.persona_id && !personaIds.has(t.persona_id)) {
@@ -76,6 +89,14 @@ export function validateTesting(
         at: { kind: "test_case", id: t.id },
         message: `persona_id "${t.persona_id}" not in tests/personas/`,
       });
+    }
+    for (const capId of Object.keys(t.mocks ?? {})) {
+      if (spec && !capabilityIds.has(capId)) {
+        issues.push({
+          at: { kind: "test_case", id: t.id },
+          message: `mocks key "${capId}" is not in agent.capabilities`,
+        });
+      }
     }
     for (const ca of t.capability_assertions ?? []) {
       if (spec && !capabilityIds.has(ca.capability)) {

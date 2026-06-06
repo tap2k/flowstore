@@ -417,28 +417,29 @@ Example: `total_due_amount.visible_when: "identity_confirmed"` — the model nev
 
 The schemas above (Agent, Flow, Variables) define the runtime contract. The **testing surface** — personas, test cases, decision tests, rubrics, golds — lives alongside the spec but is not compiled into the runtime artifact. Each carries its own `$schema` URI and file home (see [FILE-MODEL.md](./FILE-MODEL.md) for paths). The TypeBox definitions live in [`packages/core/src/schema/files/`](./packages/core/src/schema/files/) — those are authoritative; the sketches below are the field-level summary.
 
+Fixture data (`vars` + `mocks`) is **scoped and merged across persona ∪ case** — the same way the compiler merges guardrails / variables / FAQ across scopes. A persona is a reusable **actor** that carries the fixture *intrinsic to that character*; the test case carries the *situational* fixture and overrides the persona. Splitting fixture by what it's coupled to keeps a mock and the assertion it justifies together on the case, while identity fixture stays next to the persona's `system_prompt` that asserts the same facts.
+
 ### Persona (`flowstore://test/persona/v0`)
 
-A persona is the user side of a conversation under test. It bundles three things:
+A persona is a reusable **actor** playing the user side of a conversation under test:
 
-- `system_prompt?: string` — drives an LLM-as-user when a test is persona-driven (no scripted turns). Optional: "world-only" personas omit it entirely and exist purely to hold vars+mocks for scripted runs.
-- `vars?: Record<string, unknown>` — free-form `{variable_name: value}` dict, coerced against `agent.variables` declarations at run time. The persona's world.
-- `mocks?: Record<capability_id, MockBehavior>` — per-capability return behavior, keyed by capability id (not name). Caps not listed fall through to the live capability.
+- `system_prompt: string` — **required**; drives the LLM-as-user. A persona is an actor, not a fixture bag — there is no fixture-only persona.
+- `vars?: Record<string, unknown>` — **character-intrinsic** vars only: facts true of this character in *every* test (their name, the policy id their identity is keyed on). Free-form `{variable_name: value}` dict, coerced against `agent.variables` at run time. Situational vars go on the case.
+- `mocks?: Record<capability_id, MockBehavior>` — character-intrinsic per-capability returns, keyed by capability id (e.g. the `verify_policy` return keyed on this caller's identity). Caps not listed fall through to the live capability.
 
 Also: `id`, optional `name`, `notes`, `model` (per-file user-simulation model override).
 
-A persona always owns its world — there is no separate "scenario" artifact. Cases bind a persona by `persona_id` to inherit that world.
-
 ### Test Case (`flowstore://test/case/v0`)
 
-Two shapes share this file type, distinguished by which field is set:
+A case names an **actor** (how the conversation is driven) plus the **situational fixture** for its scenario. Exactly one actor — the binding invariant, enforced in the loader/runner, not the schema:
 
-- **Scripted** — carries `user_turns: string[]`; the runner feeds these verbatim. May also bind a `persona_id` purely for the world (`persona.system_prompt` is ignored when `user_turns` is set).
-- **Persona-driven** — carries `persona_id`; an LLM-as-user driven by the persona's `system_prompt` converses freely with the agent. `max_turns` caps the loop (default per-runner).
+- **Scripted** — `user_turns: string[]`; the runner feeds these verbatim.
+- **Referenced persona** — `persona_id`; an LLM-as-user driven by that persona's `system_prompt`. `max_turns` caps the loop (default per-runner).
+- **Inline prompt** — `system_prompt: string`; an LLM-as-user driven by a one-off prompt with no reusable persona file.
 
-A case must carry one of `user_turns` or `persona_id` (enforced in the loader, not the schema).
+A scripted case never binds a persona just for its fixture — it carries the fixture inline. **Fixture resolution:** the effective fixture for a persona-bound case is `persona ∪ case` — `vars` merge per key, `mocks` **replace per capability id**, the case always winning. A scripted / inline case (no persona) resolves to just its own fixture.
 
-Optional fields: `assertions[]` (per-turn substring), `transcript_assertions[]` (substring/regex/count/terminate-within over the whole transcript), `state_assertions[]` (against final variable state; runner target only), `capability_assertions[]` (was this capability invoked?), `evaluators[]` (rubric names resolving to `tests/rubrics/<n>.rubric.json` or `tests/evaluators/<n>.py`), `gold_id` (reference transcript for gold-comparing rubrics), `language`, `model`, `tags[]`.
+Situational fixture: `vars?` and `mocks?` (same shapes as on the persona). Optional assertion/eval fields: `assertions[]` (per-turn substring), `transcript_assertions[]` (substring/regex/count/terminate-within over the whole transcript), `state_assertions[]` (against final variable state; runner target only), `capability_assertions[]` (was this capability invoked?), `evaluators[]` (rubric names resolving to `tests/rubrics/<n>.rubric.json` or `tests/evaluators/<n>.py`), `gold_id` (reference transcript for gold-comparing rubrics), `language`, `model`, `tags[]`.
 
 ### Decision Test (`flowstore://test/decision-test/v0`)
 
@@ -446,20 +447,20 @@ Many branches off a shared conversational prefix. Maps 1:1 to a flow's `exit_pat
 
 - `prefix_turns: string[]` — user inputs that bring the conversation to the state under test.
 - `branches: { user_input, expected_class?, must_contain?, must_not_contain?, capability_assertions?, notes? }[]`
-- `persona_id?` — optional binding for the world (vars + mocks). `system_prompt` is unused; the branches script their own inputs.
+- `vars?` / `mocks?` — the fixture the routing branches run against, all inline. Decision tests have no actor (they script their own prefix + branch inputs), so there is no persona to inherit from.
 
 No persona-driven mode here — decision tests are always scripted.
 
 ### Mock Behavior
 
-The union type behind `persona.mocks[capability_id]`:
+The union type behind `persona.mocks[capability_id]` (and the same `mocks` on cases / decision tests):
 
 ```
 { kind: "static", returns: <object> }    // resolve the call to a literal object
 { kind: "error",  error: <string> }      // raise this error string as a tool error
 ```
 
-Lives in [`packages/core/src/schema/files/mockBehavior.ts`](./packages/core/src/schema/files/mockBehavior.ts) so any artifact that ever needs per-capability behaviors can reuse the same union.
+Lives in [`packages/core/src/schema/files/mockBehavior.ts`](./packages/core/src/schema/files/mockBehavior.ts) so every artifact that carries per-capability behaviors — personas (intrinsic) and cases / decision tests (situational) — reuses the same union.
 
 ---
 
