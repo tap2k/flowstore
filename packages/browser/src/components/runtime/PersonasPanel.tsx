@@ -14,9 +14,11 @@ import { VarsEditor } from "./persona/VarsEditor";
 import { MocksEditor } from "./persona/MocksEditor";
 
 // Saved-persona library for the Run pill's Personas tab. Each row expands
-// inline to edit name + notes + system_prompt + the persona's world (vars
-// + mocks). Personas are file-backed (tests/personas/<id>.persona.json);
-// save / delete mark the project dirty and ride on the next GitHub Save.
+// inline to edit name + notes + system_prompt (the actor's voice) + the
+// character-INTRINSIC fixture (vars + mocks true of this character in every
+// test — situational fixture lives on the case instead). Personas are
+// file-backed (tests/personas/<id>.persona.json); save / delete mark the
+// project dirty and ride on the next GitHub Save.
 
 export function PersonasPanel() {
   const personas = useTestsStore((s) => s.personas);
@@ -47,6 +49,7 @@ export function PersonasPanel() {
       $schema: "flowstore://test/persona/v0",
       id,
       name: defaultName,
+      system_prompt: "",
     });
     setSelectedId(id);
   }
@@ -76,7 +79,7 @@ export function PersonasPanel() {
         id,
         ...(name ? { name } : {}),
         ...(notes ? { notes } : {}),
-        ...(systemPrompt.trim() ? { system_prompt: systemPrompt } : {}),
+        system_prompt: systemPrompt,
         ...(Object.keys(vars).length > 0 ? { vars } : {}),
         ...(Object.keys(mocks).length > 0 ? { mocks } : {}),
       });
@@ -306,7 +309,7 @@ function PersonaRow({
       ...(persona.model !== undefined ? { model: persona.model } : {}),
       ...(name.trim() ? { name: name.trim() } : {}),
       ...(notes.trim() ? { notes: notes.trim() } : {}),
-      ...(systemPrompt.trim() ? { system_prompt: systemPrompt } : {}),
+      system_prompt: systemPrompt,
       ...(Object.keys(vars).length > 0 ? { vars } : {}),
       ...(Object.keys(mocks).length > 0 ? { mocks } : {}),
     };
@@ -315,10 +318,9 @@ function PersonaRow({
 
   async function handleRegenerate() {
     if (!spec || !apiKey || !dispatch.provider) return;
-    // Regenerate is a full overwrite (prompt + vars + mocks). Confirm
-    // when anything is already filled — world-only personas (empty
-    // system_prompt but populated mocks) and hand-tuned personas both
-    // lose curated content otherwise.
+    // Regenerate is a full overwrite (prompt + intrinsic vars + mocks).
+    // Confirm when anything is already filled so a hand-tuned persona
+    // doesn't silently lose curated content.
     const hasContent =
       systemPrompt.trim().length > 0 ||
       Object.keys(vars).length > 0 ||
@@ -403,7 +405,7 @@ function PersonaRow({
 
           <div>
             <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
-              system_prompt
+              system_prompt <span className="text-zinc-400">(required)</span>
             </label>
             <textarea
               value={systemPrompt}
@@ -412,6 +414,10 @@ function PersonaRow({
               placeholder="System prompt for the persona playing the user."
               className="w-full resize-y rounded border border-zinc-300 bg-white p-2 font-mono text-[11px] leading-snug text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400"
             />
+          </div>
+
+          <div className="text-[10px] uppercase tracking-wide text-zinc-500">
+            intrinsic fixture
           </div>
 
           <VarsEditor
@@ -483,8 +489,14 @@ function PersonaRow({
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={!dirty}
-                title={dirty ? "Save changes" : "No unsaved edits"}
+                disabled={!dirty || systemPrompt.trim() === ""}
+                title={
+                  systemPrompt.trim() === ""
+                    ? "A persona needs a system_prompt before it can be saved."
+                    : dirty
+                      ? "Save changes"
+                      : "No unsaved edits"
+                }
                 className="rounded-md bg-zinc-900 px-3 py-1 text-[11px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
               >
                 Save

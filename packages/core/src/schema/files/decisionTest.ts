@@ -1,4 +1,5 @@
 import { Type, type Static } from "@sinclair/typebox";
+import { MockBehaviorSchema } from "./mockBehavior";
 
 // One branch of a decision test: "given the prefix-state, what does the
 // agent do when the user says <user_input>?". Substring assertions are
@@ -62,11 +63,13 @@ export const DecisionTestSchema = Type.Object(
     notes: Type.Optional(Type.String()),
     prefix_turns: Type.Array(Type.String()),
     branches: Type.Array(DecisionBranch),
-    // Optional persona binding for the world (vars + per-cap mocks) the
-    // routing branches run against. Only the persona's vars + mocks are
-    // consumed — system_prompt is unused (decision tests script their own
-    // prefix_turns and branch inputs).
-    persona_id: Type.Optional(Type.String()),
+    // Fixture the routing branches run against — all inline; decision tests
+    // have no actor (they script their own prefix_turns + branch inputs), so
+    // there's no persona to inherit from. vars: free-form {name: value} dict
+    // coerced against agent.variables. mocks: per-capability behavior keyed by
+    // capability id.
+    vars: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+    mocks: Type.Optional(Type.Record(Type.String(), MockBehaviorSchema)),
     model: Type.Optional(Type.String()),
     language: Type.Optional(Type.String()),
     tags: Type.Optional(Type.Array(Type.String())),

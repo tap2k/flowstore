@@ -82,8 +82,8 @@ project/
 │       └── <id>.meta.json
 ├── comments/<uuid>.comment.json             # additive per-comment files; anchored to any entity
 ├── tests/
-│   ├── cases/<id>.test.json                 # scripted user_turns + evaluators; bind a persona for the world
-│   ├── personas/<id>.persona.json           # the world: vars + per-capability mocks + optional system_prompt
+│   ├── cases/<id>.test.json                 # one actor (user_turns | persona_id | system_prompt) + situational vars/mocks + evaluators
+│   ├── personas/<id>.persona.json           # reusable actor: required system_prompt + character-intrinsic vars/mocks
 │   ├── evaluators/<name>.py                 # deterministic Python evaluators
 │   ├── rubrics/<id>.rubric.json             # llm-judge evaluators (declarative)
 │   ├── gold/<id>.gold.json                  # verbatim reference transcripts; independent of cases
@@ -174,7 +174,7 @@ Three scope levels exist in a multi-agent project. Not every entity supports all
 | **Flows** | ✓ | ✓ | — | Project-level flows are shared across agents (e.g., interrupts like `verify_identity`, `handle_wrong_person`). Agent-level flows are agent-specific. Resolution is agent-first, project-fallback. |
 | **Per-flow scripts CSV** | ✓ | ✓ | ✓ | Lives next to its flow file. Project-level flow → project-level scripts (shared verbatim across agents). Agent-level flow → agent-level scripts. |
 | **Capabilities** | ✓ | — | — | Backend APIs are project-shared. Per-agent capability declarations: post-MVP. |
-| **Capability mocks** | ✓ | — | — | Inline on personas (`persona.mocks`, keyed by capability id) — no standalone mock files. Project-scoped because personas are. |
+| **Capability mocks** | ✓ | — | — | Inline on personas (intrinsic) and on cases / decision tests (situational), keyed by capability id — no standalone mock files. Project-scoped because personas are. |
 | **Variables (declarations)** | ✓ | ✓ | ✓ | Domain variables project-level; agent/flow declarations rare but allowed. |
 | **Guardrails** | ✓ | ✓ | ✓ | Compliance project-level; tone/purpose agent-level; flow-specific (consent in `verify_identity`) flow-level inline. |
 | **Business goals** | ✓ | ✓ | — | Project-level metrics; agent-specific outcomes. |
@@ -233,7 +233,7 @@ What `flowstore-init-project` writes. Every collection accepts either form; the 
 | `knowledge/glossary.json` | File (array) | Promote to `knowledge/glossary/<domain>.json` when terms span fields. |
 | `knowledge/tables/` | Directory (per-id `*.csv` + `*.meta.json`) | Stay in directory form (CSV affordance). |
 | `tests/cases/` | Directory (per-id `*.test.json`) | Stay in directory form; file form unwieldy. |
-| `tests/personas/` | Directory (per-id `*.persona.json`) | Collapse to file form if ≤3 small personas. Each persona file carries `system_prompt` + `vars` + `mocks` inline — character + world bundled together. Cases bind a persona by `persona_id` to inherit that world; scripted cases may bind one purely for vars+mocks (the persona's `system_prompt` is ignored when `user_turns` is present). |
+| `tests/personas/` | Directory (per-id `*.persona.json`) | Collapse to file form if ≤3 small personas. A persona is a reusable actor: required `system_prompt` + the character-**intrinsic** `vars`/`mocks` (facts true of them in every test). Situational fixture lives on the case; a persona-bound case resolves to `persona ∪ case` (case wins). A scripted case carries its fixture inline rather than binding a persona for it. |
 | `tests/rubrics/` | Directory (per-id `*.rubric.json`) | Stay in directory form (multi-paragraph templates). |
 | `tests/evaluators/` | Directory (Python files) | Not validated as JSON. Built-ins vendored; user-added go alongside. |
 | `tests/gold/` | Directory (per-id `*.gold.json`) | Golds are independent of cases; one gold may seed many derived cases. |

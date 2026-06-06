@@ -227,9 +227,17 @@ describe("validateTesting", () => {
     expect(hasMsg(issues, 'mocks key "ghost_cap" is not in agent.capabilities')).toBe(true);
   });
 
-  it("flags a test case with neither user_turns nor persona_id", () => {
+  it("flags a test case with no actor (no user_turns / persona_id / system_prompt)", () => {
     const issues = validateTesting(null, artifacts({ testCases: [{ id: "t1" } as never] }));
-    expect(hasMsg(issues, "must have user_turns")).toBe(true);
+    expect(hasMsg(issues, "must carry exactly one actor")).toBe(true);
+  });
+
+  it("flags a test case with more than one actor", () => {
+    const issues = validateTesting(
+      null,
+      artifacts({ testCases: [{ id: "t1", user_turns: ["hi"], persona_id: "p1" } as never] }),
+    );
+    expect(hasMsg(issues, "exactly one actor allowed")).toBe(true);
   });
 
   it("flags a test case bound to an unknown persona", () => {
@@ -237,8 +245,24 @@ describe("validateTesting", () => {
     expect(hasMsg(issues, 'persona_id "missing" not in tests/personas/')).toBe(true);
   });
 
+  it("flags a test case mock key that is not a capability", () => {
+    const issues = validateTesting(
+      spec({ capabilities: [{ id: "real_cap" }] }),
+      artifacts({ testCases: [{ id: "t1", user_turns: ["hi"], mocks: { ghost_cap: { kind: "static", returns: {} } } } as never] }),
+    );
+    expect(hasMsg(issues, 'mocks key "ghost_cap" is not in agent.capabilities')).toBe(true);
+  });
+
   it("is clean for a well-formed scripted case", () => {
     const issues = validateTesting(coffee, artifacts({ testCases: [{ id: "t1", user_turns: ["hi"] } as never] }));
+    expect(issues).toEqual([]);
+  });
+
+  it("is clean for an inline-prompt case with situational mocks", () => {
+    const issues = validateTesting(
+      coffee,
+      artifacts({ testCases: [{ id: "t1", system_prompt: "You are a hurried customer." } as never] }),
+    );
     expect(issues).toEqual([]);
   });
 });

@@ -15,22 +15,42 @@ export interface RuntimePersonaWorld {
   errors: Record<string, string | null>;
 }
 
-// Persona → runtime. Every capability in the spec gets an entry in
-// `errors` (null for caps not in persona.mocks) so callers can clear stale
-// state when hydrating from a new persona.
-export function personaToRuntime(
-  spec: Spec,
-  persona: Persona,
-): RuntimePersonaWorld {
+// A fixture is the vars + per-capability mocks an artifact carries. Personas
+// carry the character-intrinsic fixture; cases / decision tests carry the
+// situational fixture.
+export interface Fixture {
+  vars?: Record<string, unknown>;
+  mocks?: Record<string, MockBehavior>;
+}
+
+// Effective fixture for a persona-bound case = `persona ∪ case`. vars merge
+// per key; mocks replace per capability id; the case always wins. A scripted
+// or inline-prompt case (no persona) resolves to just its own fixture — pass
+// `undefined` for the persona.
+export function resolveFixture(
+  persona: Fixture | undefined,
+  testCase: Fixture,
+): { vars: Record<string, unknown>; mocks: Record<string, MockBehavior> } {
+  return {
+    vars: { ...(persona?.vars ?? {}), ...(testCase.vars ?? {}) },
+    mocks: { ...(persona?.mocks ?? {}), ...(testCase.mocks ?? {}) },
+  };
+}
+
+// Fixture (vars + mocks keyed by capability id) → runtime simulate-store
+// shape (mockReturns/mockErrors keyed by capability NAME). Every capability in
+// the spec gets an entry in `errors` (null when unmocked) so callers can clear
+// stale state when hydrating.
+export function fixtureToRuntime(spec: Spec, fixture: Fixture): RuntimePersonaWorld {
   const idToName = new Map<string, string>();
   for (const cap of spec.agent.capabilities ?? []) idToName.set(cap.id, cap.name);
 
-  const outVars = persona.vars ?? {};
+  const outVars = fixture.vars ?? {};
   const returns: Record<string, Record<string, unknown>> = {};
   const errors: Record<string, string | null> = {};
   for (const cap of spec.agent.capabilities ?? []) errors[cap.name] = null;
 
-  for (const [capId, behavior] of Object.entries(persona.mocks ?? {})) {
+  for (const [capId, behavior] of Object.entries(fixture.mocks ?? {})) {
     const name = idToName.get(capId);
     if (!name) continue;
     if (behavior.kind === "error") {
@@ -44,6 +64,24 @@ export function personaToRuntime(
     }
   }
   return { vars: outVars, returns, errors };
+}
+
+// Persona → runtime (its intrinsic fixture alone). Used when hydrating the
+// Simulate buffer directly from a persona, with no case context.
+export function personaToRuntime(
+  spec: Spec,
+  persona: Persona,
+): RuntimePersonaWorld {
+  return fixtureToRuntime(spec, { vars: persona.vars, mocks: persona.mocks });
+}
+
+// Case → runtime, resolving `persona ∪ case`. Pass the bound persona (if any).
+export function caseWorldToRuntime(
+  spec: Spec,
+  persona: Fixture | undefined,
+  testCase: Fixture,
+): RuntimePersonaWorld {
+  return fixtureToRuntime(spec, resolveFixture(persona, testCase));
 }
 
 // Runtime mockReturns + mockErrors → persona.mocks shape (keyed by cap ID).
@@ -81,8 +119,9 @@ export function runtimeToPersonaMocks(
 
 // Same as runtimeToPersonaMocks but emits a full Persona from the runtime
 // state. Used at "save" / "save as" time when persisting a Simulate-tab
-// buffer back to a persona file. system_prompt is omitted from the output
-// when blank — world-only personas are valid.
+// buffer back to a persona file. system_prompt is always written (it's
+// required — a persona is an actor); the caller is responsible for ensuring
+// it's non-empty before this becomes a committed persona.
 export interface BuildPersonaInput {
   spec: Spec;
   id: string;
@@ -103,11 +142,10 @@ export function buildPersonaFromRuntime(input: BuildPersonaInput): Persona {
     cleanedVars[k] = v;
   }
   const mocks = runtimeToPersonaMocks(spec, returns, errors);
-  const trimmedPrompt = systemPrompt.trim();
   return {
     $schema: "flowstore://test/persona/v0",
     id,
-    ...(trimmedPrompt ? { system_prompt: systemPrompt } : {}),
+    system_prompt: systemPrompt,
     ...(name && name.trim() ? { name: name.trim() } : {}),
     ...(notes && notes.trim() ? { notes: notes.trim() } : {}),
     ...(model ? { model } : {}),

@@ -1,4 +1,5 @@
 import { Type, type Static } from "@sinclair/typebox";
+import { MockBehaviorSchema } from "./mockBehavior";
 
 // Lightweight per-turn substring assertion. `turn` is a 1-indexed pointer
 // into the agent-only subsequence of the resulting transcript (turn 1 = the
@@ -88,11 +89,19 @@ const CapabilityAssertion = Type.Object(
   { additionalProperties: false },
 );
 
-// Test case = scripted user turns OR a persona-driven conversation + which
-// evaluators run + how to mock capabilities. Two shapes share this file type
-// because both are discovered the same way; the runner script branches on
-// presence of persona_id. Cases must carry one of user_turns or persona_id
-// (enforced in the runner, not the schema).
+// Test case = how the conversation is driven (the ACTOR) + which evaluators
+// run + the SITUATIONAL fixture for this scenario. Exactly one actor:
+//   - user_turns       — scripted: the runner feeds these verbatim
+//   - persona_id        — simulated user, a referenced reusable actor
+//   - system_prompt     — simulated user, an inline one-off actor
+// Enforced in the loader/runner, not the schema (typebox can't express
+// exactly-one-of cleanly). A scripted case never binds a persona just for its
+// fixture — it carries the fixture inline instead.
+//
+// Fixture (vars + mocks) is SITUATIONAL — the mock and the assertion it
+// justifies are one thought, so they live together on the case. When a
+// persona actor is bound, the effective fixture is `persona ∪ case`: vars
+// merge per key, mocks replace per capability id, the case always winning.
 //
 // Evaluator names resolve in both tests/evaluators/<name>.py and
 // tests/rubrics/<name>.rubric.json — the loader picks whichever matches.
@@ -105,6 +114,15 @@ export const TestCaseSchema = Type.Object(
     name: Type.Optional(Type.String()),
     notes: Type.Optional(Type.String()),
     user_turns: Type.Optional(Type.Array(Type.String())),
+    // Inline one-off simulated-user actor: drives LLM-as-user without a
+    // reusable persona file. Mutually exclusive with user_turns / persona_id.
+    system_prompt: Type.Optional(Type.String()),
+    // Situational fixture for this scenario, merged over (and overriding) the
+    // bound persona's intrinsic fixture. vars: free-form {name: value} dict
+    // coerced against agent.variables. mocks: per-capability behavior keyed by
+    // capability id, replacing the persona's mock for that capability.
+    vars: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+    mocks: Type.Optional(Type.Record(Type.String(), MockBehaviorSchema)),
     evaluators: Type.Optional(Type.Array(Type.String())),
     assertions: Type.Optional(Type.Array(Assertion)),
     state_assertions: Type.Optional(Type.Array(StateAssertion)),

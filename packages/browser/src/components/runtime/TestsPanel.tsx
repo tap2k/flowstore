@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TestCase } from "@flowstore/core/schema/files/testCase";
 import type { Rubric } from "@flowstore/core/schema/files/rubric";
+import type { MockBehavior } from "@flowstore/core/schema/files/mockBehavior";
 import { useTestsStore } from "@/lib/store/tests";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useUiStore } from "@/lib/store/ui";
-import { personaToRuntime } from "@flowstore/core/runtime/personaRuntime";
+import { caseWorldToRuntime, resolveFixture } from "@flowstore/core/runtime/personaRuntime";
+import { collectDeclaredVariables } from "@flowstore/core/runtime/contextVars";
+import { collectMockableCapabilities } from "@flowstore/core/runtime/capabilityMocks";
+import { VarsEditor } from "./persona/VarsEditor";
+import { MocksEditor } from "./persona/MocksEditor";
+
+type Actor = "scripted" | "persona" | "inline";
 
 // Tests-tab case library + editor. List view by default; click a row to
 // land in the editor view (Personas-tab tried inline expand, but Tests
@@ -112,7 +119,7 @@ function CaseList({
                       {c.name || c.id}
                     </div>
                     <div className="truncate font-mono text-[10px] text-zinc-500">
-                      {c.id} | {c.persona_id ? "persona" : "scripted"}
+                      {c.id} | {actorOf(c)}
                     </div>
                   </div>
                   <span className="ml-2 text-zinc-400">▸</span>
@@ -130,6 +137,16 @@ interface CaseEditorProps {
   testCase: TestCase;
   onBack: () => void;
   onNew: () => void;
+}
+
+// Which actor drives a case. user_turns → scripted; persona_id → referenced
+// persona; system_prompt → inline one-off. A new/empty case defaults to
+// scripted (the most common shape).
+function actorOf(tc: TestCase): Actor {
+  if (Array.isArray(tc.user_turns)) return "scripted";
+  if (typeof tc.persona_id === "string") return "persona";
+  if (typeof tc.system_prompt === "string") return "inline";
+  return "scripted";
 }
 
 function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
@@ -156,14 +173,16 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
   // Draft state mirrors the saved record; Save commits the draft into the
   // store, which dirties the project for the next GitHub Save.
   const [name, setName] = useState(testCase.name ?? "");
-  // Source = how the conversation is driven. user_turns wins as the
-  // tell — a scripted case may also bind a persona purely for its world,
-  // but the script overrides the persona's system_prompt.
-  const [source, setSource] = useState<"scripted" | "persona">(
-    testCase.user_turns ? "scripted" : "persona",
-  );
+  // Actor = how the conversation is driven. Exactly one (the binding
+  // invariant): scripted (user_turns), persona (referenced reusable actor),
+  // or inline (one-off system_prompt). Fixture (vars + mocks) is independent
+  // and situational — it merges over the bound persona's intrinsic fixture.
+  const [actor, setActor] = useState<Actor>(actorOf(testCase));
   const [userTurns, setUserTurns] = useState<string[]>(testCase.user_turns ?? []);
   const [personaId, setPersonaId] = useState(testCase.persona_id ?? "");
+  const [inlinePrompt, setInlinePrompt] = useState(testCase.system_prompt ?? "");
+  const [vars, setVars] = useState<Record<string, unknown>>(testCase.vars ?? {});
+  const [mocks, setMocks] = useState<Record<string, MockBehavior>>(testCase.mocks ?? {});
   const [perTurnRows, setPerTurnRows] = useState<PerTurnRow[]>(
     flattenPerTurn(testCase.assertions ?? []),
   );
@@ -187,9 +206,12 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
   // Re-hydrate draft when the selected case identity changes.
   useEffect(() => {
     setName(testCase.name ?? "");
-    setSource(testCase.user_turns ? "scripted" : "persona");
+    setActor(actorOf(testCase));
     setUserTurns(testCase.user_turns ?? []);
     setPersonaId(testCase.persona_id ?? "");
+    setInlinePrompt(testCase.system_prompt ?? "");
+    setVars(testCase.vars ?? {});
+    setMocks(testCase.mocks ?? {});
     setPerTurnRows(flattenPerTurn(testCase.assertions ?? []));
     setTranscriptAssertions(testCase.transcript_assertions ?? []);
     setStateAssertions(testCase.state_assertions ?? []);
@@ -201,6 +223,17 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
   }, [testCase.id]);
 
   const spec_capabilities = useMemo(() => spec?.agent.capabilities ?? [], [spec]);
+  const declaredVars = useMemo(() => collectDeclaredVariables(spec), [spec]);
+  const mockableCaps = useMemo(() => collectMockableCapabilities(spec), [spec]);
+  const boundPersona = useMemo(
+    () => (actor === "persona" ? personas.find((p) => p.id === personaId) : undefined),
+    [actor, personaId, personas],
+  );
+  // persona ∪ case, shown read-only so the merge is never hidden.
+  const resolved = useMemo(
+    () => resolveFixture(boundPersona, { vars, mocks }),
+    [boundPersona, vars, mocks],
+  );
   const referenceTranscript =
     captureContext && captureContext.caseId === testCase.id
       ? captureContext.transcript
@@ -213,9 +246,12 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
   // a deep-equal helper.
   const dirty =
     name !== (testCase.name ?? "") ||
-    (source === "persona") !== !testCase.user_turns ||
+    actor !== actorOf(testCase) ||
     JSON.stringify(userTurns) !== JSON.stringify(testCase.user_turns ?? []) ||
     personaId !== (testCase.persona_id ?? "") ||
+    inlinePrompt !== (testCase.system_prompt ?? "") ||
+    JSON.stringify(vars) !== JSON.stringify(testCase.vars ?? {}) ||
+    JSON.stringify(mocks) !== JSON.stringify(testCase.mocks ?? {}) ||
     JSON.stringify(groupPerTurn(perTurnRows)) !==
       JSON.stringify(testCase.assertions ?? []) ||
     JSON.stringify(transcriptAssertions) !==
@@ -234,16 +270,19 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
       $schema: "flowstore://test/case/v0",
       id: testCase.id,
       ...(name.trim() ? { name: name.trim() } : {}),
-      ...(source === "scripted" ? { user_turns: userTurns } : {}),
-      // Persona binding is independent of source: persona-driven needs it
-      // for the system_prompt, scripted may use it purely for the world
-      // (vars + mocks). max_turns is controlled from the Simulate panel
-      // (personaTurnLimit) at run time; preserve any pre-existing value
-      // but don't surface in the editor.
-      ...(personaId ? { persona_id: personaId } : {}),
-      ...(source === "persona" && testCase.max_turns !== undefined
+      // Exactly one actor (the binding invariant). max_turns caps a
+      // simulated-user run; it's controlled from the Simulate panel
+      // (personaTurnLimit) at run time, so preserve any pre-existing value
+      // for persona/inline actors but don't surface it in the editor.
+      ...(actor === "scripted" ? { user_turns: userTurns } : {}),
+      ...(actor === "persona" && personaId ? { persona_id: personaId } : {}),
+      ...(actor === "inline" ? { system_prompt: inlinePrompt } : {}),
+      ...(actor !== "scripted" && testCase.max_turns !== undefined
         ? { max_turns: testCase.max_turns }
         : {}),
+      // Situational fixture (merges over the bound persona's intrinsic fixture).
+      ...(Object.keys(vars).length > 0 ? { vars } : {}),
+      ...(Object.keys(mocks).length > 0 ? { mocks } : {}),
       ...(notes.trim() ? { notes: notes.trim() } : {}),
       ...(goldId ? { gold_id: goldId } : {}),
       ...(showLanguage && language ? { language } : {}),
@@ -286,22 +325,22 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
   }
 
   function handleOpenInSimulate() {
-    // World comes from the bound persona (if any). Scripted cases can
-    // also bind a persona for the world; only the persona's system_prompt
-    // is conditional — load it only for persona-driven runs (no
-    // user_turns) so a scripted case doesn't pollute the buffer.
-    if (personaId) {
-      const p = personas.find((x) => x.id === personaId);
-      if (p) {
-        if (source === "persona") setPersonaPrompt(p.system_prompt ?? "");
-        if (spec) {
-          const { vars, returns, errors } = personaToRuntime(spec, p);
-          setSimulateContextVars(vars);
-          setMockReturns(returns);
-          for (const [name, err] of Object.entries(errors)) {
-            setMockError(name, err);
-          }
-        }
+    // Hydrate the simulate buffer with the resolved fixture (persona ∪ case),
+    // and the simulated-user prompt from whichever actor drives the case:
+    // the bound persona's system_prompt (persona actor) or the case's inline
+    // system_prompt. A scripted case has no simulated-user prompt to load.
+    if (actor === "persona") setPersonaPrompt(boundPersona?.system_prompt ?? "");
+    else if (actor === "inline") setPersonaPrompt(inlinePrompt);
+    if (spec) {
+      const { vars: rVars, returns, errors } = caseWorldToRuntime(
+        spec,
+        boundPersona,
+        { vars, mocks },
+      );
+      setSimulateContextVars(rVars);
+      setMockReturns(returns);
+      for (const [name, err] of Object.entries(errors)) {
+        setMockError(name, err);
       }
     }
 
@@ -343,7 +382,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
             {testCase.name || testCase.id}
           </div>
           <div className="truncate font-mono text-[10px] text-zinc-500">
-            {testCase.id} | {testCase.persona_id ? "persona" : "scripted"}
+            {testCase.id} | {actorOf(testCase)}
           </div>
         </div>
         <span className="ml-2 text-zinc-400">▾</span>
@@ -420,53 +459,89 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
 
         <div>
           <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
-            persona
+            actor
           </label>
-          {personas.length === 0 ? (
-            <div className="text-[11px] text-zinc-500 italic">
-              No saved personas. Create one in the Personas tab.
-            </div>
-          ) : (
-            <select
-              value={personaId}
-              onChange={(e) => setPersonaId(e.target.value)}
-              title="Source of this case's world (vars + mocks). Required for persona-driven; optional but recommended for scripted (the persona's system_prompt is ignored when user_turns is set)."
-              className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-800"
-            >
-              <option value="">— none —</option>
-              {personas.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name || p.id}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-
-        <div>
-          <div className="flex gap-3">
-            <label className="flex items-center gap-1.5">
-              <input
-                type="radio"
-                checked={source === "scripted"}
-                onChange={() => setSource("scripted")}
-              />
+          <div className="mt-1 flex gap-3">
+            <label className="flex items-center gap-1.5" title="Feed scripted user turns verbatim.">
+              <input type="radio" checked={actor === "scripted"} onChange={() => setActor("scripted")} />
               <span className="text-[11px]">scripted</span>
             </label>
-            <label className="flex items-center gap-1.5">
-              <input
-                type="radio"
-                checked={source === "persona"}
-                onChange={() => setSource("persona")}
-              />
-              <span className="text-[11px]">persona-driven</span>
+            <label className="flex items-center gap-1.5" title="Drive an LLM-as-user from a reusable persona's system prompt.">
+              <input type="radio" checked={actor === "persona"} onChange={() => setActor("persona")} />
+              <span className="text-[11px]">persona</span>
+            </label>
+            <label className="flex items-center gap-1.5" title="Drive an LLM-as-user from an inline one-off system prompt.">
+              <input type="radio" checked={actor === "inline"} onChange={() => setActor("inline")} />
+              <span className="text-[11px]">inline prompt</span>
             </label>
           </div>
 
-          {source === "scripted" && (
+          {actor === "scripted" && (
             <UserTurnsList turns={userTurns} onChange={setUserTurns} />
           )}
+
+          {actor === "persona" &&
+            (personas.length === 0 ? (
+              <div className="mt-2 text-[11px] text-zinc-500 italic">
+                No saved personas. Create one in the Personas tab, or use an inline prompt.
+              </div>
+            ) : (
+              <select
+                value={personaId}
+                onChange={(e) => setPersonaId(e.target.value)}
+                title="Reusable actor. Its system_prompt drives the simulated user; its intrinsic fixture (vars + mocks) is inherited, with this case's situational fixture overriding."
+                className="mt-2 w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-800"
+              >
+                <option value="">— pick a persona —</option>
+                {personas.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name || p.id}
+                  </option>
+                ))}
+              </select>
+            ))}
+
+          {actor === "inline" && (
+            <textarea
+              value={inlinePrompt}
+              onChange={(e) => setInlinePrompt(e.target.value)}
+              rows={6}
+              placeholder="One-off system prompt for the simulated user (no reusable persona file)."
+              className="mt-2 w-full resize-y rounded border border-zinc-300 bg-white p-2 font-mono text-[11px] leading-snug text-zinc-800"
+            />
+          )}
         </div>
+
+        <Section label="situational fixture">
+          <VarsEditor
+            declared={declaredVars}
+            values={vars}
+            onChange={(n, value) => {
+              const next = { ...vars };
+              if (value === undefined || value === null || value === "") delete next[n];
+              else next[n] = value;
+              setVars(next);
+            }}
+          />
+          <MocksEditor
+            caps={mockableCaps}
+            behaviors={mocks}
+            keyOf={(cap) => cap.capabilityId}
+            onChange={(k, behavior) => {
+              const next = { ...mocks };
+              if (behavior === undefined) delete next[k];
+              else next[k] = behavior;
+              setMocks(next);
+            }}
+          />
+          {actor === "persona" && boundPersona && (
+            <ResolvedFixtureView
+              vars={resolved.vars}
+              mocks={resolved.mocks}
+              capabilities={spec_capabilities}
+            />
+          )}
+        </Section>
 
         <Section label="assertions">
           <PerTurnAssertionList rows={perTurnRows} onChange={setPerTurnRows} />
@@ -566,6 +641,53 @@ function Section({ label, children }: { label: string; children: React.ReactNode
     <div>
       <div className="text-[10px] uppercase tracking-wide text-zinc-500">{label}</div>
       <div className="space-y-3">{children}</div>
+    </div>
+  );
+}
+
+// Read-only view of the effective fixture (persona ∪ case) so the merge is
+// never hidden. mocks are keyed by capability id; map to name for display.
+function ResolvedFixtureView({
+  vars,
+  mocks,
+  capabilities,
+}: {
+  vars: Record<string, unknown>;
+  mocks: Record<string, MockBehavior>;
+  capabilities: { id: string; name: string }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const nameOf = (id: string) => capabilities.find((c) => c.id === id)?.name ?? id;
+  const varEntries = Object.entries(vars);
+  const mockEntries = Object.entries(mocks);
+  if (varEntries.length === 0 && mockEntries.length === 0) return null;
+  return (
+    <div className="rounded border border-zinc-200 bg-zinc-50">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between px-2 py-1.5 text-left hover:bg-zinc-100"
+      >
+        <span className="text-[10px] uppercase tracking-wide text-zinc-500">
+          resolved (persona ∪ case) · {varEntries.length} vars · {mockEntries.length} mocks
+        </span>
+        <span className="text-zinc-400">{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <div className="space-y-1.5 border-t border-zinc-100 px-2 py-2 font-mono text-[10px] text-zinc-700">
+          {varEntries.map(([k, v]) => (
+            <div key={k} className="truncate">
+              <span className="text-zinc-500">{k}</span> = {JSON.stringify(v)}
+            </div>
+          ))}
+          {mockEntries.map(([id, b]) => (
+            <div key={id} className="truncate">
+              <span className="text-zinc-500">{nameOf(id)}</span>{" "}
+              {b.kind === "error" ? `→ error: ${b.error}` : `→ ${JSON.stringify(b.returns)}`}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
