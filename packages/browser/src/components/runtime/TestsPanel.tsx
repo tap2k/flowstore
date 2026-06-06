@@ -15,6 +15,18 @@ import { MocksEditor } from "./persona/MocksEditor";
 type Actor = "scripted" | "persona" | "inline";
 type UserTurn = NonNullable<TestCase["user_turns"]>[number];
 
+// One-line descriptions for the vendored built-in Python evaluators, so a name
+// like "tool_calls_check" isn't opaque in the list. Names not here fall back to
+// a generic "Python evaluator" label.
+const BUILTIN_EVALUATORS: Record<string, string> = {
+  tool_calls_check: "every tool call is well-formed against the spec",
+  forbidden_phrases: "fails if a forbidden phrase appears",
+  required_phrases: "fails unless each required phrase appears",
+  max_turn_length: "flags agent turns over the length budget",
+  regex_match: "checks the transcript against a regex",
+  state_check: "asserts final variable values",
+};
+
 // Tests-tab case library + editor. List view by default; click a row to
 // land in the editor view (Personas-tab tried inline expand, but Tests
 // has too many sections for that to read well in 380px). Save persists
@@ -1243,6 +1255,9 @@ function EvaluatorsList({
           const rubric = rubrics.find((r) => r.id === v);
           const primary = rubric?.name || v;
           const isExpanded = expandedId === v;
+          const builtinDesc = rubric
+            ? null
+            : BUILTIN_EVALUATORS[v] ?? "Python evaluator (hand-authored)";
           return (
             <div key={i} className="rounded border border-zinc-200 bg-white">
               <div className="flex items-center gap-1 px-2 py-0.5">
@@ -1254,7 +1269,7 @@ function EvaluatorsList({
                   title={
                     rubric
                       ? "Edit rubric inline"
-                      : "Custom evaluator name — resolves to tests/evaluators/<name>.py (hand-authored)"
+                      : `Built-in evaluator — runs automatically; edit tests/evaluators/${v}.py to change.`
                   }
                 >
                   <div className="flex items-center gap-1">
@@ -1264,11 +1279,21 @@ function EvaluatorsList({
                       </span>
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[11px] text-zinc-800">{primary}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-[11px] text-zinc-800">{primary}</span>
+                        {!rubric && (
+                          <span className="shrink-0 rounded bg-zinc-100 px-1 text-[9px] uppercase tracking-wide text-zinc-500">
+                            built-in
+                          </span>
+                        )}
+                      </div>
                       {rubric?.name && rubric.name !== v && (
                         <div className="truncate font-mono text-[10px] text-zinc-500">
                           {v}
                         </div>
+                      )}
+                      {builtinDesc && (
+                        <div className="truncate text-[10px] text-zinc-500">{builtinDesc}</div>
                       )}
                     </div>
                   </div>
