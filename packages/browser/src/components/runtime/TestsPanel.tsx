@@ -490,7 +490,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
               <select
                 value={personaId}
                 onChange={(e) => setPersonaId(e.target.value)}
-                title="Reusable actor. Its system_prompt drives the simulated user; its intrinsic fixture (vars + mocks) is inherited, with this case's situational fixture overriding."
+                title="Reusable actor. Its system_prompt drives the simulated user; its vars + mocks are inherited, with this case's fixture overriding per key."
                 className="mt-2 w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-800"
               >
                 <option value="">— pick a persona —</option>
@@ -513,7 +513,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
           )}
         </div>
 
-        <Section label="situational fixture">
+        <Section label="fixture">
           <VarsEditor
             declared={declaredVars}
             values={vars}
@@ -670,7 +670,7 @@ function ResolvedFixtureView({
         className="flex w-full items-center justify-between px-2 py-1.5 text-left hover:bg-zinc-100"
       >
         <span className="text-[10px] uppercase tracking-wide text-zinc-500">
-          resolved (persona ∪ case) · {varEntries.length} vars · {mockEntries.length} mocks
+          resolved (persona + case) · {varEntries.length} vars · {mockEntries.length} mocks
         </span>
         <span className="text-zinc-400">{open ? "▾" : "▸"}</span>
       </button>
