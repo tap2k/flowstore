@@ -65,7 +65,7 @@ export function compileSystemPrompt(
   const sub = (t: string) => (vars ? substituteVars(t, vars) : t);
 
   const inner = compileInnerRaw(spec, ctx, sub, vars);
-  const tmpl = loc(spec.agent.system_prompt, ctx);
+  const tmpl = spec.agent.system_prompt ?? "";
 
   let untrimmed: string;
   let segments: PromptSegment[];

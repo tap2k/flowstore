@@ -20,7 +20,6 @@ import type {
   ExitPath,
   Flow,
   Guardrail,
-  LocalizedString,
   Spec,
   VariableDecl,
 } from "../schema/v0";
@@ -156,7 +155,7 @@ function diffAgent(base: Agent, head: Agent, ctx: Ctx): EntityDiff | null {
   pushScalar(fields, "languages", joinArr(base.meta?.languages), joinArr(head.meta?.languages));
   pushScalar(fields, "chatbot_initiates", base.chatbot_initiates, head.chatbot_initiates);
   pushRef(fields, "entry_flow_id", base.entry_flow_id, head.entry_flow_id, ctx.names);
-  pushText(fields, "system_prompt", localized(base.system_prompt), localized(head.system_prompt), ctx);
+  pushText(fields, "system_prompt", base.system_prompt, head.system_prompt, ctx);
   pushText(fields, "notes", base.notes, head.notes, ctx);
 
   const children: EntityDiff[] = [
@@ -427,13 +426,6 @@ function pushCollection(out: FieldChange[], field: string, c: ChangeCount): void
 }
 
 // ── Small value helpers ──────────────────────────────────────────────────────
-
-function localized(v: LocalizedString | undefined): string | undefined {
-  if (v == null) return undefined;
-  if (typeof v === "string") return v;
-  const k = Object.keys(v)[0];
-  return k ? v[k] : undefined;
-}
 
 function conditionStr(c: Condition | undefined): string | undefined {
   if (!c) return undefined;
