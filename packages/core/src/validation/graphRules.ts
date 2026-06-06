@@ -1,5 +1,5 @@
 import type { Spec } from "@flowstore/core/schema/v0";
-import { isFlowGoto, resolveLocalized, defaultLanguage } from "@flowstore/core/schema/v0";
+import { isFlowGoto } from "@flowstore/core/schema/v0";
 import { GENERATED_PLACEHOLDER } from "@flowstore/core/codegen/promptGenerator";
 
 export type IssueLocation =
@@ -59,8 +59,7 @@ export function validateGraph(spec: Spec): GraphIssue[] {
   // agent.system_prompt template checks. Both are soft advisories — the
   // compiler accepts either case — but the author probably wants to know.
   if (spec.agent.system_prompt !== undefined) {
-    const defaultLang = defaultLanguage(spec.agent.meta.languages);
-    const resolved = resolveLocalized(spec.agent.system_prompt, defaultLang, defaultLang);
+    const resolved = spec.agent.system_prompt;
     if (resolved.length > 0) {
       const first = resolved.indexOf(GENERATED_PLACEHOLDER);
       if (first < 0) {
@@ -194,8 +193,8 @@ function lintVariableCasing(spec: Spec): GraphIssue[] {
     declaredKeys.add(name);
     record(name, { kind: "global" });
   }
-  for (const t of localizedValues(spec.agent.system_prompt)) {
-    for (const name of placeholderNames(t)) record(name, { kind: "global" });
+  for (const name of placeholderNames(spec.agent.system_prompt ?? "")) {
+    record(name, { kind: "global" });
   }
   for (const f of spec.flows) {
     const flowAt: IssueLocation = { kind: "flow", flowId: f.id };

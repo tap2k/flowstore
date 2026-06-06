@@ -265,7 +265,11 @@ export const AgentSchema = Type.Object(
     // (role, guardrails, flows, knowledge…). Omitting the placeholder is a
     // deliberate full override; codegen surfaces a warning but allows it.
     // `{variable}` substitution applies just as in flow instructions.
-    system_prompt: Type.Optional(LocalizedString),
+    // Single-language by design: this is LLM-facing framing the model reads,
+    // not a verbatim utterance, so it stays a plain string (the model handles
+    // multilingual reasoning natively). Only user-facing utterances — script
+    // text, FAQ answers, capability pending_message — are LocalizedString.
+    system_prompt: Type.Optional(Type.String()),
     variables: Type.Optional(Type.Record(Type.String(), VariableDeclSchema)),
     guardrails: Type.Optional(Type.Array(GuardrailSchema)),
     business_goals: Type.Optional(Type.Array(BusinessGoalSchema)),

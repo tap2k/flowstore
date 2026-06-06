@@ -69,20 +69,12 @@ export function AgentSheet({ onClose }: { onClose: () => void }) {
         The agent sends the first message
       </label>
       <Field label="System prompt template">
-        {typeof agent.system_prompt === "object" && agent.system_prompt !== null ? (
-          <div className="text-[11px] text-zinc-600 bg-zinc-50 border border-zinc-200 rounded px-2 py-1.5">
-            Multilingual template (
-            {Object.keys(agent.system_prompt as Record<string, string>).join(", ")}
-            ) — edit in JSON for now.
-          </div>
-        ) : (
-          <textarea
-            className={`${inputClass} resize-y min-h-[50px] font-mono`}
-            value={agent.system_prompt ?? ""}
-            onChange={(e) => patch({ system_prompt: e.target.value || undefined })}
-            placeholder={"{generated}"}
-          />
-        )}
+        <textarea
+          className={`${inputClass} resize-y min-h-[50px] font-mono`}
+          value={agent.system_prompt ?? ""}
+          onChange={(e) => patch({ system_prompt: e.target.value || undefined })}
+          placeholder={"{generated}"}
+        />
         <p className="text-[11px] text-zinc-500 mt-1 leading-snug">
           Free text wrapped around the compiled prompt.{" "}
           <code className="bg-zinc-100 px-1 py-0.5 rounded text-[10px]">{"{generated}"}</code>{" "}
