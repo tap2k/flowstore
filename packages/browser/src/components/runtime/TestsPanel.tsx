@@ -13,6 +13,7 @@ import { VarsEditor } from "./persona/VarsEditor";
 import { MocksEditor } from "./persona/MocksEditor";
 
 type Actor = "scripted" | "persona" | "inline";
+type UserTurn = NonNullable<TestCase["user_turns"]>[number];
 
 // Tests-tab case library + editor. List view by default; click a row to
 // land in the editor view (Personas-tab tried inline expand, but Tests
@@ -178,7 +179,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
   // or inline (one-off system_prompt). Fixture (vars + mocks) is independent
   // and situational — it merges over the bound persona's intrinsic fixture.
   const [actor, setActor] = useState<Actor>(actorOf(testCase));
-  const [userTurns, setUserTurns] = useState<string[]>(testCase.user_turns ?? []);
+  const [userTurns, setUserTurns] = useState<UserTurn[]>(testCase.user_turns ?? []);
   const [personaId, setPersonaId] = useState(testCase.persona_id ?? "");
   const [inlinePrompt, setInlinePrompt] = useState(testCase.system_prompt ?? "");
   const [vars, setVars] = useState<Record<string, unknown>>(testCase.vars ?? {});
@@ -692,15 +693,25 @@ function ResolvedFixtureView({
   );
 }
 
+// A scripted turn is either plain text or a voice barge-in object
+// ({text, barge_in}); the editor edits the text and preserves the barge-in
+// flag (authored in JSON / the voice harness, not toggled here).
+function turnText(t: UserTurn): string {
+  return typeof t === "string" ? t : t.text;
+}
+function setTurnText(t: UserTurn, text: string): UserTurn {
+  return typeof t === "string" ? text : { ...t, text };
+}
+
 function UserTurnsList({
   turns,
   onChange,
 }: {
-  turns: string[];
-  onChange: (turns: string[]) => void;
+  turns: UserTurn[];
+  onChange: (turns: UserTurn[]) => void;
 }) {
   function update(i: number, text: string) {
-    onChange(turns.map((t, idx) => (idx === i ? text : t)));
+    onChange(turns.map((t, idx) => (idx === i ? setTurnText(t, text) : t)));
   }
   function remove(i: number) {
     onChange(turns.filter((_, idx) => idx !== i));
@@ -718,12 +729,17 @@ function UserTurnsList({
       {turns.map((t, i) => (
         <div key={i} className="flex items-start gap-1.5">
           <span className="mt-1.5 w-4 text-right text-[10px] text-zinc-400">{i + 1}</span>
-          <textarea
-            value={t}
-            onChange={(e) => update(i, e.target.value)}
-            rows={1}
-            className="flex-1 rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-800 resize-y"
-          />
+          <div className="flex-1">
+            <textarea
+              value={turnText(t)}
+              onChange={(e) => update(i, e.target.value)}
+              rows={1}
+              className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-800 resize-y"
+            />
+            {typeof t !== "string" && t.barge_in && (
+              <span className="text-[10px] text-amber-700">⊣ barge-in</span>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => remove(i)}

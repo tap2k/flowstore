@@ -107,13 +107,25 @@ const CapabilityAssertion = Type.Object(
 // tests/rubrics/<name>.rubric.json — the loader picks whichever matches.
 // Per-file `model` field pins the model for reproducibility; resolution chain
 // is documented in FILE-MODEL.md.
+// A scripted user turn: plain text, or a voice barge-in turn — the
+// interruption text plus a flag the --voice harness reads to truncate the
+// agent's prior reply to what the caller "heard" before cutting in. Most
+// turns are plain strings.
+const ScriptedTurn = Type.Union([
+  Type.String(),
+  Type.Object(
+    { text: Type.String(), barge_in: Type.Optional(Type.Boolean()) },
+    { additionalProperties: false },
+  ),
+]);
+
 export const TestCaseSchema = Type.Object(
   {
     $schema: Type.Literal("flowstore://test/case/v0"),
     id: Type.String(),
     name: Type.Optional(Type.String()),
     notes: Type.Optional(Type.String()),
-    user_turns: Type.Optional(Type.Array(Type.String())),
+    user_turns: Type.Optional(Type.Array(ScriptedTurn)),
     // Inline one-off simulated-user actor: drives LLM-as-user without a
     // reusable persona file. Mutually exclusive with user_turns / persona_id.
     system_prompt: Type.Optional(Type.String()),

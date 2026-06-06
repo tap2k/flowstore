@@ -258,7 +258,9 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           if (stopRequestedRef.current) break;
           const s = useSimulateStore.getState().status;
           if (s === "ended" || s === "error") break;
-          await send(turn);
+          // A turn may be a voice barge-in object; the editor's Simulate plays
+          // its text (barge-in truncation is a --voice harness concern).
+          await send(typeof turn === "string" ? turn : turn.text);
         }
       } else if (activeCase.persona_id) {
         // Persona-driven: kick the existing autoRun loop. The persona
