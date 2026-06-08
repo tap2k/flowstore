@@ -79,14 +79,26 @@ export function CapabilitiesSheet({ onClose }: { onClose: () => void }) {
             </div>
             {import.meta.env.VITE_DEV === "1" && c.kind === "function" && (
               <div className="space-y-1.5 pt-1">
-                <label className="flex items-center gap-1.5 text-[11px] text-zinc-600">
-                  <input
-                    type="checkbox"
-                    checked={c.non_blocking ?? false}
-                    onChange={(e) => update({ ...c, non_blocking: e.target.checked || undefined })}
-                  />
-                  Non-blocking (keep the conversation going while it runs)
-                </label>
+                <div className="flex flex-wrap items-center gap-4">
+                  <label className="flex items-center gap-1.5 text-[11px] text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={c.ends_conversation ?? false}
+                      onChange={(e) =>
+                        update({ ...c, ends_conversation: e.target.checked || undefined })
+                      }
+                    />
+                    Ends the conversation
+                  </label>
+                  <label className="flex items-center gap-1.5 text-[11px] text-zinc-600">
+                    <input
+                      type="checkbox"
+                      checked={c.non_blocking ?? false}
+                      onChange={(e) => update({ ...c, non_blocking: e.target.checked || undefined })}
+                    />
+                    Non-blocking (keep the conversation going while it runs)
+                  </label>
+                </div>
                 {c.non_blocking && (
                   <input
                     className={inputClass}

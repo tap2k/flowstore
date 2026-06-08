@@ -135,6 +135,15 @@ export const CapabilitySchema = Type.Object(
     // actions; `retrieve_on_turn` is always pre-LLM/synchronous and ignores
     // this. Absent/false = synchronous.
     non_blocking: Type.Optional(Type.Boolean()),
+    // When true, invoking this capability ends the conversation (the agent's
+    // "hang up" — a clean end, or a transfer/escalation that hands the call
+    // off). Like `non_blocking`, this is portable conversation behavior that
+    // names the effect, not the mechanism: the runtime raises a terminal
+    // SessionEnded when the capability is invoked, and prompt-mode harnesses
+    // end the loop on the captured invocation. Complements a flow exit's
+    // `goto: "END"` (the state-machine terminal) — either can end a call.
+    // Absent/false = non-terminal.
+    ends_conversation: Type.Optional(Type.Boolean()),
     // Optional holding line spoken when a non-blocking dispatch starts ("Let me
     // pull that up…") so there's no dead air while the capability runs.
     pending_message: Type.Optional(LocalizedString),

@@ -786,10 +786,17 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           events: capabilityEvents(res.invocations, sessionId),
           latencyMs,
         };
+        // An ends_conversation capability is the agent's "hang up": invoking it
+        // terminates the call (tool name === capability name). Mirrors the
+        // runner raising a terminal SessionEnded; stops the persona loop.
+        const endsConvo = (specSnapshot?.agent.capabilities ?? []).some(
+          (cap) => cap.ends_conversation && res.invocations.some((inv) => inv.name === cap.name),
+        );
         set({
           transcript: [...get().transcript, agentTurn],
           lastUsage: res.usage ?? null,
-          status: "ready",
+          status: endsConvo ? "ended" : "ready",
+          ...(endsConvo ? { autoRun: false } : {}),
         });
       } catch (e) {
         // Roll back the optimistic user turn (see the runner branch) and stop

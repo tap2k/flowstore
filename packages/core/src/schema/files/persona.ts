@@ -20,7 +20,9 @@ export const PersonaSchema = Type.Object(
     // not one. (Legacy "world-only" personas omitted the key entirely; that
     // absence is migrated away before validation. A present-but-empty prompt is
     // a new-model authoring mistake, rejected here at load rather than silently
-    // dropped.)
+    // dropped.) How to AUTHOR a good persona prompt lives in SCHEMA.md
+    // § Testing Artifact Schemas → Persona (the author-facing surface); this is
+    // just the shape contract.
     system_prompt: Type.String({ minLength: 1 }),
     name: Type.Optional(Type.String()),
     notes: Type.Optional(Type.String()),

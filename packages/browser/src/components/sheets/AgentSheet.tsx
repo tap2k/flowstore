@@ -60,32 +60,35 @@ export function AgentSheet({ onClose }: { onClose: () => void }) {
           onChange={(id) => patch({ entry_flow_id: id ?? "" })}
         />
       </Field>
-      <Field label="Modality">
-        <select
-          className={inputClass}
-          value={agent.meta.modality}
-          onChange={(e) =>
-            patch({ meta: { ...agent.meta, modality: e.target.value as Modality } })
-          }
-        >
-          <option value="voice">Voice</option>
-          <option value="text">Text</option>
-          {/* spec-only: hidden so it's never offered as a choice, but a spec that
-              already declares "multimodal" still round-trips without a
-              controlled-<select> value mismatch. */}
-          <option value="multimodal" hidden>
-            Multimodal
-          </option>
-        </select>
-      </Field>
-      <label className="flex items-center gap-2 text-xs text-zinc-700">
-        <input
-          type="checkbox"
-          checked={agent.chatbot_initiates ?? false}
-          onChange={(e) => patch({ chatbot_initiates: e.target.checked || undefined })}
-        />
-        The agent sends the first message
-      </label>
+      <div className="flex items-center gap-4">
+        <label className="flex items-center gap-2 text-xs text-zinc-700">
+          <input
+            type="checkbox"
+            checked={agent.chatbot_initiates ?? false}
+            onChange={(e) => patch({ chatbot_initiates: e.target.checked || undefined })}
+          />
+          The agent sends the first message
+        </label>
+        <label className="flex items-center gap-1.5 text-xs text-zinc-700">
+          Modality
+          <select
+            className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            value={agent.meta.modality}
+            onChange={(e) =>
+              patch({ meta: { ...agent.meta, modality: e.target.value as Modality } })
+            }
+          >
+            <option value="voice">Voice</option>
+            <option value="text">Text</option>
+            {/* spec-only: hidden so it's never offered as a choice, but a spec that
+                already declares "multimodal" still round-trips without a
+                controlled-<select> value mismatch. */}
+            <option value="multimodal" hidden>
+              Multimodal
+            </option>
+          </select>
+        </label>
+      </div>
       <Field label="System prompt template">
         <textarea
           className={`${inputClass} resize-y min-h-[50px] font-mono`}
