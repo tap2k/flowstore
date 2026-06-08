@@ -34,6 +34,8 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
 
   const personaPrompt = useSimulateStore((s) => s.personaPrompt);
   const autoRun = useSimulateStore((s) => s.autoRun);
+  const status = useSimulateStore((s) => s.status);
+  const hasTurns = useSimulateStore((s) => s.transcript.length > 0);
   const personaTurnLimit = useSimulateStore((s) => s.personaTurnLimit);
   const personaTurnsLeft = useSimulateStore((s) => s.personaTurnsLeft);
   const setPersonaPrompt = useSimulateStore((s) => s.setPersonaPrompt);
@@ -69,6 +71,11 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
   const [savingAsName, setSavingAsName] = useState<string | null>(null);
 
   const configured = personaPrompt.trim().length > 0;
+  // Disambiguate the three non-running states so the run button doesn't show a
+  // bare "▶" for all of them: the conversation concluded ([DONE]/ended) vs. it
+  // paused mid-run at the turn limit vs. a fresh idle start.
+  const conversationEnded = !autoRun && status === "ended";
+  const pausedMidRun = !autoRun && status !== "ended" && hasTurns;
   const loadedPersona = loadedPersonaId
     ? personas.find((p) => p.id === loadedPersonaId) ?? null
     : null;
@@ -271,19 +278,29 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
                   ? "Write a persona system prompt to start."
                   : autoRun
                     ? "Stop the persona. An in-flight reply is dropped."
-                    : "Start: persona runs for the configured number of turns, then pauses. Click again for more."
+                    : conversationEnded
+                      ? "Conversation ended. Click to restart the persona from a fresh session."
+                      : pausedMidRun
+                        ? "Paused (stopped or hit the turn limit). Click to run more turns."
+                        : "Start: persona runs for the configured number of turns, then pauses. Click again for more."
             }
             className={
               autoRun
                 ? "rounded border border-red-300 bg-red-50 px-2 py-0.5 text-[11px] text-red-700 hover:bg-red-100 disabled:opacity-40"
-                : "rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+                : conversationEnded
+                  ? "rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"
+                  : "rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
             }
           >
-            {autoRun ? "■" : "▶"}
+            {autoRun ? "■" : conversationEnded ? "✓" : "▶"}
           </button>
-          {autoRun && (
+          {autoRun ? (
             <span className="text-[10px] text-zinc-400">· {personaTurnsLeft} left</span>
-          )}
+          ) : conversationEnded ? (
+            <span className="text-[10px] text-emerald-600">· done</span>
+          ) : pausedMidRun ? (
+            <span className="text-[10px] text-amber-600">· paused</span>
+          ) : null}
         </div>
       </div>
 
