@@ -23,7 +23,7 @@ That's the whole routing model.
 ## Data Model
 
 **Agent envelope** — one per spec, outside the graph.
-- Meta: name, purpose, client, languages
+- Meta: name, purpose, client, tone, modality, languages
 - System prompt
 - Global guardrails, business goals
 - Knowledge: FAQ, glossary, tables
@@ -158,6 +158,7 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
     "purpose": "string",
     "client": "string",
     "tone": "string",
+    "modality": "voice" | "text" | "multimodal",
     "languages": ["EN", "ES"]
   },
 
@@ -237,6 +238,7 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
 ### Field Notes
 
 - **`meta.tone`** — optional one-phrase voice/register descriptor (e.g. "warm and conversational, like a real barista"). Appended to the synthesized role line. Voice only — behavioral rules go in `guardrails`.
+- **`meta.modality`** — **required**. The channel the agent runs on: `"voice"` (spoken/telephony), `"text"` (chat), or `"multimodal"` (both). A defining, design-time fact, not a per-run knob. It does **not** alter the compiled agent prompt — the agent author has full control over the agent's output (and the runtime may strip markup like route tags before TTS). It grounds the persona/user-simulator that tests the agent, and the scripted-test harness derives its voice-realism default from it. This is *semantic* channel info, like `languages`; runtime audio knobs (TTS voice, VAD, transport) stay out of the spec.
 - **`meta.languages`** — language codes supported by this agent. Drives translation columns.
 - **`chatbot_initiates`** — whether the agent sends the first message.
 - **`system_prompt`** — optional author-owned template wrapping the compiled prompt. `LocalizedString` (plain string for monolingual specs, `{ <lang>: string }` for multilingual). The reserved placeholder `{generated}` expands to all spec-derived sections (role, runtime context, guardrails, flows, interrupts, knowledge); text on either side becomes preamble/postamble. `{variable}` substitution applies as elsewhere. Omitting `{generated}` is a deliberate full override — codegen surfaces a warning but emits the template as-is. An author-defined variable named `generated` would collide with the placeholder and is reserved by convention. Prefer guardrails or per-flow instructions when the rule fits there; reach for `system_prompt` only when the framing doesn't.

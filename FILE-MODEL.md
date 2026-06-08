@@ -386,7 +386,7 @@ Roles are optional. Unset role → falls back to `default`. Per-file `model` fie
 5. Env var (`FLOWSTORE_AGENT_MODEL`, `FLOWSTORE_JUDGE_MODEL`, etc.)
 6. Per-call CLI override (`--model`, `--agent-model`, `--judge-model`, `--user-sim-model`)
 
-**Runtime config (STT, TTS, voices, telephony, audio, barge-in, VAD, transport choice) is explicitly out of scope for flowstore.** Those live with the runtime / Pipecat config / deployment infrastructure. flowstore declares semantic info (e.g. `meta.languages`); the runtime picks appropriate runtime knobs. Per "execution separate from spec" — see [SCHEMA.md § Execution Separate From Spec](./SCHEMA.md#execution-separate-from-spec).
+**Runtime config (STT, TTS, voices, telephony, audio, barge-in, VAD, transport choice) is explicitly out of scope for flowstore.** Those live with the runtime / Pipecat config / deployment infrastructure. flowstore declares semantic info (e.g. `meta.languages`, `meta.modality`); the runtime picks appropriate runtime knobs. Note the boundary: `meta.modality` (voice/text/multimodal) is *semantic* — it shapes the compiled prompt and the persona — whereas the specific TTS voice, VAD thresholds, and transport that realize a voice agent are runtime config. Per "execution separate from spec" — see [SCHEMA.md § Execution Separate From Spec](./SCHEMA.md#execution-separate-from-spec).
 
 ---
 

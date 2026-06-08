@@ -148,6 +148,17 @@ const AgentMetaSchema = Type.Object(
     purpose: Type.String(),
     client: Type.Optional(Type.String()),
     tone: Type.Optional(Type.String()),
+    // The channel the agent runs on. Required — it's a defining, design-time
+    // fact about the agent (it shapes the compiled system prompt and the
+    // persona that tests it), not a per-run knob. "voice" ⇒ spoken/telephony,
+    // "text" ⇒ chat, "multimodal" ⇒ deployed on both. Runtime audio knobs
+    // (TTS voice, VAD, transport) stay out of the spec; this is semantic, like
+    // `languages`.
+    modality: Type.Union([
+      Type.Literal("voice"),
+      Type.Literal("text"),
+      Type.Literal("multimodal"),
+    ]),
     languages: Type.Optional(Type.Array(Type.String())),
   },
   strict
@@ -440,6 +451,23 @@ export type TableEntry = Static<typeof TableEntrySchema>;
 export type Knowledge = Static<typeof KnowledgeSchema>;
 export type Capability = Static<typeof CapabilitySchema>;
 export type AgentMeta = Static<typeof AgentMetaSchema>;
+export type Modality = AgentMeta["modality"];
+
+// A short human label for the channel. Used only to ground the persona/user-sim
+// (and generation context) in how a real person converses on this channel. It is
+// deliberately NOT injected into the agent's own compiled prompt: the agent
+// author has full control over the agent's output (and the runtime may strip
+// markup such as route tags before TTS).
+export function channelLabel(modality: Modality): string {
+  switch (modality) {
+    case "voice":
+      return "a spoken phone call";
+    case "multimodal":
+      return "a conversation that may be spoken aloud or typed";
+    case "text":
+      return "a text chat";
+  }
+}
 export type Condition = Static<typeof ConditionSchema>;
 export type AssignValue = Static<typeof AssignValueSchema>;
 export type ExitPathAction = Static<typeof ExitPathActionSchema>;

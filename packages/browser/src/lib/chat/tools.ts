@@ -103,6 +103,7 @@ const AgentPatchSchema: JSONSchema = {
         name: { type: "string" },
         purpose: { type: "string" },
         client: { type: "string" },
+        modality: { type: "string", enum: ["voice", "text", "multimodal"] },
         languages: { type: "array", items: { type: "string" } },
       },
     },

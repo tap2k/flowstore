@@ -151,6 +151,7 @@ function diffAgent(base: Agent, head: Agent, ctx: Ctx): EntityDiff | null {
   pushScalar(fields, "name", base.meta?.name, head.meta?.name);
   pushScalar(fields, "purpose", base.meta?.purpose, head.meta?.purpose);
   pushScalar(fields, "tone", base.meta?.tone, head.meta?.tone);
+  pushScalar(fields, "modality", base.meta?.modality, head.meta?.modality);
   pushScalar(fields, "client", base.meta?.client, head.meta?.client);
   pushScalar(fields, "languages", joinArr(base.meta?.languages), joinArr(head.meta?.languages));
   pushScalar(fields, "chatbot_initiates", base.chatbot_initiates, head.chatbot_initiates);

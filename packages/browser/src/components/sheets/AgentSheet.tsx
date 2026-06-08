@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
-import type { Agent } from "@flowstore/core/schema/v0";
+import type { Agent, Modality } from "@flowstore/core/schema/v0";
 import { Field, inputClass } from "@/components/inspector/primitives";
 import { SingleFlowPicker } from "@/components/inspector/FlowPicker";
 import { SheetShell } from "./SheetShell";
@@ -59,6 +59,24 @@ export function AgentSheet({ onClose }: { onClose: () => void }) {
           selected={agent.entry_flow_id || null}
           onChange={(id) => patch({ entry_flow_id: id ?? "" })}
         />
+      </Field>
+      <Field label="Modality">
+        <select
+          className={inputClass}
+          value={agent.meta.modality}
+          onChange={(e) =>
+            patch({ meta: { ...agent.meta, modality: e.target.value as Modality } })
+          }
+        >
+          <option value="voice">Voice</option>
+          <option value="text">Text</option>
+          {/* spec-only: hidden so it's never offered as a choice, but a spec that
+              already declares "multimodal" still round-trips without a
+              controlled-<select> value mismatch. */}
+          <option value="multimodal" hidden>
+            Multimodal
+          </option>
+        </select>
       </Field>
       <label className="flex items-center gap-2 text-xs text-zinc-700">
         <input

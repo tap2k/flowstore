@@ -18,7 +18,7 @@ function spec(overrides: {
 }): Spec {
   return {
     agent: {
-      meta: { name: "T", languages: ["EN"] },
+      meta: { name: "T", modality: "voice", languages: ["EN"] },
       entry_flow_id: "entry" in overrides ? overrides.entry : "f1",
       capabilities: overrides.capabilities,
       system_prompt: overrides.system_prompt,
@@ -270,7 +270,7 @@ describe("validateTesting", () => {
 describe("validateGraph — canonical-case variable lint", () => {
   const castSpec = (parts: { variables?: Record<string, unknown>; flows: unknown[] }): Spec =>
     ({
-      agent: { meta: { name: "T", languages: ["EN"] }, entry_flow_id: "f1", variables: parts.variables },
+      agent: { meta: { name: "T", modality: "voice", languages: ["EN"] }, entry_flow_id: "f1", variables: parts.variables },
       flows: parts.flows,
     } as unknown as Spec);
 
