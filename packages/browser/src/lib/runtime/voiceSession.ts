@@ -22,6 +22,10 @@ export interface VoiceSessionConfig {
   // Resolves a capability tool call to a JSON-serializable mock result —
   // the store passes resolveMockedCall bound to the current mocks/errors.
   resolveTool: (name: string, args: Record<string, unknown>) => unknown;
+  // When the agent speaks first: trigger one model generation right after
+  // connect so it greets without waiting for user audio (the voice analog of
+  // text mode's synthetic [begin] turn).
+  chatbotInitiates?: boolean;
   language?: string;
   onUserTurn: (text: string) => void;
   // latencyMs: time from the user finishing their turn to the agent's first
@@ -100,6 +104,20 @@ export class VoiceSession {
     } catch (e) {
       this.cfg.onError(e instanceof Error ? e.message : "Failed to open voice session.");
       throw e;
+    }
+
+    // Agent-speaks-first: kick one generation so the model greets without
+    // waiting for the user. The "[begin]" text mirrors text mode's synthetic
+    // opener turn (the Live API needs at least one turn to start; the system
+    // prompt shapes the actual greeting). It's injected as client content,
+    // not audio, so it never produces an input transcription → no user bubble.
+    // Stamp lastInputAt so the opener still gets a time-to-first-audio reading.
+    if (this.cfg.chatbotInitiates) {
+      this.lastInputAt = performance.now();
+      this.session?.sendClientContent({
+        turns: [{ role: "user", parts: [{ text: "[begin]" }] }],
+        turnComplete: true,
+      });
     }
 
     // Start the mic only once the socket is live, streaming PCM16 frames up.

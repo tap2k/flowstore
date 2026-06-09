@@ -658,6 +658,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           tools: buildCapabilityTools(spec),
           resolveTool: (name) =>
             resolveMockedCall(name, get().mockReturns, get().mockErrors),
+          chatbotInitiates: spec.agent.chatbot_initiates ?? false,
           language,
           onUserTurn: (text) => {
             set({
