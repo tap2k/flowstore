@@ -667,7 +667,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
               ],
             });
           },
-          onAgentTurn: (text, caps) => {
+          onAgentTurn: (text, caps, latencyMs) => {
             set({
               transcript: [
                 ...get().transcript,
@@ -676,6 +676,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
                   text,
                   ts: Date.now(),
                   events: capabilityEvents(caps, sessionId),
+                  ...(latencyMs !== undefined ? { latencyMs } : {}),
                 },
               ],
               // A fresh agent turn invalidates any prior evaluation.

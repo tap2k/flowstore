@@ -24,7 +24,11 @@ export interface VoiceSessionConfig {
   resolveTool: (name: string, args: Record<string, unknown>) => unknown;
   language?: string;
   onUserTurn: (text: string) => void;
-  onAgentTurn: (text: string, capabilities: CapabilityInvocation[]) => void;
+  // latencyMs: time from the user finishing their turn to the agent's first
+  // response (audio or transcription) — the voice analog of text's
+  // send→response latency. undefined when there's no preceding user turn to
+  // measure from (e.g. the chatbot_initiates opener).
+  onAgentTurn: (text: string, capabilities: CapabilityInvocation[], latencyMs?: number) => void;
   onPhase: (phase: VoicePhase) => void;
   onStatus: (status: VoiceStatus) => void;
   onError: (message: string) => void;
@@ -41,6 +45,13 @@ export class VoiceSession {
   private userBuf = "";
   private agentBuf = "";
   private pendingCapabilities: CapabilityInvocation[] = [];
+
+  // Latency tracking, reset each turn. lastInputAt marks the most recent user
+  // speech (a proxy for "user stopped talking"); turnLatencyMs is captured the
+  // first time the agent responds, measured from there.
+  private lastInputAt: number | null = null;
+  private respondedThisTurn = false;
+  private turnLatencyMs: number | undefined = undefined;
 
   constructor(private cfg: VoiceSessionConfig) {}
 
@@ -129,11 +140,15 @@ export class VoiceSession {
     if (this.closed) return;
     const content = msg.serverContent;
 
-    // Agent audio out → playback queue.
+    // Agent audio out → playback queue. The first audio chunk also marks the
+    // response start for latency (audio usually leads the transcription).
     const parts = content?.modelTurn?.parts ?? [];
     for (const part of parts) {
       const data = part.inlineData?.data;
-      if (data) this.player?.enqueue(data);
+      if (data) {
+        this.markResponded();
+        this.player?.enqueue(data);
+      }
     }
 
     // Barge-in: the model says a user utterance interrupted it. Drop queued
@@ -148,10 +163,12 @@ export class VoiceSession {
     const userText = content?.inputTranscription?.text;
     if (userText) {
       this.userBuf += userText;
+      this.lastInputAt = performance.now();
       this.cfg.onPhase("listening");
     }
     const agentText = content?.outputTranscription?.text;
     if (agentText) {
+      this.markResponded();
       this.flushUserTurn();
       this.agentBuf += agentText;
     }
@@ -184,11 +201,26 @@ export class VoiceSession {
   private flushAgentTurn(): void {
     const text = this.agentBuf.trim();
     const caps = this.pendingCapabilities;
+    const latencyMs = this.turnLatencyMs;
     this.agentBuf = "";
     this.pendingCapabilities = [];
     // Emit if there's spoken text OR capabilities fired (a silent tool turn
     // still belongs in the timeline).
-    if (text || caps.length > 0) this.cfg.onAgentTurn(text, caps);
+    if (text || caps.length > 0) this.cfg.onAgentTurn(text, caps, latencyMs);
+    // Reset latency tracking for the next exchange.
+    this.lastInputAt = null;
+    this.respondedThisTurn = false;
+    this.turnLatencyMs = undefined;
     this.cfg.onPhase("idle");
+  }
+
+  // Capture response latency the first time the agent reacts this turn,
+  // measured from the user's last speech. Idempotent within a turn.
+  private markResponded(): void {
+    if (this.respondedThisTurn) return;
+    this.respondedThisTurn = true;
+    if (this.lastInputAt != null) {
+      this.turnLatencyMs = Math.round(performance.now() - this.lastInputAt);
+    }
   }
 }
