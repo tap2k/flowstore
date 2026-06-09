@@ -156,9 +156,15 @@ export const TestCaseSchema = Type.Object(
     // a `--tag <name>` filter that includes only cases carrying that tag.
     // Colon-prefixed namespaces are the lightweight convention for richer
     // metadata: "src:gold:<id>" / "src:session:<id>" / "src:bug:<id>" /
-    // "src:authored" for provenance; bare tags for routing buckets
-    // ("negotiation", "after-grace", "wrong-number"). Promote a convention
-    // to a structured field only when a consumer earns it.
+    // "src:authored" for provenance; "flow:<exact_flow_id>" to annotate which
+    // flow(s) a case exercises — repeat it for cases that span several, omit it
+    // for cross-cutting cases (red-team, voice, tone) that target no single
+    // flow. flow: tags are unvalidated annotation for filtering and grouping,
+    // NOT a coverage guarantee: nothing checks them against the spec's flows or
+    // migrates them on rename, so a tag pointing at a renamed/removed flow just
+    // goes stale silently. Bare tags remain for routing buckets ("negotiation",
+    // "after-grace", "wrong-number"). Promote a convention to a structured field
+    // only when a consumer earns it.
     tags: Type.Optional(Type.Array(Type.String())),
   },
   { additionalProperties: false },
