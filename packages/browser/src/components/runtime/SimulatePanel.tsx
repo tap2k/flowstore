@@ -677,19 +677,17 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         />
       )}
       <div className="flex items-center gap-2 border-b border-zinc-200 px-4 py-1.5 text-[11px]">
-        <div className="flex overflow-hidden rounded border border-zinc-200">
-          <ModeButton current={mode} value="text" disabled={hasSession} onClick={setMode}>
-            Text
-          </ModeButton>
-          <ModeButton current={mode} value="voice" disabled={hasSession} onClick={setMode}>
-            Voice
-          </ModeButton>
-          {runnerUrl && (
-            <ModeButton current={mode} value="runner" disabled={hasSession} onClick={setMode}>
-              Runner
-            </ModeButton>
-          )}
-        </div>
+        <select
+          value={mode}
+          onChange={(e) => setMode(e.target.value as SimulateMode)}
+          disabled={hasSession}
+          title="Simulation mode. Text and Voice run browser-direct (prompt mode); Runner drives the Python runtime. Locked once a session is running."
+          className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+        >
+          <option value="text">Text</option>
+          <option value="voice">Voice</option>
+          {runnerUrl && <option value="runner">Runner</option>}
+        </select>
         {mode === "voice" ? (
           <ModelPicker
             value={model}
@@ -1433,35 +1431,6 @@ function TabButton({
           ? "border-b-2 border-zinc-900 font-medium text-zinc-900"
           : "border-b-2 border-transparent text-zinc-500 hover:text-zinc-900"
       }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function ModeButton({
-  current,
-  value,
-  disabled,
-  onClick,
-  children,
-}: {
-  current: SimulateMode;
-  value: SimulateMode;
-  disabled: boolean;
-  onClick: (m: SimulateMode) => void;
-  children: React.ReactNode;
-}) {
-  const active = current === value;
-  return (
-    <button
-      onClick={() => onClick(value)}
-      disabled={disabled}
-      className={`px-2 py-0.5 text-[11px] ${
-        active
-          ? "bg-zinc-900 text-white"
-          : "bg-white text-zinc-600 hover:bg-zinc-50"
-      } disabled:cursor-not-allowed disabled:opacity-50`}
     >
       {children}
     </button>
