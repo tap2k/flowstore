@@ -76,16 +76,6 @@ export class VoiceSession {
       parametersJsonSchema: t.parameters,
     }));
 
-    // When the session is scoped to a language (the panel's language picker),
-    // hint it to the transcription passes and the speech synth so the bubble
-    // text matches the spoken language. Without a hint the output transcription
-    // auto-detects and biases to English. Left empty (auto-detect) when the
-    // session is "all" — a multilingual spec picks language per turn, so
-    // there's no single hint to give. Codes are passed through as-is (spec
-    // language codes are BCP-47-compatible hints, e.g. "es", "hi").
-    const lang = this.cfg.language;
-    const transcription = lang ? { languageCodes: [lang] } : {};
-
     try {
       this.session = await ai.live.connect({
         model: this.cfg.model,
@@ -104,9 +94,8 @@ export class VoiceSession {
         config: {
           responseModalities: [Modality.AUDIO],
           systemInstruction: this.cfg.systemPrompt,
-          inputAudioTranscription: transcription,
-          outputAudioTranscription: transcription,
-          ...(lang ? { speechConfig: { languageCode: lang } } : {}),
+          inputAudioTranscription: {},
+          outputAudioTranscription: {},
           ...(functionDeclarations.length > 0
             ? { tools: [{ functionDeclarations }] }
             : {}),
