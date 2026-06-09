@@ -516,6 +516,10 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   );
 
   async function onTranslate() {
+    // Self-guard against re-entry, mirroring evaluateGuardrails / runActiveCase.
+    // Both translate buttons are disabled while in flight, but that's React
+    // state (stale within a tick); this keeps the invariant on the handler.
+    if (translating) return;
     if (uncachedTurns.length === 0 && showTranslated) {
       setShowTranslated(false);
       return;
