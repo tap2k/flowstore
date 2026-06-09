@@ -20,6 +20,13 @@ const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
 export const DEFAULT_RUNNER_URL = "http://localhost:8000";
 export const DEFAULT_MODEL_ID = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
 
+// The voice (Live) model is provider-locked to Gemini Live, so unlike the
+// other per-location picks it is NOT seeded from defaultModel — it defaults
+// to the first voice-tagged catalog entry.
+export const DEFAULT_VOICE_MODEL_ID =
+  Object.entries(BUILT_IN_MODELS.models).find(([, e]) => e.voice)?.[0] ??
+  "gemini-3.1-flash-live-preview";
+
 interface SettingsState {
   googleApiKey: string;
   openaiApiKey: string;
@@ -39,6 +46,10 @@ interface SettingsState {
   simulateAgentModel: string;
   simulatePersonaModel: string;
   simulateJudgeModel: string;
+  // The agent model for voice (Live) sessions. Provider-locked to Gemini
+  // Live; kept separate from simulateAgentModel (which can be any provider)
+  // because a voice session can only dispatch to a Live-capable model.
+  simulateVoiceModel: string;
   runnerUrl: string;
   githubPat: string;
   // Identity echoed from `GET /user` after a PAT is set. Used by Comments
@@ -53,6 +64,7 @@ interface SettingsState {
   setSimulateAgentModel: (model: string) => void;
   setSimulatePersonaModel: (model: string) => void;
   setSimulateJudgeModel: (model: string) => void;
+  setSimulateVoiceModel: (model: string) => void;
   setGenerateModel: (model: string) => void;
   setRunnerUrl: (url: string) => void;
   setGithubPat: (pat: string) => void;
@@ -91,6 +103,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   simulateAgentModel: DEFAULT_MODEL_ID,
   simulatePersonaModel: DEFAULT_MODEL_ID,
   simulateJudgeModel: DEFAULT_MODEL_ID,
+  simulateVoiceModel: DEFAULT_VOICE_MODEL_ID,
   defaultModel: DEFAULT_MODEL_ID,
   runnerUrl: "",
   githubPat: "",
@@ -113,6 +126,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setSimulateAgentModel: (model) => set({ simulateAgentModel: model }),
   setSimulatePersonaModel: (model) => set({ simulatePersonaModel: model }),
   setSimulateJudgeModel: (model) => set({ simulateJudgeModel: model }),
+  setSimulateVoiceModel: (model) => set({ simulateVoiceModel: model }),
   setGenerateModel: (model) => {
     persistString(DEFAULT_MODEL_KEY, model);
     set({ defaultModel: model });

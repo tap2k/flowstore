@@ -3,10 +3,13 @@ import { useSpecStore, type Selection } from "@/lib/store/spec";
 import type { Spec } from "@flowstore/core/schema/v0";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import {
+  isPromptMode,
   useSimulateStore,
   type SimulateMode,
+  type SimulateStatus,
   type TranscriptTurn,
 } from "@/lib/store/simulate";
+import type { VoicePhase } from "@/lib/runtime/voiceSession";
 import { formatErrors, validateSpec } from "@flowstore/core/validation/ajv";
 import type { RuntimeEvent } from "@flowstore/core/runtime/eventTypes";
 import { formatEvent, formatValueTruncated } from "@flowstore/core/runtime/formatEvent";
@@ -32,7 +35,13 @@ interface SimulatePanelProps {
 }
 
 export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelProps) {
-  const model = useSettingsStore((s) => s.simulateAgentModel);
+  const mode = useSimulateStore((s) => s.mode);
+  const agentModel = useSettingsStore((s) => s.simulateAgentModel);
+  const voiceModel = useSettingsStore((s) => s.simulateVoiceModel);
+  const setSimulateVoiceModel = useSettingsStore((s) => s.setSimulateVoiceModel);
+  // The agent model is provider-locked to Gemini Live in voice mode; the two
+  // pickers and their dispatch are kept separate (see settings.simulateVoiceModel).
+  const model = mode === "voice" ? voiceModel : agentModel;
   const dispatch = resolveDispatch(model);
   const apiKey = dispatch.apiKey;
   // Translate uses Gemini structured output; needs the Google key
@@ -45,7 +54,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const setSimulateJudgeModel = useSettingsStore((s) => s.setSimulateJudgeModel);
   const defaultModel = useSettingsStore((s) => s.defaultModel);
   const runnerUrl = useSettingsStore((s) => s.runnerUrl);
-  const mode = useSimulateStore((s) => s.mode);
   const sessionId = useSimulateStore((s) => s.sessionId);
   const status = useSimulateStore((s) => s.status);
   const transcript = useSimulateStore((s) => s.transcript);
@@ -57,6 +65,9 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const systemPrompt = useSimulateStore((s) => s.systemPrompt);
   const specSnapshot = useSimulateStore((s) => s.specSnapshot);
   const lastUsage = useSimulateStore((s) => s.lastUsage);
+  const voicePhase = useSimulateStore((s) => s.voicePhase);
+  const micMuted = useSimulateStore((s) => s.micMuted);
+  const setMicMuted = useSimulateStore((s) => s.setMicMuted);
   const error = useSimulateStore((s) => s.error);
   const setMode = useSimulateStore((s) => s.setMode);
   const start = useSimulateStore((s) => s.start);
@@ -582,11 +593,13 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             Run
           </div>
           <div className="text-[11px] text-zinc-500 truncate">
-            {mode === "prompt" && lastUsage
-              ? `${subtitle} · ${lastUsage.inputTokens.toLocaleString()} in / ${lastUsage.outputTokens.toLocaleString()} out`
-              : currentFlowId
-                ? `${subtitle} · ${currentFlowId}`
-                : subtitle}
+            {mode === "voice" && hasSession
+              ? `${subtitle}${voicePhase && voicePhase !== "idle" ? ` · ${voicePhase}` : ""}`
+              : isPromptMode(mode) && lastUsage
+                ? `${subtitle} · ${lastUsage.inputTokens.toLocaleString()} in / ${lastUsage.outputTokens.toLocaleString()} out`
+                : currentFlowId
+                  ? `${subtitle} · ${currentFlowId}`
+                  : subtitle}
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -664,29 +677,43 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         />
       )}
       <div className="flex items-center gap-2 border-b border-zinc-200 px-4 py-1.5 text-[11px]">
-        {runnerUrl && (
-          <div className="flex overflow-hidden rounded border border-zinc-200">
-            <ModeButton current={mode} value="prompt" disabled={hasSession} onClick={setMode}>
-              Prompt
-            </ModeButton>
+        <div className="flex overflow-hidden rounded border border-zinc-200">
+          <ModeButton current={mode} value="text" disabled={hasSession} onClick={setMode}>
+            Text
+          </ModeButton>
+          <ModeButton current={mode} value="voice" disabled={hasSession} onClick={setMode}>
+            Voice
+          </ModeButton>
+          {runnerUrl && (
             <ModeButton current={mode} value="runner" disabled={hasSession} onClick={setMode}>
               Runner
             </ModeButton>
-          </div>
+          )}
+        </div>
+        {mode === "voice" ? (
+          <ModelPicker
+            value={model}
+            onChange={setSimulateVoiceModel}
+            disabled={hasSession}
+            title="Gemini Live model for voice mode (voice is Gemini-only)."
+            className="truncate rounded border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-900 hover:border-zinc-200 disabled:opacity-60 cursor-pointer disabled:cursor-default"
+            voiceOnly
+          />
+        ) : (
+          <ModelPicker
+            value={model}
+            onChange={setSimulateAgentModel}
+            disabled={hasSession}
+            title={
+              mode === "runner"
+                ? "Model id sent to the runner — the runner may override it."
+                : "Model the agent uses in prompt mode"
+            }
+            className="truncate rounded border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-900 hover:border-zinc-200 disabled:opacity-60 cursor-pointer disabled:cursor-default"
+            // Runner mode shows everything: the runner may have its own keys.
+            showUnconfigured={mode === "runner"}
+          />
         )}
-        <ModelPicker
-          value={model}
-          onChange={setSimulateAgentModel}
-          disabled={hasSession}
-          title={
-            mode === "runner"
-              ? "Model id sent to the runner — the runner may override it."
-              : "Model the agent uses in prompt mode"
-          }
-          className="truncate rounded border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-900 hover:border-zinc-200 disabled:opacity-60 cursor-pointer disabled:cursor-default"
-          // Runner mode shows everything: the runner may have its own keys.
-          showUnconfigured={mode === "runner"}
-        />
         {availableLanguages.length > 1 && (
           <select
             value={language ?? ""}
@@ -705,7 +732,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         )}
       </div>
 
-      {hasSession && mode === "prompt" && specChanged && (
+      {hasSession && isPromptMode(mode) && specChanged && (
         <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
           Spec changed since session start. Reset to re-render the system prompt.
         </div>
@@ -758,7 +785,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
                 index={i}
                 spec={spec}
                 displayText={showTranslated ? translations.get(t.ts) : undefined}
-                onFork={mode === "prompt" ? onForkTurn : undefined}
+                onFork={mode === "text" ? onForkTurn : undefined}
               />
               {goldRef && <GoldTurnRef goldText={goldRef.text} liveText={t.text} />}
               {turnVerdicts.map((row, ri) => {
@@ -875,7 +902,17 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         </div>
       )}
 
-      {hasSession && !ended && (
+      {hasSession && !ended && mode === "voice" && (
+        <VoiceFooter
+          phase={voicePhase}
+          status={status}
+          micMuted={micMuted}
+          onToggleMute={() => setMicMuted(!micMuted)}
+          onEnd={onReset}
+        />
+      )}
+
+      {hasSession && !ended && mode !== "voice" && (
         <div className="border-t border-zinc-200 p-2">
           <textarea
             ref={inputRef}
@@ -1431,6 +1468,72 @@ function ModeButton({
   );
 }
 
+// Voice-mode footer: a mic mute toggle plus a live phase indicator. There's
+// no text input — the conversation is full-duplex over the Live socket — so
+// the only controls are mute and end (mirrored in the header's "clear").
+function VoiceFooter({
+  phase,
+  status,
+  micMuted,
+  onToggleMute,
+  onEnd,
+}: {
+  phase: VoicePhase | null;
+  status: SimulateStatus;
+  micMuted: boolean;
+  onToggleMute: () => void;
+  onEnd: () => void;
+}) {
+  const connecting = status === "starting";
+  const label = connecting
+    ? "connecting…"
+    : phase === "speaking"
+      ? "agent speaking…"
+      : phase === "listening"
+        ? "listening…"
+        : micMuted
+          ? "muted"
+          : "listening…";
+  const dotColor = connecting
+    ? "bg-zinc-300"
+    : phase === "speaking"
+      ? "bg-emerald-500"
+      : micMuted
+        ? "bg-zinc-300"
+        : "bg-sky-500 animate-pulse";
+  return (
+    <div className="flex items-center justify-between gap-2 border-t border-zinc-200 p-2.5">
+      <div className="flex items-center gap-2 text-[11px] text-zinc-600">
+        <span className={`inline-block h-2 w-2 rounded-full ${dotColor}`} />
+        {label}
+      </div>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={onToggleMute}
+          disabled={connecting}
+          className={`rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-40 ${
+            micMuted
+              ? "border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
+              : "border-zinc-300 text-zinc-700 hover:bg-zinc-100"
+          }`}
+          title={micMuted ? "Unmute the mic" : "Mute the mic"}
+        >
+          {micMuted ? "🔇 Unmute" : "🎙 Mute"}
+        </button>
+        <button
+          type="button"
+          onClick={onEnd}
+          className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
+          title="End the voice session."
+        >
+          End
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function EmptyState({
   mode,
   apiKey,
@@ -1457,7 +1560,7 @@ function EmptyState({
   }
   return (
     <div className="text-xs text-zinc-500 space-y-4">
-      {mode === "prompt" && !apiKey && (
+      {isPromptMode(mode) && !apiKey && (
         <p>
           <button onClick={onOpenSettings} className="underline hover:text-zinc-900">
             Requires a {providerLabel} API key in Settings.
@@ -1476,10 +1579,10 @@ function EmptyState({
       )}
       <button
         onClick={onStart}
-        disabled={mode === "prompt" && !apiKey}
+        disabled={isPromptMode(mode) && !apiKey}
         className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        Start session
+        {mode === "voice" ? "Start voice session" : "Start session"}
         {mode === "runner" && !apiKey && (
           <span className="ml-1 opacity-70">(runner credentials)</span>
         )}

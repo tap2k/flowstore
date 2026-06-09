@@ -13,6 +13,10 @@ const ModelEntry = Type.Object(
     name: Type.Optional(Type.String()),
     endpoint: Type.Optional(Type.String()),
     model_id: Type.Optional(Type.String()),
+    // True for models that back the bidi audio (Live) API — the only
+    // models the Simulation panel's voice mode can dispatch to. The voice
+    // model picker filters on this. Today only Gemini Live qualifies.
+    voice: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: true },
 );

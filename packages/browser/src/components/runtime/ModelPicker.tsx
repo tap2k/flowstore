@@ -21,6 +21,9 @@ interface ModelPickerProps {
   // (Google / OpenAI) are listed — for pickers that back schema-constrained
   // generation, where any other model would throw at dispatch.
   structuredOnly?: boolean;
+  // When true, only Live-capable (voice-tagged) models are listed — for the
+  // Simulation panel's voice mode, which can only dispatch to a Live model.
+  voiceOnly?: boolean;
   // Draft keys (keyed by endpoint) that take precedence over the persisted
   // store when deciding key presence. The Settings sheet passes its unsaved
   // key fields so a just-typed key clears "(no key)" before Save.
@@ -39,6 +42,7 @@ export function ModelPicker({
   title,
   showUnconfigured = false,
   structuredOnly = false,
+  voiceOnly = false,
   keyOverrides,
 }: ModelPickerProps) {
   // Subscribe to the provider keys so the option list re-renders the moment a
@@ -58,10 +62,11 @@ export function ModelPicker({
       title={title}
     >
       {Object.entries(BUILT_IN_MODELS.models)
-        .filter(([id]) => {
+        .filter(([id, m]) => {
           // Always keep the current selection visible, else the select
           // renders blank when value is filtered out.
           if (id === value) return true;
+          if (voiceOnly && !m.voice) return false;
           if (structuredOnly && !supportsStructuredOutput(id)) return false;
           if (!showUnconfigured && !hasKeyForModel(id, keyOverrides)) return false;
           return true;

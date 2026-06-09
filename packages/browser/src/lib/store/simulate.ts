@@ -9,6 +9,10 @@ import {
 } from "@flowstore/core/runtime/textClient";
 import { sendPromptTurn, type CapabilityInvocation } from "@flowstore/core/runtime/promptClient";
 import { generatePersonaTurn } from "@flowstore/core/runtime/personaClient";
+// Type-only import: VoiceSession (and the @google/genai SDK it pulls) is
+// loaded lazily inside the voice branch of start(), so text/runner sessions
+// never bundle the Live SDK.
+import type { VoiceSession, VoicePhase } from "@/lib/runtime/voiceSession";
 import { generateSystemPrompt } from "@flowstore/core/codegen/promptGenerator";
 import {
   buildCapabilityTools,
@@ -32,7 +36,14 @@ export type SimulateStatus =
   | "ended"
   | "error";
 
-export type SimulateMode = "runner" | "prompt";
+// "text" and "voice" are both browser-direct prompt mode (compiled monolith
+// system prompt, capability mocks, no Python runner) — they differ only in
+// transport (turn-based HTTP vs. a Gemini Live bidi audio socket). "runner"
+// drives the Python per-flow runtime. isPromptMode groups the two browser-
+// direct modes for the UI/state checks that apply to both.
+export type SimulateMode = "text" | "voice" | "runner";
+
+export const isPromptMode = (m: SimulateMode): boolean => m !== "runner";
 
 // Synthetic user turn that elicits the agent's opener when chatbot_initiates
 // is true in prompt mode. The Gemini API requires at least one user content;
@@ -107,6 +118,12 @@ interface SimulateState {
   systemPrompt: string | null;
   specSnapshot: Spec | null;
   lastUsage: ChatUsage | null;
+  // Voice-mode indicator: who currently holds the floor on the live socket.
+  // null in text/runner mode and between voice sessions.
+  voicePhase: VoicePhase | null;
+  // Mic mute toggle for voice mode. Gates audio emission without tearing the
+  // capture graph down (no re-prompt for permission).
+  micMuted: boolean;
   // Persona auto-play state. Only personaPrompt persists per agent (in
   // localStorage); everything else is per-session intent. autoStepping is the
   // in-flight guard that prevents the panel effect from re-firing.
@@ -148,6 +165,7 @@ interface SimulateState {
   rubricVerdicts: Record<string, RubricVerdict | "pending">;
 
   setMode: (mode: SimulateMode) => void;
+  setMicMuted: (muted: boolean) => void;
   start: (args: StartArgs) => Promise<void>;
   send: (userText: string) => Promise<void>;
   reset: () => Promise<void>;
@@ -263,8 +281,13 @@ function reduceEvents(
   return { currentFlowId, traversedEdgeIds, traversedFlowIds, variables, status };
 }
 
+// The live voice session is a non-serializable controller (WebSocket +
+// AudioContexts), so it lives outside the zustand state — the store holds
+// only the derived, serializable bits (transcript, status, voicePhase).
+let voiceSession: VoiceSession | null = null;
+
 export const useSimulateStore = create<SimulateState>((set, get) => ({
-  mode: "prompt",
+  mode: "text",
   sessionId: null,
   baseUrl: null,
   status: "idle",
@@ -283,6 +306,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   systemPrompt: null,
   specSnapshot: null,
   lastUsage: null,
+  voicePhase: null,
+  micMuted: false,
   personaPrompt: "",
   autoRun: false,
   personaAgentId: null,
@@ -298,6 +323,11 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   setMode: (mode) => {
     if (get().sessionId) return; // mode is frozen during an active session
     set({ mode });
+  },
+
+  setMicMuted: (muted) => {
+    voiceSession?.setMuted(muted);
+    set({ micMuted: muted });
   },
 
   hydrateContextVars: (agentId) => {
@@ -511,6 +541,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     } = get();
     if (autoStepping) return;
     if (!sessionId) return;
+    // Persona auto-run drives typed user turns; voice has no text input.
+    if (get().mode === "voice") return;
     if (status !== "ready") return;
     if (!personaPrompt.trim()) return;
     if (personaTurnsLeft <= 0) {
@@ -577,6 +609,12 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     // the ui store; use it if present, else compile fresh from the spec.
     const existingOverride = useUiStore.getState().promptOverride;
     const cleanedMocks = cleanMockReturns(mockReturns, spec);
+    // Tear down any prior voice session before a new Start (mode may have
+    // changed, or this is a re-run).
+    if (voiceSession) {
+      voiceSession.stop();
+      voiceSession = null;
+    }
     set({
       mode,
       status: "starting",
@@ -592,11 +630,83 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       systemPrompt: null,
       specSnapshot: null,
       lastUsage: null,
+      voicePhase: null,
+      micMuted: false,
       guardrailVerdict: null,
       rubricVerdicts: {},
     });
 
-    if (mode === "prompt") {
+    if (mode === "voice") {
+      if (provider !== "google" || !apiKey) {
+        set({
+          status: "error",
+          error:
+            "Voice mode needs a Google API key and a Gemini Live model (voice is Gemini-only). Set them in Settings.",
+        });
+        return;
+      }
+      try {
+        const systemPrompt =
+          existingOverride ?? generateSystemPrompt(spec, contextVars, { language });
+        const sessionId = `voice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        set({ sessionId, systemPrompt, specSnapshot: spec });
+        const { VoiceSession } = await import("@/lib/runtime/voiceSession");
+        const session = new VoiceSession({
+          apiKey,
+          model,
+          systemPrompt,
+          tools: buildCapabilityTools(spec),
+          resolveTool: (name) =>
+            resolveMockedCall(name, get().mockReturns, get().mockErrors),
+          language,
+          onUserTurn: (text) => {
+            set({
+              transcript: [
+                ...get().transcript,
+                { role: "user", text, ts: Date.now(), events: [] },
+              ],
+            });
+          },
+          onAgentTurn: (text, caps) => {
+            set({
+              transcript: [
+                ...get().transcript,
+                {
+                  role: "agent",
+                  text,
+                  ts: Date.now(),
+                  events: capabilityEvents(caps, sessionId),
+                },
+              ],
+              // A fresh agent turn invalidates any prior evaluation.
+              guardrailVerdict: null,
+              rubricVerdicts: {},
+            });
+          },
+          onPhase: (phase) => set({ voicePhase: phase }),
+          onStatus: (s) => {
+            if (s === "ready") set({ status: "ready" });
+            else if (s === "closed") set({ status: "ended", voicePhase: null });
+          },
+          onError: (message) => set({ status: "error", error: message, voicePhase: null }),
+        });
+        voiceSession = session;
+        await session.start();
+      } catch (e) {
+        if (voiceSession) {
+          voiceSession.stop();
+          voiceSession = null;
+        }
+        set({
+          status: "error",
+          error: e instanceof Error ? e.message : "Failed to start voice session.",
+          voicePhase: null,
+        });
+      }
+      return;
+    }
+
+    if (mode === "text") {
       if (!provider || !apiKey) {
         set({
           status: "error",
@@ -729,6 +839,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       specSnapshot,
     } = get();
     if (!sessionId) return;
+    // Voice is mic-driven full-duplex — there are no typed user turns to send.
+    if (mode === "voice") return;
     if (status === "thinking" || status === "starting" || status === "ended") return;
     // Empty user text is allowed — sent verbatim so designers can see how
     // each model actually reacts to no input (GPT replies; Gemini returns no
@@ -750,7 +862,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       rubricVerdicts: {},
     });
 
-    if (mode === "prompt") {
+    if (mode === "text") {
       try {
         const creds = readLlmCreds("agent");
         if (!creds.provider || !creds.apiKey) {
@@ -855,11 +967,11 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
 
   fork: (turnIndex) => {
     // Truncate the transcript to before the given turn, leaving the user free
-    // to type a different message and continue from that point. Prompt mode
+    // to type a different message and continue from that point. Text mode
     // only for now: the runner is stateful, so a true fork there needs to
     // replay all prior turns into a fresh session — defer until needed.
     const { transcript, mode, status } = get();
-    if (mode !== "prompt") return;
+    if (mode !== "text") return;
     if (status === "thinking" || status === "starting") return;
     if (turnIndex < 0 || turnIndex >= transcript.length) return;
     set({
@@ -879,6 +991,10 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     if (mode === "runner" && sessionId && baseUrl) {
       await apiEndSession(baseUrl, sessionId);
     }
+    if (voiceSession) {
+      voiceSession.stop();
+      voiceSession = null;
+    }
     set({
       sessionId: null,
       baseUrl: null,
@@ -893,6 +1009,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       systemPrompt: null,
       specSnapshot: null,
       lastUsage: null,
+      voicePhase: null,
+      micMuted: false,
       autoStepping: false,
       autoRun: false,
       personaTurnsLeft: 0,

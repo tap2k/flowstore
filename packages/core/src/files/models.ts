@@ -41,6 +41,15 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     "gemini-2.5-pro":           { name: "Gemini 2.5 Pro", endpoint: "google" },
     "gemini-2.5-flash":         { name: "Gemini 2.5 Flash", endpoint: "google" },
 
+    // Gemini Live (bidi audio) — voice-mode only. Only Gemini exposes a
+    // browser-direct Live socket, so these are the sole voice options (OpenAI
+    // Realtime needs a server-minted ephemeral token). The first voice-tagged
+    // entry is the default voice model; bump ids as Google rotates previews.
+    // Two flavors: the half-cascade Live model and the native-audio model
+    // (more natural prosody / affective dialog) — keep both to A/B.
+    "gemini-3.1-flash-live-preview":   { name: "Gemini 3.1 Flash Live (voice)", endpoint: "google", voice: true },
+    "gemini-2.5-flash-native-audio":   { name: "Gemini 2.5 Flash Native Audio (voice)", endpoint: "google", voice: true, model_id: "gemini-2.5-flash-native-audio-preview-09-2025" },
+
     // OpenAI
     "gpt-5.5":                  { name: "GPT-5.5", endpoint: "openai" },
     "gpt-5.4":                  { name: "GPT-5.4", endpoint: "openai" },
