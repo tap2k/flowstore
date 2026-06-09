@@ -57,6 +57,11 @@ export class VoiceSession {
   private respondedThisTurn = false;
   private turnLatencyMs: number | undefined = undefined;
 
+  // The chatbot_initiates opener is sent once, on setupComplete (not right
+  // after connect() — that resolves on socket-open, before the server is ready
+  // to accept content, so an early trigger gets dropped).
+  private openerSent = false;
+
   constructor(private cfg: VoiceSessionConfig) {}
 
   async start(): Promise<void> {
@@ -106,20 +111,6 @@ export class VoiceSession {
       throw e;
     }
 
-    // Agent-speaks-first: kick one generation so the model greets without
-    // waiting for the user. The "[begin]" text mirrors text mode's synthetic
-    // opener turn (the Live API needs at least one turn to start; the system
-    // prompt shapes the actual greeting). It's injected as client content,
-    // not audio, so it never produces an input transcription → no user bubble.
-    // Stamp lastInputAt so the opener still gets a time-to-first-audio reading.
-    if (this.cfg.chatbotInitiates) {
-      this.lastInputAt = performance.now();
-      this.session?.sendClientContent({
-        turns: [{ role: "user", parts: [{ text: "[begin]" }] }],
-        turnComplete: true,
-      });
-    }
-
     // Start the mic only once the socket is live, streaming PCM16 frames up.
     this.mic = new MicCapture((base64Pcm16) => {
       this.session?.sendRealtimeInput({
@@ -154,8 +145,28 @@ export class VoiceSession {
     this.player = null;
   }
 
+  // Agent-speaks-first: kick one generation so the model greets without
+  // waiting for the user. The "[begin]" text mirrors text mode's synthetic
+  // opener turn (the Live API needs at least one turn to start; the system
+  // prompt shapes the actual greeting). Injected as client content, not audio,
+  // so it produces no input transcription → no user bubble. Stamp lastInputAt
+  // so the opener still gets a time-to-first-audio reading. Once per session.
+  private maybeSendOpener(): void {
+    if (this.openerSent || !this.cfg.chatbotInitiates) return;
+    this.openerSent = true;
+    this.lastInputAt = performance.now();
+    this.session?.sendClientContent({
+      turns: [{ role: "user", parts: [{ text: "[begin]" }] }],
+      turnComplete: true,
+    });
+  }
+
   private handleMessage(msg: LiveServerMessage): void {
     if (this.closed) return;
+
+    // Server is ready — now it's safe to fire the agent-speaks-first opener.
+    if (msg.setupComplete) this.maybeSendOpener();
+
     const content = msg.serverContent;
 
     // Agent audio out → playback queue. The first audio chunk also marks the
