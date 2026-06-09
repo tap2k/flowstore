@@ -167,13 +167,31 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
     const attached = attachments;
     setAttachments([]);
     const initialSpec = useSpecStore.getState().spec;
+    // Fixtures (seed vars + per-capability mock returns) live in localStorage,
+    // keyed by agent id. Hydration is idempotent and lazy — a no-op if the
+    // sim store already loaded them — so call it here rather than depending on
+    // SimulatePanel having been opened.
+    if (initialSpec) {
+      useSimulateStore.getState().hydrateContextVars(initialSpec.agent.id);
+      useSimulateStore.getState().hydrateMockReturns(initialSpec.agent.id);
+    }
     const sim = useSimulateStore.getState();
     const evaluation = collectEvaluation(sim);
+    const content = buildUserContent(text, initialSpec, sim, attached, evaluation);
+
+    // We keep TWO message lists. `messages` (the store) holds only the
+    // display-facing user text — the heavy <spec>/<fixtures>/<sim>/<eval>/<files>
+    // blocks are state snapshots, not conversation, so persisting them would
+    // bloat localStorage and the prior-turn context unboundedly. `history` is
+    // the transient outbound list: identical to the store except the latest
+    // user message carries the full snapshot. Snapshots therefore exist on
+    // exactly one turn (the newest) and are never frozen into past turns.
+    const storedUser: ChatMessage = { role: "user", content: content.display };
     let history: ChatMessage[] = [
       ...messages,
-      { role: "user", content: buildUserContent(text, initialSpec, sim, attached, evaluation) },
+      { role: "user", content: content.full },
     ];
-    setMessages(history);
+    setMessages((m) => [...m, storedUser]);
     setBusy(true);
 
     try {
@@ -189,18 +207,17 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
           },
           { baseUrl: dispatch.baseUrl },
         );
-        history = [
-          ...history,
-          {
-            role: "assistant",
-            content: res.text,
-            toolCalls: res.toolCalls.length > 0 ? res.toolCalls : undefined,
-          },
-        ];
-        setMessages(history);
+        const assistantMsg: ChatMessage = {
+          role: "assistant",
+          content: res.text,
+          toolCalls: res.toolCalls.length > 0 ? res.toolCalls : undefined,
+        };
+        history = [...history, assistantMsg];
+        setMessages((m) => [...m, assistantMsg]);
 
         if (res.toolCalls.length === 0) break;
 
+        const toolMsgs: ChatMessage[] = [];
         for (const call of res.toolCalls) {
           const tool = findTool(call.name);
           let result: string;
@@ -217,26 +234,22 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
               });
             }
           }
-          history = [
-            ...history,
-            { role: "tool", toolCallId: call.id, result },
-          ];
+          toolMsgs.push({ role: "tool", toolCallId: call.id, result });
         }
-        setMessages(history);
+        history = [...history, ...toolMsgs];
+        setMessages((m) => [...m, ...toolMsgs]);
 
         const post = useSpecStore.getState().spec;
         if (post) {
           const v = validateSpec(post);
           if (!v.valid) {
             const errs = formatErrors(v.errors).slice(0, 20);
-            history = [
-              ...history,
-              {
-                role: "user",
-                content: `Validation errors after your tool calls:\n${errs.join("\n")}\n\nFix the spec.`,
-              },
-            ];
-            setMessages(history);
+            const fixMsg: ChatMessage = {
+              role: "user",
+              content: `Validation errors after your tool calls:\n${errs.join("\n")}\n\nFix the spec.`,
+            };
+            history = [...history, fixMsg];
+            setMessages((m) => [...m, fixMsg]);
           }
         }
       }
@@ -520,6 +533,8 @@ interface SimContext {
   status: string;
   currentFlowId: string | null;
   variables: Record<string, unknown>;
+  contextVars: Record<string, unknown>;
+  mockReturns: Record<string, Record<string, unknown>>;
   transcript: TranscriptTurn[];
   events: RuntimeEvent[];
 }
@@ -575,17 +590,31 @@ function collectEvaluation(
   };
 }
 
+interface UserContent {
+  // What gets stored and shown — the user's words plus a short attachment note.
+  // No state snapshots, so the chat store stays small and free of stale specs.
+  display: string;
+  // What gets sent to the model on THIS turn only — display content prefixed
+  // with the full state snapshot (spec, fixtures, sim, eval, attached files).
+  full: string;
+}
+
 function buildUserContent(
   userText: string,
   spec: Spec | null,
   sim: SimContext,
   attachments: SourceFile[],
   evaluation: EvaluationContext,
-): string {
+): UserContent {
   const specBlock = spec
     ? `<spec>\n${JSON.stringify(spec, null, 2)}\n</spec>`
     : `<spec>(empty — no spec loaded yet)</spec>`;
   const gitBlock = `\n\n${renderGitBlock()}`;
+  // Fixtures are authored config (seed vars + capability mocks), not runtime
+  // state, so surface them whenever set — even before a session starts — so
+  // the assistant can reason about and edit the scenario, not just diagnose
+  // a finished run.
+  const fixturesBlock = renderFixturesBlock(sim);
   const simBlock = sim.sessionId ? `\n\n${renderSimBlock(sim)}` : "";
   const evalBlock = sim.sessionId ? renderEvaluationBlock(evaluation) : "";
   const filesBlock =
@@ -594,11 +623,37 @@ function buildUserContent(
           .map((f) => `<file name=${JSON.stringify(f.name)}>\n${f.content}\n</file>`)
           .join("\n\n")}\n</files>`
       : "";
-  // A short, human-readable attachment line survives stripSpec so the sent
-  // bubble shows what was attached; the <files> block above is for the model.
+  // The attachment note is part of the displayed/stored bubble so a turn still
+  // shows what was attached; the <files> block above is model-only.
   const note =
     attachments.length > 0 ? `📎 ${attachments.map((f) => f.name).join(", ")}\n\n` : "";
-  return `${specBlock}${gitBlock}${simBlock}${evalBlock}${filesBlock}\n\n${note}${userText}`;
+  const display = `${note}${userText}`;
+  const full = `${specBlock}${gitBlock}${fixturesBlock}${simBlock}${evalBlock}${filesBlock}\n\n${display}`;
+  return { display, full };
+}
+
+// Authored simulation fixtures: designer-set seed variable values and the
+// per-capability mock returns used when a real capability call would happen.
+// Compact, and omitted entirely when nothing is set. These are the *inputs*
+// that explain runtime behavior — capabilities themselves are already in the
+// spec dump, so this surfaces only the mock values, not their definitions.
+function renderFixturesBlock(sim: SimContext): string {
+  const lines: string[] = [];
+  const varNames = Object.keys(sim.contextVars);
+  if (varNames.length > 0) {
+    lines.push(`seed variables: ${JSON.stringify(sim.contextVars)}`);
+  }
+  const mockedCaps = Object.keys(sim.mockReturns).filter(
+    (cap) => Object.keys(sim.mockReturns[cap] ?? {}).length > 0,
+  );
+  if (mockedCaps.length > 0) {
+    lines.push("capability mocks:");
+    for (const cap of mockedCaps) {
+      lines.push(`  ${cap}: ${JSON.stringify(sim.mockReturns[cap])}`);
+    }
+  }
+  if (lines.length === 0) return "";
+  return `\n\n<fixtures>\n${lines.join("\n")}\n</fixtures>`;
 }
 
 // One-line git situational awareness, built purely from local project state —
