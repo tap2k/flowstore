@@ -717,10 +717,10 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             value={language ?? ""}
             onChange={(e) => setLanguage(e.target.value || undefined)}
             disabled={hasSession}
-            title="Scope scripts and FAQ to a single language, or emit all. Locked once a session is running."
+            title="Pin the session to one language, or auto-detect (voice follows the caller per turn). Locked once a session is running."
             className="ml-auto rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
           >
-            <option value="">all</option>
+            <option value="">auto</option>
             {availableLanguages.map((code) => (
               <option key={code} value={code}>
                 {code}

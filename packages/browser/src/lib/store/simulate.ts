@@ -149,10 +149,12 @@ interface SimulateState {
   // the turn-aligned gold-vs-live comparison card. In-memory only: a gold
   // run is a quick action, not a binding worth surviving a reload.
   activeGoldId: string | null;
-  // Language scope for the current session. undefined = emit all
-  // declared languages; a specific code restricts scripts/FAQ to that
-  // bucket. Lifted from SimulatePanel's prior useState so a Tests-tab
-  // "Open in Sim" can override the picker from case.language.
+  // Language scope for the current session. undefined = "auto": the prompt
+  // renders in the default language and voice auto-detects, following the
+  // caller per turn. A specific code pins scripts/FAQ to that bucket and (in
+  // voice) hints transcription/speech to that language. Lifted from
+  // SimulatePanel's prior useState so a Tests-tab "Open in Sim" can override
+  // the picker from case.language.
   language: string | undefined;
 
   // Evaluation results for the current transcript. Lifted out of
