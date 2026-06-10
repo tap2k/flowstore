@@ -6,13 +6,21 @@ import { genId } from "@flowstore/core/ids";
 import { validateSpec } from "@flowstore/core/validation/ajv";
 import { debouncedLocalStorage, isPlainObject } from "./scopedStorage";
 
+// Open-keyed maps (vs. fixed-shape structs): a patch carries the COMPLETE map,
+// so it must replace. Deep-merging one would resurrect keys the editor just
+// removed — e.g. you couldn't delete a declared variable, since `{...prev,
+// ...next}` keeps the dropped key from `prev`.
+const REPLACE_KEYS = new Set(["variables"]);
+
 // One-level deep merge: nested plain objects merge, arrays/primitives replace.
 // Keeps partial patches like `{ meta: { name } }` from wiping sibling fields like `meta.languages`.
+// Open-keyed map fields (REPLACE_KEYS) replace instead of merging so deletions stick.
 function mergePatch<T extends object>(base: T, patch: Partial<T>): T {
   const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
   for (const [k, v] of Object.entries(patch)) {
     const prev = (base as Record<string, unknown>)[k];
-    out[k] = isPlainObject(prev) && isPlainObject(v) ? { ...prev, ...v } : v;
+    const merge = !REPLACE_KEYS.has(k) && isPlainObject(prev) && isPlainObject(v);
+    out[k] = merge ? { ...prev, ...v } : v;
   }
   return out as T;
 }
