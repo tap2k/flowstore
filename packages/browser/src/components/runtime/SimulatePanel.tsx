@@ -56,8 +56,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   if (BUILT_IN_MODELS.models[agentModel]?.voice) {
     setSimulateAgentModel(DEFAULT_MODEL_ID);
   }
-  const personaModel = useSettingsStore((s) => s.simulatePersonaModel);
-  const setSimulatePersonaModel = useSettingsStore((s) => s.setSimulatePersonaModel);
   const judgeModel = useSettingsStore((s) => s.simulateJudgeModel);
   const setSimulateJudgeModel = useSettingsStore((s) => s.setSimulateJudgeModel);
   const defaultModel = useSettingsStore((s) => s.defaultModel);
