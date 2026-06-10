@@ -47,6 +47,7 @@ V0 SCHEMA
       "purpose": "one-sentence description",
       "client": "string (optional)",
       "tone": "one short phrase describing voice/register (optional)",
+      "modality": "voice | text | multimodal" /* required */,
       "languages": ["EN", "es-MX", "..."] /* optional */
     },
     "chatbot_initiates": true,
@@ -75,7 +76,10 @@ V0 SCHEMA
         "description": "when/why this is used",
         "kind": "function | retrieval",
         "inputs": ["variable_name"] /* optional */,
-        "outputs": ["variable_name"] /* optional; omit for fire-and-forget */
+        "outputs": ["variable_name"] /* optional; omit for fire-and-forget */,
+        "non_blocking": true /* optional; dispatch without blocking the conversation */,
+        "ends_conversation": true /* optional; invoking this ends the call */,
+        "pending_message": "holding line (string, or { <lang>: string })" /* optional */
       }
     ],
     "knowledge": {
@@ -344,6 +348,7 @@ keyed by language code:
   - `flow.scripts[].text` (and per-language `variations`)
   - `agent.knowledge.faq[].answer`
   - `flow.knowledge.faq[].answer`
+  - `agent.capabilities[].pending_message`
 
 When the source is monolingual, emit plain strings — simpler. When the
 source provides parallel text in multiple languages, emit an object:
@@ -484,7 +489,14 @@ the source warrants it.
   Agent identity and scope → `meta.name`, `meta.purpose`, `meta.client`.
   Voice/register descriptors ("warm and friendly", "crisp and
   professional", "the way a real barista talks") → `meta.tone`, one
-  short phrase. Cross-cutting behavioral rules ("always confirm before
+  short phrase. Channel the agent runs on → `meta.modality` (required):
+  `voice` for spoken/telephony agents (callers, "say", "on the phone"),
+  `text` for chat/messaging agents (typing, "message", a chat widget),
+  `multimodal` when the source says it's deployed on both. This is a
+  defining design-time fact, so always emit it; infer it from the
+  source's channel cues, and when the channel is genuinely unstated
+  default to `voice` (the dominant pattern). Cross-cutting behavioral
+  rules ("always confirm before
   placing the order", "one or two sentences") → `guardrails`.
   Per-stage behavior → flow `instructions`. Facts → `knowledge`
   (FAQ, glossary, tables). Tools → `capabilities`. There is no
@@ -519,7 +531,23 @@ the source warrants it.
   usable). `name` is the runtime dispatch identifier (snake_case,
   author-controlled, stable across spec edits); `id` is an
   editor-side handle for cross-references inside this spec. The
-  two can match.
+  two can match. Three optional behavior flags, each emitted only
+  when the source states the behavior:
+  - `ends_conversation: true` — invoking the capability ends the
+    call (a clean hang-up, or a transfer/escalation that hands the
+    call off, e.g. "transfer to a live agent"). Names the effect,
+    not the mechanism; complements a flow exit's `goto: "END"` —
+    either can end a call.
+  - `non_blocking: true` — the runner dispatches without stalling
+    the conversation; talk continues and the declared `outputs`
+    bind when they land. Set only when the result isn't needed
+    immediately. Applies to exit-path action dispatch (a
+    `retrieve_on_turn` capability is always synchronous and ignores
+    this).
+  - `pending_message` — a holding line spoken when a non-blocking
+    dispatch starts ("Let me pull that up…") so there's no dead
+    air. Translatable: a plain string, or a `{ <lang>: string }`
+    map for multilingual sources, same as `scripts[].text`.
 - guardrails: emit only guardrails the source actually states or
   strongly implies.
 - business_goals: emit only when the source explicitly describes
