@@ -3,7 +3,7 @@ import { useSpecStore } from "@/lib/store/spec";
 import { loadSpec } from "@/lib/store/loadSpec";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
-import { useSimulateStore, type TranscriptTurn } from "@/lib/store/simulate";
+import { useSimulateStore, type SimulateMode, type TranscriptTurn } from "@/lib/store/simulate";
 import { useTestsStore } from "@/lib/store/tests";
 import { useChatStore } from "@/lib/store/chat";
 import { evaluateCaseAgainstTranscript, type CaseVerdicts } from "@/lib/caseVerdicts";
@@ -529,7 +529,7 @@ function MessageView({ m }: { m: ChatMessage }) {
 
 interface SimContext {
   sessionId: string | null;
-  mode: "prompt" | "runner";
+  mode: SimulateMode;
   status: string;
   currentFlowId: string | null;
   variables: Record<string, unknown>;
