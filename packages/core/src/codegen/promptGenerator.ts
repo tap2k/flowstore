@@ -33,6 +33,12 @@ export type PromptSource =
 // sections (role/guardrails/flows/knowledge…). Omitting it is full override.
 export const GENERATED_PLACEHOLDER = "{generated}";
 
+// Sentinel `language` value requesting multilingual emission — every declared
+// language, labeled, instead of resolving to one. A single param (a real code,
+// this sentinel, or undefined) makes "pinned" and "multilingual" mutually
+// exclusive by construction. Not a BCP-47 code, so it can't collide.
+export const ALL_LANGUAGES = "*";
+
 export interface PromptSegment {
   start: number; // inclusive offset into text
   end: number; // exclusive
@@ -59,18 +65,27 @@ const BLOCK_SEP = "\n\n";
 export function compileSystemPrompt(
   spec: Spec,
   vars?: Record<string, unknown>,
-  opts?: { language?: string; multilingual?: boolean },
+  opts?: { language?: string },
 ): CompiledPrompt {
   const defaultLang = defaultLanguage(spec.agent.meta.languages);
-  const lang = opts?.language ?? defaultLang;
+  // `language` is one value: a code pins, the ALL_LANGUAGES sentinel emits every
+  // declared language (multilingual), undefined falls back to the default. One
+  // param makes "pinned" and "multilingual" impossible to request at once.
+  const declared = spec.agent.meta.languages ?? [];
+  const multilingual = opts?.language === ALL_LANGUAGES;
   // Multilingual emission only kicks in for specs that actually declare more
   // than one language — otherwise the per-language labels are noise. When off,
   // `langs` is undefined and every localized field resolves to a single string
   // (the legacy single-language path), byte-for-byte unchanged.
-  const declared = spec.agent.meta.languages ?? [];
-  const langs = opts?.multilingual && declared.length > 1 ? declared : undefined;
+  const langs = multilingual && declared.length > 1 ? declared : undefined;
+  const lang = multilingual ? defaultLang : (opts?.language ?? defaultLang);
   const ctx: RenderCtx = { lang, defaultLang, langs };
-  const sub = (t: string) => (vars ? substituteVars(t, vars) : t);
+  // Identity from the spec's own meta is seeded at the LOWEST precedence so a
+  // caller value still wins. This is not a new namespace or a declared variable
+  // — it exposes data the spec already holds (meta.name) to the same `{var}`
+  // substitution that fills `{user_name}`, so a script's `{agent_name}` resolves.
+  const effective = { ...metaVariables(spec), ...(vars ?? {}) };
+  const sub = (t: string) => substituteVars(t, effective);
 
   const inner = compileInnerRaw(spec, ctx, sub, vars);
   const tmpl = spec.agent.system_prompt ?? "";
@@ -214,7 +229,7 @@ function compileInnerRaw(
 export function generateSystemPrompt(
   spec: Spec,
   vars?: Record<string, unknown>,
-  opts?: { language?: string; multilingual?: boolean },
+  opts?: { language?: string },
 ): string {
   return compileSystemPrompt(spec, vars, opts).text;
 }
@@ -257,6 +272,16 @@ function renderMultilingual(ctx: RenderCtx): string {
     `MULTILINGUAL (languages: ${ctx.langs.join(", ")}):`,
     "The caller may use any listed language and may switch mid-conversation. Each turn, detect the caller's current language and reply in it, using the matching translation shown for each script line and FAQ answer below. If a translation is missing for that language, translate the default faithfully.",
   ].join("\n");
+}
+
+// Identity variables derived from the spec's own meta, seeded into the variable
+// bag at the lowest precedence (a caller value overrides them). These are NOT
+// declared variables and NOT a reserved namespace — they make data the spec
+// already holds reachable by the one `{var}` substitution path, so a generator's
+// `{agent_name}` resolves the same way `{user_name}` does. Only `agent_name`
+// today; add more keys only when a real script references them.
+export function metaVariables(spec: Spec): Record<string, string> {
+  return { agent_name: spec.agent.meta.name };
 }
 
 // Replaces `{name}` placeholders with values from `vars`. Unknown placeholders

@@ -3,6 +3,7 @@ import { useSpecStore } from "@/lib/store/spec";
 import { useUiStore } from "@/lib/store/ui";
 import {
   compileSystemPrompt,
+  ALL_LANGUAGES,
   type PromptSource,
 } from "@flowstore/core/codegen/promptGenerator";
 import { type Spec } from "@flowstore/core/schema/v0";
@@ -94,7 +95,7 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
   // session, so there are no variable values to substitute. Unpinned → emit
   // every declared language (what an "auto" session receives).
   const compiled = useMemo(
-    () => (spec ? compileSystemPrompt(spec, undefined, { language, multilingual: !language }) : null),
+    () => (spec ? compileSystemPrompt(spec, undefined, { language: language ?? ALL_LANGUAGES }) : null),
     [spec, language],
   );
 

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   compileSystemPrompt,
   generateSystemPrompt,
+  ALL_LANGUAGES,
 } from "@flowstore/core/codegen/promptGenerator";
 import type { Spec } from "@flowstore/core/schema/v0";
 import { loadExampleSpec, loadFixtureSpec } from "./fixtures";
@@ -89,6 +90,20 @@ describe("compileSystemPrompt — variable substitution", () => {
     const text = compileSystemPrompt(withTemplate("{unknown_token}\n\n{generated}")).text;
     expect(text.startsWith("{unknown_token}\n\n")).toBe(true);
   });
+
+  it("resolves {agent_name} from meta.name with no vars seeded", () => {
+    const s = structuredClone(coffee);
+    s.flows[0].scripts = [{ id: "x", text: "I'm {agent_name}." }];
+    const text = compileSystemPrompt(s).text;
+    expect(text).toContain(`I'm ${coffee.agent.meta.name}.`);
+  });
+
+  it("a caller var overrides the meta-derived agent_name", () => {
+    const text = compileSystemPrompt(withTemplate("{agent_name}\n\n{generated}"), {
+      agent_name: "Override",
+    }).text;
+    expect(text.startsWith("Override\n\n")).toBe(true);
+  });
 });
 
 describe("compileSystemPrompt — multilingual", () => {
@@ -115,7 +130,7 @@ describe("compileSystemPrompt — multilingual", () => {
   });
 
   it("multilingual emits every declared language labeled, with nested variations", () => {
-    const text = compileSystemPrompt(fnol, undefined, { multilingual: true }).text;
+    const text = compileSystemPrompt(fnol, undefined, { language: ALL_LANGUAGES }).text;
     expect(text).toContain(`- en-US: "${enText}"`);
     expect(text).toContain(`es-MX: "${esText}"`);
     // The en-US-only variation nests under en-US; es-MX has none.
@@ -127,13 +142,13 @@ describe("compileSystemPrompt — multilingual", () => {
   it("multilingual on a single-language spec is a no-op (no labels, no directive)", () => {
     // coffee declares only en-US.
     const plain = compileSystemPrompt(coffee).text;
-    const multi = compileSystemPrompt(coffee, undefined, { multilingual: true }).text;
+    const multi = compileSystemPrompt(coffee, undefined, { language: ALL_LANGUAGES }).text;
     expect(multi).toBe(plain);
     expect(multi).not.toContain("MULTILINGUAL");
   });
 
   it("multilingual prompt matches the committed snapshot", () => {
-    expect(compileSystemPrompt(fnol, undefined, { multilingual: true }).text).toMatchSnapshot();
+    expect(compileSystemPrompt(fnol, undefined, { language: ALL_LANGUAGES }).text).toMatchSnapshot();
   });
 });
 
