@@ -5,7 +5,7 @@ import {
   compileSystemPrompt,
   type PromptSource,
 } from "@flowstore/core/codegen/promptGenerator";
-import { defaultLanguage, type Spec } from "@flowstore/core/schema/v0";
+import { type Spec } from "@flowstore/core/schema/v0";
 import { styleForSource, isClickable, labelFor, type PromptKind } from "@/lib/promptColors";
 import { computeDiagnostics, diagnosticCounts, anchorLabel, type Diagnostic } from "@/lib/diagnostics";
 
@@ -75,24 +75,26 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const availableLanguages = spec?.agent.meta.languages ?? [];
-  const defaultLang = availableLanguages.length ? defaultLanguage(availableLanguages) : undefined;
-  const [language, setLanguage] = useState<string | undefined>(defaultLang);
+  // Default to "auto" (undefined → multilingual) so the inspector shows exactly
+  // what an unpinned session sends. Pinning a code scopes to one language.
+  const [language, setLanguage] = useState<string | undefined>(undefined);
 
-  // Reset the language to the agent default when the agent changes, or when the
-  // current pick is no longer one of its languages. Done during render (matches
-  // SimulatePanel) to avoid a wasted commit.
+  // Reset to auto when the agent changes, or when the current pick is no longer
+  // one of its languages. Done during render (matches SimulatePanel) to avoid a
+  // wasted commit.
   const prevAgentIdRef = useRef(spec?.agent.id);
   if (prevAgentIdRef.current !== spec?.agent.id) {
     prevAgentIdRef.current = spec?.agent.id;
-    if (language !== defaultLang) setLanguage(defaultLang);
+    if (language !== undefined) setLanguage(undefined);
   } else if (language && !availableLanguages.includes(language)) {
-    setLanguage(defaultLang);
+    setLanguage(undefined);
   }
 
   // View shows the un-substituted template — the panel inspects the spec, not a
-  // session, so there are no variable values to substitute.
+  // session, so there are no variable values to substitute. Unpinned → emit
+  // every declared language (what an "auto" session receives).
   const compiled = useMemo(
-    () => (spec ? compileSystemPrompt(spec, undefined, { language }) : null),
+    () => (spec ? compileSystemPrompt(spec, undefined, { language, multilingual: !language }) : null),
     [spec, language],
   );
 
@@ -200,10 +202,11 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
             title={
               mode === "edit"
                 ? "Revert to change language"
-                : "Render scripts and FAQ in this language."
+                : "auto: every declared language (what an unpinned session sends). Pin a code to render scripts and FAQ in one language."
             }
             className="ml-auto rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
           >
+            <option value="">auto</option>
             {availableLanguages.map((code) => (
               <option key={code} value={code}>
                 {code}

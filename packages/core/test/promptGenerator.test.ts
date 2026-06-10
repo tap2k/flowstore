@@ -4,7 +4,7 @@ import {
   generateSystemPrompt,
 } from "@flowstore/core/codegen/promptGenerator";
 import type { Spec } from "@flowstore/core/schema/v0";
-import { loadExampleSpec } from "./fixtures";
+import { loadExampleSpec, loadFixtureSpec } from "./fixtures";
 
 const coffee = loadExampleSpec("coffee/coffee.json");
 const baseline = compileSystemPrompt(coffee).text;
@@ -88,6 +88,52 @@ describe("compileSystemPrompt — variable substitution", () => {
   it("leaves unknown {placeholder} tokens untouched", () => {
     const text = compileSystemPrompt(withTemplate("{unknown_token}\n\n{generated}")).text;
     expect(text.startsWith("{unknown_token}\n\n")).toBe(true);
+  });
+});
+
+describe("compileSystemPrompt — multilingual", () => {
+  // fnol-min declares en-US (default) + es-MX, with a localized script and an
+  // en-US-only variation.
+  const fnol = loadFixtureSpec("fnol-min.json");
+  const enText = "Northwind claims — I can help. What's your policy number?";
+  const esText = "Reclamos Northwind — con gusto le ayudo. ¿Cuál es su número de póliza?";
+  const enVariation = "Thanks for calling Northwind. Could I get your policy number?";
+
+  it("single-language (default) renders one unlabeled script line", () => {
+    const text = compileSystemPrompt(fnol).text;
+    expect(text).toContain(`- "${enText}"`);
+    expect(text).not.toContain(esText);
+    expect(text).not.toContain("en-US:");
+    expect(text).not.toContain("MULTILINGUAL");
+  });
+
+  it("pinned language renders only that language, unlabeled", () => {
+    const text = compileSystemPrompt(fnol, undefined, { language: "es-MX" }).text;
+    expect(text).toContain(`- "${esText}"`);
+    expect(text).not.toContain(enText);
+    expect(text).not.toContain("es-MX:");
+  });
+
+  it("multilingual emits every declared language labeled, with nested variations", () => {
+    const text = compileSystemPrompt(fnol, undefined, { multilingual: true }).text;
+    expect(text).toContain(`- en-US: "${enText}"`);
+    expect(text).toContain(`es-MX: "${esText}"`);
+    // The en-US-only variation nests under en-US; es-MX has none.
+    expect(text).toContain(`| "${enVariation}"`);
+    // The directive is present and lists the languages.
+    expect(text).toContain("MULTILINGUAL (languages: en-US, es-MX):");
+  });
+
+  it("multilingual on a single-language spec is a no-op (no labels, no directive)", () => {
+    // coffee declares only en-US.
+    const plain = compileSystemPrompt(coffee).text;
+    const multi = compileSystemPrompt(coffee, undefined, { multilingual: true }).text;
+    expect(multi).toBe(plain);
+    expect(multi).not.toContain("MULTILINGUAL");
+  });
+
+  it("multilingual prompt matches the committed snapshot", () => {
+    expect(compileSystemPrompt(fnol, undefined, { multilingual: true }).text).toMatchSnapshot();
   });
 });
 
