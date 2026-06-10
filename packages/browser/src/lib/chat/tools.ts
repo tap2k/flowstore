@@ -1,5 +1,6 @@
 import { useSpecStore } from "@/lib/store/spec";
 import { gitTools } from "./gitTools";
+import { testTools } from "./testTools";
 import type { Agent, ExitPath, Flow } from "@flowstore/core/schema/v0";
 import { GOTO_END, GOTO_RETURN, isEndGoto, isReturnGoto } from "@flowstore/core/schema/v0";
 import type { JSONSchema, ToolDefinition } from "@flowstore/core/llm/types";
@@ -373,6 +374,9 @@ export const tools: Tool[] = [
   // Read-only git/GitHub tools (diff, log, branches) — defined separately
   // because they touch the GitHub client + project stores, not the spec store.
   ...gitTools,
+  // Testing-artifact CRUD (personas, cases, rubrics, golds) — defined
+  // separately because they touch the tests store, not the spec store.
+  ...testTools,
 ];
 
 export const toolDefinitions: ToolDefinition[] = tools.map((t) => t.definition);

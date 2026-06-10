@@ -177,7 +177,8 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
     }
     const sim = useSimulateStore.getState();
     const evaluation = collectEvaluation(sim);
-    const content = buildUserContent(text, initialSpec, sim, attached, evaluation);
+    const testsBlock = renderTestsBlock(useTestsStore.getState());
+    const content = buildUserContent(text, initialSpec, sim, attached, evaluation, testsBlock);
 
     // We keep TWO message lists. `messages` (the store) holds only the
     // display-facing user text — the heavy <spec>/<fixtures>/<sim>/<eval>/<files>
@@ -605,6 +606,7 @@ function buildUserContent(
   sim: SimContext,
   attachments: SourceFile[],
   evaluation: EvaluationContext,
+  testsBlock: string,
 ): UserContent {
   const specBlock = spec
     ? `<spec>\n${JSON.stringify(spec, null, 2)}\n</spec>`
@@ -617,6 +619,10 @@ function buildUserContent(
   const fixturesBlock = renderFixturesBlock(sim);
   const simBlock = sim.sessionId ? `\n\n${renderSimBlock(sim)}` : "";
   const evalBlock = sim.sessionId ? renderEvaluationBlock(evaluation) : "";
+  // Authored testing artifacts (personas/cases/rubrics/golds) — surfaced as a
+  // compact index, like fixtures, so the assistant can extend and dedupe them
+  // rather than blindly re-create. Omitted entirely when none exist.
+  const testsCtx = testsBlock ? `\n\n${testsBlock}` : "";
   const filesBlock =
     attachments.length > 0
       ? `\n\n<files>\n${attachments
@@ -628,8 +634,45 @@ function buildUserContent(
   const note =
     attachments.length > 0 ? `📎 ${attachments.map((f) => f.name).join(", ")}\n\n` : "";
   const display = `${note}${userText}`;
-  const full = `${specBlock}${gitBlock}${fixturesBlock}${simBlock}${evalBlock}${filesBlock}\n\n${display}`;
+  const full = `${specBlock}${gitBlock}${fixturesBlock}${testsCtx}${simBlock}${evalBlock}${filesBlock}\n\n${display}`;
   return { display, full };
+}
+
+// Compact index of the authored testing artifacts so the assistant knows what
+// already exists (ids to update/reference) without dumping full bodies. Returns
+// "" when nothing is authored, so the block is omitted from the turn.
+function renderTestsBlock(tests: ReturnType<typeof useTestsStore.getState>): string {
+  const { personas, cases, rubrics, golds } = tests;
+  if (!personas.length && !cases.length && !rubrics.length && !golds.length) return "";
+  const lines: string[] = [];
+  if (personas.length) {
+    lines.push("personas:");
+    for (const p of personas) lines.push(`  ${p.id}${p.name ? ` (${p.name})` : ""}${p.notes ? ` — ${p.notes}` : ""}`);
+  }
+  if (cases.length) {
+    lines.push("cases:");
+    for (const c of cases) {
+      const actor = c.persona_id
+        ? `persona:${c.persona_id}`
+        : c.user_turns
+          ? "scripted"
+          : c.system_prompt
+            ? "inline-prompt"
+            : "no-actor";
+      lines.push(`  ${c.id}${c.name ? ` (${c.name})` : ""} [${actor}]${c.notes ? ` — ${c.notes}` : ""}`);
+    }
+  }
+  if (rubrics.length) {
+    lines.push("rubrics:");
+    for (const r of rubrics) {
+      lines.push(`  ${r.id}${r.name ? ` (${r.name})` : ""}: ${r.criteria} (${r.scale.min}–${r.scale.max})`);
+    }
+  }
+  if (golds.length) {
+    lines.push("golds:");
+    for (const g of golds) lines.push(`  ${g.id}${g.name ? ` (${g.name})` : ""} — ${g.turns.length} turns`);
+  }
+  return `<tests>\n${lines.join("\n")}\n</tests>`;
 }
 
 // Authored simulation fixtures: designer-set seed variable values and the
