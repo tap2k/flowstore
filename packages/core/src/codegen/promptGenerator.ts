@@ -80,12 +80,7 @@ export function compileSystemPrompt(
   const langs = multilingual && declared.length > 1 ? declared : undefined;
   const lang = multilingual ? defaultLang : (opts?.language ?? defaultLang);
   const ctx: RenderCtx = { lang, defaultLang, langs };
-  // Identity from the spec's own meta is seeded at the LOWEST precedence so a
-  // caller value still wins. This is not a new namespace or a declared variable
-  // — it exposes data the spec already holds (meta.name) to the same `{var}`
-  // substitution that fills `{user_name}`, so a script's `{agent_name}` resolves.
-  const effective = { ...metaVariables(spec), ...(vars ?? {}) };
-  const sub = (t: string) => substituteVars(t, effective);
+  const sub = (t: string) => (vars ? substituteVars(t, vars) : t);
 
   const inner = compileInnerRaw(spec, ctx, sub, vars);
   const tmpl = spec.agent.system_prompt ?? "";
@@ -272,16 +267,6 @@ function renderMultilingual(ctx: RenderCtx): string {
     `MULTILINGUAL (languages: ${ctx.langs.join(", ")}):`,
     "The caller may use any listed language and may switch mid-conversation. Each turn, detect the caller's current language and reply in it, using the matching translation shown for each script line and FAQ answer below. If a translation is missing for that language, translate the default faithfully.",
   ].join("\n");
-}
-
-// Identity variables derived from the spec's own meta, seeded into the variable
-// bag at the lowest precedence (a caller value overrides them). These are NOT
-// declared variables and NOT a reserved namespace — they make data the spec
-// already holds reachable by the one `{var}` substitution path, so a generator's
-// `{agent_name}` resolves the same way `{user_name}` does. Only `agent_name`
-// today; add more keys only when a real script references them.
-export function metaVariables(spec: Spec): Record<string, string> {
-  return { agent_name: spec.agent.meta.name };
 }
 
 // Replaces `{name}` placeholders with values from `vars`. Unknown placeholders

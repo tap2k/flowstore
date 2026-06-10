@@ -90,20 +90,6 @@ describe("compileSystemPrompt — variable substitution", () => {
     const text = compileSystemPrompt(withTemplate("{unknown_token}\n\n{generated}")).text;
     expect(text.startsWith("{unknown_token}\n\n")).toBe(true);
   });
-
-  it("resolves {agent_name} from meta.name with no vars seeded", () => {
-    const s = structuredClone(coffee);
-    s.flows[0].scripts = [{ id: "x", text: "I'm {agent_name}." }];
-    const text = compileSystemPrompt(s).text;
-    expect(text).toContain(`I'm ${coffee.agent.meta.name}.`);
-  });
-
-  it("a caller var overrides the meta-derived agent_name", () => {
-    const text = compileSystemPrompt(withTemplate("{agent_name}\n\n{generated}"), {
-      agent_name: "Override",
-    }).text;
-    expect(text.startsWith("Override\n\n")).toBe(true);
-  });
 });
 
 describe("compileSystemPrompt — multilingual", () => {
