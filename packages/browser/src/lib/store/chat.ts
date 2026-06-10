@@ -9,9 +9,10 @@ interface ChatState {
   // The Assistant conversation. Persisted (under "flowstore:chat") so it
   // survives a panel close, reload, or HMR re-eval — previously it lived in
   // ChatPanel's local useState and was destroyed on every unmount. The chat is
-  // deliberately NOT tied to the active spec's lifecycle (it isn't cleared by
-  // loadSpec): it's a continuous conversation with the user, not a per-spec
-  // artifact like tests or comments.
+  // scoped to the active spec: loadSpec clears it (its messages embed the spec
+  // and the discussion is about it), so swapping specs starts a fresh
+  // transcript. Persistence keeps the conversation alive across panel
+  // close/reload/HMR *within* a single spec, not across a spec swap.
   messages: ChatMessage[];
   // Mirrors React's setState signature (value or updater) so it's a drop-in
   // replacement for the useState setter ChatPanel used to call.

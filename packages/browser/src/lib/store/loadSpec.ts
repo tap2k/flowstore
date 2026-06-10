@@ -5,6 +5,7 @@ import { useSpecStore } from "./spec";
 import { useTestsStore } from "./tests";
 import { useCommentsStore } from "./comments";
 import { useSimulateStore } from "./simulate";
+import { useChatStore } from "./chat";
 
 export interface LoadSpecOptions {
   // Project-backed loads (GitHub open/refresh, ZIP/folder import) pass the
@@ -19,9 +20,10 @@ export interface LoadSpecOptions {
 // The single sanctioned way to swap the active spec. Every store whose
 // lifecycle is tied to the spec is reset here so stale state from the previous
 // spec can't bleed across a load: testing artifacts (cases/golds/personas/
-// rubrics), comment threads, and the live simulate session plus its active
-// case/gold binding. Funnel ALL spec-load entry points through this — hand-
-// resetting a subset at each call site is exactly how they drifted out of sync.
+// rubrics), comment threads, the live simulate session plus its active
+// case/gold binding, and the assistant chat transcript. Funnel ALL spec-load
+// entry points through this — hand-resetting a subset at each call site is
+// exactly how they drifted out of sync.
 export function loadSpec(spec: Spec | null, opts: LoadSpecOptions = {}): void {
   useSpecStore.getState().setSpec(spec);
 
@@ -41,4 +43,9 @@ export function loadSpec(spec: Spec | null, opts: LoadSpecOptions = {}): void {
   void useSimulateStore.getState().reset();
   useSimulateStore.getState().setActiveGoldId(null);
   useSimulateStore.getState().setActiveCaseId(null);
+
+  // The assistant chat is about the outgoing spec (its messages embed the spec
+  // and the discussion is scoped to it), so a swap starts a fresh transcript.
+  // Persistence still survives a panel close / reload / HMR within one spec.
+  useChatStore.getState().clear();
 }
