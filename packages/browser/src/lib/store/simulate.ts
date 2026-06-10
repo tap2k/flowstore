@@ -13,7 +13,7 @@ import { generatePersonaTurn } from "@flowstore/core/runtime/personaClient";
 // loaded lazily inside the voice branch of start(), so text/runner sessions
 // never bundle the Live SDK.
 import type { VoiceSession, VoicePhase } from "@/lib/runtime/voiceSession";
-import { generateSystemPrompt } from "@flowstore/core/codegen/promptGenerator";
+import { generateSystemPrompt, ALL_LANGUAGES } from "@flowstore/core/codegen/promptGenerator";
 import {
   buildCapabilityTools,
   cleanMockReturns,
@@ -649,7 +649,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       }
       try {
         const systemPrompt =
-          existingOverride ?? generateSystemPrompt(spec, contextVars, { language });
+          existingOverride ??
+          generateSystemPrompt(spec, contextVars, { language: language ?? ALL_LANGUAGES });
         const sessionId = `voice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         set({ sessionId, systemPrompt, specSnapshot: spec });
         const { VoiceSession } = await import("@/lib/runtime/voiceSession");
@@ -720,7 +721,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       }
       try {
         const systemPrompt =
-          existingOverride ?? generateSystemPrompt(spec, contextVars, { language });
+          existingOverride ??
+          generateSystemPrompt(spec, contextVars, { language: language ?? ALL_LANGUAGES });
         const sessionId = `prompt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         set({ sessionId, systemPrompt, specSnapshot: spec });
 
@@ -781,6 +783,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         spec,
         apiKey: apiKey || undefined,
         model: model || undefined,
+        // Omit when unpinned → runner emits every declared language.
         language,
         contextVars,
         mockReturns: cleanedMocks,

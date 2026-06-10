@@ -75,7 +75,9 @@ export function styleForSource(source: PromptSource, flowType?: FlowType): Block
 }
 
 export function isClickable(kind: PromptKind): boolean {
-  return kind !== "runtimeContext";
+  // runtimeContext and multilingual are generated guidance with no editable
+  // source entity — not clickable.
+  return kind !== "runtimeContext" && kind !== "multilingual";
 }
 
 export function labelFor(source: PromptSource): string {
@@ -92,6 +94,8 @@ export function labelFor(source: PromptSource): string {
       return "Knowledge";
     case "runtimeContext":
       return "Runtime context";
+    case "multilingual":
+      return "Multilingual";
     case "templateWrapper":
       return "System prompt template";
   }

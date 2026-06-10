@@ -725,6 +725,14 @@ function renderEvaluationBlock(e: EvaluationContext): string {
     lines.push(
       `guardrails: ${g.verdict.toUpperCase()}${g.failure_mode !== "none" ? ` (${g.failure_mode})` : ""} — ${g.summary}`,
     );
+    if (g.hallucinations.length > 0) {
+      lines.push("hallucinations (unsupported claims — strict fail):");
+      for (const h of g.hallucinations) {
+        lines.push(
+          `  ✗ ${h.turn >= 0 ? `turn ${h.turn}: ` : ""}${h.claim}${h.reason ? ` — ${h.reason}` : ""}`,
+        );
+      }
+    }
     for (const gr of g.guardrails) {
       const mark = gr.met === "no" ? "✗" : gr.met === "yes" ? "✓" : "·";
       lines.push(`  ${mark} ${gr.statement}${gr.reason ? ` — ${gr.reason}` : ""}`);

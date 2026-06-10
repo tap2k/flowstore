@@ -48,6 +48,9 @@ export interface StartSessionArgs {
   spec: Spec;
   apiKey?: string;
   model?: string;
+  // Omit to go multilingual: the runner treats an absent language as "emit
+  // every declared language" so the caller can switch mid-conversation. A
+  // present code pins the session to one language.
   language?: string;
   contextVars?: Record<string, unknown>;
   mockReturns?: Record<string, Record<string, unknown>>;

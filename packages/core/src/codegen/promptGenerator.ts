@@ -10,6 +10,7 @@ import {
   isReturnGoto,
   isFlowGoto,
   resolveLocalized,
+  getLanguage,
   defaultLanguage,
 } from "@flowstore/core/schema/v0";
 
@@ -21,6 +22,7 @@ import {
 export type PromptSource =
   | { kind: "role" }
   | { kind: "runtimeContext" }
+  | { kind: "multilingual" }
   | { kind: "guardrails" }
   | { kind: "flow"; flowId: string; name: string }
   | { kind: "interrupt"; flowId: string; name: string }
@@ -30,6 +32,12 @@ export type PromptSource =
 // Reserved placeholder in `agent.system_prompt`. Expands to all spec-derived
 // sections (role/guardrails/flows/knowledge…). Omitting it is full override.
 export const GENERATED_PLACEHOLDER = "{generated}";
+
+// Sentinel `language` value requesting multilingual emission — every declared
+// language, labeled, instead of resolving to one. A single param (a real code,
+// this sentinel, or undefined) makes "pinned" and "multilingual" mutually
+// exclusive by construction. Not a BCP-47 code, so it can't collide.
+export const ALL_LANGUAGES = "*";
 
 export interface PromptSegment {
   start: number; // inclusive offset into text
@@ -60,8 +68,18 @@ export function compileSystemPrompt(
   opts?: { language?: string },
 ): CompiledPrompt {
   const defaultLang = defaultLanguage(spec.agent.meta.languages);
-  const lang = opts?.language ?? defaultLang;
-  const ctx: RenderCtx = { lang, defaultLang };
+  // `language` is one value: a code pins, the ALL_LANGUAGES sentinel emits every
+  // declared language (multilingual), undefined falls back to the default. One
+  // param makes "pinned" and "multilingual" impossible to request at once.
+  const declared = spec.agent.meta.languages ?? [];
+  const multilingual = opts?.language === ALL_LANGUAGES;
+  // Multilingual emission only kicks in for specs that actually declare more
+  // than one language — otherwise the per-language labels are noise. When off,
+  // `langs` is undefined and every localized field resolves to a single string
+  // (the legacy single-language path), byte-for-byte unchanged.
+  const langs = multilingual && declared.length > 1 ? declared : undefined;
+  const lang = multilingual ? defaultLang : (opts?.language ?? defaultLang);
+  const ctx: RenderCtx = { lang, defaultLang, langs };
   const sub = (t: string) => (vars ? substituteVars(t, vars) : t);
 
   const inner = compileInnerRaw(spec, ctx, sub, vars);
@@ -144,6 +162,7 @@ function compileInnerRaw(
 
   pushSingle({ kind: "role" }, renderRole(spec));
   pushSingle({ kind: "runtimeContext" }, renderRuntimeContext(spec, vars));
+  pushSingle({ kind: "multilingual" }, renderMultilingual(ctx));
   pushSingle({ kind: "guardrails" }, renderGuardrails(spec));
 
   const fg = flowsGroup(spec, ctx);
@@ -213,10 +232,41 @@ export function generateSystemPrompt(
 interface RenderCtx {
   lang: string;
   defaultLang: string;
+  // When set (multilingual mode), localized fields emit every listed language
+  // labeled by code instead of resolving to `lang`. Always has >1 entry; the
+  // compiler leaves it undefined for single-language emission.
+  langs?: string[];
 }
 
 function loc(value: string | Record<string, string> | undefined, ctx: RenderCtx): string {
   return resolveLocalized(value, ctx.lang, ctx.defaultLang);
+}
+
+// Multilingual emission: the (lang, text) pairs to render for a localized
+// value, in declared-language order. Languages with no reviewed content are
+// skipped (no fallback) so the model sees only real translations — except a
+// plain string, which counts as default-language content. Only called when
+// ctx.langs is set.
+function locPerLang(
+  value: string | Record<string, string> | undefined,
+  ctx: RenderCtx,
+): Array<[lang: string, text: string]> {
+  const out: Array<[string, string]> = [];
+  for (const lang of ctx.langs ?? []) {
+    const t = getLanguage(value, lang, ctx.defaultLang);
+    if (t && t.trim()) out.push([lang, t]);
+  }
+  return out;
+}
+
+// One-time guidance, emitted only in multilingual mode, telling the model the
+// caller may code-switch and to pick the matching translation per turn.
+function renderMultilingual(ctx: RenderCtx): string {
+  if (!ctx.langs) return "";
+  return [
+    `MULTILINGUAL (languages: ${ctx.langs.join(", ")}):`,
+    "The caller may use any listed language and may switch mid-conversation. Each turn, detect the caller's current language and reply in it, using the matching translation shown for each script line and FAQ answer below. If a translation is missing for that language, translate the default faithfully.",
+  ].join("\n");
 }
 
 // Replaces `{name}` placeholders with values from `vars`. Unknown placeholders
@@ -413,6 +463,18 @@ function renderFlowScripts(flow: Flow, ctx: RenderCtx): string {
   if (!scripts.length) return "";
   const lines: string[] = ["   Scripts:"];
   for (const s of scripts) {
+    if (ctx.langs) {
+      // Multilingual: one labeled line per language with reviewed text, its
+      // own variations nested beneath it.
+      const pairs = locPerLang(s.text, ctx);
+      pairs.forEach(([lang, text], i) => {
+        lines.push(`     ${i === 0 ? "- " : "  "}${lang}: "${escapeQuotes(text)}"`);
+        for (const v of (s.variations?.[lang] ?? []).filter(Boolean)) {
+          lines.push(`         | "${escapeQuotes(v)}"`);
+        }
+      });
+      continue;
+    }
     const text = loc(s.text, ctx);
     if (!text) continue;
     lines.push(`     - "${escapeQuotes(text)}"`);
@@ -497,6 +559,14 @@ function renderKnowledge(spec: Spec, ctx: RenderCtx): string {
 }
 
 function formatFaqEntry(entry: FaqEntry, indent: string, ctx: RenderCtx): string {
+  if (ctx.langs) {
+    // Multilingual: question stays single (it isn't localized); answer emits
+    // one labeled line per language with a reviewed translation.
+    const answers = locPerLang(entry.answer, ctx)
+      .map(([lang, text]) => `${indent}    ${lang}: ${text}`)
+      .join("\n");
+    return `${indent}- Q: ${entry.question}\n${indent}  A:\n${answers}`;
+  }
   return `${indent}- Q: ${entry.question}\n${indent}  A: ${loc(entry.answer, ctx)}`;
 }
 

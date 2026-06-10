@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSpecStore, type Selection } from "@/lib/store/spec";
 import type { Spec } from "@flowstore/core/schema/v0";
-import { defaultLanguage } from "@flowstore/core/schema/v0";
 import { DEFAULT_MODEL_ID, resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
 import {
@@ -152,12 +151,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const language = useSimulateStore((s) => s.language);
   const setLanguage = useSimulateStore((s) => s.setLanguage);
   const hasCapabilities = (spec?.agent.capabilities?.length ?? 0) > 0;
-  // The holistic Evaluate action only makes sense when the agent has stated
-  // invariants to judge against; hide it otherwise.
-  const hasGuardrailsOrGoals =
-    (spec?.agent.guardrails?.some((g) => g.statement?.trim()) ?? false) ||
-    (spec?.agent.business_goals?.some((g) => g.expression?.trim() || g.name?.trim()) ??
-      false);
 
   // Default is undefined ("auto"): the prompt renders in the default language
   // and voice auto-detects, following the caller per turn. Reset to auto when
@@ -394,7 +387,8 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     const businessGoals = (current.agent.business_goals ?? [])
       .filter((g) => g.expression?.trim() || g.name?.trim())
       .map((g) => ({ id: g.id, name: g.name ?? g.id, expression: g.expression ?? "" }));
-    if (guardrails.length === 0 && businessGoals.length === 0) return;
+    // No early return on empty guardrails/goals: the judge still checks
+    // hallucination grounding, which is universal.
     const judgeDispatch = resolveDispatch(judgeModel);
     if (!judgeDispatch.provider || !judgeDispatch.apiKey) {
       setGuardrailVerdict({
@@ -405,6 +399,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         failure_turns: [],
         guardrails: [],
         business_goals: [],
+        hallucinations: [],
       });
       return;
     }
@@ -724,24 +719,18 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         )}
         {availableLanguages.length > 1 && (
           <select
-            // Text mode has no "auto": it only swaps which translation is in the
-            // prompt and the model mirrors the typed language, so undefined would
-            // render identically to the default language. Show concrete languages
-            // and display the default when nothing is pinned. Voice/runner keep
-            // "auto" — there it means per-turn auto-detect.
-            value={
-              language ?? (mode === "text" ? defaultLanguage(availableLanguages) : "")
-            }
+            // "auto" (unpinned) compiles a multilingual prompt — every declared
+            // language's scripts/FAQ — so the caller can switch languages
+            // mid-conversation and the model has the reviewed translation for
+            // each. A pinned language compiles a single-language prompt. Same
+            // meaning in every mode.
+            value={language ?? ""}
             onChange={(e) => setLanguage(e.target.value || undefined)}
             disabled={hasSession}
-            title={
-              mode === "text"
-                ? "Pin which language's scripts/FAQ the prompt renders. Locked once a session is running."
-                : "Pin the session to one language, or auto-detect (voice follows the caller per turn). Locked once a session is running."
-            }
+            title="auto: multilingual prompt — the caller can switch languages mid-conversation. Pin a language to scope to one. Locked once a session is running."
             className="ml-auto rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
           >
-            {mode !== "text" && <option value="">auto</option>}
+            <option value="">auto</option>
             {availableLanguages.map((code) => (
               <option key={code} value={code}>
                 {code}
@@ -957,11 +946,11 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
               <span />
             )}
             <div className="flex items-center gap-1.5">
-              {hasGuardrailsOrGoals && transcript.length > 0 && (
+              {transcript.length > 0 && (
                 <button
                   onClick={() => void evaluateGuardrails()}
                   disabled={evaluating || busy || isRunning}
-                  title="Holistically judge the transcript so far against the agent's guardrails and business goals."
+                  title="Holistically judge the transcript so far for hallucinations and against the agent's guardrails and business goals."
                   className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
                 >
                   {evaluating ? "Evaluating…" : "Evaluate"}
@@ -994,11 +983,11 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
                 🌐 {translateLabel}
               </button>
             )}
-            {hasGuardrailsOrGoals && transcript.length > 0 && (
+            {transcript.length > 0 && (
               <button
                 onClick={() => void evaluateGuardrails()}
                 disabled={evaluating}
-                title="Holistically judge the transcript against the agent's guardrails and business goals."
+                title="Holistically judge the transcript for hallucinations and against the agent's guardrails and business goals."
                 className="rounded border border-zinc-300 px-2 py-1 text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
               >
                 {evaluating ? "Evaluating…" : "Evaluate"}
@@ -1366,11 +1355,12 @@ function RubricsCard({
   );
 }
 
-// Holistic guardrail / business-goal verdict for the current transcript.
+// Holistic evaluation verdict for the current transcript: hallucination
+// grounding (always judged) plus the agent's guardrails and business goals.
 // Results-only display — the trigger is the "Evaluate" button in the footer
 // next to Send. Unlike RubricsCard this needs no active case (it judges
-// against the agent's own stated invariants), so it renders on any session
-// once a verdict exists. The "met" markers mirror the rubric card's vocabulary.
+// against grounding and the agent's own stated invariants), so it renders on
+// any session once a verdict exists. The "met" markers mirror the rubric card.
 function GuardrailEvalCard({ verdict }: { verdict: GuardrailVerdict }) {
   const skipped = verdict.status === "skipped";
   const color = skipped
@@ -1391,7 +1381,7 @@ function GuardrailEvalCard({ verdict }: { verdict: GuardrailVerdict }) {
   return (
     <div className={`rounded border ${color} p-2 text-[11px] space-y-1`}>
       <div className="font-medium">
-        {headIcon} guardrail evaluation
+        {headIcon} evaluation
         {!skipped && <span className="font-mono"> · {verdict.verdict}</span>}
         {!skipped && verdict.failure_mode !== "none" && (
           <span className="font-mono text-[10px] text-zinc-500">
@@ -1403,6 +1393,14 @@ function GuardrailEvalCard({ verdict }: { verdict: GuardrailVerdict }) {
       <div className="text-[10px] text-zinc-600">{verdict.summary}</div>
       {!skipped && (
         <>
+          {verdict.hallucinations.map((h, i) => (
+            <div key={`h-${i}`} className="text-[10px]">
+              <span className="text-red-700">
+                ✗ hallucination{h.turn >= 0 ? ` (turn ${h.turn})` : ""}: {h.claim}
+              </span>
+              {h.reason && <span className="text-zinc-500"> — {h.reason}</span>}
+            </div>
+          ))}
           {verdict.guardrails.map((g, i) => (
             <div key={`g-${i}`} className="text-[10px]">
               <span className={g.met === "no" ? "text-red-700" : "text-zinc-600"}>
