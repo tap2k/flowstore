@@ -34,6 +34,7 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
 
   const personaPrompt = useSimulateStore((s) => s.personaPrompt);
   const autoRun = useSimulateStore((s) => s.autoRun);
+  const mode = useSimulateStore((s) => s.mode);
   const status = useSimulateStore((s) => s.status);
   const hasTurns = useSimulateStore((s) => s.transcript.length > 0);
   const personaTurnLimit = useSimulateStore((s) => s.personaTurnLimit);
@@ -270,9 +271,11 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
           <button
             type="button"
             onClick={() => setAutoRun(!autoRun)}
-            disabled={!configured || !personaHasKey}
+            disabled={!configured || !personaHasKey || mode === "voice"}
             title={
-              !personaHasKey
+              mode === "voice"
+                ? "Persona auto-run is text/runner only — voice is mic-driven."
+                : !personaHasKey
                 ? "Add an API key in Settings for the model the persona picker is set to."
                 : !configured
                   ? "Write a persona system prompt to start."
@@ -294,7 +297,7 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
           >
             {autoRun ? "■" : conversationEnded ? "✓" : "▶"}
           </button>
-          {autoRun ? (
+          {mode === "voice" ? null : autoRun ? (
             <span className="text-[10px] text-zinc-400">· {personaTurnsLeft} left</span>
           ) : conversationEnded ? (
             <span className="text-[10px] text-emerald-600">· done</span>

@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSpecStore, type Selection } from "@/lib/store/spec";
 import type { Spec } from "@flowstore/core/schema/v0";
-import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
+import { defaultLanguage } from "@flowstore/core/schema/v0";
+import { DEFAULT_MODEL_ID, resolveDispatch, useSettingsStore } from "@/lib/store/settings";
+import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
 import {
   isPromptMode,
   useSimulateStore,
@@ -48,6 +50,13 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   // specifically (not whichever provider the picker is on).
   const googleApiKey = useSettingsStore((s) => s.googleApiKey);
   const setSimulateAgentModel = useSettingsStore((s) => s.setSimulateAgentModel);
+  // A voice (Live) model can't dispatch via generateContent — it 404s — so it
+  // must never sit in the agent (text/runner) slot. If a stale pick leaked one
+  // in (e.g. selected before the picker excluded Live models), snap back to the
+  // default. Done during render to match the language-reset guard below.
+  if (BUILT_IN_MODELS.models[agentModel]?.voice) {
+    setSimulateAgentModel(DEFAULT_MODEL_ID);
+  }
   const personaModel = useSettingsStore((s) => s.simulatePersonaModel);
   const setSimulatePersonaModel = useSettingsStore((s) => s.setSimulatePersonaModel);
   const judgeModel = useSettingsStore((s) => s.simulateJudgeModel);
@@ -150,9 +159,10 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     (spec?.agent.business_goals?.some((g) => g.expression?.trim() || g.name?.trim()) ??
       false);
 
-  // Default is "all" (undefined) — emit every language bucket. Reset to "all"
-  // when the active agent changes, or when the current selection is no longer
-  // in the new agent's language list. Done during render to avoid a wasted
+  // Default is undefined ("auto"): the prompt renders in the default language
+  // and voice auto-detects, following the caller per turn. Reset to auto when
+  // the active agent changes, or when the current selection is no longer in
+  // the new agent's language list. Done during render to avoid a wasted
   // commit cycle.
   const prevAgentIdRef = useRef<string | undefined>(spec?.agent.id);
   if (prevAgentIdRef.current !== spec?.agent.id) {
@@ -714,13 +724,24 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         )}
         {availableLanguages.length > 1 && (
           <select
-            value={language ?? ""}
+            // Text mode has no "auto": it only swaps which translation is in the
+            // prompt and the model mirrors the typed language, so undefined would
+            // render identically to the default language. Show concrete languages
+            // and display the default when nothing is pinned. Voice/runner keep
+            // "auto" — there it means per-turn auto-detect.
+            value={
+              language ?? (mode === "text" ? defaultLanguage(availableLanguages) : "")
+            }
             onChange={(e) => setLanguage(e.target.value || undefined)}
             disabled={hasSession}
-            title="Pin the session to one language, or auto-detect (voice follows the caller per turn). Locked once a session is running."
+            title={
+              mode === "text"
+                ? "Pin which language's scripts/FAQ the prompt renders. Locked once a session is running."
+                : "Pin the session to one language, or auto-detect (voice follows the caller per turn). Locked once a session is running."
+            }
             className="ml-auto rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
           >
-            <option value="">auto</option>
+            {mode !== "text" && <option value="">auto</option>}
             {availableLanguages.map((code) => (
               <option key={code} value={code}>
                 {code}

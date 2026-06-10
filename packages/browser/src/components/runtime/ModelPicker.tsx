@@ -63,11 +63,16 @@ export function ModelPicker({
     >
       {Object.entries(BUILT_IN_MODELS.models)
         .filter(([id, m]) => {
-          // Always keep the current selection visible, else the select
-          // renders blank when value is filtered out.
-          if (id === value) return true;
-          if (voiceOnly && !m.voice) return false;
+          // Capability filters are HARD — an incompatible model must never be
+          // selectable or kept alive as a stale selection, or it dispatches
+          // and 404s. Voice (Live) models only speak the bidi socket and 404
+          // on generateContent, so they appear ONLY in the voiceOnly picker;
+          // every other (generateContent) picker excludes them.
+          if (voiceOnly ? !m.voice : !!m.voice) return false;
           if (structuredOnly && !supportsStructuredOutput(id)) return false;
+          // Key presence is SOFT: keep the current selection visible so the
+          // select doesn't render blank while a provider key is missing.
+          if (id === value) return true;
           if (!showUnconfigured && !hasKeyForModel(id, keyOverrides)) return false;
           return true;
         })
