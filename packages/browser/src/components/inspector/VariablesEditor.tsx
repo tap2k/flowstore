@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { VariableDecl, VariableType } from "@flowstore/core/schema/v0";
+import { useSettingsStore } from "@/lib/store/settings";
 
 const VARIABLE_TYPES: VariableType[] = ["string", "number", "boolean", "enum"];
 
@@ -12,11 +13,16 @@ interface Row {
   description: string;
   values: string;
   visibleWhen: string;
+  provided: boolean;
 }
 
 interface VariablesEditorProps {
   variables: Record<string, VariableDecl> | undefined;
   onChange: (next: Record<string, VariableDecl> | undefined) => void;
+  // provided (session-start payload) is an agent-level concept — flow vars
+  // arise mid-conversation, so the checkbox is hidden there and the key is
+  // dropped on edit (graphRules warns about it anyway).
+  scope: "agent" | "flow";
 }
 
 function rowsFrom(variables: Record<string, VariableDecl> | undefined): Row[] {
@@ -27,10 +33,11 @@ function rowsFrom(variables: Record<string, VariableDecl> | undefined): Row[] {
     description: decl.description ?? "",
     values: decl.values?.join(", ") ?? "",
     visibleWhen: decl.visible_when ?? "",
+    provided: decl.provided ?? false,
   }));
 }
 
-function rowsTo(rows: Row[]): Record<string, VariableDecl> | undefined {
+function rowsTo(rows: Row[], scope: "agent" | "flow"): Record<string, VariableDecl> | undefined {
   const valid = rows.filter((r) => r.name.trim() !== "");
   if (valid.length === 0) return undefined;
   const out: Record<string, VariableDecl> = {};
@@ -43,18 +50,25 @@ function rowsTo(rows: Row[]): Record<string, VariableDecl> | undefined {
       if (parsed.length > 0) decl.values = parsed;
     }
     if (r.visibleWhen.trim()) decl.visible_when = r.visibleWhen.trim();
+    // Written only when true so unchecked rows round-trip to a clean decl.
+    if (scope === "agent" && r.provided) decl.provided = true;
     out[r.name.trim()] = decl;
   }
   return out;
 }
 
-export function VariablesEditor({ variables, onChange }: VariablesEditorProps) {
+export function VariablesEditor({ variables, onChange, scope }: VariablesEditorProps) {
   // Local state holds draft rows (including unnamed ones); only named rows are committed to spec.
   const [rows, setRows] = useState<Row[]>(() => rowsFrom(variables));
+  const runnerUrl = useSettingsStore((s) => s.runnerUrl);
+  // visible_when is enforced only by the Python runner's supervisor — prompt
+  // mode bakes values into the static prompt ungated — so only surface it
+  // when a runner is plausibly in play (mirrors the SettingsSheet gate).
+  const showVisibleWhen = import.meta.env.VITE_DEV === "1" || runnerUrl !== "";
 
   function commit(next: Row[]) {
     setRows(next);
-    onChange(rowsTo(next));
+    onChange(rowsTo(next, scope));
   }
 
   return (
@@ -119,18 +133,39 @@ export function VariablesEditor({ variables, onChange }: VariablesEditorProps) {
               placeholder="values: foo, bar, baz"
             />
           )}
-          {import.meta.env.VITE_DEV === "1" && (
-            <input
-              className={inputClass}
-              value={row.visibleWhen}
-              onChange={(e) =>
-                commit(
-                  rows.map((r, j) => (j === i ? { ...r, visibleWhen: e.target.value } : r))
-                )
-              }
-              placeholder='visible_when: e.g. identity_confirmed and consent == "full"'
-              title="Data gate: value is withheld from the prompt until this expression is true. Same grammar as exit-path conditions (== != > < and/or/not over variables and literals)."
-            />
+          {(scope === "agent" || showVisibleWhen) && (
+            <div className="flex items-center gap-2">
+              {scope === "agent" && (
+                <label
+                  className="flex shrink-0 items-center gap-1 text-xs text-zinc-600"
+                  title="provided: the deployment hands this value to the session at start (dialer payload, screen-pop, caller ID). Only provided vars from a persona/case fixture ship to the agent at session start; everything else must be earned through conversation or capability returns. Distinct from visible_when: provided = known at start; visible_when = known but withheld until the gate clears."
+                >
+                  <input
+                    type="checkbox"
+                    checked={row.provided}
+                    onChange={(e) =>
+                      commit(
+                        rows.map((r, j) => (j === i ? { ...r, provided: e.target.checked } : r))
+                      )
+                    }
+                  />
+                  provided at start
+                </label>
+              )}
+              {showVisibleWhen && (
+                <input
+                  className={inputClass}
+                  value={row.visibleWhen}
+                  onChange={(e) =>
+                    commit(
+                      rows.map((r, j) => (j === i ? { ...r, visibleWhen: e.target.value } : r))
+                    )
+                  }
+                  placeholder='visible_when: e.g. identity_confirmed and consent == "full"'
+                  title="Data gate: value is withheld from the prompt until this expression is true. Same grammar as exit-path conditions (== != > < and/or/not over variables and literals). Runner-enforced only — prompt mode cannot gate per turn."
+                />
+              )}
+            </div>
           )}
         </div>
       ))}
@@ -139,7 +174,14 @@ export function VariablesEditor({ variables, onChange }: VariablesEditorProps) {
         onClick={() =>
           commit([
             ...rows,
-            { name: "", type: "string", description: "", values: "", visibleWhen: "" },
+            {
+              name: "",
+              type: "string",
+              description: "",
+              values: "",
+              visibleWhen: "",
+              provided: false,
+            },
           ])
         }
         className="text-xs text-zinc-600 hover:text-zinc-900 underline"

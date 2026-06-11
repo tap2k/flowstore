@@ -21,7 +21,8 @@ export type GraphIssueCode =
   | "max-turns-with-condition"
   | "unknown-capability"
   | "unreachable-flow"
-  | "variable-casing";
+  | "variable-casing"
+  | "provided-on-flow-variable";
 
 export interface GraphIssue {
   code: GraphIssueCode;
@@ -158,10 +159,35 @@ export function validateGraph(spec: Spec): GraphIssue[] {
     }
   }
 
+  // `provided` marks the session-start payload, which is a deployment-level
+  // fact — flow variables arise mid-conversation by construction, so the flag
+  // is inert there and almost certainly a misplaced agent-level declaration.
+  for (const f of spec.flows) {
+    for (const [name, decl] of Object.entries(f.variables ?? {})) {
+      if (decl.provided) {
+        issues.push({
+          code: "provided-on-flow-variable",
+          at: { kind: "flow", flowId: f.id },
+          severity: "warning",
+          message: `variable "${name}": provided is meaningful only on agent.variables (session-start payload); flow variables arise mid-conversation, so the flag has no effect here`,
+        });
+      }
+    }
+  }
+
   issues.push(...lintVariableCasing(spec));
 
   return issues;
 }
+
+// NOTE: a "placeholder has no binding path" lint was tried here and reverted.
+// Its premise — that {placeholders} must be fillable by the bag (provided
+// seed / capability outputs / assigns) — is wrong: script placeholders are
+// also MODEL-FILLED templates (the slot-filler pattern; see the coffee
+// example's {size}/{milk}), where the LLM substitutes from conversation
+// context and a literal {var} reaching the model is correct authoring. Bag
+// fillability and template fillability are different questions; a useful lint
+// would need to know which placeholders the author intends as machine-bound.
 
 // Variables are spontaneous — referencing one anywhere conjures it — so a
 // mis-cased reference (`{Customer_Name}` vs `customer_name`) silently creates a

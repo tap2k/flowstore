@@ -10,6 +10,9 @@ import type { MockBehavior } from "@flowstore/core/schema/files/mockBehavior";
 // user_turns).
 
 export interface RuntimePersonaWorld {
+  // The FULL character sheet, for the editing buffer — not what ships.
+  // Session starts filter this through providedVars() (contextVars.ts) so only
+  // `provided`-declared keys reach the agent.
   vars: Record<string, unknown>;
   returns: Record<string, Record<string, unknown>>;
   errors: Record<string, string | null>;

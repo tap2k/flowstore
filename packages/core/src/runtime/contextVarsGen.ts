@@ -40,7 +40,16 @@ export async function generateContextVars(
   // Drop blank-named declarations: an empty/whitespace key is invalid in a
   // Gemini responseSchema ("properties[]: key cannot be empty") and couldn't
   // round-trip to a usable value anyway. Common mid-edit in the editor.
-  const usable = declared.filter((d) => d.name.trim() !== "");
+  // Also drop variables bound by a capability's declared outputs — those
+  // values enter the world as tool results (generate them in the persona's
+  // MOCKS, where capabilityMocksGen keeps them consistent with these vars),
+  // not as character-sheet facts.
+  const capabilityBound = new Set(
+    (spec.agent.capabilities ?? []).flatMap((c) => c.outputs ?? []),
+  );
+  const usable = declared.filter(
+    (d) => d.name.trim() !== "" && !capabilityBound.has(d.name),
+  );
   if (usable.length === 0) return {};
 
   const properties: Record<string, unknown> = {};

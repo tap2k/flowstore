@@ -131,8 +131,12 @@ export const TestCaseSchema = Type.Object(
     system_prompt: Type.Optional(Type.String()),
     // Situational fixture for this scenario, merged over (and overriding) the
     // bound persona's intrinsic fixture. vars: free-form {name: value} dict
-    // coerced against agent.variables. mocks: per-capability behavior keyed by
-    // capability id, replacing the persona's mock for that capability.
+    // coerced against agent.variables. Like persona vars, this is a CHARACTER
+    // SHEET, edit-time only — at run time only the keys whose agent-level
+    // declaration says `provided: true` ship to the session; the rest serve
+    // prompt/mock generation and assertions (see VariableDeclSchema.provided).
+    // mocks: per-capability behavior keyed by capability id, replacing the
+    // persona's mock for that capability.
     vars: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
     mocks: Type.Optional(Type.Record(Type.String(), MockBehaviorSchema)),
     evaluators: Type.Optional(Type.Array(Type.String())),

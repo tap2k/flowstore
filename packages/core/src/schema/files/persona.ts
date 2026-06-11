@@ -28,8 +28,14 @@ export const PersonaSchema = Type.Object(
     notes: Type.Optional(Type.String()),
     model: Type.Optional(Type.String()),
     // Character-intrinsic only: free-form {variable_name: value} dict, true of
-    // this character in every test, coerced against agent.variables at run
-    // time. Situational vars go on the case.
+    // this character in every test, coerced against agent.variables. This is
+    // a CHARACTER SHEET, not session-start input: at run time only the keys whose
+    // agent-level declaration says `provided: true` (the session-start
+    // payload — dialer record, caller ID) ship to the agent; everything else
+    // is edit-time ground truth for persona prompt generation, mock
+    // consistency, and assertions, and reaches the agent only when the
+    // persona says it or a mock returns it (see VariableDeclSchema.provided).
+    // Situational vars go on the case.
     vars: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
     // Character-intrinsic per-capability behaviors keyed by capability id
     // (e.g. a verify_policy return keyed on this caller's identity). Caps not

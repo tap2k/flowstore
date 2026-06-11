@@ -46,6 +46,16 @@ export const VariableDeclSchema = Type.Object(
     // expression evaluates true. Deterministic-calculation grammar only —
     // no LLM-evaluated visibility (would defeat the prevention guarantee).
     visible_when: Type.Optional(Type.String()),
+    // The deployment MAY hand this value to the session at start (dialer
+    // payload, screen-pop record, caller ID) — a permission, not a guarantee;
+    // an inbound session simply arrives without it. This is the only gate
+    // through which test-fixture vars (persona/case character sheets) reach
+    // the agent's initial state: unmarked vars never ship, so the agent must
+    // earn them through conversation or capability returns. Meaningful on
+    // agent-level declarations only (flow vars arise mid-conversation by
+    // construction — graphRules warns). Distinct from visible_when: provided
+    // = known at start; visible_when = known but withheld until the gate.
+    provided: Type.Optional(Type.Boolean()),
   },
   strict
 );

@@ -65,10 +65,17 @@ export const DecisionTestSchema = Type.Object(
     branches: Type.Array(DecisionBranch),
     // Fixture the routing branches run against — all inline; decision tests
     // have no actor (they script their own prefix_turns + branch inputs), so
-    // there's no persona to inherit from. vars: free-form {name: value} dict
-    // coerced against agent.variables. mocks: per-capability behavior keyed by
-    // capability id.
-    vars: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+    // there's no persona to inherit from.
+    //
+    // `state` is a mid-conversation STATE SNAPSHOT, not a character sheet:
+    // "the conversation already established these values." Runners inject it
+    // into the variable bag wholesale — including derived state like
+    // identity_confirmed — which is exactly the session-start injection that persona/case
+    // `vars` deliberately do NOT get (those ship only `provided`-declared
+    // keys; see VariableDeclSchema.provided). Different name because it is a
+    // different semantic. Free-form {name: value}, coerced against
+    // agent.variables. mocks: per-capability behavior keyed by capability id.
+    state: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
     mocks: Type.Optional(Type.Record(Type.String(), MockBehaviorSchema)),
     model: Type.Optional(Type.String()),
     language: Type.Optional(Type.String()),

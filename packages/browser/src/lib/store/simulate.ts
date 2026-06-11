@@ -20,6 +20,7 @@ import {
   cleanMockReturns,
   resolveMockedCall,
 } from "@flowstore/core/runtime/capabilityMocks";
+import { providedVars } from "@flowstore/core/runtime/contextVars";
 import type { GuardrailVerdict } from "@flowstore/core/runtime/judgeGuardrails";
 import type { RubricVerdict } from "@flowstore/core/runtime/judgeRubric";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
@@ -105,6 +106,11 @@ interface SimulateState {
   traversedEdgeIds: string[];
   traversedFlowIds: string[];
   variables: Record<string, unknown>;
+  // The vars buffer is a CHARACTER SHEET (full persona ∪ case fixture, or
+  // hand-typed values). What ships at session start is providedVars(spec, ·) —
+  // only `provided`-declared keys. To probe a state the deployment wouldn't
+  // provide, either mark the var provided in the variables sheet (the honest
+  // simulation of "known at start") or edit the prompt override directly.
   contextVars: Record<string, unknown>;
   contextVarsAgentId: string | null;
   mockReturns: Record<string, Record<string, unknown>>;
@@ -658,6 +664,10 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   start: async (args) => {
     const { mode, spec, apiKey, model, provider, baseUrl, language } = args;
     const { contextVars, mockReturns } = get();
+    // Ship only the session-start payload (`provided`-declared keys) — the
+    // rest of the vars buffer is character sheet, which the agent must earn
+    // through conversation or mocks.
+    const shippedVars = providedVars(spec, contextVars);
     // The editable prompt override is produced by the Prompt panel and lives in
     // the ui store; use it if present, else compile fresh from the spec.
     const existingOverride = useUiStore.getState().promptOverride;
@@ -701,7 +711,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       try {
         const systemPrompt =
           existingOverride ??
-          generateSystemPrompt(spec, contextVars, { language: language ?? ALL_LANGUAGES });
+          generateSystemPrompt(spec, shippedVars, { language: language ?? ALL_LANGUAGES });
         const sessionId = `voice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         set({ sessionId, systemPrompt, specSnapshot: spec });
         const { VoiceSession } = await import("@/lib/runtime/voiceSession");
@@ -773,7 +783,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       try {
         const systemPrompt =
           existingOverride ??
-          generateSystemPrompt(spec, contextVars, { language: language ?? ALL_LANGUAGES });
+          generateSystemPrompt(spec, shippedVars, { language: language ?? ALL_LANGUAGES });
         const sessionId = `prompt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         set({ sessionId, systemPrompt, specSnapshot: spec });
 
@@ -836,7 +846,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         model: model || undefined,
         // Omit when unpinned → runner emits every declared language.
         language,
-        contextVars,
+        contextVars: shippedVars,
         mockReturns: cleanedMocks,
       });
       const latencyMs = Math.round(performance.now() - t0);

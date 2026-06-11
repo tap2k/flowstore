@@ -16,6 +16,7 @@ export function VariablesSheet({ onClose }: { onClose: () => void }) {
       <VariablesEditor
         variables={variables}
         onChange={(v) => updateAgent({ variables: v })}
+        scope="agent"
       />
     </SheetShell>
   );
