@@ -23,6 +23,25 @@ export function collectDeclaredVariables(spec: Spec | null): DeclaredVariable[] 
   return Array.from(seen.values());
 }
 
+// The provided subset of a fixture's vars — what the deployment would hand
+// the session at start, and the ONLY vars that ship as context_vars / bake
+// into the compiled prompt for persona- and case-driven runs. Everything
+// else in a character sheet stays edit-time (persona prompt generation, mock
+// consistency, assertion ground truth): the agent must earn it through
+// conversation or a capability return. Keyed strictly on agent-level
+// declarations; flow vars arise mid-conversation and are never provided.
+export function providedVars(
+  spec: Spec,
+  vars: Record<string, unknown>,
+): Record<string, unknown> {
+  const declared = spec.agent.variables ?? {};
+  const out: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(vars)) {
+    if (declared[name]?.provided) out[name] = value;
+  }
+  return out;
+}
+
 export function coerceValue(decl: VariableDecl, raw: string | boolean): unknown {
   const type = decl.type ?? "string";
   if (typeof raw === "boolean") return raw;

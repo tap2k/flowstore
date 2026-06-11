@@ -358,6 +358,7 @@ export function FlowInspector() {
               key={flow.id}
               variables={flow.variables}
               onChange={(v) => patch({ variables: v })}
+              scope="flow"
             />
           </Field>
         )}

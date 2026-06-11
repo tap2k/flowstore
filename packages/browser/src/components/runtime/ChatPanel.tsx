@@ -17,6 +17,7 @@ import { systemPrompt } from "@flowstore/core/llm/prompts";
 import { formatErrors, validateSpec } from "@flowstore/core/validation/ajv";
 import type { ChatMessage } from "@flowstore/core/llm/types";
 import type { Spec } from "@flowstore/core/schema/v0";
+import { providedVars } from "@flowstore/core/runtime/contextVars";
 import type { RuntimeEvent } from "@flowstore/core/runtime/eventTypes";
 import { formatEvent } from "@flowstore/core/runtime/formatEvent";
 
@@ -167,7 +168,7 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
     const attached = attachments;
     setAttachments([]);
     const initialSpec = useSpecStore.getState().spec;
-    // Fixtures (seed vars + per-capability mock returns) live in localStorage,
+    // Fixtures (the vars character sheet + per-capability mock returns) live in localStorage,
     // keyed by agent id. Hydration is idempotent and lazy — a no-op if the
     // sim store already loaded them — so call it here rather than depending on
     // SimulatePanel having been opened.
@@ -612,11 +613,11 @@ function buildUserContent(
     ? `<spec>\n${JSON.stringify(spec, null, 2)}\n</spec>`
     : `<spec>(empty — no spec loaded yet)</spec>`;
   const gitBlock = `\n\n${renderGitBlock()}`;
-  // Fixtures are authored config (seed vars + capability mocks), not runtime
+  // Fixtures are authored config (the vars character sheet + capability mocks), not runtime
   // state, so surface them whenever set — even before a session starts — so
   // the assistant can reason about and edit the scenario, not just diagnose
   // a finished run.
-  const fixturesBlock = renderFixturesBlock(sim);
+  const fixturesBlock = renderFixturesBlock(sim, spec);
   const simBlock = sim.sessionId ? `\n\n${renderSimBlock(sim)}` : "";
   const evalBlock = sim.sessionId ? renderEvaluationBlock(evaluation) : "";
   // Authored testing artifacts (personas/cases/rubrics/golds) — surfaced as a
@@ -675,16 +676,31 @@ function renderTestsBlock(tests: ReturnType<typeof useTestsStore.getState>): str
   return `<tests>\n${lines.join("\n")}\n</tests>`;
 }
 
-// Authored simulation fixtures: designer-set seed variable values and the
+// Authored simulation fixtures: the vars character sheet and the
 // per-capability mock returns used when a real capability call would happen.
 // Compact, and omitted entirely when nothing is set. These are the *inputs*
 // that explain runtime behavior — capabilities themselves are already in the
 // spec dump, so this surfaces only the mock values, not their definitions.
-function renderFixturesBlock(sim: SimContext): string {
+// Vars are split by what actually reaches the agent: only `provided`-declared
+// keys ship at session start; the rest are edit-time ground truth the agent must
+// earn through conversation or mocks. The assistant needs that distinction to
+// reason about why the agent does/doesn't know something.
+function renderFixturesBlock(sim: SimContext, spec: Spec | null): string {
   const lines: string[] = [];
   const varNames = Object.keys(sim.contextVars);
   if (varNames.length > 0) {
-    lines.push(`seed variables: ${JSON.stringify(sim.contextVars)}`);
+    const provided = spec ? providedVars(spec, sim.contextVars) : {};
+    const sheetOnly = Object.fromEntries(
+      Object.entries(sim.contextVars).filter(([k]) => !(k in provided)),
+    );
+    if (Object.keys(provided).length > 0) {
+      lines.push(`provided variables (shipped to the agent at session start): ${JSON.stringify(provided)}`);
+    }
+    if (Object.keys(sheetOnly).length > 0) {
+      lines.push(
+        `character-sheet variables (NOT shipped — the agent only learns these from the conversation or a mock return): ${JSON.stringify(sheetOnly)}`,
+      );
+    }
   }
   const mockedCaps = Object.keys(sim.mockReturns).filter(
     (cap) => Object.keys(sim.mockReturns[cap] ?? {}).length > 0,
