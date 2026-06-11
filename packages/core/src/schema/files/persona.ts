@@ -36,16 +36,16 @@ export const PersonaSchema = Type.Object(
     // listed fall through to the live capability (or {} if none). A case's
     // mocks replace the persona's per capability id.
     mocks: Type.Optional(Type.Record(Type.String(), MockBehaviorSchema)),
-    // Open behavioral knobs — the one sanctioned extension bag on the persona
-    // (the envelope stays strict, so typos in real fields still error). Flat
-    // scalars only. The user-sim renderer prints every key verbatim as
-    // `key: value` into the persona prompt at run time; some keys (e.g.
-    // barge_in) are instead machine-read by voice harnesses — those still
-    // render today as harmless noise, see planning/persona-simulation.md. No fixed
-    // vocabulary yet: kept open on purpose until grid-generation/pivoting earns
-    // typed enums. A test case may override a trait per key (like vars), which
-    // is what keeps channel knobs an orthogonal sweep axis rather than
-    // persona-intrinsic.
+    // Open behavioral knobs (flat scalars). Deliberately NOT inlined into the
+    // persona prompt — they're machine-read, so leaving the bag open costs
+    // nothing. The envelope above stays strict (typos in real fields error);
+    // this is the one open extension point. The keys flowstore interprets:
+    //   asr      — ASR-shaping level ("clean"|"light"|"heavy") for an
+    //              unintelligible caller (the channel garbles their turns).
+    //   barge_in — interruption propensity (0–1) for an impatient caller (cuts
+    //              the agent off, trimming its prior turn). Voice/prompt mode.
+    // Kept OPEN so an end client can add + interpret its own fields without a
+    // schema change; flowstore ignores keys it doesn't know.
     traits: Type.Optional(
       Type.Record(
         Type.String(),
@@ -57,3 +57,4 @@ export const PersonaSchema = Type.Object(
 );
 
 export type Persona = Static<typeof PersonaSchema>;
+export type PersonaTraits = NonNullable<Persona["traits"]>;

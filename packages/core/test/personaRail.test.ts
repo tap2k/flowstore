@@ -44,38 +44,19 @@ describe("defaultPersonaInstructions — rail conformance", () => {
   });
 });
 
-// Full composition golden: identity+scenario · traits · rail. This is the exact
-// string the Python mirror (compose_persona_prompt) must reproduce.
-describe("composePersonaPrompt — full render conformance", () => {
-  it("identity + traits + rail", () => {
-    const out = composePersonaPrompt({
-      personaPrompt: "  You are Ana, an overdue borrower who can pay tomorrow.  ",
-      modality: "voice",
-      traits: { compliance: "cooperative", patience: "impatient", barge_in: 0.4 },
-    });
-    expect(out).toMatchInlineSnapshot(`
-      "You are Ana, an overdue borrower who can pay tomorrow.
-
-      This user's traits:
-      - compliance: cooperative
-      - patience: impatient
-      - barge_in: 0.4
-
-      How to play this part:
-      - You are the user, not the agent. Only ever send the user's own messages — never write the agent's lines, answer your own questions, narrate, or emit tags or tool calls.
-      - Stay in character. Never say you're an AI, a model, or a test; never break the fourth wall.
-      - Reply in whatever language the agent is using.
-      - You're on a call: one short, spoken-sounding sentence per turn — no lists, no markdown, no spelling things out. Contractions and the odd filler are fine.
-      - If a message is empty or unclear, react as a real person would ("Hello?", "Sorry, what?").
-      - Put [DONE] on its own line once the conversation has wrapped up — after any final thanks or goodbye — or if you give up."
-    `);
+// compose = trimmed identity + rail. Traits never enter the prompt. The rail
+// (the only non-trivial part, and the cross-repo contract with the Python
+// mirror) is pinned per modality above, so these just check the trivial wrapper.
+describe("composePersonaPrompt — wrapper", () => {
+  it("voice: trimmed identity + rail (no traits inlined)", () => {
+    expect(
+      composePersonaPrompt({ personaPrompt: "  You are Ana.  ", modality: "voice" }),
+    ).toBe(`You are Ana.\n\n${defaultPersonaInstructions("voice")}`);
   });
 
-  it("no traits → identity + rail only", () => {
-    const out = composePersonaPrompt({
-      personaPrompt: "You are Ana.",
-      modality: "text",
-    });
-    expect(out).toBe(`You are Ana.\n\n${defaultPersonaInstructions("text")}`);
+  it("text modality rail", () => {
+    expect(
+      composePersonaPrompt({ personaPrompt: "You are Ana.", modality: "text" }),
+    ).toBe(`You are Ana.\n\n${defaultPersonaInstructions("text")}`);
   });
 });

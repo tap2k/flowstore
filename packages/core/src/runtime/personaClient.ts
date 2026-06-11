@@ -7,13 +7,12 @@ import { composePersonaPrompt } from "./personaPrompt";
 // Generate the next user-side utterance by inverting roles: the persona LLM
 // sees the agent's lines as user input and produces an assistant reply, which
 // becomes the next user turn in the simulator. The persona prompt carries only
-// identity + scenario; the medium-aware rail and the persona's traits block are
-// composed on top via composePersonaPrompt (the canonical renderer) at run time
-// — a runtime concern, owned by whoever drives the persona, not spec data.
+// identity + scenario; the medium-aware rail is composed on top via
+// composePersonaPrompt at run time. Traits never enter the prompt — they're
+// machine-read knobs (asr/barge_in) handled by the caller.
 export async function generatePersonaTurn(args: {
   personaPrompt: string;
   modality: Modality;
-  traits?: Record<string, string | number | boolean>;
   history: TranscriptTurn[];
   apiKey: string;
   model: string;
@@ -46,7 +45,6 @@ export async function generatePersonaTurn(args: {
       systemPrompt: composePersonaPrompt({
         personaPrompt: args.personaPrompt,
         modality: args.modality,
-        traits: args.traits,
       }),
       messages,
       tools: [],

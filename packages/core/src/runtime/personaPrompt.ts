@@ -52,27 +52,14 @@ export function defaultPersonaInstructions(modality: Modality): string {
   ].join("\n");
 }
 
-// Render a persona's open `traits` bag into a prompt block, one `key: value`
-// line each. Verbatim and dumb-but-predictable: no fixed vocabulary yet, so the
-// renderer takes no opinion on meaning. APPENDED beside the rail, not woven into
-// it. Machine-read knobs (e.g. barge_in, consumed by a voice harness's
-// perturbation/loop) also render here today as harmless noise; if that ever
-// matters, reserve a skip convention rather than a denylist.
-function renderTraits(
-  traits: Record<string, string | number | boolean> | undefined,
-): string {
-  if (!traits) return "";
-  const lines = Object.entries(traits).map(([k, v]) => `- ${k}: ${v}`);
-  if (lines.length === 0) return "";
-  return `\n\nThis user's traits:\n${lines.join("\n")}`;
-}
-
-// Compose the runnable user-sim system prompt: identity + scenario · traits
-// block · medium rail. The one function to mirror across harnesses.
+// Compose the runnable user-sim system prompt: identity + scenario · medium
+// rail. The one function to mirror across harnesses. Traits are deliberately NOT
+// inlined — they're open structured knobs (consumed mechanically, e.g. asr /
+// barge_in, or read for analysis), and pasting arbitrary `key: value` lines into
+// the prompt has dubious value and risks the persona acting them out.
 export function composePersonaPrompt(opts: {
   personaPrompt: string;
   modality: Modality;
-  traits?: Record<string, string | number | boolean>;
 }): string {
-  return `${opts.personaPrompt.trim()}${renderTraits(opts.traits)}\n\n${defaultPersonaInstructions(opts.modality)}`;
+  return `${opts.personaPrompt.trim()}\n\n${defaultPersonaInstructions(opts.modality)}`;
 }

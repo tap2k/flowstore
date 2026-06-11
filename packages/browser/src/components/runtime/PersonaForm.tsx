@@ -65,10 +65,17 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
   const dispatchKey = dispatch.apiKey;
   const model = useSettingsStore((s) => s.simulatePersonaModel);
   const setSimulatePersonaModel = useSettingsStore((s) => s.setSimulatePersonaModel);
-  const asrLevel = useSettingsStore((s) => s.simulateAsrLevel);
-  const setSimulateAsrLevel = useSettingsStore((s) => s.setSimulateAsrLevel);
-  const bargeIn = useSettingsStore((s) => s.simulateBargeIn);
-  const setSimulateBargeIn = useSettingsStore((s) => s.setSimulateBargeIn);
+  // Voice-realism knobs are persona TRAITS (saved on the persona, read by both
+  // the browser sim and the Python harness), not run-level settings — an
+  // unintelligible/impatient caller is modeled explicitly on the persona.
+  const personaTraits = useSimulateStore((s) => s.personaTraits);
+  // Set/clear one trait key, dropping the bag when it empties (off/0 = no trait).
+  const setTrait = (key: string, value: string | number | undefined) => {
+    const next = { ...(personaTraits ?? {}) };
+    if (value === undefined) delete next[key];
+    else next[key] = value;
+    setPersonaTraits(Object.keys(next).length > 0 ? next : undefined);
+  };
   const personaHasKey = hasKeyForModel(model);
   // ASR shaping only makes sense for a voice/multimodal agent (a text agent
   // never sees raw transcription); gate the control on it.
@@ -165,6 +172,7 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
         returns: mockReturns,
         errors: mockErrors,
         model: loadedPersona.model,
+        traits: personaTraits,
       }),
     );
   }
@@ -187,6 +195,7 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
         vars: contextVars,
         returns: mockReturns,
         errors: mockErrors,
+        traits: personaTraits,
       }),
     );
     setLoadedPersonaId(id);
@@ -468,9 +477,11 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
             {voiceAgent && (
               <>
                 <select
-                  value={asrLevel}
-                  onChange={(e) => setSimulateAsrLevel(e.target.value as AsrLevel)}
-                  title="ASR shaping: garble the persona's turns like raw transcription (lowercase, no punctuation, fillers/false-starts) before they reach the agent."
+                  value={(personaTraits?.asr as AsrLevel) ?? "off"}
+                  onChange={(e) =>
+                    setTrait("asr", e.target.value === "off" ? undefined : e.target.value)
+                  }
+                  title="ASR shaping (persona trait): an unintelligible caller — garble this persona's turns like raw transcription (lowercase, no punctuation, fillers/false-starts) before they reach the agent. Saved on the persona; read by the harness too."
                   className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
                 >
                   <option value="off">asr: off</option>
@@ -479,9 +490,11 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
                   <option value="heavy">asr: heavy</option>
                 </select>
                 <select
-                  value={String(bargeIn)}
-                  onChange={(e) => setSimulateBargeIn(Number(e.target.value))}
-                  title="Barge-in: how often the caller cuts the agent off mid-reply (trims the prior agent turn before the persona responds). A run-level floor — max'd with the persona's barge_in trait. Text/prompt mode only."
+                  value={String(Number(personaTraits?.barge_in) || 0)}
+                  onChange={(e) =>
+                    setTrait("barge_in", Number(e.target.value) || undefined)
+                  }
+                  title="Barge-in (persona trait): an impatient caller — how often they cut the agent off mid-reply (trims the prior agent turn before the persona responds). Saved on the persona; read by the harness too. Text/prompt mode only."
                   className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
                 >
                   <option value="0">barge: off</option>

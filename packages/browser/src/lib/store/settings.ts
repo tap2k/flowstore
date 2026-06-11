@@ -2,7 +2,6 @@ import { create } from "zustand";
 import { BUILT_IN_MODELS, resolveEndpoint, wireModelId } from "@flowstore/core/files/models";
 import type { EndpointId } from "@flowstore/core/files/models";
 import type { ProviderId } from "@flowstore/core/llm/types";
-import type { AsrLevel } from "@/lib/runtime/asrShape";
 
 const KEY = "flowstore:settings:google_api_key";
 const OPENAI_KEY = "flowstore:settings:openai_api_key";
@@ -51,12 +50,6 @@ interface SettingsState {
   // Live; kept separate from simulateAgentModel (which can be any provider)
   // because a voice session can only dispatch to a Live-capable model.
   simulateVoiceModel: string;
-  // Voice-realism for persona auto-run: shape simulated-user turns like raw ASR
-  // (off by default). Only applied for voice/multimodal agents. Transient.
-  simulateAsrLevel: AsrLevel;
-  // Run-level barge-in propensity (0–1) for persona auto-run: a quick-test floor
-  // that combines (max) with the persona's barge_in trait. 0 = off. Transient.
-  simulateBargeIn: number;
   runnerUrl: string;
   githubPat: string;
   // Identity echoed from `GET /user` after a PAT is set. Used by Comments
@@ -72,8 +65,6 @@ interface SettingsState {
   setSimulatePersonaModel: (model: string) => void;
   setSimulateJudgeModel: (model: string) => void;
   setSimulateVoiceModel: (model: string) => void;
-  setSimulateAsrLevel: (level: AsrLevel) => void;
-  setSimulateBargeIn: (p: number) => void;
   setGenerateModel: (model: string) => void;
   setRunnerUrl: (url: string) => void;
   setGithubPat: (pat: string) => void;
@@ -113,8 +104,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   simulatePersonaModel: DEFAULT_MODEL_ID,
   simulateJudgeModel: DEFAULT_MODEL_ID,
   simulateVoiceModel: DEFAULT_VOICE_MODEL_ID,
-  simulateAsrLevel: "off",
-  simulateBargeIn: 0,
   defaultModel: DEFAULT_MODEL_ID,
   runnerUrl: "",
   githubPat: "",
@@ -138,8 +127,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setSimulatePersonaModel: (model) => set({ simulatePersonaModel: model }),
   setSimulateJudgeModel: (model) => set({ simulateJudgeModel: model }),
   setSimulateVoiceModel: (model) => set({ simulateVoiceModel: model }),
-  setSimulateAsrLevel: (level) => set({ simulateAsrLevel: level }),
-  setSimulateBargeIn: (p) => set({ simulateBargeIn: p }),
   setGenerateModel: (model) => {
     persistString(DEFAULT_MODEL_KEY, model);
     set({ defaultModel: model });
