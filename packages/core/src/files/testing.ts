@@ -3,24 +3,35 @@ import { TestCaseSchema, type TestCase } from "@flowstore/core/schema/files/test
 import { PersonaSchema, type Persona } from "@flowstore/core/schema/files/persona";
 import { RubricSchema, type Rubric } from "@flowstore/core/schema/files/rubric";
 import { GoldSchema, type Gold } from "@flowstore/core/schema/files/gold";
-import type { FileMap, LoadError, TestingArtifacts } from "./types";
+import type { FileMap, IgnoredFile, LoadError, TestingArtifacts } from "./types";
 
 const TEST_CASE_RE = /^tests\/cases\/(.+)\.test\.json$/;
 const PERSONA_RE = /^tests\/personas\/(.+)\.persona\.json$/;
 const RUBRIC_RE = /^tests\/rubrics\/(.+)\.rubric\.json$/;
 const GOLD_RE = /^tests\/gold\/(.+)\.gold\.json$/;
 
+// The $schema URI each loader understands. A recognized path carrying a
+// DIFFERENT URI (a newer version, or a future kind) is skipped + surfaced
+// instead of hard-errored — see loadCollection.
+const TEST_CASE_SCHEMA = "flowstore://test/case/v0";
+const PERSONA_SCHEMA = "flowstore://test/persona/v0";
+const RUBRIC_SCHEMA = "flowstore://test/rubric/v0";
+const GOLD_SCHEMA = "flowstore://test/gold/v0";
+
 export function loadTestingArtifacts(
   files: FileMap,
   errors: LoadError[],
 ): TestingArtifacts {
   files = migrateTestingFiles(files);
+  const ignored: IgnoredFile[] = [];
   return {
     testCases: loadCollection<TestCase>(
       files,
       errors,
+      ignored,
       TEST_CASE_RE,
       TestCaseSchema,
+      TEST_CASE_SCHEMA,
       (parsed, baseId, path) => {
         if (parsed.id !== baseId) {
           errors.push({
@@ -33,8 +44,10 @@ export function loadTestingArtifacts(
     personas: loadCollection<Persona>(
       files,
       errors,
+      ignored,
       PERSONA_RE,
       PersonaSchema,
+      PERSONA_SCHEMA,
       (parsed, baseId, path) => {
         if (parsed.id !== baseId) {
           errors.push({
@@ -47,8 +60,10 @@ export function loadTestingArtifacts(
     rubrics: loadCollection<Rubric>(
       files,
       errors,
+      ignored,
       RUBRIC_RE,
       RubricSchema,
+      RUBRIC_SCHEMA,
       (parsed, baseId, path) => {
         if (parsed.id !== baseId) {
           errors.push({
@@ -61,8 +76,10 @@ export function loadTestingArtifacts(
     golds: loadCollection<Gold>(
       files,
       errors,
+      ignored,
       GOLD_RE,
       GoldSchema,
+      GOLD_SCHEMA,
       (parsed, baseId, path) => {
         if (parsed.id !== baseId) {
           errors.push({
@@ -72,6 +89,7 @@ export function loadTestingArtifacts(
         }
       },
     ),
+    ignored,
   };
 }
 
@@ -185,8 +203,10 @@ function migrateTestingFiles(files: FileMap): FileMap {
 function loadCollection<T extends { $schema: string }>(
   files: FileMap,
   errors: LoadError[],
+  ignored: IgnoredFile[],
   pathRe: RegExp,
   schema: Parameters<typeof validateFile>[0],
+  expectedSchema: string,
   postValidate: (parsed: T, baseId: string, path: string) => void,
 ): T[] {
   const out: T[] = [];
@@ -202,6 +222,20 @@ function loadCollection<T extends { $schema: string }>(
       errors.push({
         path,
         message: e instanceof Error ? e.message : String(e),
+      });
+      continue;
+    }
+    // Forward-compat: a recognized path carrying an UNRECOGNIZED $schema URI
+    // (a newer version this loader predates, a future kind) is skipped and
+    // surfaced via `ignored`, not hard-errored. A MISSING/non-string $schema,
+    // or a matching URI with bad fields, is a real authoring bug and still
+    // fails loudly through validateFile below.
+    const uri = (parsed as { $schema?: unknown }).$schema;
+    if (typeof uri === "string" && uri !== expectedSchema) {
+      ignored.push({
+        path,
+        schema: uri,
+        reason: `unrecognized $schema "${uri}" (this loader understands "${expectedSchema}")`,
       });
       continue;
     }

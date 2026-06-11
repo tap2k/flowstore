@@ -13,6 +13,17 @@ export interface LoadError {
   message: string;
 }
 
+// A file at a recognized path that carried an unrecognized $schema URI (e.g. a
+// newer version this loader predates, or a new artifact kind). Skipped rather
+// than hard-errored — forward-compat — but SURFACED here, never silent: a
+// silent skip turns a $schema typo into an invisible vanished test (suite goes
+// green with the case missing). Consumers should print these.
+export interface IgnoredFile {
+  path: string;
+  schema?: string;
+  reason: string;
+}
+
 // Sibling testing artifacts that live alongside the spec but are not part
 // of the runtime-compiled artifact. A persona owns its world (vars + per-
 // cap mocks) inline; persona-driven cases inherit that world. Scripted
@@ -22,6 +33,9 @@ export interface TestingArtifacts {
   personas: Persona[];
   rubrics: Rubric[];
   golds: Gold[];
+  // Files skipped for an unrecognized $schema (forward-compat). Surfaced, not
+  // silent — see IgnoredFile.
+  ignored: IgnoredFile[];
 }
 
 export interface LoadResult {

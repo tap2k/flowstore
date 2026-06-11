@@ -1,5 +1,5 @@
 import type { Spec } from "@flowstore/core/schema/v0";
-import type { Persona } from "@flowstore/core/schema/files/persona";
+import type { Persona, PersonaTraits } from "@flowstore/core/schema/files/persona";
 import type { MockBehavior } from "@flowstore/core/schema/files/mockBehavior";
 
 // Translate between the persona file shape (mocks keyed by capability ID,
@@ -132,10 +132,13 @@ export interface BuildPersonaInput {
   returns: Record<string, Record<string, unknown>>;
   errors: Record<string, string>;
   model?: string;
+  // Machine-read behavioral knobs (asr, barge_in). The caller drops no-op
+  // entries (off / 0) before passing them.
+  traits?: PersonaTraits;
 }
 
 export function buildPersonaFromRuntime(input: BuildPersonaInput): Persona {
-  const { spec, id, name, notes, systemPrompt, vars, returns, errors, model } = input;
+  const { spec, id, name, notes, systemPrompt, vars, returns, errors, model, traits } = input;
   const cleanedVars: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(vars)) {
     if (v === undefined || v === null || v === "") continue;
@@ -151,5 +154,6 @@ export function buildPersonaFromRuntime(input: BuildPersonaInput): Persona {
     ...(model ? { model } : {}),
     ...(Object.keys(cleanedVars).length > 0 ? { vars: cleanedVars } : {}),
     ...(Object.keys(mocks).length > 0 ? { mocks } : {}),
+    ...(traits && Object.keys(traits).length > 0 ? { traits } : {}),
   };
 }

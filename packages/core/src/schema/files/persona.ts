@@ -36,8 +36,25 @@ export const PersonaSchema = Type.Object(
     // listed fall through to the live capability (or {} if none). A case's
     // mocks replace the persona's per capability id.
     mocks: Type.Optional(Type.Record(Type.String(), MockBehaviorSchema)),
+    // Open behavioral knobs (flat scalars). Deliberately NOT inlined into the
+    // persona prompt — they're machine-read, so leaving the bag open costs
+    // nothing. The envelope above stays strict (typos in real fields error);
+    // this is the one open extension point. The keys flowstore interprets:
+    //   asr      — ASR-shaping level ("clean"|"light"|"heavy") for an
+    //              unintelligible caller (the channel garbles their turns).
+    //   barge_in — interruption propensity (0–1) for an impatient caller (cuts
+    //              the agent off, trimming its prior turn). Voice/prompt mode.
+    // Kept OPEN so an end client can add + interpret its own fields without a
+    // schema change; flowstore ignores keys it doesn't know.
+    traits: Type.Optional(
+      Type.Record(
+        Type.String(),
+        Type.Union([Type.String(), Type.Number(), Type.Boolean()]),
+      ),
+    ),
   },
   { additionalProperties: false },
 );
 
 export type Persona = Static<typeof PersonaSchema>;
+export type PersonaTraits = NonNullable<Persona["traits"]>;

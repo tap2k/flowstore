@@ -1,19 +1,18 @@
 import { chat, DEFAULT_PROVIDER } from "@flowstore/core/llm/dispatch";
 import type { ChatMessage, ChatUsage, ProviderId } from "@flowstore/core/llm/types";
 import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
+import type { Modality } from "@flowstore/core/schema/v0";
+import { composePersonaPrompt } from "./personaPrompt";
 
 // Generate the next user-side utterance by inverting roles: the persona LLM
 // sees the agent's lines as user input and produces an assistant reply, which
-// becomes the next user turn in the simulator. The persona prompt is used
-// verbatim — its behavioral frame (role, channel, [DONE]) is baked in at
-// generation time (see personaFrame), so what the author edits is what runs.
-//
-// By design, NO behavioral rail is applied here: a persona without the frame
-// (hand-authored / legacy / cross-repo) runs as-is. The deferred "option B" —
-// a thin always-on role-lock + empty-input rail — would live exactly here. See
-// the DESIGN NOTE on personaFrame in personaGen.ts before adding one.
+// becomes the next user turn in the simulator. The persona prompt carries only
+// identity + scenario; the medium-aware rail is composed on top via
+// composePersonaPrompt at run time. Traits never enter the prompt — they're
+// machine-read knobs (asr/barge_in) handled by the caller.
 export async function generatePersonaTurn(args: {
   personaPrompt: string;
+  modality: Modality;
   history: TranscriptTurn[];
   apiKey: string;
   model: string;
@@ -43,7 +42,10 @@ export async function generatePersonaTurn(args: {
     args.apiKey,
     args.model,
     {
-      systemPrompt: args.personaPrompt,
+      systemPrompt: composePersonaPrompt({
+        personaPrompt: args.personaPrompt,
+        modality: args.modality,
+      }),
       messages,
       tools: [],
     },

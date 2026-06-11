@@ -279,6 +279,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
   const spec = useSpecStore((s) => s.spec);
   const simulateMode = useSimulateStore((s) => s.mode);
   const setPersonaPrompt = useSimulateStore((s) => s.setPersonaPrompt);
+  const setPersonaTraits = useSimulateStore((s) => s.setPersonaTraits);
   const setMockReturns = useSimulateStore((s) => s.setMockReturns);
   const setActiveCaseId = useSimulateStore((s) => s.setActiveCaseId);
   const setSimulateLanguage = useSimulateStore((s) => s.setLanguage);
@@ -460,8 +461,13 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
     // and the simulated-user prompt from whichever actor drives the case:
     // the bound persona's system_prompt (persona actor) or the case's inline
     // system_prompt. A scripted case has no simulated-user prompt to load.
-    if (actor === "persona") setPersonaPrompt(boundPersona?.system_prompt ?? "");
-    else if (actor === "inline") setPersonaPrompt(inlinePrompt);
+    if (actor === "persona") {
+      setPersonaPrompt(boundPersona?.system_prompt ?? "");
+      setPersonaTraits(boundPersona?.traits);
+    } else if (actor === "inline") {
+      setPersonaPrompt(inlinePrompt);
+      setPersonaTraits(undefined);
+    }
     if (spec) {
       const { vars: rVars, returns, errors } = caseWorldToRuntime(
         spec,

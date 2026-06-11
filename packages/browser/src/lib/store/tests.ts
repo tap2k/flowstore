@@ -119,6 +119,8 @@ export const useTestsStore = create<TestsState>()(
           personas: s.personas,
           rubrics: s.rubrics,
           golds: s.golds,
+          // ignored is a load-time diagnostic; nothing is skipped on save.
+          ignored: [],
         };
       },
 

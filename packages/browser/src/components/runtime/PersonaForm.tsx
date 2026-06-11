@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { Spec } from "@flowstore/core/schema/v0";
 import type { MockBehavior } from "@flowstore/core/schema/files/mockBehavior";
 import { useSimulateStore } from "@/lib/store/simulate";
+import type { AsrLevel } from "@/lib/runtime/asrShape";
 import { useTestsStore } from "@/lib/store/tests";
 import { hasKeyForModel, resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { generatePersonaContent } from "@flowstore/core/runtime/personaContentGen";
@@ -40,6 +41,7 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
   const personaTurnLimit = useSimulateStore((s) => s.personaTurnLimit);
   const personaTurnsLeft = useSimulateStore((s) => s.personaTurnsLeft);
   const setPersonaPrompt = useSimulateStore((s) => s.setPersonaPrompt);
+  const setPersonaTraits = useSimulateStore((s) => s.setPersonaTraits);
   const setAutoRun = useSimulateStore((s) => s.setAutoRun);
   const setPersonaTurnLimit = useSimulateStore((s) => s.setPersonaTurnLimit);
 
@@ -63,7 +65,22 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
   const dispatchKey = dispatch.apiKey;
   const model = useSettingsStore((s) => s.simulatePersonaModel);
   const setSimulatePersonaModel = useSettingsStore((s) => s.setSimulatePersonaModel);
+  // Voice-realism knobs are persona TRAITS (saved on the persona, read by both
+  // the browser sim and the Python harness), not run-level settings — an
+  // unintelligible/impatient caller is modeled explicitly on the persona.
+  const personaTraits = useSimulateStore((s) => s.personaTraits);
+  // Set/clear one trait key, dropping the bag when it empties (off/0 = no trait).
+  const setTrait = (key: string, value: string | number | undefined) => {
+    const next = { ...(personaTraits ?? {}) };
+    if (value === undefined) delete next[key];
+    else next[key] = value;
+    setPersonaTraits(Object.keys(next).length > 0 ? next : undefined);
+  };
   const personaHasKey = hasKeyForModel(model);
+  // ASR shaping only makes sense for a voice/multimodal agent (a text agent
+  // never sees raw transcription); gate the control on it.
+  const voiceAgent =
+    spec.agent.meta.modality === "voice" || spec.agent.meta.modality === "multimodal";
 
   const [open, setOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -128,6 +145,7 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
     const persona = personas.find((p) => p.id === id);
     if (!persona) return;
     setPersonaPrompt(persona.system_prompt ?? "");
+    setPersonaTraits(persona.traits);
     // Hydrate the buffer with this persona's full world so exploration
     // starts in the configured state. Reproducibility lives at the case
     // level; this is the convenience hookup for the free-explore path.
@@ -154,6 +172,7 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
         returns: mockReturns,
         errors: mockErrors,
         model: loadedPersona.model,
+        traits: personaTraits,
       }),
     );
   }
@@ -176,6 +195,7 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
         vars: contextVars,
         returns: mockReturns,
         errors: mockErrors,
+        traits: personaTraits,
       }),
     );
     setLoadedPersonaId(id);
@@ -405,6 +425,17 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
                 delete
               </button>
             )}
+            {configured && (
+              <button
+                type="button"
+                onClick={onClear}
+                disabled={disabled || generating}
+                title="Clear the persona prompt + world from the buffer."
+                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+              >
+                clear
+              </button>
+            )}
           </div>
           <textarea
             value={personaPrompt}
@@ -432,22 +463,46 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
             onChange={onMocksEditorChange}
           />
 
-          <div className="flex items-center gap-2 text-[10px] text-zinc-500">
-            <span>Model:</span>
+          {/* Persona model + (voice agents only) the browser voice-realism
+              knobs: ASR shaping + barge-in, a browser approximation of the
+              regression harness's _persona.py. Both apply only in text/prompt
+              mode (Live voice handles real ASR + interruptions itself). The
+              selects self-label, so no row label. */}
+          <div className="flex flex-wrap items-center gap-2 text-[10px] text-zinc-500">
             <ModelPicker
               value={model}
               onChange={setSimulatePersonaModel}
               className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
             />
-            <button
-              type="button"
-              onClick={onClear}
-              disabled={disabled || generating || !configured}
-              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-              title="Clear the persona prompt + world from the buffer."
-            >
-              Clear
-            </button>
+            {voiceAgent && (
+              <>
+                <select
+                  value={(personaTraits?.asr as AsrLevel) ?? "off"}
+                  onChange={(e) =>
+                    setTrait("asr", e.target.value === "off" ? undefined : e.target.value)
+                  }
+                  title="ASR shaping (persona trait): an unintelligible caller — garble this persona's turns like raw transcription (lowercase, no punctuation, fillers/false-starts) before they reach the agent. Saved on the persona; read by the harness too."
+                  className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                >
+                  <option value="off">asr: off</option>
+                  <option value="clean">asr: clean</option>
+                  <option value="light">asr: light</option>
+                  <option value="heavy">asr: heavy</option>
+                </select>
+                <select
+                  value={String(Number(personaTraits?.barge_in) || 0)}
+                  onChange={(e) =>
+                    setTrait("barge_in", Number(e.target.value) || undefined)
+                  }
+                  title="Barge-in (persona trait): an impatient caller — how often they cut the agent off mid-reply (trims the prior agent turn before the persona responds). Saved on the persona; read by the harness too. Text/prompt mode only."
+                  className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                >
+                  <option value="0">barge: off</option>
+                  <option value="0.3">barge: low</option>
+                  <option value="0.6">barge: high</option>
+                </select>
+              </>
+            )}
           </div>
         </div>
       )}

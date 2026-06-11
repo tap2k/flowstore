@@ -9,6 +9,7 @@ import {
 } from "@flowstore/core/runtime/textClient";
 import { sendPromptTurn, type CapabilityInvocation } from "@flowstore/core/runtime/promptClient";
 import { generatePersonaTurn } from "@flowstore/core/runtime/personaClient";
+import { asrShape, maybeBargeIn, type AsrLevel } from "@/lib/runtime/asrShape";
 // Type-only import: VoiceSession (and the @google/genai SDK it pulls) is
 // loaded lazily inside the voice branch of start(), so text/runner sessions
 // never bundle the Live SDK.
@@ -128,6 +129,11 @@ interface SimulateState {
   // localStorage); everything else is per-session intent. autoStepping is the
   // in-flight guard that prevents the panel effect from re-firing.
   personaPrompt: string;
+  // Open behavioral knobs of the loaded persona, rendered into the user-sim
+  // prompt at run time (see generatePersonaTurn). Set only when a persona is
+  // loaded from a Persona object; the free-text prompt buffer carries none.
+  // Per-session, not persisted — re-pick the persona to reload.
+  personaTraits?: Record<string, string | number | boolean>;
   autoRun: boolean;
   personaAgentId: string | null;
   autoStepping: boolean;
@@ -191,6 +197,7 @@ interface SimulateState {
   clearMockReturns: () => void;
   hydratePersona: (agentId: string) => void;
   setPersonaPrompt: (prompt: string) => void;
+  setPersonaTraits: (traits: Record<string, string | number | boolean> | undefined) => void;
   setAutoRun: (on: boolean) => void;
   setPersonaTurnLimit: (n: number) => void;
   autoStep: () => Promise<void>;
@@ -467,6 +474,9 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     if (current.personaAgentId === agentId) return;
     set({
       personaPrompt: personaStorage.load(agentId).prompt,
+      // Traits aren't persisted with the prompt; they reload when a persona is
+      // picked. Switching agents starts with none.
+      personaTraits: undefined,
       personaTurnLimit: 10,
       personaTurnsLeft: 0,
       autoRun: false,
@@ -479,6 +489,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     set({ personaPrompt: prompt });
     if (personaAgentId) personaStorage.save(personaAgentId, { prompt });
   },
+
+  setPersonaTraits: (traits) => set({ personaTraits: traits }),
 
   setAutoRun: (on) => {
     if (on) {
@@ -561,9 +573,30 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     }
     set({ autoStepping: true, error: null });
     try {
+      // Barge-in: the caller cuts the agent off, at the persona's barge_in trait
+      // propensity (0–1). When it fires, trim the prior agent turn to a heard-
+      // prefix before the persona responds, so the persona reacts to half a
+      // reply and the agent's next turn sees it was interrupted. Text/prompt mode
+      // only (runner keeps history server-side). Persona-owned (saved on the
+      // persona) so the same propensity drives the Python harness too.
+      const bargeMeta = get().specSnapshot?.agent.meta;
+      const bargeVoice =
+        bargeMeta?.modality === "voice" || bargeMeta?.modality === "multimodal";
+      const bargeProp = Number(get().personaTraits?.barge_in) || 0;
+      const lastTurn = transcript[transcript.length - 1];
+      let history = transcript;
+      if (get().mode === "text" && bargeVoice && lastTurn?.role === "agent" && lastTurn.text) {
+        const heard = maybeBargeIn(lastTurn.text, transcript.length, bargeProp);
+        if (heard !== null) {
+          history = [...transcript.slice(0, -1), { ...lastTurn, text: heard }];
+          set({ transcript: history });
+        }
+      }
       const res = await generatePersonaTurn({
         personaPrompt,
-        history: transcript,
+        // The medium-aware rail follows the running session's modality.
+        modality: get().specSnapshot?.agent.meta.modality ?? "text",
+        history,
         apiKey: creds.apiKey,
         model: creds.model,
         provider: creds.provider,
@@ -589,9 +622,26 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         return;
       }
       if (cleaned) {
+        // Voice-realistic input: shape the persona's turn like raw ASR
+        // (de-punctuated, fillers/false-starts) at the persona's `asr` trait
+        // level, for voice/multimodal agents. Seeded on the turn position so it's
+        // reproducible. Persona-owned (saved on the persona), so the same level
+        // drives the Python harness. Browser approximation of asr_shape.
+        const asrLevel = (get().personaTraits?.asr as AsrLevel) ?? "off";
+        const meta = get().specSnapshot?.agent.meta;
+        const voiceish = meta?.modality === "voice" || meta?.modality === "multimodal";
+        const toSend =
+          voiceish && asrLevel !== "off"
+            ? asrShape(
+                cleaned,
+                asrLevel,
+                get().language ?? meta?.languages?.[0] ?? "EN",
+                get().transcript.length,
+              )
+            : cleaned;
         // Delegate to send() so the user turn goes through the same path
         // (handles prompt vs runner, transcript bookkeeping, error state).
-        await get().send(cleaned);
+        await get().send(toSend);
         set({ personaTurnsLeft: get().personaTurnsLeft - 1 });
       }
     } catch (e) {
