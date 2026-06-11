@@ -32,8 +32,10 @@ import type { Modality } from "@flowstore/core/schema/v0";
 // is NOT mirrored here: its determinism is bound to CPython's seeded RNG (a TS
 // port can't reproduce it byte-for-byte), and only the Python regression path
 // needs it. The browser sim and that regression harness are different test
-// modalities, so minor deviance is fine. It lives colocated with the Python
-// user-sim renderer (awaaz-dpd31/scripts/_persona.py), not here.
+// modalities, so minor deviance is fine. It lives where it's consumed, not in
+// this core renderer: Python-side in awaaz-dpd31/scripts/_persona.py (seeded,
+// regression-exact), and for the browser sim in
+// packages/browser/src/lib/runtime/asrShape.ts (a seeded portable-PRNG version).
 export function defaultPersonaInstructions(modality: Modality): string {
   const lengthRule =
     modality === "text"

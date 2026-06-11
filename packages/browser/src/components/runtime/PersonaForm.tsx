@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { Spec } from "@flowstore/core/schema/v0";
 import type { MockBehavior } from "@flowstore/core/schema/files/mockBehavior";
 import { useSimulateStore } from "@/lib/store/simulate";
+import type { AsrLevel } from "@/lib/runtime/asrShape";
 import { useTestsStore } from "@/lib/store/tests";
 import { hasKeyForModel, resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { generatePersonaContent } from "@flowstore/core/runtime/personaContentGen";
@@ -64,7 +65,15 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
   const dispatchKey = dispatch.apiKey;
   const model = useSettingsStore((s) => s.simulatePersonaModel);
   const setSimulatePersonaModel = useSettingsStore((s) => s.setSimulatePersonaModel);
+  const asrLevel = useSettingsStore((s) => s.simulateAsrLevel);
+  const setSimulateAsrLevel = useSettingsStore((s) => s.setSimulateAsrLevel);
+  const bargeIn = useSettingsStore((s) => s.simulateBargeIn);
+  const setSimulateBargeIn = useSettingsStore((s) => s.setSimulateBargeIn);
   const personaHasKey = hasKeyForModel(model);
+  // ASR shaping only makes sense for a voice/multimodal agent (a text agent
+  // never sees raw transcription); gate the control on it.
+  const voiceAgent =
+    spec.agent.meta.modality === "voice" || spec.agent.meta.modality === "multimodal";
 
   const [open, setOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -407,6 +416,17 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
                 delete
               </button>
             )}
+            {configured && (
+              <button
+                type="button"
+                onClick={onClear}
+                disabled={disabled || generating}
+                title="Clear the persona prompt + world from the buffer."
+                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+              >
+                clear
+              </button>
+            )}
           </div>
           <textarea
             value={personaPrompt}
@@ -434,22 +454,42 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
             onChange={onMocksEditorChange}
           />
 
-          <div className="flex items-center gap-2 text-[10px] text-zinc-500">
-            <span>Model:</span>
+          {/* Persona model + (voice agents only) the browser voice-realism
+              knobs: ASR shaping + barge-in, a browser approximation of the
+              regression harness's _persona.py. Both apply only in text/prompt
+              mode (Live voice handles real ASR + interruptions itself). The
+              selects self-label, so no row label. */}
+          <div className="flex flex-wrap items-center gap-2 text-[10px] text-zinc-500">
             <ModelPicker
               value={model}
               onChange={setSimulatePersonaModel}
               className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
             />
-            <button
-              type="button"
-              onClick={onClear}
-              disabled={disabled || generating || !configured}
-              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-              title="Clear the persona prompt + world from the buffer."
-            >
-              Clear
-            </button>
+            {voiceAgent && (
+              <>
+                <select
+                  value={asrLevel}
+                  onChange={(e) => setSimulateAsrLevel(e.target.value as AsrLevel)}
+                  title="ASR shaping: garble the persona's turns like raw transcription (lowercase, no punctuation, fillers/false-starts) before they reach the agent."
+                  className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                >
+                  <option value="off">asr: off</option>
+                  <option value="clean">asr: clean</option>
+                  <option value="light">asr: light</option>
+                  <option value="heavy">asr: heavy</option>
+                </select>
+                <select
+                  value={String(bargeIn)}
+                  onChange={(e) => setSimulateBargeIn(Number(e.target.value))}
+                  title="Barge-in: how often the caller cuts the agent off mid-reply (trims the prior agent turn before the persona responds). A run-level floor — max'd with the persona's barge_in trait. Text/prompt mode only."
+                  className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                >
+                  <option value="0">barge: off</option>
+                  <option value="0.3">barge: low</option>
+                  <option value="0.6">barge: high</option>
+                </select>
+              </>
+            )}
           </div>
         </div>
       )}

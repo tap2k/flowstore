@@ -9,6 +9,7 @@ import {
 } from "@flowstore/core/runtime/textClient";
 import { sendPromptTurn, type CapabilityInvocation } from "@flowstore/core/runtime/promptClient";
 import { generatePersonaTurn } from "@flowstore/core/runtime/personaClient";
+import { asrShape, maybeBargeIn } from "@/lib/runtime/asrShape";
 // Type-only import: VoiceSession (and the @google/genai SDK it pulls) is
 // loaded lazily inside the voice branch of start(), so text/runner sessions
 // never bundle the Live SDK.
@@ -572,12 +573,33 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     }
     set({ autoStepping: true, error: null });
     try {
+      // Barge-in: the caller cuts the agent off. Propensity is the run-level
+      // floor max'd with the persona's barge_in trait. When it fires, trim the
+      // prior agent turn to a heard-prefix before the persona responds, so the
+      // persona reacts to half a reply and the agent's next turn sees it was
+      // interrupted. Text/prompt mode only (runner keeps history server-side).
+      const bargeMeta = get().specSnapshot?.agent.meta;
+      const bargeVoice =
+        bargeMeta?.modality === "voice" || bargeMeta?.modality === "multimodal";
+      const bargeProp = Math.max(
+        useSettingsStore.getState().simulateBargeIn,
+        Number(get().personaTraits?.barge_in) || 0,
+      );
+      const lastTurn = transcript[transcript.length - 1];
+      let history = transcript;
+      if (get().mode === "text" && bargeVoice && lastTurn?.role === "agent" && lastTurn.text) {
+        const heard = maybeBargeIn(lastTurn.text, transcript.length, bargeProp);
+        if (heard !== null) {
+          history = [...transcript.slice(0, -1), { ...lastTurn, text: heard }];
+          set({ transcript: history });
+        }
+      }
       const res = await generatePersonaTurn({
         personaPrompt,
         // The medium-aware rail follows the running session's modality.
         modality: get().specSnapshot?.agent.meta.modality ?? "text",
         traits: get().personaTraits,
-        history: transcript,
+        history,
         apiKey: creds.apiKey,
         model: creds.model,
         provider: creds.provider,
@@ -603,9 +625,25 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         return;
       }
       if (cleaned) {
+        // Voice-realistic input: shape the persona's turn like raw ASR
+        // (de-punctuated, fillers/false-starts) for voice/multimodal agents when
+        // a level is selected. Seeded on the turn position so it's reproducible.
+        // Browser-only approximation of the harness's asr_shape — see asrShape.ts.
+        const asrLevel = useSettingsStore.getState().simulateAsrLevel;
+        const meta = get().specSnapshot?.agent.meta;
+        const voiceish = meta?.modality === "voice" || meta?.modality === "multimodal";
+        const toSend =
+          voiceish && asrLevel !== "off"
+            ? asrShape(
+                cleaned,
+                asrLevel,
+                get().language ?? meta?.languages?.[0] ?? "EN",
+                get().transcript.length,
+              )
+            : cleaned;
         // Delegate to send() so the user turn goes through the same path
         // (handles prompt vs runner, transcript bookkeeping, error state).
-        await get().send(cleaned);
+        await get().send(toSend);
         set({ personaTurnsLeft: get().personaTurnsLeft - 1 });
       }
     } catch (e) {
