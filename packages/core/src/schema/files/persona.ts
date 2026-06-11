@@ -45,7 +45,9 @@ export const PersonaSchema = Type.Object(
     //   barge_in — interruption propensity (0–1) for an impatient caller (cuts
     //              the agent off, trimming its prior turn). Voice/prompt mode.
     // Kept OPEN so an end client can add + interpret its own fields without a
-    // schema change; flowstore ignores keys it doesn't know.
+    // schema change. Keys flowstore doesn't know are saved but INERT: traits are
+    // never inlined into the prompt, so they never reach the LLM — an unknown
+    // key is only meaningful to a client's own harness that reads it.
     traits: Type.Optional(
       Type.Record(
         Type.String(),
