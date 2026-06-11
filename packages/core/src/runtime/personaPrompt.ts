@@ -28,9 +28,12 @@ import type { Modality } from "@flowstore/core/schema/v0";
 // A SINGLE non-parametrized string per modality (mode-invariant rules + one
 // length/format rule). It shapes what the persona GENERATES. Mechanical channel
 // perturbation — ASR de-punctuation, fillers, barge-in truncation — is a
-// separate transport layer that mutates the produced text deterministically; it
-// deliberately does NOT live here (an LLM can't be reliably told to garble
-// itself, and that layer must stay seeded for regression).
+// separate transport layer that mutates the produced text deterministically. It
+// is NOT mirrored here: its determinism is bound to CPython's seeded RNG (a TS
+// port can't reproduce it byte-for-byte), and only the Python regression path
+// needs it. The browser sim and that regression harness are different test
+// modalities, so minor deviance is fine. It lives colocated with the Python
+// user-sim renderer (awaaz-dpd31/scripts/_persona.py), not here.
 export function defaultPersonaInstructions(modality: Modality): string {
   const lengthRule =
     modality === "text"
