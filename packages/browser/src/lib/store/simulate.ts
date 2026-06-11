@@ -585,11 +585,13 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       const bargeProp = Number(get().personaTraits?.barge_in) || 0;
       const lastTurn = transcript[transcript.length - 1];
       let history = transcript;
+      let bargedIn = false;
       if (get().mode === "text" && bargeVoice && lastTurn?.role === "agent" && lastTurn.text) {
         const heard = maybeBargeIn(lastTurn.text, bargeProp);
         if (heard !== null) {
           history = [...transcript.slice(0, -1), { ...lastTurn, text: heard }];
           set({ transcript: history });
+          bargedIn = true;
         }
       }
       const res = await generatePersonaTurn({
@@ -597,6 +599,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         // The medium-aware rail follows the running session's modality.
         modality: get().specSnapshot?.agent.meta.modality ?? "text",
         history,
+        bargedIn,
         apiKey: creds.apiKey,
         model: creds.model,
         provider: creds.provider,
