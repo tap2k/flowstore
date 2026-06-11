@@ -563,6 +563,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     try {
       const res = await generatePersonaTurn({
         personaPrompt,
+        // The medium-aware rail follows the running session's modality.
+        modality: get().specSnapshot?.agent.meta.modality ?? "text",
         history: transcript,
         apiKey: creds.apiKey,
         model: creds.model,

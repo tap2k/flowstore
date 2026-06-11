@@ -1,39 +1,14 @@
 import { chat } from "@flowstore/core/llm/dispatch";
 import type { ProviderId } from "@flowstore/core/llm/types";
-import { type Modality, type Spec, channelLabel } from "@flowstore/core/schema/v0";
+import type { Spec } from "@flowstore/core/schema/v0";
 import { agentContextPreamble } from "./llmJson";
 
-// Deterministic frame appended to the generated identity prompt. It's part of
-// the stored, editable persona prompt (not injected at simulate time) so the
-// author sees exactly what runs. Minimal, transparent rules — only what the
-// user-simulator needs: stay in the user's role, the channel, junk input, and
-// the stop signal.
-//
-// DESIGN NOTE — frame is a generate-time DEFAULT, not a runtime GUARANTEE.
-// Appending here (vs. injecting in generatePersonaTurn) was a deliberate choice
-// for transparency: the prompt the author edits is exactly the prompt that runs.
-// The tradeoff: a persona that wasn't produced by this generator — hand-authored,
-// pre-existing fixtures, or any loaded from another repo — runs WITHOUT this
-// frame ("naked"). So the role-lock and empty-input handling below are best-effort
-// defaults for generated personas, not invariants enforced for every run.
-//
-// The original motivation for the frame was runtime robustness (small models
-// drift out of role / choke on empty input). A considered alternative ("option
-// B") keeps identity + [DONE] here but moves role-lock + empty-input handling
-// into a thin, always-applied rail in generatePersonaTurn — giving both
-// transparency and a guarantee. We DEFERRED it intentionally: current hand-
-// authored personas already encode role/style in prose, so nothing is broken
-// today, and we favored keeping the prompt fully WYSIWYG. Revisit if naked
-// personas (especially on small models) start misbehaving.
-export function personaFrame(modality: Modality): string {
-  return [
-    "How to play this part:",
-    "- Speak only as this user. Never write the agent's lines, answer your own questions, or narrate.",
-    `- This is ${channelLabel(modality)}. Talk the way a real person would on it.`,
-    '- If a message you receive is empty or unclear, react naturally as the user would (e.g. "Hello?", "Sorry, I didn\'t catch that").',
-    "- Emit [DONE] on its own line once the conversation has wrapped up — after any final confirmations or thanks — or if you give up.",
-  ].join("\n");
-}
+// A generated persona is DECLARATIVE: identity + scenario only ("who is this
+// user and why are they contacting the agent"). The medium-aware behavioral
+// rail (role-lock, length, empty-input handling, [DONE]) is NOT baked in here —
+// it's composed at run time by whoever drives the persona, since how faithfully
+// a user is simulated on voice vs text is a runtime concern, not portable spec
+// data. See defaultPersonaInstructions in personaClient.ts.
 
 const SYSTEM_PROMPT = `You write a system prompt for an LLM that will roleplay the USER side of a conversation with an agent under test.
 
@@ -96,11 +71,10 @@ export async function generatePersonaPrompt(args: {
     tools: [],
   });
 
-  // Append the frame deterministically so the stored prompt is complete and
-  // transparent — what the author sees in the editor is exactly what runs.
-  const identity = res.text
+  // Identity + scenario only. The behavioral rail is applied at run time
+  // (defaultPersonaInstructions), so the stored persona stays declarative.
+  return res.text
     .trim()
     .replace(/^```(?:\w+)?\s*/i, "")
     .replace(/\s*```$/i, "");
-  return `${identity}\n\n${personaFrame(spec.agent.meta.modality)}`;
 }
