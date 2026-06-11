@@ -41,7 +41,7 @@ export const PersonaSchema = Type.Object(
     // scalars only. The user-sim renderer prints every key verbatim as
     // `key: value` into the persona prompt at run time; some keys (e.g.
     // barge_in) are instead machine-read by voice harnesses — those still
-    // render today as harmless noise, see docs/persona-simulation.md. No fixed
+    // render today as harmless noise, see planning/persona-simulation.md. No fixed
     // vocabulary yet: kept open on purpose until grid-generation/pivoting earns
     // typed enums. A test case may override a trait per key (like vars), which
     // is what keeps channel knobs an orthogonal sweep axis rather than
