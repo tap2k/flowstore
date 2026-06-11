@@ -26,6 +26,7 @@ export function PersonasPanel() {
   const deletePersona = useTestsStore((s) => s.deletePersona);
   const uniquePersonaId = useTestsStore((s) => s.uniquePersonaId);
   const setPersonaPrompt = useSimulateStore((s) => s.setPersonaPrompt);
+  const setPersonaTraits = useSimulateStore((s) => s.setPersonaTraits);
   const setActiveCaseId = useSimulateStore((s) => s.setActiveCaseId);
   const setContextVars = useSimulateStore((s) => s.setContextVars);
   const setMockReturns = useSimulateStore((s) => s.setMockReturns);
@@ -96,6 +97,7 @@ export function PersonasPanel() {
 
   function useInSimulate(p: Persona) {
     setPersonaPrompt(p.system_prompt ?? "");
+    setPersonaTraits(p.traits);
     // Hydrate the simulate buffer with this persona's world so exploration
     // starts in a coherent context.
     if (spec) {

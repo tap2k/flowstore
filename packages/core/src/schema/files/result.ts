@@ -73,7 +73,11 @@ export const ResultSchema = Type.Object(
     trials: Type.Optional(Type.Array(Trial)),
     error: Type.Optional(Type.String()),
   },
-  { additionalProperties: false },
+  // Open at the top level: a result is a MACHINE-written artifact, so forward-
+  // compat (a newer runner adding fields an older reader doesn't know) beats
+  // authoring-typo catching — strictness follows authorship. Hand-authored
+  // files (persona/case/gold) stay strict; do not generalize this to them.
+  { additionalProperties: true },
 );
 
 export type Result = Static<typeof ResultSchema>;

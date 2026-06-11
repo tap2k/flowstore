@@ -88,6 +88,11 @@ function loadSpec(input: string): Spec {
         console.error(`  ${e.path ? `${e.path}: ` : ""}${e.message}`);
       }
     }
+    // Surface (never hide) test files skipped for an unrecognized $schema —
+    // forward-compat skips, but a typo'd $schema lands here too.
+    for (const ig of result.testingArtifacts.ignored) {
+      console.error(`  skipped ${ig.path}: ${ig.reason}`);
+    }
     if (!result.spec) {
       console.error("failed to load project");
       process.exit(1);

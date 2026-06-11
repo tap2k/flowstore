@@ -40,6 +40,7 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
   const personaTurnLimit = useSimulateStore((s) => s.personaTurnLimit);
   const personaTurnsLeft = useSimulateStore((s) => s.personaTurnsLeft);
   const setPersonaPrompt = useSimulateStore((s) => s.setPersonaPrompt);
+  const setPersonaTraits = useSimulateStore((s) => s.setPersonaTraits);
   const setAutoRun = useSimulateStore((s) => s.setAutoRun);
   const setPersonaTurnLimit = useSimulateStore((s) => s.setPersonaTurnLimit);
 
@@ -128,6 +129,7 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
     const persona = personas.find((p) => p.id === id);
     if (!persona) return;
     setPersonaPrompt(persona.system_prompt ?? "");
+    setPersonaTraits(persona.traits);
     // Hydrate the buffer with this persona's full world so exploration
     // starts in the configured state. Reproducibility lives at the case
     // level; this is the convenience hookup for the free-explore path.

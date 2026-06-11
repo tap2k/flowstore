@@ -128,6 +128,11 @@ interface SimulateState {
   // localStorage); everything else is per-session intent. autoStepping is the
   // in-flight guard that prevents the panel effect from re-firing.
   personaPrompt: string;
+  // Open behavioral knobs of the loaded persona, rendered into the user-sim
+  // prompt at run time (see generatePersonaTurn). Set only when a persona is
+  // loaded from a Persona object; the free-text prompt buffer carries none.
+  // Per-session, not persisted — re-pick the persona to reload.
+  personaTraits?: Record<string, string | number | boolean>;
   autoRun: boolean;
   personaAgentId: string | null;
   autoStepping: boolean;
@@ -191,6 +196,7 @@ interface SimulateState {
   clearMockReturns: () => void;
   hydratePersona: (agentId: string) => void;
   setPersonaPrompt: (prompt: string) => void;
+  setPersonaTraits: (traits: Record<string, string | number | boolean> | undefined) => void;
   setAutoRun: (on: boolean) => void;
   setPersonaTurnLimit: (n: number) => void;
   autoStep: () => Promise<void>;
@@ -467,6 +473,9 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     if (current.personaAgentId === agentId) return;
     set({
       personaPrompt: personaStorage.load(agentId).prompt,
+      // Traits aren't persisted with the prompt; they reload when a persona is
+      // picked. Switching agents starts with none.
+      personaTraits: undefined,
       personaTurnLimit: 10,
       personaTurnsLeft: 0,
       autoRun: false,
@@ -479,6 +488,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     set({ personaPrompt: prompt });
     if (personaAgentId) personaStorage.save(personaAgentId, { prompt });
   },
+
+  setPersonaTraits: (traits) => set({ personaTraits: traits }),
 
   setAutoRun: (on) => {
     if (on) {
@@ -565,6 +576,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         personaPrompt,
         // The medium-aware rail follows the running session's modality.
         modality: get().specSnapshot?.agent.meta.modality ?? "text",
+        traits: get().personaTraits,
         history: transcript,
         apiKey: creds.apiKey,
         model: creds.model,

@@ -33,15 +33,33 @@ export function defaultPersonaInstructions(modality: Modality): string {
   ].join("\n");
 }
 
+// Render a persona's open `traits` bag into a prompt block, one `key: value`
+// line each. Verbatim and dumb-but-predictable: no fixed vocabulary yet, so the
+// renderer takes no opinion on meaning. APPENDED beside the rail, not woven into
+// it (the rail stays a single non-parametrized string per modality — keeping the
+// only thing two harnesses must keep in sync down to three constants). Machine-
+// read knobs (e.g. barge_in, consumed by a voice harness's perturbation/loop)
+// also render here today as harmless noise; if that ever matters, reserve a
+// skip convention rather than a denylist. See docs/persona-simulation.md.
+function renderTraits(
+  traits: Record<string, string | number | boolean> | undefined,
+): string {
+  if (!traits) return "";
+  const lines = Object.entries(traits).map(([k, v]) => `- ${k}: ${v}`);
+  if (lines.length === 0) return "";
+  return `\n\nThis user's traits:\n${lines.join("\n")}`;
+}
+
 // Generate the next user-side utterance by inverting roles: the persona LLM
 // sees the agent's lines as user input and produces an assistant reply, which
 // becomes the next user turn in the simulator. The persona prompt carries only
 // identity + scenario; the medium-aware behavioral rail (role-lock, length,
-// [DONE]) is composed on top here at run time — a runtime concern, owned by
-// whoever drives the persona, not data stored in the spec.
+// [DONE]) and the persona's traits block are composed on top here at run time —
+// a runtime concern, owned by whoever drives the persona, not data in the spec.
 export async function generatePersonaTurn(args: {
   personaPrompt: string;
   modality: Modality;
+  traits?: Record<string, string | number | boolean>;
   history: TranscriptTurn[];
   apiKey: string;
   model: string;
@@ -71,7 +89,8 @@ export async function generatePersonaTurn(args: {
     args.apiKey,
     args.model,
     {
-      systemPrompt: `${args.personaPrompt.trim()}\n\n${defaultPersonaInstructions(args.modality)}`,
+      // identity + scenario · traits block · medium rail.
+      systemPrompt: `${args.personaPrompt.trim()}${renderTraits(args.traits)}\n\n${defaultPersonaInstructions(args.modality)}`,
       messages,
       tools: [],
     },
