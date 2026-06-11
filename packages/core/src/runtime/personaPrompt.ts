@@ -1,22 +1,19 @@
 import type { Modality } from "@flowstore/core/schema/v0";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// THE canonical user-sim prompt renderer.
+// User-sim prompt renderer: (identity + scenario, modality) → one runnable
+// system prompt. Everything that drives a persona composes through here.
 //
-// composePersonaPrompt() is the single source of truth for how a persona
-// becomes a runnable system prompt: (identity + scenario, traits, modality) → one
-// string. Everything that drives a persona composes through here.
-//
-// CROSS-REPO SYNC CONTRACT. The Python harness keeps a byte-for-byte mirror at
-// awaaz-dpd31/scripts/_persona.py, because the interactive sim (this code) and
-// the batch regression harness (Python) must produce identical persona prompts —
-// otherwise "what the sim shows" stops predicting "what the suite scores". If you
-// change anything here (rail wording, traits format, ordering, spacing), update
-// that mirror AND the golden snapshots in BOTH repos in the same change. The
-// golden lives at packages/core/test/personaRail.test.ts.
-//
-// Layering, the deferred trait-specific rail switches, and the rationale for a
-// single non-parametrized rail: planning/persona-simulation.md.
+// REFERENCE + HAND-MIRROR (not a single source). The Python harness keeps a
+// hand-maintained, byte-for-byte mirror at awaaz-dpd31/scripts/_persona.py (and
+// its copies in the other example repos), so the interactive sim and the batch
+// regression harness produce identical persona prompts — otherwise "what the sim
+// shows" stops predicting "what the suite scores". The goldens (this repo's
+// packages/core/test/personaRail.test.ts and the Python self-check) CATCH drift;
+// they don't prevent it, so if you change anything here (rail wording, ordering,
+// spacing) update the mirror AND both goldens in the same change. The proper
+// single-source fix (a `flowstore-compile --format persona` boundary) is
+// deferred until a second consumer forces it — see planning/persona-simulation.md.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Default behavioral instructions for an LLM roleplaying the USER side of a

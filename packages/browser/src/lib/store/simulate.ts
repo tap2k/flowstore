@@ -585,11 +585,13 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       const bargeProp = Number(get().personaTraits?.barge_in) || 0;
       const lastTurn = transcript[transcript.length - 1];
       let history = transcript;
+      let bargedIn = false;
       if (get().mode === "text" && bargeVoice && lastTurn?.role === "agent" && lastTurn.text) {
-        const heard = maybeBargeIn(lastTurn.text, transcript.length, bargeProp);
+        const heard = maybeBargeIn(lastTurn.text, bargeProp);
         if (heard !== null) {
           history = [...transcript.slice(0, -1), { ...lastTurn, text: heard }];
           set({ transcript: history });
+          bargedIn = true;
         }
       }
       const res = await generatePersonaTurn({
@@ -597,6 +599,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         // The medium-aware rail follows the running session's modality.
         modality: get().specSnapshot?.agent.meta.modality ?? "text",
         history,
+        bargedIn,
         apiKey: creds.apiKey,
         model: creds.model,
         provider: creds.provider,
@@ -624,20 +627,18 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       if (cleaned) {
         // Voice-realistic input: shape the persona's turn like raw ASR
         // (de-punctuated, fillers/false-starts) at the persona's `asr` trait
-        // level, for voice/multimodal agents. Seeded on the turn position so it's
-        // reproducible. Persona-owned (saved on the persona), so the same level
-        // drives the Python harness. Browser approximation of asr_shape.
-        const asrLevel = (get().personaTraits?.asr as AsrLevel) ?? "off";
+        // level, for voice/multimodal agents. Persona-owned (saved on the
+        // persona), so the same level also drives the Python harness. Gate to a
+        // known level (same as the harness) so a hand-edited junk value is a
+        // no-op rather than mis-shaping. Non-seeded — see asrShape.ts.
+        const asr = get().personaTraits?.asr;
+        const asrLevel: AsrLevel =
+          asr === "clean" || asr === "light" || asr === "heavy" ? asr : "off";
         const meta = get().specSnapshot?.agent.meta;
         const voiceish = meta?.modality === "voice" || meta?.modality === "multimodal";
         const toSend =
           voiceish && asrLevel !== "off"
-            ? asrShape(
-                cleaned,
-                asrLevel,
-                get().language ?? meta?.languages?.[0] ?? "EN",
-                get().transcript.length,
-              )
+            ? asrShape(cleaned, asrLevel, get().language ?? meta?.languages?.[0] ?? "EN")
             : cleaned;
         // Delegate to send() so the user turn goes through the same path
         // (handles prompt vs runner, transcript bookkeeping, error state).
