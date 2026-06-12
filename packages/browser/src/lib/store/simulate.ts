@@ -49,8 +49,11 @@ export const isPromptMode = (m: SimulateMode): boolean => m !== "runner";
 
 // Synthetic user turn that elicits the agent's opener when chatbot_initiates
 // is true in prompt mode. The Gemini API requires at least one user content;
-// the system prompt is what shapes the actual greeting.
-const PROMPT_MODE_BEGIN = "[begin]";
+// the system prompt is what shapes the actual greeting. It's an
+// implementation detail for the AGENT's dispatch (its history must open on a
+// user turn) — not something the user said — so it's filtered out of the
+// persona's view, the transcript display, and captured cases/golds.
+export const PROMPT_MODE_BEGIN = "[begin]";
 
 // Transcript events for the capability calls a prompt-mode turn made, so mocked
 // tool calls show in the timeline the same way runner-mode capability calls do.
@@ -604,7 +607,9 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         personaPrompt,
         // The medium-aware rail follows the running session's modality.
         modality: get().specSnapshot?.agent.meta.modality ?? "text",
-        history,
+        // Keep the synthetic [begin] trigger out of the persona's view — it
+        // isn't something the user said.
+        history: history.filter((t) => t.text !== PROMPT_MODE_BEGIN),
         bargedIn,
         apiKey: creds.apiKey,
         model: creds.model,

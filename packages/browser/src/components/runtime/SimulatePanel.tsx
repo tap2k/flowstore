@@ -5,6 +5,7 @@ import { DEFAULT_MODEL_ID, resolveDispatch, useSettingsStore } from "@/lib/store
 import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
 import {
   isPromptMode,
+  PROMPT_MODE_BEGIN,
   useSimulateStore,
   type SimulateMode,
   type SimulateStatus,
@@ -440,7 +441,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     const defaultName = `Captured case ${useTestsStore.getState().cases.length + 1}`;
     const id = uniqueCaseId(defaultName);
     const user_turns = transcript
-      .filter((t) => t.role === "user")
+      .filter((t) => t.role === "user" && t.text !== PROMPT_MODE_BEGIN)
       .map((t) => t.text);
     const testCase: TestCase = {
       $schema: "flowstore://test/case/v0",
@@ -463,7 +464,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     const defaultName = `Captured gold ${useTestsStore.getState().golds.length + 1}`;
     const id = uniqueGoldId(defaultName);
     const turns = transcript
-      .filter((t) => t.text.trim().length > 0)
+      .filter((t) => t.text.trim().length > 0 && t.text !== PROMPT_MODE_BEGIN)
       .map((t) => ({ role: t.role, text: t.text }));
     const gold: Gold = {
       $schema: "flowstore://test/gold/v0",
@@ -761,6 +762,10 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           />
         )}
         {transcript.map((t, i) => {
+          // The synthetic [begin] trigger isn't a real user turn — keep it out
+          // of the rendered transcript (it stays in the array for the agent's
+          // dispatch). Return null to preserve index math for the rest.
+          if (t.text === PROMPT_MODE_BEGIN) return null;
           // Per-turn assertions index against the agent-only subsequence
           // (turn 1 = first agent turn). Compute the agent index of this
           // turn so we can pull matching verdicts to render inline.
