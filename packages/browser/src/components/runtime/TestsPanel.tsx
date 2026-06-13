@@ -1367,9 +1367,9 @@ function EvaluatorsList({
       prompt_template:
         "Evaluate the following transcript against the criteria.\n\n" +
         "Criteria: {criteria}\n\nTranscript:\n{transcript}\n\n" +
-        "Return a JSON object with `score` (integer 1-5) and `notes` " +
-        "(one-sentence explanation citing the specific turn(s) that drove " +
-        "the score; turn 1 is the agent's first message).",
+        "Return a JSON object with `score` (integer {scale.min}-{scale.max}) " +
+        "and `notes` (one-sentence explanation citing the specific turn(s) that " +
+        "drove the score; turn 1 is the agent's first message).",
     });
     onChange([...evaluators, id]);
     setExpandedId(id);
@@ -1504,23 +1504,40 @@ function RubricInlineEditor({
   onDelete: (id: string) => void;
 }) {
   // Local draft so the user can edit without dirtying every keystroke
-  // (saveRubric marks the project dirty). Save commits the draft. Scale
-  // is hidden from the editor and pinned to 1-5 — the prompt_template
-  // bakes that range in literally.
+  // (saveRubric marks the project dirty). Save commits the draft. scale is the
+  // numeric range the judge returns; consumers (the editor's display, the
+  // runner's threshold/mean math) read it, so surface it for editing here. Use
+  // {scale.min}/{scale.max} in the prompt_template to keep the prose range in
+  // sync with this field.
   const [name, setName] = useState(rubric.name ?? "");
   const [criteria, setCriteria] = useState(rubric.criteria);
   const [promptTemplate, setPromptTemplate] = useState(rubric.prompt_template);
+  const [scaleMin, setScaleMin] = useState(String(rubric.scale.min));
+  const [scaleMax, setScaleMax] = useState(String(rubric.scale.max));
 
   useEffect(() => {
     setName(rubric.name ?? "");
     setCriteria(rubric.criteria);
     setPromptTemplate(rubric.prompt_template);
+    setScaleMin(String(rubric.scale.min));
+    setScaleMax(String(rubric.scale.max));
   }, [rubric.id]);
+
+  const parsedMin = Number(scaleMin);
+  const parsedMax = Number(scaleMax);
+  const scaleValid =
+    scaleMin.trim() !== "" &&
+    scaleMax.trim() !== "" &&
+    Number.isFinite(parsedMin) &&
+    Number.isFinite(parsedMax) &&
+    parsedMin < parsedMax;
 
   const dirty =
     name !== (rubric.name ?? "") ||
     criteria !== rubric.criteria ||
-    promptTemplate !== rubric.prompt_template;
+    promptTemplate !== rubric.prompt_template ||
+    parsedMin !== rubric.scale.min ||
+    parsedMax !== rubric.scale.max;
 
   function handleSave() {
     onSave({
@@ -1528,8 +1545,7 @@ function RubricInlineEditor({
       id: rubric.id,
       ...(name.trim() ? { name: name.trim() } : {}),
       criteria,
-      // Preserve any non-1-5 scale that came from a JSON-side edit.
-      scale: rubric.scale,
+      scale: { min: parsedMin, max: parsedMax },
       prompt_template: promptTemplate,
       ...(rubric.model !== undefined ? { model: rubric.model } : {}),
     });
@@ -1577,13 +1593,38 @@ function RubricInlineEditor({
       </div>
       <div>
         <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+          scale
+        </label>
+        <div className="flex items-center gap-1.5">
+          <input
+            type="number"
+            value={scaleMin}
+            onChange={(e) => setScaleMin(e.target.value)}
+            aria-label="scale minimum"
+            className="w-16 rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px]"
+          />
+          <span className="text-[11px] text-zinc-400">to</span>
+          <input
+            type="number"
+            value={scaleMax}
+            onChange={(e) => setScaleMax(e.target.value)}
+            aria-label="scale maximum"
+            className="w-16 rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px]"
+          />
+          {!scaleValid && (
+            <span className="text-[10px] text-red-600">min must be &lt; max</span>
+          )}
+        </div>
+      </div>
+      <div>
+        <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
           prompt_template
         </label>
         <textarea
           value={promptTemplate}
           onChange={(e) => setPromptTemplate(e.target.value)}
           rows={5}
-          placeholder="LLM-judge prompt. Placeholders: {transcript}, {criteria}, {gold_standard}."
+          placeholder="LLM-judge prompt. Placeholders: {transcript}, {criteria}, {gold_standard}, {scale.min}, {scale.max}."
           className="w-full resize-y rounded border border-zinc-300 bg-white p-1.5 font-mono text-[10px] leading-snug"
         />
       </div>
@@ -1598,7 +1639,7 @@ function RubricInlineEditor({
         <button
           type="button"
           onClick={handleSave}
-          disabled={!dirty}
+          disabled={!dirty || !scaleValid}
           className="rounded-md bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
         >
           Save rubric
