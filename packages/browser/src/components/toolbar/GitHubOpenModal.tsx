@@ -9,7 +9,7 @@ import {
 } from "@flowstore/core/files/github";
 import { loadProject } from "@flowstore/core/files";
 import { loadSpec } from "@/lib/store/loadSpec";
-import { useDirtyStore } from "@/lib/store/dirty";
+import { markProjectBaseline } from "@/lib/store/dirty";
 import { scaffoldNewProject } from "@flowstore/core/files/scaffold";
 
 interface GitHubOpenModalProps {
@@ -154,9 +154,10 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
         repo.canWrite,
         repo.canAdmin,
       );
-      // Just-loaded from GitHub — local matches remote, not dirty. Don't
-      // stamp lastSavedAt; this wasn't a save by the user.
-      useDirtyStore.getState().setDirty(false);
+      // Just-loaded from GitHub — local matches remote, so re-baseline
+      // dirtiness to the loaded payload. Don't stamp lastSavedAt; this wasn't
+      // a save by the user.
+      markProjectBaseline();
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to open project");

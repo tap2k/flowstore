@@ -7,7 +7,6 @@ import type { Rubric } from "@flowstore/core/schema/files/rubric";
 import type { Gold } from "@flowstore/core/schema/files/gold";
 import type { TestingArtifacts } from "@flowstore/core/files";
 import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
-import { useDirtyStore } from "./dirty";
 import { toSlug } from "@/lib/slug";
 
 // In-memory home for the testing surface's authored artifacts. Mirrors
@@ -47,11 +46,12 @@ export interface TestsState {
   clear: () => void;
   toTestingArtifacts: () => TestingArtifacts;
 
-  // Persona CRUD — file-backed; marks the project dirty so the next
-  // GitHub Save commits the change. Save is upsert by id; delete removes
-  // by id (silently no-op if missing) and strips persona_id from cases
-  // that bound it. uniquePersonaId mints an unused slug from a free-text
-  // base.
+  // Persona CRUD — file-backed. The project's dirty bit is derived from the
+  // save payload (see dirty.ts), so these don't flag dirtiness themselves;
+  // the change to cases/personas is observed by the dirty subscription. Save
+  // is upsert by id; delete removes by id (silently no-op if missing) and
+  // strips persona_id from cases that bound it. uniquePersonaId mints an
+  // unused slug from a free-text base.
   savePersona: (persona: Persona) => void;
   deletePersona: (id: string) => void;
   uniquePersonaId: (base: string) => string;
@@ -133,7 +133,6 @@ export const useTestsStore = create<TestsState>()(
               : s.personas.map((p, idx) => (idx === i ? persona : p));
           return { personas: next };
         });
-        useDirtyStore.getState().setDirty(true);
       },
 
       deletePersona: (id) => {
@@ -150,7 +149,6 @@ export const useTestsStore = create<TestsState>()(
             cases,
           };
         });
-        useDirtyStore.getState().setDirty(true);
       },
 
       uniquePersonaId: (base) => uniqueId(get().personas, base, "persona"),
@@ -164,12 +162,10 @@ export const useTestsStore = create<TestsState>()(
               : s.cases.map((c, idx) => (idx === i ? testCase : c));
           return { cases: next };
         });
-        useDirtyStore.getState().setDirty(true);
       },
 
       deleteCase: (id) => {
         set((s) => ({ cases: s.cases.filter((c) => c.id !== id) }));
-        useDirtyStore.getState().setDirty(true);
       },
 
       uniqueCaseId: (base) => uniqueId(get().cases, base, "case"),
@@ -181,7 +177,6 @@ export const useTestsStore = create<TestsState>()(
             i === -1 ? [...s.golds, gold] : s.golds.map((g, idx) => (idx === i ? gold : g));
           return { golds: next };
         });
-        useDirtyStore.getState().setDirty(true);
       },
 
       deleteGold: (id) => {
@@ -197,7 +192,6 @@ export const useTestsStore = create<TestsState>()(
             cases,
           };
         });
-        useDirtyStore.getState().setDirty(true);
       },
 
       uniqueGoldId: (base) => uniqueId(get().golds, base, "gold"),
@@ -209,7 +203,6 @@ export const useTestsStore = create<TestsState>()(
             i === -1 ? [...s.rubrics, rubric] : s.rubrics.map((r, idx) => (idx === i ? rubric : r));
           return { rubrics: next };
         });
-        useDirtyStore.getState().setDirty(true);
       },
 
       deleteRubric: (id) => {
@@ -227,7 +220,6 @@ export const useTestsStore = create<TestsState>()(
             cases,
           };
         });
-        useDirtyStore.getState().setDirty(true);
       },
 
       uniqueRubricId: (base) => uniqueId(get().rubrics, base, "rubric"),

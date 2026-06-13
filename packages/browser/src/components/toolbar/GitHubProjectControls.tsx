@@ -14,7 +14,7 @@ import { decomposeSpec, decomposeTestingArtifacts, loadProject } from "@flowstor
 import { loadSpec } from "@/lib/store/loadSpec";
 import { useTestsStore } from "@/lib/store/tests";
 import { toSlug } from "@/lib/slug";
-import { useDirtyStore } from "@/lib/store/dirty";
+import { useDirtyStore, markProjectBaseline } from "@/lib/store/dirty";
 
 const iconButtonClass =
   "rounded-md border border-zinc-200 p-1.5 text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 disabled:hover:bg-transparent";
@@ -215,8 +215,9 @@ export function GitHubProjectControls({
       loadSpec(loaded, { testingArtifacts, comments });
       setCommitSha(commitSha);
       // Refresh reloaded the spec from GitHub — local matches remote, so
-      // we're not dirty. Don't stamp lastSavedAt; this wasn't a save.
-      useDirtyStore.getState().setDirty(false);
+      // re-baseline dirtiness to the just-loaded payload. Don't stamp
+      // lastSavedAt; this wasn't a save.
+      markProjectBaseline();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
