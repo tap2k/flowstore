@@ -9,6 +9,7 @@ import { SimulatePanel } from "@/components/runtime/SimulatePanel";
 import { SystemPromptPanel } from "@/components/runtime/SystemPromptPanel";
 import { SaveToNewRepoModal } from "@/components/toolbar/SaveToNewRepoModal";
 import { ShareModal } from "@/components/toolbar/ShareModal";
+import { SpecChangesModal } from "@/components/toolbar/SpecChangesModal";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
@@ -232,11 +233,15 @@ export function App() {
 
 // Header pill — amber dot + "Unsaved changes" when there's pending work,
 // muted "Saved · 12s ago" otherwise. Tick re-renders every 15s so the
-// relative time stays roughly fresh without per-frame work.
+// relative time stays roughly fresh without per-frame work. The dirty pill
+// is a button: clicking it opens a diff of the working copy vs the saved
+// version on GitHub.
 function SaveStatePill() {
   const spec = useSpecStore((s) => s.spec);
   const isDirty = useDirtyStore((s) => s.isDirty);
   const lastSavedAt = useDirtyStore((s) => s.lastSavedAt);
+  const hasProject = useGithubProjectStore((s) => s.location !== null);
+  const [showChanges, setShowChanges] = useState(false);
   const [, setTick] = useState(0);
   useEffect(() => {
     if (!lastSavedAt) return;
@@ -246,11 +251,32 @@ function SaveStatePill() {
 
   if (!spec) return null;
   if (isDirty) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200">
+    // Only offer the diff when there's a GitHub project to compare against;
+    // otherwise the pill is just a status indicator.
+    const pillBody = (
+      <>
         <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
         Unsaved changes
-      </span>
+      </>
+    );
+    return (
+      <>
+        {hasProject ? (
+          <button
+            type="button"
+            onClick={() => setShowChanges(true)}
+            title="Compare with the saved version on GitHub"
+            className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200 hover:bg-amber-100"
+          >
+            {pillBody}
+          </button>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200">
+            {pillBody}
+          </span>
+        )}
+        {showChanges && <SpecChangesModal onClose={() => setShowChanges(false)} />}
+      </>
     );
   }
   if (lastSavedAt) {
