@@ -6,7 +6,7 @@ import { useTestsStore } from "@/lib/store/tests";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useUiStore } from "@/lib/store/ui";
-import { caseWorldToRuntime, resolveFixture } from "@flowstore/core/runtime/personaRuntime";
+import { caseWorldToRuntime } from "@flowstore/core/runtime/personaRuntime";
 import { collectDeclaredVariables } from "@flowstore/core/runtime/contextVars";
 import { collectMockableCapabilities } from "@flowstore/core/runtime/capabilityMocks";
 import { VarsEditor } from "./persona/VarsEditor";
@@ -360,11 +360,6 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
     () => (actor === "persona" ? personas.find((p) => p.id === personaId) : undefined),
     [actor, personaId, personas],
   );
-  // persona ∪ case, shown read-only so the merge is never hidden.
-  const resolved = useMemo(
-    () => resolveFixture(boundPersona, { vars, mocks }),
-    [boundPersona, vars, mocks],
-  );
   const referenceTranscript =
     captureContext && captureContext.caseId === testCase.id
       ? captureContext.transcript
@@ -563,7 +558,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
               value={goldId}
               onChange={(e) => setGoldId(e.target.value)}
               className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700"
-              title="Reference gold transcript for {gold_standard} substitution in rubric judging."
+              title="Reference gold transcript for {gold_standard} substitution in gold-comparing rubrics bound to this case."
             >
               <option value="">— none —</option>
               {golds.map((g) => (
@@ -674,9 +669,9 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
             }}
           />
           {actor === "persona" && boundPersona && (
-            <ResolvedFixtureView
-              vars={resolved.vars}
-              mocks={resolved.mocks}
+            <PersonaFixtureView
+              vars={boundPersona.vars ?? {}}
+              mocks={boundPersona.mocks ?? {}}
               capabilities={spec_capabilities}
             />
           )}
@@ -784,9 +779,12 @@ function Section({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-// Read-only view of the effective fixture (persona ∪ case) so the merge is
-// never hidden. mocks are keyed by capability id; map to name for display.
-function ResolvedFixtureView({
+// Read-only view of the bound persona's INTRINSIC fixture — the vars/mocks the
+// case inherits. Sits beside the editable case fixture above it; the two
+// sections together are the persona ∪ case merge, shown by separation rather
+// than threading provenance into the shared editors. mocks are keyed by
+// capability id; map to name for display.
+function PersonaFixtureView({
   vars,
   mocks,
   capabilities,
@@ -806,9 +804,10 @@ function ResolvedFixtureView({
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between px-2 py-1.5 text-left hover:bg-zinc-100"
+        title="Inherited from the bound persona; read-only here. Edit it on the persona. The case fixture above merges over these."
       >
         <span className="text-[10px] uppercase tracking-wide text-zinc-500">
-          resolved (persona + case) · {varEntries.length} vars · {mockEntries.length} mocks
+          from persona · {varEntries.length} vars · {mockEntries.length} mocks
         </span>
         <span className="text-zinc-400">{open ? "▾" : "▸"}</span>
       </button>
