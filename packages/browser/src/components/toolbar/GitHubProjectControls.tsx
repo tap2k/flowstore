@@ -344,7 +344,7 @@ export function GitHubProjectControls({
               }}
               className={menuItemClass}
             >
-              Save a copy to a new repo…
+              Save to a new repo…
             </button>
           </div>
         )}
