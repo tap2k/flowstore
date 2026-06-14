@@ -10,6 +10,7 @@ export * from "./llmJson";
 export * from "./personaClient";
 export * from "./personaGen";
 export * from "./promptClient";
+export * from "./routeToTarget";
 export * from "./textClient";
 export * from "./transcript";
 export * from "./translate";

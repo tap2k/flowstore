@@ -11,6 +11,7 @@ import { SaveToNewRepoModal } from "@/components/toolbar/SaveToNewRepoModal";
 import { ShareModal } from "@/components/toolbar/ShareModal";
 import { SpecChangesModal } from "@/components/toolbar/SpecChangesModal";
 import { useSpecStore } from "@/lib/store/spec";
+import { useUiStore } from "@/lib/store/ui";
 import { useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
 import { startDirtyTracking, useDirtyStore } from "@/lib/store/dirty";
@@ -29,7 +30,8 @@ export function App() {
   const githubCanWrite = useGithubProjectStore((s) => s.canWrite);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
-  const [simulateOpen, setSimulateOpen] = useState(false);
+  const simulateOpen = useUiStore((s) => s.simulateOpen);
+  const setSimulateOpen = useUiStore((s) => s.setSimulateOpen);
   const [promptOpen, setPromptOpen] = useState(false);
   const [saveRepoOpen, setSaveRepoOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);

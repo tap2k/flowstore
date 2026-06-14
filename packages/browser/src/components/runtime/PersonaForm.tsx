@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Spec } from "@flowstore/core/schema/v0";
 import type { MockBehavior } from "@flowstore/core/schema/files/mockBehavior";
 import { useSimulateStore } from "@/lib/store/simulate";
@@ -34,6 +34,8 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
   const mockableCaps = useMemo(() => collectMockableCapabilities(spec), [spec]);
 
   const personaPrompt = useSimulateStore((s) => s.personaPrompt);
+  const routeTarget = useSimulateStore((s) => s.routeTarget);
+  const routeSynthesizing = useSimulateStore((s) => s.routeSynthesizing);
   const autoRun = useSimulateStore((s) => s.autoRun);
   const mode = useSimulateStore((s) => s.mode);
   const status = useSimulateStore((s) => s.status);
@@ -83,12 +85,20 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
     spec.agent.meta.modality === "voice" || spec.agent.meta.modality === "multimodal";
 
   const [open, setOpen] = useState(false);
+  // A "Load in Sim" route synthesis populates this section — expand it so the
+  // synthesized prompt + provenance note are visible to review before play.
+  useEffect(() => {
+    if (routeTarget) setOpen(true);
+  }, [routeTarget]);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [loadedPersonaId, setLoadedPersonaId] = useState<string | null>(null);
   const [savingAsName, setSavingAsName] = useState<string | null>(null);
 
   const configured = personaPrompt.trim().length > 0;
+  // Either kind of in-flight LLM generation — the local ✨ Generate or a route
+  // synthesis — should freeze the persona-management controls.
+  const busy = generating || routeSynthesizing;
   // Disambiguate the three non-running states so the run button doesn't show a
   // bare "▶" for all of them: the conversation concluded ([DONE]/ended) vs. it
   // paused mid-run at the turn limit vs. a fresh idle start.
@@ -284,16 +294,18 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
             max={200}
             value={personaTurnLimit}
             onChange={(e) => setPersonaTurnLimit(parseInt(e.target.value, 10))}
-            disabled={disabled || autoRun}
+            disabled={disabled || autoRun || routeSynthesizing}
             title="Hard cap on user turns. Stops the loop if the agent gets stuck."
             className="w-10 rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
           />
           <button
             type="button"
             onClick={() => setAutoRun(!autoRun)}
-            disabled={!configured || !personaHasKey || mode === "voice"}
+            disabled={!configured || !personaHasKey || mode === "voice" || routeSynthesizing}
             title={
-              mode === "voice"
+              routeSynthesizing
+                ? "Synthesizing the persona — hold on."
+                : mode === "voice"
                 ? "Persona auto-run is text/runner only — voice is mic-driven."
                 : !personaHasKey
                 ? "Add an API key in Settings for the model the persona picker is set to."
@@ -338,7 +350,7 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
             <select
               value={loadedPersonaId ?? ""}
               onChange={(e) => onLoadPersona(e.target.value)}
-              disabled={disabled || generating || personas.length === 0}
+              disabled={disabled || busy || personas.length === 0}
               className="max-w-[8rem] truncate rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
             >
               <option value="">
@@ -354,7 +366,7 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
               <button
                 type="button"
                 onClick={onSavePersona}
-                disabled={disabled || generating}
+                disabled={disabled || busy}
                 title={`Update tests/personas/${loadedPersona.id}.persona.json with the current buffer.`}
                 className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
               >
@@ -365,7 +377,7 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
               <button
                 type="button"
                 onClick={onStartSaveAs}
-                disabled={disabled || generating || !configured}
+                disabled={disabled || busy || !configured}
                 title="Save current buffer (prompt + vars + mocks) as a new persona file."
                 className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
               >
@@ -407,7 +419,7 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
               <button
                 type="button"
                 onClick={onGenerate}
-                disabled={disabled || generating}
+                disabled={disabled || busy}
                 title="Draft a full persona (prompt + vars + mocks), seeded by the prompt text below — or grounded against the agent's purpose + business goals when it's empty. Uses the configured Generate model."
                 className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
               >
@@ -418,7 +430,7 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
               <button
                 type="button"
                 onClick={onDeletePersona}
-                disabled={disabled || generating}
+                disabled={disabled || busy}
                 title={`Delete tests/personas/${loadedPersona.id}.persona.json.`}
                 className="rounded border border-red-300 bg-white px-2 py-0.5 text-[10px] text-red-700 hover:bg-red-50 disabled:opacity-40"
               >
@@ -429,7 +441,7 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
               <button
                 type="button"
                 onClick={onClear}
-                disabled={disabled || generating}
+                disabled={disabled || busy}
                 title="Clear the persona prompt + world from the buffer."
                 className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
               >
@@ -437,13 +449,42 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
               </button>
             )}
           </div>
+          {routeTarget && (
+            <div className="mb-1.5 rounded border border-sky-200 bg-sky-50 px-2 py-1.5 text-[10px] leading-snug text-sky-800">
+              {routeSynthesizing ? (
+                <span>
+                  Synthesizing a persona to reach{" "}
+                  <span className="font-medium">{routeTarget.label}</span>…
+                </span>
+              ) : (
+                <>
+                  Synthesized to reach <span className="font-medium">{routeTarget.label}</span> —
+                  edit if needed, then play. Best-effort: the run may not land exactly here.
+                </>
+              )}
+              {routeTarget.underivable.length > 0 && (
+                <div className="mt-1 text-sky-700">
+                  Couldn't auto-set these gates — set the vars below by hand:{" "}
+                  <span className="font-mono">{routeTarget.underivable.join(", ")}</span>
+                </div>
+              )}
+              {routeTarget.notProvided.length > 0 && (
+                <div className="mt-1 text-amber-700">
+                  Seeded but won't reach the agent until marked “provided” in Variables:{" "}
+                  <span className="font-mono">{routeTarget.notProvided.join(", ")}</span>
+                </div>
+              )}
+            </div>
+          )}
           <textarea
             value={personaPrompt}
             onChange={(e) => setPersonaPrompt(e.target.value)}
-            disabled={disabled || generating}
+            disabled={disabled || busy}
             rows={8}
             placeholder={
-              "System prompt for the persona playing the user.\n\nE.g.: You are a customer who ordered a laptop 3 days ago. The screen arrived cracked (order #12345). You are terse and impatient. Reply as the user would; emit [DONE] when satisfied."
+              routeSynthesizing
+                ? "Synthesizing the persona prompt…"
+                : "System prompt for the persona playing the user.\n\nE.g.: You are a customer who ordered a laptop 3 days ago. The screen arrived cracked (order #12345). You are terse and impatient. Reply as the user would; emit [DONE] when satisfied."
             }
             className="w-full resize-y rounded border border-zinc-300 bg-white p-2 font-mono text-[11px] leading-snug text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
           />
@@ -451,14 +492,14 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
           <VarsEditor
             declared={declaredVars}
             values={contextVars}
-            disabled={disabled || generating}
+            disabled={disabled || busy}
             onChange={(name, value) => setContextVar(name, value)}
           />
 
           <MocksEditor
             caps={mockableCaps}
             behaviors={behaviorsByName}
-            disabled={disabled || generating}
+            disabled={disabled || busy}
             keyOf={(cap) => cap.capabilityName}
             onChange={onMocksEditorChange}
           />
