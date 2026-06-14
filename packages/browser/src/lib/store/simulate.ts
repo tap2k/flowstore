@@ -9,6 +9,16 @@ import {
 } from "@flowstore/core/runtime/textClient";
 import { sendPromptTurn, type CapabilityInvocation } from "@flowstore/core/runtime/promptClient";
 import { generatePersonaTurn } from "@flowstore/core/runtime/personaClient";
+import { generateRoutePersona } from "@flowstore/core/runtime/personaGen";
+import {
+  routeToTarget,
+  deriveVarsFromRoute,
+  type RouteTarget,
+} from "@flowstore/core/runtime/routeToTarget";
+import { collectDeclaredVariables } from "@flowstore/core/runtime/contextVars";
+import { collectMockableCapabilities } from "@flowstore/core/runtime/capabilityMocks";
+import { generateContextVars } from "@flowstore/core/runtime/contextVarsGen";
+import { generateCapabilityMocks } from "@flowstore/core/runtime/capabilityMocksGen";
 import { asrShape, maybeBargeIn, type AsrLevel } from "@/lib/runtime/asrShape";
 // Type-only import: VoiceSession (and the @google/genai SDK it pulls) is
 // loaded lazily inside the voice branch of start(), so text/runner sessions
@@ -23,8 +33,9 @@ import {
 import { providedVars } from "@flowstore/core/runtime/contextVars";
 import type { GuardrailVerdict } from "@flowstore/core/runtime/judgeGuardrails";
 import type { RubricVerdict } from "@flowstore/core/runtime/judgeRubric";
-import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
+import { resolveDispatch, supportsStructuredOutput, useSettingsStore } from "@/lib/store/settings";
 import { useUiStore } from "@/lib/store/ui";
+import { useSpecStore } from "@/lib/store/spec";
 import { createScopedJsonStorage, isPlainObject } from "@/lib/store/scopedStorage";
 import type { ChatUsage, ProviderId } from "@flowstore/core/llm/types";
 
@@ -146,6 +157,21 @@ interface SimulateState {
   autoRun: boolean;
   personaAgentId: string | null;
   autoStepping: boolean;
+  // The flow/edge the persona buffer was synthesized to reach, via "Load in
+  // Sim" from an inspector. Drives the provenance note above the persona
+  // prompt. Cleared when the user edits the prompt or loads a saved persona.
+  routeTarget: {
+    target: RouteTarget;
+    label: string;
+    // calc/direct conditions we couldn't safely invert to a fixture value.
+    underivable: string[];
+    // vars we DID derive but whose agent declaration isn't `provided: true`, so
+    // they won't ship at session start (providedVars gates them). The user has
+    // to mark them provided in the Variables sheet for the seed to take effect.
+    notProvided: string[];
+  } | null;
+  // True while a route persona is being synthesized (an LLM call).
+  routeSynthesizing: boolean;
   // personaTurnLimit is the input value: how many turns the next Start grants.
   // personaTurnsLeft is the live countdown for the current run; reaches 0 → loop stops.
   // Both in-memory; each Start refills.
@@ -206,6 +232,11 @@ interface SimulateState {
   clearMockReturns: () => void;
   hydratePersona: (agentId: string) => void;
   setPersonaPrompt: (prompt: string) => void;
+  // Synthesize a goal-directed persona that steers toward a flow/edge and
+  // hydrate the persona buffers with it. Opens the Simulate panel's simulate
+  // tab. Does NOT auto-run — the user reviews/edits, then plays.
+  loadRouteTarget: (target: RouteTarget) => Promise<void>;
+  clearRouteTarget: () => void;
   setPersonaTraits: (traits: Record<string, string | number | boolean> | undefined) => void;
   setAutoRun: (on: boolean) => void;
   setPersonaTurnLimit: (n: number) => void;
@@ -330,6 +361,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   autoRun: false,
   personaAgentId: null,
   autoStepping: false,
+  routeTarget: null,
+  routeSynthesizing: false,
   personaTurnLimit: 10,
   personaTurnsLeft: 0,
   activeCaseId: loadActiveCaseId(),
@@ -495,8 +528,137 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
 
   setPersonaPrompt: (prompt) => {
     const { personaAgentId } = get();
-    set({ personaPrompt: prompt });
+    // A manual edit (or loading a saved persona) detaches the prompt from the
+    // route it was synthesized for, so the provenance note no longer applies.
+    set({ personaPrompt: prompt, routeTarget: null });
     if (personaAgentId) personaStorage.save(personaAgentId, { prompt });
+  },
+
+  clearRouteTarget: () => set({ routeTarget: null }),
+
+  loadRouteTarget: async (target) => {
+    const spec = useSpecStore.getState().spec;
+    if (!spec) return;
+
+    const route = routeToTarget(spec, target);
+    if (!route.found) {
+      set({
+        error:
+          target.kind === "exit"
+            ? "That branch isn't reachable from the entry flow."
+            : `"${route.targetFlowName ?? "That flow"}" isn't reachable from the entry flow.`,
+      });
+      return;
+    }
+
+    const creds = readLlmCreds("persona");
+    if (!creds.provider || !creds.apiKey) {
+      // Button is key-gated, so this is a defensive guard, not a normal path.
+      set({ error: `Persona synthesis needs a ${creds.endpointLabel} API key in Settings.` });
+      return;
+    }
+
+    // Bind the buffers to this agent FIRST (loading any saved values), so our
+    // writes below persist and the SimulatePanel's open-effect — which hydrates
+    // on first open — sees a matching agentId and no-ops instead of clobbering
+    // the fixture we're about to set. hydratePersona also resets personaPrompt,
+    // so it must run before we write the synthesized prompt.
+    get().hydrateContextVars(spec.agent.id);
+    get().hydrateMockReturns(spec.agent.id);
+    get().hydratePersona(spec.agent.id);
+
+    // Open the live simulate tab — the synthesized persona is a temporary,
+    // throwaway world, not one to manage in the personas tab. The simulate tab
+    // already renders the PersonaForm (prompt + provenance note + auto-play
+    // controls), so the user reviews the goal and presses play right there.
+    useUiStore.getState().setSimulateOpen(true);
+    useUiStore.getState().setOpenSimulateTab("simulate");
+
+    // Deterministically-seeded vars — the trustworthy source for the calc/direct
+    // gates, overlaid on the LLM guess below.
+    const derived = deriveVarsFromRoute(route.structuralConditions);
+
+    // Show the goal + "Synthesizing…" BEFORE the await, so the persona section
+    // expands and the user sees what's happening while the LLM works.
+    const label = route.targetExit
+      ? `${route.targetFlowName ?? target.flowId} → ${
+          route.targetExit.notes || route.targetExit.condition?.expression || route.targetExit.id
+        }`
+      : route.targetFlowName ?? target.flowId;
+    set({
+      routeSynthesizing: true,
+      error: null,
+      personaTraits: undefined,
+      routeTarget: { target, label, underivable: derived.underivable, notProvided: [] },
+    });
+
+    const provider = creds.provider; // null-checked above
+    const canFixture = supportsStructuredOutput(
+      useSettingsStore.getState().simulatePersonaModel,
+    );
+    const goalNote = { notes: `This persona's goal is to reach: ${label}.` };
+    let systemPrompt = "";
+    let llmVars: Record<string, unknown> = {};
+    let llmMockReturns: Record<string, Record<string, unknown>> = {};
+    try {
+      // Prose persona (portable text) + LLM fixture (vars then mocks, the same
+      // mechanism generatePersonaContent uses — vars first so the mock generator
+      // can ground returns against them). The LLM fixture is a best guess; the
+      // deterministic fixture overlays it per-key below.
+      systemPrompt = await generateRoutePersona({
+        spec,
+        route,
+        provider,
+        apiKey: creds.apiKey,
+        model: creds.model,
+      });
+      if (canFixture) {
+        const declared = collectDeclaredVariables(spec);
+        if (declared.length > 0) {
+          llmVars = await generateContextVars(spec, provider, creds.apiKey, creds.model, declared, goalNote);
+        }
+        const caps = collectMockableCapabilities(spec);
+        if (caps.length > 0) {
+          llmMockReturns = await generateCapabilityMocks(
+            spec,
+            provider,
+            creds.apiKey,
+            creds.model,
+            caps,
+            llmVars,
+            goalNote,
+          );
+        }
+      }
+    } catch (e) {
+      set({
+        routeSynthesizing: false,
+        error: `Couldn't synthesize a persona: ${e instanceof Error ? e.message : String(e)}`,
+      });
+      return;
+    }
+
+    // Merge: deterministic vars win per-key over the LLM guess. Mocks come from
+    // the LLM alone — deterministic mock derivation is always the compound case
+    // we refuse to guess (see deriveVarsFromRoute).
+    const mergedVars = { ...llmVars, ...derived.vars };
+
+    // Derived (deterministic) vars only seed the agent if declared `provided`.
+    const agentVars = spec.agent.variables ?? {};
+    const notProvided = Object.keys(derived.vars).filter(
+      (name) => !agentVars[name]?.provided,
+    );
+
+    get().setContextVars(mergedVars);
+    get().setMockReturns(llmMockReturns);
+
+    const { personaAgentId } = get();
+    if (personaAgentId) personaStorage.save(personaAgentId, { prompt: systemPrompt });
+    set({
+      personaPrompt: systemPrompt,
+      routeSynthesizing: false,
+      routeTarget: { target, label, underivable: derived.underivable, notProvided },
+    });
   },
 
   setPersonaTraits: (traits) => set({ personaTraits: traits }),

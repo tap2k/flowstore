@@ -9,6 +9,7 @@ import { VariablesEditor } from "./VariablesEditor";
 import { ConditionEditor } from "./ConditionEditor";
 import { ScriptsSheet } from "@/components/sheets/ScriptsSheet";
 import { CommentsSection } from "./CommentsSection";
+import { LoadInSimButton } from "./LoadInSimButton";
 
 const FLOW_TYPES: FlowType[] = ["happy", "sad", "off", "utility", "interrupt"];
 
@@ -381,6 +382,7 @@ export function FlowInspector() {
           >
             Open scripts sheet
           </button>
+          <LoadInSimButton target={{ kind: "flow", flowId: flow.id }} />
           <button
             onClick={() => {
               if (window.confirm(`Delete flow "${flow!.name}"?`)) removeFlow(flow!.id);

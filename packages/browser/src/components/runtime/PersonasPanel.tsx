@@ -407,7 +407,7 @@ function PersonaRow({
 
           <div>
             <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
-              system_prompt <span className="text-zinc-400">(required)</span>
+              system_prompt
             </label>
             <textarea
               value={systemPrompt}

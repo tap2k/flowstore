@@ -3,6 +3,7 @@ import type { ExitPath, ExitPathAction, AssignValue, Method } from "@flowstore/c
 import { GOTO_END, GOTO_RETURN, isReturnGoto } from "@flowstore/core/schema/v0";
 import { ListEditor } from "./ListEditor";
 import { ConditionEditor } from "./ConditionEditor";
+import { LoadInSimButton } from "./LoadInSimButton";
 
 const METHODS: Method[] = ["llm", "calculation", "direct"];
 
@@ -213,7 +214,8 @@ export function EdgeInspector() {
           )}
         </Field>
 
-        <div className="pt-2 border-t border-zinc-200">
+        <div className="pt-2 border-t border-zinc-200 space-y-2">
+          <LoadInSimButton target={{ kind: "exit", flowId: flow.id, exitPathId: exitPath.id }} />
           <button
             onClick={() => {
               if (window.confirm("Delete this exit path?")) removeExitPath(flow!.id, exitPath!.id);
