@@ -55,6 +55,9 @@ export function PersonasPanel() {
     setSelectedId(id);
   }
 
+  // When an API key + spec are present, "+ New" opens the generate dialog so
+  // the persona is born complete (vars + mocks + system_prompt). Without them
+  // it falls back to a skeleton the user can fill by hand.
   function startGenerate() {
     setGenerating({ name: "", notes: "", busy: false, error: null });
   }
@@ -122,22 +125,16 @@ export function PersonasPanel() {
           {personas.length} {personas.length === 1 ? "persona" : "personas"}
         </div>
         <div className="flex items-center gap-1">
-          {apiKey && spec && (
-            <button
-              type="button"
-              onClick={startGenerate}
-              disabled={generating !== null}
-              title="Generate a new persona (system prompt + vars + mocks) from a name + notes prompt."
-              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-            >
-              ✨ Generate
-            </button>
-          )}
           <button
             type="button"
-            onClick={startNew}
-            title="Create a placeholder persona — fill prompt + world inline."
-            className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50"
+            onClick={apiKey && spec ? startGenerate : startNew}
+            disabled={generating !== null}
+            title={
+              apiKey && spec
+                ? "Create a new persona — generates system prompt, vars, and mocks from a name + notes prompt."
+                : "Create a placeholder persona — fill prompt + world inline."
+            }
+            className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
           >
             + New
           </button>
