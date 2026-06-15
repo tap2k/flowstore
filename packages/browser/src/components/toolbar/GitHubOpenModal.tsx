@@ -5,7 +5,7 @@ import { useGithubProjectStore } from "@/lib/store/githubProject";
 import {
   makeGitHubClient,
   readRepoToFileMap,
-  type Octokit,
+  Octokit,
 } from "@flowstore/core/files/github";
 import { loadProject } from "@flowstore/core/files";
 import { loadSpec } from "@/lib/store/loadSpec";
@@ -42,6 +42,30 @@ interface BranchSummary {
   name: string;
 }
 
+// Accepts: https://github.com/owner/repo[/tree/branch][/...]
+// or owner/repo shorthand. Returns null for anything that doesn't resolve.
+function parseGitHubUrl(input: string): { owner: string; repo: string; branch?: string } | null {
+  try {
+    const trimmed = input.trim();
+    let pathname: string;
+    try {
+      const url = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
+      if (url.hostname !== "github.com") return null;
+      pathname = url.pathname;
+    } catch {
+      pathname = `/${trimmed}`;
+    }
+    const parts = pathname.replace(/^\//, "").split("/").filter(Boolean);
+    if (parts.length < 2) return null;
+    const [owner, repo, maybeTree, ...branchParts] = parts;
+    const branch =
+      maybeTree === "tree" && branchParts.length > 0 ? branchParts.join("/") : undefined;
+    return { owner, repo: repo.replace(/\.git$/, ""), branch };
+  } catch {
+    return null;
+  }
+}
+
 export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProps) {
   const pat = useSettingsStore((s) => s.githubPat);
   const existingSpec = useSpecStore((s) => s.spec);
@@ -62,6 +86,11 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
     | { repo: RepoSummary; branch: string; commitSha: string | null }
     | null
   >(null);
+
+  // URL import state — shared between the no-PAT wall and the authenticated modal.
+  const [urlInput, setUrlInput] = useState("");
+  const [urlError, setUrlError] = useState<string | null>(null);
+  const [urlOpening, setUrlOpening] = useState(false);
 
   useEffect(() => {
     if (!client) return;
@@ -175,12 +204,105 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
     onClose();
   }
 
+  async function openFromUrl() {
+    const parsed = parseGitHubUrl(urlInput);
+    if (!parsed) {
+      setUrlError("Not a valid GitHub URL.");
+      return;
+    }
+    if (existingSpec && !window.confirm("Replace the current spec?")) return;
+    setUrlOpening(true);
+    setUrlError(null);
+    try {
+      // Use PAT client for rate limits + private repo access; fall back to unauthed for public.
+      const readClient = client ?? new Octokit();
+      const meta = await readClient.rest.repos.get({ owner: parsed.owner, repo: parsed.repo });
+      const branch = parsed.branch ?? meta.data.default_branch;
+      const canWrite = meta.data.permissions?.push ?? false;
+      const canAdmin = meta.data.permissions?.admin ?? false;
+
+      let files: Record<string, string>;
+      let commitSha: string | null;
+      try {
+        const read = await readRepoToFileMap({
+          client: readClient,
+          owner: parsed.owner,
+          repo: parsed.repo,
+          ref: branch,
+        });
+        files = read.files;
+        commitSha = read.commitSha;
+      } catch (e: unknown) {
+        if (typeof e === "object" && e !== null && "status" in e && (e as { status: unknown }).status === 404) {
+          setUrlError("Repository or branch not found. It may be private or the branch doesn't exist.");
+          return;
+        }
+        throw e;
+      }
+
+      const { spec, comments, testingArtifacts, errors } = loadProject(files);
+      if (!spec) {
+        const msg =
+          errors.length > 0
+            ? errors.map((e) => `${e.path ? e.path + ": " : ""}${e.message}`).join("; ")
+            : "No flowstore project found in this repo.";
+        setUrlError(msg);
+        return;
+      }
+      loadSpec(spec, { testingArtifacts, comments });
+      setLoaded(
+        { owner: parsed.owner, repo: parsed.repo, ref: branch },
+        commitSha,
+        canWrite,
+        canAdmin,
+      );
+      markProjectBaseline();
+      onClose();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to open project";
+      if (msg.includes("rate limit")) {
+        setUrlError("GitHub rate limit hit. Add a PAT in Settings to get a higher limit.");
+      } else {
+        setUrlError(msg);
+      }
+    } finally {
+      setUrlOpening(false);
+    }
+  }
+
   if (!pat) {
     return (
       <Shell title="Open GitHub project" onClose={onClose}>
-        <p className="text-sm text-zinc-700">
-          A GitHub PAT is required to open a project. Add one in Settings.
-        </p>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-zinc-700">Public repo URL</label>
+            <div className="mt-1 flex gap-2">
+              <input
+                type="text"
+                value={urlInput}
+                onChange={(e) => { setUrlInput(e.target.value); setUrlError(null); }}
+                onKeyDown={(e) => { if (e.key === "Enter") openFromUrl(); }}
+                placeholder="https://github.com/owner/repo"
+                className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              />
+              <button
+                onClick={openFromUrl}
+                disabled={!urlInput.trim() || urlOpening}
+                className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+              >
+                {urlOpening ? "Opening…" : "Open"}
+              </button>
+            </div>
+            {urlError && (
+              <div className="mt-1.5 rounded border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
+                {urlError}
+              </div>
+            )}
+          </div>
+          <div className="border-t border-zinc-100 pt-3 text-xs text-zinc-500">
+            To open private repos or your own projects, add a GitHub PAT in Settings.
+          </div>
+        </div>
         <div className="flex justify-end gap-2 pt-3">
           <button
             onClick={onClose}
@@ -190,7 +312,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
           </button>
           <button
             onClick={onOpenSettings}
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
+            className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
           >
             Open Settings
           </button>
@@ -271,6 +393,25 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
             </div>
           </div>
         )}
+
+        <div className="relative border-t border-zinc-100 pt-3">
+          <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-white px-2 text-xs text-zinc-400">
+            or paste a URL
+          </span>
+          <input
+            type="text"
+            value={urlInput}
+            onChange={(e) => { setUrlInput(e.target.value); setUrlError(null); }}
+            onKeyDown={(e) => { if (e.key === "Enter") openFromUrl(); }}
+            placeholder="https://github.com/owner/repo"
+            className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+          />
+          {urlError && (
+            <div className="mt-1.5 rounded border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
+              {urlError}
+            </div>
+          )}
+        </div>
       </div>
       <div className="flex justify-end gap-2 pt-3">
         <button
@@ -285,6 +426,14 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
             className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
           >
             Initialize project
+          </button>
+        ) : urlInput.trim() ? (
+          <button
+            onClick={openFromUrl}
+            disabled={urlOpening}
+            className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+          >
+            {urlOpening ? "Opening…" : "Open"}
           </button>
         ) : (
           <button
@@ -318,15 +467,7 @@ function Shell({
         className="bg-white rounded-lg shadow-lg w-full max-w-md p-5"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-lg font-semibold text-zinc-900">{title}</h2>
-          <button
-            onClick={onClose}
-            className="text-xs text-zinc-500 hover:text-zinc-900"
-          >
-            close
-          </button>
-        </div>
+        <h2 className="text-lg font-semibold text-zinc-900 mb-3">{title}</h2>
         {children}
       </div>
     </div>
