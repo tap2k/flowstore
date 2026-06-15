@@ -46,7 +46,6 @@ V0 SCHEMA
     "meta": {
       "identity": "string (the name the agent inhabits, e.g. \"Nova\"; may be a {var} placeholder when the name is supplied per call)",
       "purpose": "one-sentence description",
-      "client": "string (optional)",
       "tone": "one short phrase describing voice/register (optional)",
       "modality": "voice | text | multimodal" /* required */,
       "languages": ["EN", "es-MX", "..."] /* optional */
@@ -493,8 +492,11 @@ the source warrants it.
   `meta.identity`; when the source gives the bot a name, that's the
   identity. If the name is injected at call time (the source names a
   runtime variable for it rather than a fixed name), set identity to that
-  `{placeholder}` instead of a literal. Agent scope and who it acts for →
-  `meta.purpose`, `meta.client`.
+  `{placeholder}` instead of a literal. There is no separate field for
+  who the agent acts for — a bare principal name isn't self-describing,
+  so fold it into `meta.identity` ("Lucía from Tala") and `meta.purpose`,
+  and put any official-channel / authority claims in `guardrails`. Agent
+  scope and mandate → `meta.purpose`.
   Voice/register descriptors ("warm and friendly", "crisp and
   professional", "the way a real barista talks") → `meta.tone`, one
   short phrase. Channel the agent runs on → `meta.modality` (required):
@@ -658,7 +660,9 @@ spec feel more complete or realistic:
 
 Common failure modes to avoid:
 
-- Filling a `meta.client` you weren't told. Omit it.
+- Naming a principal/brand the source didn't give. If the source
+  doesn't say who the agent acts for, don't invent one in identity or
+  purpose.
 - Inventing a support URL or phone number for an FAQ answer because
   "a real agent would have one." If the source doesn't give it,
   the answer text doesn't include it.

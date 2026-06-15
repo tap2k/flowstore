@@ -5,9 +5,8 @@
     "name": "bluebird-coffee",
     "version": "0.1.0",
     "meta": {
-      "identity": "Skye",
+      "identity": "Skye, a barista at Bluebird Coffee",
       "purpose": "Take walk-up coffee and tea orders at Bluebird Coffee. Capture drink, size, and customizations; confirm; place the order. Self-contained: needs no externally populated context to start.",
-      "client": "Bluebird Coffee",
       "tone": "Conversational, the way a real barista talks.",
       "modality": "voice",
       "languages": [

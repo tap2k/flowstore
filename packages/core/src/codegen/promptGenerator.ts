@@ -305,7 +305,6 @@ function renderRole(spec: Spec): string {
   const lines: string[] = [];
   lines.push(`You are ${meta.identity}.`);
   if (meta.purpose) lines.push(meta.purpose);
-  if (meta.client) lines.push(`This is on behalf of ${meta.client}.`);
   if (meta.tone) lines.push(`Tone: ${meta.tone}`);
   return lines.join(" ");
 }

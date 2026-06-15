@@ -104,7 +104,6 @@ const AgentPatchSchema: JSONSchema = {
       properties: {
         identity: { type: "string", description: "The name the agent inhabits; compiled into the system prompt as \"You are …\"." },
         purpose: { type: "string" },
-        client: { type: "string" },
         modality: { type: "string", enum: ["voice", "text", "multimodal"] },
         languages: { type: "array", items: { type: "string" } },
       },

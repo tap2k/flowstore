@@ -1,7 +1,7 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`compileSystemPrompt — baseline > matches the committed snapshot 1`] = `
-"You are Skye. Take walk-up coffee and tea orders at Bluebird Coffee. Capture drink, size, and customizations; confirm; place the order. Self-contained: needs no externally populated context to start. This is on behalf of Bluebird Coffee. Tone: Conversational, the way a real barista talks.
+"You are Skye, a barista at Bluebird Coffee. Take walk-up coffee and tea orders at Bluebird Coffee. Capture drink, size, and customizations; confirm; place the order. Self-contained: needs no externally populated context to start. Tone: Conversational, the way a real barista talks.
 
 ---
 
@@ -93,7 +93,7 @@ GLOSSARY:
 `;
 
 exports[`compileSystemPrompt — multilingual > multilingual prompt matches the committed snapshot 1`] = `
-"You are Nova. Take first-notice-of-loss claims for Northwind Insurance: verify the caller, capture the claim, file it. This is on behalf of Northwind Insurance. Tone: Calm and reassuring.
+"You are Nova, a claims assistant for Northwind Insurance. Take first-notice-of-loss claims for Northwind Insurance: verify the caller, capture the claim, file it. Tone: Calm and reassuring.
 
 ---
 

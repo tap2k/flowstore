@@ -163,19 +163,18 @@ export const CapabilitySchema = Type.Object(
 
 const AgentMetaSchema = Type.Object(
   {
-    // identity/purpose/client/tone compose the synthesized role line at the top
-    // of the system prompt: "You are {identity}[, on behalf of {client}].
-    // {purpose} Tone: {tone}". Persona, not file metadata — the repo/display
-    // label lives on the agent envelope as `name`.
+    // identity/purpose/tone compose the synthesized role line at the top of the
+    // system prompt: "You are {identity}. {purpose} Tone: {tone}". Persona, not
+    // file metadata — the repo/display label lives on the agent envelope as
+    // `name`. Who the agent acts for has no dedicated field: a bare principal
+    // ("Tala") isn't self-describing, so it's woven into identity ("Lucía from
+    // Tala") and purpose, and enforced (official-channel claims) in guardrails.
 
     // The name the agent inhabits ("You are {identity}."). Accepts {var}
     // placeholders, so identity can be a per-call input rather than a literal:
     // "{assistant_name}" renders "You are Lucía." when that variable is set.
     identity: Type.String(),
     purpose: Type.String(),
-    // Who the agent acts on behalf of — distinct from `identity` (the same
-    // persona can front for different clients). Renders "on behalf of {client}".
-    client: Type.Optional(Type.String()),
     // How the agent sounds (register/voice), not what it does — behavioral rules
     // belong in guardrails. Appended as "Tone: {tone}".
     tone: Type.Optional(Type.String()),

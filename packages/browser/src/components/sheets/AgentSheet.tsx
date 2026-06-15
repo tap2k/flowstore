@@ -40,13 +40,6 @@ export function AgentSheet({ onClose }: { onClose: () => void }) {
           onChange={(e) => patch({ meta: { ...agent.meta, purpose: e.target.value } })}
         />
       </Field>
-      <Field label="Client">
-        <input
-          className={inputClass}
-          value={agent.meta.client ?? ""}
-          onChange={(e) => patch({ meta: { ...agent.meta, client: e.target.value || undefined } })}
-        />
-      </Field>
       <Field label="Tone">
         <input
           className={inputClass}
