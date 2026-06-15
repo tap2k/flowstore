@@ -186,8 +186,8 @@ const updatePersonaTool: Tool = {
   definition: {
     name: "update_persona",
     description:
-      "Patch fields on an existing persona by id. Only included fields change; object fields " +
-      "(vars, mocks) replace the whole field, so include all entries you want to keep.",
+      "Patch fields on an existing persona by id. Only included fields change; vars and mocks " +
+      "are merged (existing keys are preserved unless overwritten), so you only need to include the keys you want to add or change.",
     parameters: {
       type: "object",
       properties: {
@@ -211,11 +211,34 @@ const updatePersonaTool: Tool = {
     const { id, patch } = args as { id: string; patch: Partial<Persona> };
     const existing = tests().personas.find((p) => p.id === id);
     if (!existing) return { ok: false, error: `persona not found: ${id}` };
-    const merged = clean<Persona>({ ...existing, ...patch, $schema: existing.$schema, id });
+    const merged = clean<Persona>({
+      ...existing,
+      ...patch,
+      vars: patch.vars ? { ...existing.vars, ...patch.vars } : existing.vars,
+      mocks: patch.mocks ? { ...existing.mocks, ...patch.mocks } : existing.mocks,
+      $schema: existing.$schema,
+      id,
+    });
     const v = check<Persona>(PersonaSchema, merged);
     if (isErr(v)) return v;
     tests().savePersona(v.value);
-    return { ok: true };
+    return { ok: true, record: v.value };
+  },
+};
+
+const getPersonaTool: Tool = {
+  definition: {
+    name: "get_persona",
+    description:
+      "Return the full current record for a persona by id — including its system_prompt, vars, and mocks. " +
+      "Call this before update_persona when you need to know the existing state (e.g. to preserve vars you are not changing).",
+    parameters: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+  },
+  impl: (args) => {
+    const { id } = args as { id: string };
+    const persona = tests().personas.find((p) => p.id === id);
+    if (!persona) return { ok: false, error: `persona not found: ${id}` };
+    return { ok: true, record: persona };
   },
 };
 
@@ -288,8 +311,8 @@ const updateTestCaseTool: Tool = {
   definition: {
     name: "update_test_case",
     description:
-      "Patch fields on an existing test case by id. Only included fields change; array/object fields " +
-      "(assertions, evaluators, vars, mocks, …) replace the whole field, so include all entries to keep.",
+      "Patch fields on an existing test case by id. Only included fields change; vars and mocks " +
+      "are merged (existing keys are preserved unless overwritten). Array fields (assertions, evaluators, …) replace the whole field, so include all entries to keep.",
     parameters: {
       type: "object",
       properties: { id: { type: "string" }, patch: { type: "object", properties: caseProps } },
@@ -300,11 +323,34 @@ const updateTestCaseTool: Tool = {
     const { id, patch } = args as { id: string; patch: Partial<TestCase> };
     const existing = tests().cases.find((c) => c.id === id);
     if (!existing) return { ok: false, error: `test case not found: ${id}` };
-    const merged = clean<TestCase>({ ...existing, ...patch, $schema: existing.$schema, id });
+    const merged = clean<TestCase>({
+      ...existing,
+      ...patch,
+      vars: patch.vars ? { ...existing.vars, ...patch.vars } : existing.vars,
+      mocks: patch.mocks ? { ...existing.mocks, ...patch.mocks } : existing.mocks,
+      $schema: existing.$schema,
+      id,
+    });
     const v = check<TestCase>(TestCaseSchema, merged);
     if (isErr(v)) return v;
     tests().saveCase(v.value);
-    return { ok: true };
+    return { ok: true, record: v.value };
+  },
+};
+
+const getTestCaseTool: Tool = {
+  definition: {
+    name: "get_test_case",
+    description:
+      "Return the full current record for a test case by id — including its vars, mocks, assertions, and actor. " +
+      "Call this before update_test_case when you need to know the existing state.",
+    parameters: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+  },
+  impl: (args) => {
+    const { id } = args as { id: string };
+    const testCase = tests().cases.find((c) => c.id === id);
+    if (!testCase) return { ok: false, error: `test case not found: ${id}` };
+    return { ok: true, record: testCase };
   },
 };
 
@@ -495,9 +541,11 @@ const deleteGoldTool: Tool = {
 };
 
 export const testTools: Tool[] = [
+  getPersonaTool,
   createPersonaTool,
   updatePersonaTool,
   deletePersonaTool,
+  getTestCaseTool,
   createTestCaseTool,
   updateTestCaseTool,
   deleteTestCaseTool,
