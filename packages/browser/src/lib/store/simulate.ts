@@ -1077,6 +1077,9 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           tools: buildCapabilityTools(specSnapshot),
           resolveTool: (call) => resolveMockedCall(call.name, get().mockReturns),
         });
+        // Session was reset while the LLM call was in-flight — drop the stale
+        // result rather than writing it into the freshly-cleared state.
+        if (get().sessionId !== sessionId) return;
         const latencyMs = Math.round(performance.now() - t0);
         // Empty text is shown as-is — different models behave differently on
         // empty user input (GPT typically replies; Gemini returns no text).
@@ -1103,7 +1106,9 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         });
       } catch (e) {
         // Roll back the optimistic user turn (see the runner branch) and stop
-        // the persona loop.
+        // the persona loop. Guard against writing into state that was already
+        // wiped by reset() while the LLM call was in-flight.
+        if (get().sessionId !== sessionId) return;
         set({
           transcript,
           status: "error",
@@ -1118,6 +1123,9 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     try {
       const t0 = performance.now();
       const res = await apiSendTurn({ baseUrl, sessionId, userText: trimmed });
+      // Session was reset while the runner call was in-flight — drop the stale
+      // result rather than writing it into the freshly-cleared state.
+      if (get().sessionId !== sessionId) return;
       const latencyMs = Math.round(performance.now() - t0);
       const reduced = reduceEvents(
         { currentFlowId, traversedEdgeIds, traversedFlowIds, variables, status: "ready" },
@@ -1147,6 +1155,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       // Roll back the optimistic user turn so the transcript reflects what the
       // runner actually saw, and the panel can restore it to the input for a
       // clean retry. Stop the persona loop — it can't proceed from an error.
+      // Guard against writing into state that was already wiped by reset().
+      if (get().sessionId !== sessionId) return;
       set({
         transcript,
         status: "error",
