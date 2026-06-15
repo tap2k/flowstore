@@ -15,7 +15,8 @@ import { useSpecStore } from "@/lib/store/spec";
 import { useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
 import { makeGitHubClient, type GitHubLocation } from "@flowstore/core/files/github";
-import { diffSpecs, renderSpecDiff } from "@flowstore/core/spec/diff";
+import { diffSpecs, renderSpecDiff, diffTestingArtifacts, renderTestingArtifactsDiff } from "@flowstore/core/spec/diff";
+import { useTestsStore } from "@/lib/store/tests";
 import { specAtRef } from "@/lib/github/specAtRef";
 import type { Tool, ToolResult } from "./tools";
 
@@ -57,8 +58,11 @@ const gitDiffUnsavedTool: Tool = {
       // Falls back to the branch ref for a fresh repo with no commit yet.
       const baseRef = useGithubProjectStore.getState().lastKnownCommitSha ?? loc.ref;
       const base = await specAtRef(loc, baseRef);
-      const diff = diffSpecs(base.spec, working, { baseSha: base.sha });
-      return { ok: true, data: { diff: renderSpecDiff(diff), changed: !diff.empty } };
+      const specDiff = diffSpecs(base.spec, working, { baseSha: base.sha });
+      const workingArtifacts = useTestsStore.getState().toTestingArtifacts();
+      const artifactDiffs = diffTestingArtifacts(base.testingArtifacts, workingArtifacts);
+      const text = renderSpecDiff(specDiff) + (artifactDiffs.length > 0 ? "\n" + renderTestingArtifactsDiff(artifactDiffs) : "");
+      return { ok: true, data: { diff: text, changed: !specDiff.empty || artifactDiffs.length > 0 } };
     } catch (e) {
       return { ok: false, error: errText(e) };
     }
@@ -85,8 +89,10 @@ const gitDiffRefsTool: Tool = {
     if (isErr(loc)) return loc;
     try {
       const [b, h] = await Promise.all([specAtRef(loc, base), specAtRef(loc, head)]);
-      const diff = diffSpecs(b.spec, h.spec, { baseSha: b.sha, headSha: h.sha });
-      return { ok: true, data: { diff: renderSpecDiff(diff), changed: !diff.empty } };
+      const specDiff = diffSpecs(b.spec, h.spec, { baseSha: b.sha, headSha: h.sha });
+      const artifactDiffs = diffTestingArtifacts(b.testingArtifacts, h.testingArtifacts);
+      const text = renderSpecDiff(specDiff) + (artifactDiffs.length > 0 ? "\n" + renderTestingArtifactsDiff(artifactDiffs) : "");
+      return { ok: true, data: { diff: text, changed: !specDiff.empty || artifactDiffs.length > 0 } };
     } catch (e) {
       return { ok: false, error: errText(e) };
     }

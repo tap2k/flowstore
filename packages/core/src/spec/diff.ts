@@ -23,6 +23,7 @@ import type {
   Spec,
   VariableDecl,
 } from "../schema/v0";
+import type { TestingArtifacts } from "../files/types";
 import { isEndGoto, isReturnGoto } from "../schema/v0";
 
 // ── Public types ────────────────────────────────────────────────────────────
@@ -39,7 +40,11 @@ export type EntityType =
   | "business_goal"
   | "faq"
   | "glossary"
-  | "table";
+  | "table"
+  | "persona"
+  | "test_case"
+  | "gold"
+  | "rubric";
 
 // An id paired with its human name, resolved at diff time so neither the
 // renderer nor the LLM ever sees a bare "flow_a1b2". For name-keyed entities
@@ -515,6 +520,55 @@ function deepEqual(a: unknown, b: unknown): boolean {
 
 function truncate(s: string, n: number): string {
   return s.length > n ? `${s.slice(0, n)}…` : s;
+}
+
+// ── Testing artifacts diff ────────────────────────────────────────────────────
+
+// Flat list of added/removed/changed personas, cases, golds, and rubrics.
+// Consumed by renderTestingArtifactsDiff and the chat git tools.
+export function diffTestingArtifacts(
+  base: TestingArtifacts,
+  head: TestingArtifacts,
+): EntityDiff[] {
+  const nameOf = <T extends { id: string; name?: string }>(e: T) => e.name ?? e.id;
+  return [
+    ...diffArtifactCollection("persona", base.personas, head.personas, nameOf),
+    ...diffArtifactCollection("test_case", base.testCases, head.testCases, nameOf),
+    ...diffArtifactCollection("gold", base.golds, head.golds, nameOf),
+    ...diffArtifactCollection("rubric", base.rubrics, head.rubrics, nameOf),
+  ];
+}
+
+export function renderTestingArtifactsDiff(diffs: EntityDiff[]): string {
+  if (diffs.length === 0) return "";
+  const lines: string[] = ["testing:"];
+  renderEntityList(lines, diffs, "  ");
+  return lines.join("\n");
+}
+
+function diffArtifactCollection<E extends { id: string }>(
+  entity: EntityType,
+  base: E[],
+  head: E[],
+  label: (e: E) => string,
+): EntityDiff[] {
+  const baseById = new Map(base.map((e) => [e.id, e]));
+  const headById = new Map(head.map((e) => [e.id, e]));
+  const out: EntityDiff[] = [];
+  for (const e of head) {
+    if (!baseById.has(e.id)) out.push({ kind: "added", entity, ref: { id: e.id, name: label(e) } });
+  }
+  for (const e of base) {
+    if (!headById.has(e.id)) out.push({ kind: "removed", entity, ref: { id: e.id, name: label(e) } });
+  }
+  for (const he of head) {
+    const be = baseById.get(he.id);
+    if (!be) continue;
+    if (!deepEqual(be, he)) {
+      out.push({ kind: "changed", entity, ref: { id: he.id, name: label(he) }, summary: changedFieldNames(be, he) });
+    }
+  }
+  return out;
 }
 
 // ── Rendering ────────────────────────────────────────────────────────────────

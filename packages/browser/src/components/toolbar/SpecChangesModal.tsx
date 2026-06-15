@@ -16,7 +16,8 @@ import { useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
 import { makeGitHubClient, readRepoToFileMap } from "@flowstore/core/files/github";
 import { loadProject } from "@flowstore/core/files";
-import { diffSpecs, renderSpecDiff } from "@flowstore/core/spec/diff";
+import { diffSpecs, renderSpecDiff, diffTestingArtifacts, renderTestingArtifactsDiff } from "@flowstore/core/spec/diff";
+import { useTestsStore } from "@/lib/store/tests";
 
 type State =
   | { phase: "loading" }
@@ -47,7 +48,7 @@ export function SpecChangesModal({ onClose }: { onClose: () => void }) {
         // errors are visible — a null spec here usually means no spec has been
         // committed to this branch yet, which is a "no base" state, not a fault.
         const { files, commitSha } = await readRepoToFileMap(ghLoc);
-        const { spec: baseSpec, errors } = loadProject(files);
+        const { spec: baseSpec, testingArtifacts: baseArtifacts, errors } = loadProject(files);
         if (cancelled) return;
         if (!baseSpec) {
           // No agent.json at root → nothing saved here to diff against.
@@ -56,13 +57,18 @@ export function SpecChangesModal({ onClose }: { onClose: () => void }) {
           const why = errors[0]?.message ?? "the saved spec could not be parsed";
           return setState({ phase: "error", message: `Could not read the saved spec: ${why}` });
         }
-        const diff = diffSpecs(baseSpec, working, { baseSha: commitSha, textSnippets: true });
+        const specDiff = diffSpecs(baseSpec, working, { baseSha: commitSha, textSnippets: true });
+        const workingArtifacts = useTestsStore.getState().toTestingArtifacts();
+        const artifactDiffs = diffTestingArtifacts(baseArtifacts, workingArtifacts);
+        const parts: string[] = [];
+        if (!specDiff.empty) parts.push(renderSpecDiff(specDiff));
+        if (artifactDiffs.length > 0) parts.push(renderTestingArtifactsDiff(artifactDiffs));
         const knownBase = useGithubProjectStore.getState().lastKnownCommitSha;
         const remoteAdvanced = !!knownBase && knownBase !== commitSha;
         setState({
           phase: "ready",
-          text: renderSpecDiff(diff),
-          empty: diff.empty,
+          text: parts.join("\n"),
+          empty: specDiff.empty && artifactDiffs.length === 0,
           remoteAdvanced,
         });
       } catch (e) {
