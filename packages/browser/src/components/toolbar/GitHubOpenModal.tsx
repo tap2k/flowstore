@@ -68,7 +68,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
     setLoadingRepos(true);
     setError(null);
     client.rest.repos
-      .listForAuthenticatedUser({ sort: "updated", per_page: 100 })
+      .listForAuthenticatedUser({ sort: "updated", per_page: 100, type: "all" })
       .then((res) => {
         const summaries: RepoSummary[] = res.data.map((r) => ({
           full_name: r.full_name,
