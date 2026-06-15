@@ -765,6 +765,14 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         // (handles prompt vs runner, transcript bookkeeping, error state).
         await get().send(toSend);
         set({ personaTurnsLeft: get().personaTurnsLeft - 1 });
+        // Empty agent reply during auto-run: stop the loop rather than letting
+        // the persona respond to silence and burn the remaining turn budget.
+        // send() still records the empty turn for the designer to see.
+        const lastTurn = get().transcript.at(-1);
+        if (!lastTurn?.text?.trim()) {
+          set({ autoRun: false });
+          return;
+        }
       }
     } catch (e) {
       set({
