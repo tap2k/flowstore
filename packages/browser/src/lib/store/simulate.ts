@@ -58,12 +58,8 @@ export type SimulateMode = "text" | "voice" | "runner";
 
 export const isPromptMode = (m: SimulateMode): boolean => m !== "runner";
 
-// Synthetic user turn that elicits the agent's opener when chatbot_initiates
-// is true in prompt mode. The Gemini API requires at least one user content;
-// the system prompt is what shapes the actual greeting. It's an
-// implementation detail for the AGENT's dispatch (its history must open on a
-// user turn) — not something the user said — so it's filtered out of the
-// persona's view, the transcript display, and captured cases/golds.
+// Elicits the agent's opener in prompt mode (Gemini requires at least one user content).
+// Filtered from transcript display and captured cases.
 export const PROMPT_MODE_BEGIN = "[begin]";
 
 // Transcript events for the capability calls a prompt-mode turn made, so mocked
@@ -99,12 +95,9 @@ export interface StartArgs {
   spec: Spec;
   apiKey: string;
   model: string;
-  // null when settings doesn't yet have a provider for the chosen model (no
-  // key configured). Prompt mode rejects with a clear error in that case;
-  // runner mode passes apiKey through to the Python side regardless.
+  // null when no provider key is configured; prompt mode rejects, runner passes through.
   provider: ProviderId | null;
-  // baseUrl from settings.resolveDispatch — only meaningful for the
-  // openai-compatible adapter path (OpenRouter today).
+  // Only meaningful for the openai-compatible adapter (OpenRouter).
   baseUrl?: string;
   language?: string;
 }
@@ -120,18 +113,11 @@ interface SimulateState {
   traversedEdgeIds: string[];
   traversedFlowIds: string[];
   variables: Record<string, unknown>;
-  // The vars buffer is a CHARACTER SHEET (full persona ∪ case fixture, or
-  // hand-typed values). What ships at session start is providedVars(spec, ·) —
-  // only `provided`-declared keys. To probe a state the deployment wouldn't
-  // provide, either mark the var provided in the variables sheet (the honest
-  // simulation of "known at start") or edit the prompt override directly.
+  // Character sheet (persona ∪ case fixture). Only provided-declared keys ship at session start.
   contextVars: Record<string, unknown>;
   contextVarsAgentId: string | null;
   mockReturns: Record<string, Record<string, unknown>>;
-  // Sentinels for error-behavior mocks. When mockErrors[capabilityName]
-  // is set, the resolver throws (or returns an error result) instead of
-  // the static returns. Per-capability mutually exclusive with mockReturns
-  // — setting one clears the other for that capability.
+  // Error-behavior sentinels. Per-capability; setting one clears mockReturns for that capability.
   mockErrors: Record<string, string>;
   mockReturnsAgentId: string | null;
   error: string | null;
@@ -142,68 +128,39 @@ interface SimulateState {
   // Voice-mode indicator: who currently holds the floor on the live socket.
   // null in text/runner mode and between voice sessions.
   voicePhase: VoicePhase | null;
-  // Mic mute toggle for voice mode. Gates audio emission without tearing the
-  // capture graph down (no re-prompt for permission).
+  // Mutes audio in voice mode without tearing the capture graph (no re-prompt for permission).
   micMuted: boolean;
-  // Persona auto-play state. Only personaPrompt persists per agent (in
-  // localStorage); everything else is per-session intent. autoStepping is the
-  // in-flight guard that prevents the panel effect from re-firing.
+  // Only personaPrompt persists per agent (localStorage); autoStepping guards against panel re-fire.
   personaPrompt: string;
-  // Open behavioral knobs of the loaded persona, rendered into the user-sim
-  // prompt at run time (see generatePersonaTurn). Set only when a persona is
-  // loaded from a Persona object; the free-text prompt buffer carries none.
-  // Per-session, not persisted — re-pick the persona to reload.
+  // Behavioral knobs rendered into the user-sim prompt. Per-session; re-pick persona to reload.
   personaTraits?: Record<string, string | number | boolean>;
   autoRun: boolean;
   personaAgentId: string | null;
   autoStepping: boolean;
-  // The flow/edge the persona buffer was synthesized to reach, via "Load in
-  // Sim" from an inspector. Drives the provenance note above the persona
-  // prompt. Cleared when the user edits the prompt or loads a saved persona.
+  // Persona target set via "Load in Sim". Cleared on user edit or saved-persona load.
   routeTarget: {
     target: RouteTarget;
     label: string;
     // calc/direct conditions we couldn't safely invert to a fixture value.
     underivable: string[];
-    // vars we DID derive but whose agent declaration isn't `provided: true`, so
-    // they won't ship at session start (providedVars gates them). The user has
-    // to mark them provided in the Variables sheet for the seed to take effect.
+    // vars derived but not declared `provided: true`; won't ship at session start.
     notProvided: string[];
   } | null;
   // True while a route persona is being synthesized (an LLM call).
   routeSynthesizing: boolean;
-  // personaTurnLimit is the input value: how many turns the next Start grants.
-  // personaTurnsLeft is the live countdown for the current run; reaches 0 → loop stops.
-  // Both in-memory; each Start refills.
+  // limit = input budget; left = live countdown (reaches 0 → loop stops). Both refill on Start.
   personaTurnLimit: number;
   personaTurnsLeft: number;
-  // Active-case binding. Set when the designer clicks "Open in Sim ▶"
-  // on a saved test case (or selects one from the SimulatePanel's
-  // Load-case picker). null = free-play mode. Drives the active-case
-  // header strip, the ▶ Run case button, and inline per-turn assertion
-  // verdicts in the transcript.
+  // Active-case binding; null = free-play mode. Set via "Open in Sim ▶".
   activeCaseId: string | null;
-  // Active-gold binding. Set when the designer clicks "▶ Run" on a saved
-  // gold in the Golds tab. Mutually exclusive with activeCaseId (setting
-  // one clears the other) — the Simulate tab shows at most one active
-  // strip. Drives the active-gold header strip, the ▶ Run gold button, and
-  // the turn-aligned gold-vs-live comparison card. In-memory only: a gold
-  // run is a quick action, not a binding worth surviving a reload.
+  // Mutually exclusive with activeCaseId (setting one clears the other). In-memory only.
   activeGoldId: string | null;
-  // Language scope for the current session. undefined = "auto": the prompt
-  // renders in the default language and voice auto-detects, following the
-  // caller per turn. A specific code pins scripts/FAQ to that bucket and (in
-  // voice) hints transcription/speech to that language. Lifted from
-  // SimulatePanel's prior useState so a Tests-tab "Open in Sim" can override
-  // the picker from case.language.
+  // undefined = "auto" (default language, voice auto-detects). A code pins scripts/FAQ and
+  // hints voice transcription. Lifted from SimulatePanel so "Open in Sim" can override the picker.
   language: string | undefined;
 
-  // Evaluation results for the current transcript. Lifted out of
-  // SimulatePanel local state so the ChatPanel (and anything else) can read
-  // them without recomputing. Both go stale the moment the conversation
-  // continues, so start/reset/send/fork clear them. guardrailVerdict is the
-  // holistic "Evaluate" result (judgeGuardrails); rubricVerdicts is keyed by
-  // rubric id, with "pending" while a judge call is in flight.
+  // Transcript evaluation results, in store so ChatPanel can read without recomputing.
+  // Both cleared on start/reset/send/fork; rubricVerdicts uses "pending" while in-flight.
   guardrailVerdict: GuardrailVerdict | null;
   rubricVerdicts: Record<string, RubricVerdict | "pending">;
 
@@ -224,17 +181,13 @@ interface SimulateState {
     values: Record<string, unknown>,
   ) => void;
   setMockReturns: (values: Record<string, Record<string, unknown>>) => void;
-  // Mark a capability as error-behavior. Clears any static returns for
-  // that capability. Pass null to revert to static-behavior (clears the
-  // error sentinel; existing mockReturns become live again).
+  // Pass null to revert to static-behavior (clears sentinel; mockReturns become live again).
   setMockError: (capabilityName: string, error: string | null) => void;
   clearMockReturnsForCapability: (capabilityName: string) => void;
   clearMockReturns: () => void;
   hydratePersona: (agentId: string) => void;
   setPersonaPrompt: (prompt: string) => void;
-  // Synthesize a goal-directed persona that steers toward a flow/edge and
-  // hydrate the persona buffers with it. Opens the Simulate panel's simulate
-  // tab. Does NOT auto-run — the user reviews/edits, then plays.
+  // Synthesize a goal-directed persona toward a flow/edge; does NOT auto-run.
   loadRouteTarget: (target: RouteTarget) => Promise<void>;
   clearRouteTarget: () => void;
   setPersonaTraits: (traits: Record<string, string | number | boolean> | undefined) => void;
@@ -275,13 +228,8 @@ const personaStorage = createScopedJsonStorage<{ prompt: string }>({
   isEmpty: (v) => !v.prompt,
 });
 
-// Active-case binding is the one bit of this otherwise-runtime store worth
-// surviving a reload (and an HMR module re-eval). It's a single global value,
-// so it gets a lightweight read/write rather than wrapping the whole store in
-// persist; hydration is inline in the initial state below, which re-runs on
-// every module re-eval — the same module-load-time trick settings.ts uses. The
-// transcript / sessionId / events are runtime artifacts and re-derive from the
-// next Run.
+// Active-case binding persists across reload/HMR via lightweight localStorage read/write
+// (single global; transcript/sessionId/events are runtime artifacts and re-derive on Run).
 const ACTIVE_CASE_KEY = "flowstore:simulate_auth";
 
 function loadActiveCaseId(): string | null {

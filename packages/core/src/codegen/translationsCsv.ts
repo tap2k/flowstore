@@ -28,8 +28,6 @@ export interface TranslationRow {
   byLang: Record<string, string>;
 }
 
-// === EXPORT =================================================================
-
 export function specToTranslationsCsv(spec: Spec, languages: string[]): string {
   const defaultLang = defaultLanguage(spec.agent.meta.languages);
   const langs = languages.length ? languages : [defaultLang];
@@ -90,7 +88,6 @@ function collectRows(
   return out;
 }
 
-// === IMPORT =================================================================
 
 export interface ImportPreview {
   csvLanguages: string[];      // languages present as columns in the CSV

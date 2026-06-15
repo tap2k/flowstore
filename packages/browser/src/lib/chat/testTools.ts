@@ -51,7 +51,7 @@ function clean<T extends Record<string, unknown>>(obj: T): T {
   return out as T;
 }
 
-// ---- Shared parameter sub-schemas -----------------------------------------
+
 //
 // Open dicts (vars, mocks, returns) are typed as bare objects with the shape
 // described in prose: Gemini's schema dialect (OpenAPI 3.0 subset) drops
@@ -140,7 +140,6 @@ const DEFAULT_RUBRIC_TEMPLATE =
   "Transcript:\n{transcript}\n\n" +
   "Return a single integer score on the rubric's scale (higher is better) plus a one-sentence justification.";
 
-// ---- Personas --------------------------------------------------------------
 
 const createPersonaTool: Tool = {
   definition: {
@@ -235,7 +234,6 @@ const deletePersonaTool: Tool = {
   },
 };
 
-// ---- Test cases ------------------------------------------------------------
 
 const CASE_ACTOR_DESC =
   "Provide exactly one actor: `user_turns` (verbatim scripted user inputs), `persona_id` " +
@@ -324,7 +322,6 @@ const deleteTestCaseTool: Tool = {
   },
 };
 
-// ---- Rubrics ---------------------------------------------------------------
 
 const createRubricTool: Tool = {
   definition: {
@@ -413,7 +410,6 @@ const deleteRubricTool: Tool = {
   },
 };
 
-// ---- Golds -----------------------------------------------------------------
 
 const createGoldTool: Tool = {
   definition: {

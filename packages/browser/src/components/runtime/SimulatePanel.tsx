@@ -50,10 +50,8 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   // specifically (not whichever provider the picker is on).
   const googleApiKey = useSettingsStore((s) => s.googleApiKey);
   const setSimulateAgentModel = useSettingsStore((s) => s.setSimulateAgentModel);
-  // A voice (Live) model can't dispatch via generateContent — it 404s — so it
-  // must never sit in the agent (text/runner) slot. If a stale pick leaked one
-  // in (e.g. selected before the picker excluded Live models), snap back to the
-  // default. Done during render to match the language-reset guard below.
+  // Voice (Live) models 404 via generateContent; if one leaked into the agent slot, snap back.
+  // Done during render to match the language-reset guard below.
   if (BUILT_IN_MODELS.models[agentModel]?.voice) {
     setSimulateAgentModel(DEFAULT_MODEL_ID);
   }
@@ -108,21 +106,14 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const activeGold = activeGoldId
     ? allGolds.find((g) => g.id === activeGoldId) ?? null
     : null;
-  // Gold agent turns, paired by agent-turn index against the live agent's
-  // turns for the inline gold-vs-live reference rendered under each agent
-  // bubble during a gold run.
+  // Agent turns from the active gold, aligned by index for inline gold-vs-live comparison.
   const goldAgentTurns = activeGold
     ? activeGold.turns.filter((t) => t.role === "agent").map((t) => t.text)
     : [];
   const [isRunning, setIsRunning] = useState(false);
-  // Set by the Stop button; the run loop checks before each `send()` and
-  // breaks. An in-flight LLM call still completes (we can't abort the
-  // network round-trip mid-stream); stop takes effect on the next turn
-  // boundary — same UX as the persona-driven autoRun loop.
+  // Set by Stop button; checked before each send(). In-flight LLM calls complete first.
   const stopRequestedRef = useRef(false);
-  // Rubric verdicts for the current run, populated on completion by
-  // judgeRubric() — one entry per bound rubric. Lives in the simulate store
-  // (not local state) so ChatPanel can read it; cleared on each new turn.
+  // Lives in simulate store (not local state) so ChatPanel can read; cleared on each new turn.
   const rubricVerdicts = useSimulateStore((s) => s.rubricVerdicts);
   const setRubricVerdicts = useSimulateStore((s) => s.setRubricVerdicts);
   const patchRubricVerdict = useSimulateStore((s) => s.patchRubricVerdict);
@@ -190,9 +181,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     }
   }, [open, spec, hydrateContextVars, hydrateMockReturns, hydratePersona]);
 
-  // Clear translation state when sessionId changes. Done during render via the
-  // "adjusting state on prop change" pattern rather than in an effect to avoid
-  // a wasted render cycle.
+  // Reset translation state on new session (adjusting-state-on-prop-change avoids extra render).
   const prevSessionIdRef = useRef(sessionId);
   if (prevSessionIdRef.current !== sessionId) {
     prevSessionIdRef.current = sessionId;
@@ -221,9 +210,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const busy = status === "thinking" || status === "starting";
   const ended = status === "ended";
   const ready = status === "ready";
-  // After a failed turn the session is still alive, so let the user type and
-  // retry. Start failures have no session, so the input isn't rendered at all
-  // (EmptyState's "Start session" handles that retry instead).
+  // Failed turns can still retry (session alive); start failures skip the input entirely.
   const canSend = ready || status === "error";
 
   async function startSession() {
