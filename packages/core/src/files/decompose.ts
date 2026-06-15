@@ -123,7 +123,7 @@ function buildFlowFile(flow: Flow): Omit<Flow, "scripts"> & {
 }
 
 function scaffoldReadme(spec: Spec, opts: DecomposeOptions): string {
-  const name = opts.projectName ?? spec.agent.meta.name ?? spec.agent.id;
+  const name = opts.projectName ?? spec.agent.name ?? spec.agent.id;
   const lines = [
     `# ${name}`,
     "",

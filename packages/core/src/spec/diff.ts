@@ -148,7 +148,8 @@ function gotoLabel(goto: string, names: Map<string, string>): string {
 function diffAgent(base: Agent, head: Agent, ctx: Ctx): EntityDiff | null {
   const fields: FieldChange[] = [];
 
-  pushScalar(fields, "name", base.meta?.name, head.meta?.name);
+  pushScalar(fields, "name", base.name, head.name);
+  pushScalar(fields, "identity", base.meta?.identity, head.meta?.identity);
   pushScalar(fields, "purpose", base.meta?.purpose, head.meta?.purpose);
   pushScalar(fields, "tone", base.meta?.tone, head.meta?.tone);
   pushScalar(fields, "modality", base.meta?.modality, head.meta?.modality);
@@ -173,7 +174,7 @@ function diffAgent(base: Agent, head: Agent, ctx: Ctx): EntityDiff | null {
   return {
     kind: "changed",
     entity: "agent",
-    ref: { id: head.id, name: head.meta?.name ?? head.id },
+    ref: { id: head.id, name: head.name ?? head.id },
     fields: fields.length > 0 ? fields : undefined,
     children: children.length > 0 ? children : undefined,
   };

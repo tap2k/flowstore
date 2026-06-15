@@ -11,7 +11,8 @@ function spec(): Spec {
   return {
     agent: {
       id: "a1",
-      meta: { name: "Cafe", modality: "text" },
+      name: "cafe",
+      meta: { identity: "Cafe", modality: "text" },
       entry_flow_id: "greet",
       capabilities: [
         { id: "cap_place", name: "place_order", description: "", kind: "function" },
@@ -131,7 +132,7 @@ describe("routeToTarget — interrupt flow", () => {
 describe("routeToTarget — cycles", () => {
   it("terminates and routes through a cycle", () => {
     const s: Spec = {
-      agent: { id: "a", meta: { name: "x", modality: "text" }, entry_flow_id: "a" },
+      agent: { id: "a", name: "x", meta: { identity: "x", modality: "text" }, entry_flow_id: "a" },
       flows: [
         { id: "a", name: "A", type: "happy", exit_paths: [{ id: "ab", goto: "b" }] },
         { id: "b", name: "B", type: "happy", exit_paths: [{ id: "ba", goto: "a" }, { id: "bc", goto: "c" }] },

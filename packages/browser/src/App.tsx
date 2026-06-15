@@ -82,7 +82,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    document.title = spec ? `flowstore — ${spec.agent.meta.name}` : "flowstore";
+    document.title = spec ? `flowstore — ${spec.agent.name}` : "flowstore";
   }, [spec]);
 
   useEffect(() => {
@@ -121,7 +121,7 @@ export function App() {
           {spec ? (
             <div className="flex min-w-0 flex-col">
               <h1 className="truncate text-lg font-semibold leading-tight text-zinc-900">
-                {spec.agent.meta.name}
+                {spec.agent.name}
               </h1>
               {githubLocation ? (
                 <div className="flex items-center gap-1 leading-tight">

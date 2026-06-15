@@ -163,7 +163,11 @@ export const CapabilitySchema = Type.Object(
 
 const AgentMetaSchema = Type.Object(
   {
-    name: Type.String(),
+    // Who the agent *is* — the name it inhabits, fed verbatim into the system
+    // prompt ("You are {identity}."). This is persona, not a file label: the
+    // repo/display name lives on the agent envelope as `name`. An agent filed
+    // as "northwind-fnol" can still introduce itself as "Nova".
+    identity: Type.String(),
     purpose: Type.String(),
     client: Type.Optional(Type.String()),
     tone: Type.Optional(Type.String()),
@@ -287,6 +291,11 @@ export const AgentSchema = Type.Object(
   {
     $schema: Type.Optional(Type.String()),
     id: Type.String(),
+    // Repo/display label — document metadata, parallel to `id`. Used for the
+    // tab title, the app header, the README scaffold, and the save-to-repo
+    // default. Never enters the compiled system prompt; the agent's persona
+    // name is `meta.identity`.
+    name: Type.String(),
     version: Type.Optional(Type.String()),
     meta: AgentMetaSchema,
     chatbot_initiates: Type.Optional(Type.Boolean()),

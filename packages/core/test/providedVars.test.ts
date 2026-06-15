@@ -12,7 +12,8 @@ import { validateGraph } from "@flowstore/core/validation/graphRules";
 const spec = {
   agent: {
     id: "a1",
-    meta: { name: "Collections", modality: "voice" },
+    name: "collections",
+    meta: { identity: "Collections", modality: "voice" },
     entry_flow_id: "f1",
     variables: {
       customer_name: { type: "string", provided: true },

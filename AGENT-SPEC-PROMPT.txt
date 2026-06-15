@@ -42,8 +42,9 @@ V0 SCHEMA
   "agent": {
     "$schema": "flowstore://spec/agent/v0",
     "id": "agent_<snake_case>",
+    "name": "string (repo/display label, e.g. \"northwind-fnol\")",
     "meta": {
-      "name": "string",
+      "identity": "string (the name the agent inhabits, e.g. \"Nova\")",
       "purpose": "one-sentence description",
       "client": "string (optional)",
       "tone": "one short phrase describing voice/register (optional)",
@@ -486,7 +487,12 @@ the source warrants it.
   will misfire on earlier-step replies (e.g. an "identity confirmed"
   exit firing on a "how are you?" greeting reply).
 - source prompt content: decompose everything into structured fields.
-  Agent identity and scope → `meta.name`, `meta.purpose`, `meta.client`.
+  The repo/display label for the agent (a slug or short title, never
+  fed to the model) → top-level `agent.name`. The name the agent
+  inhabits and refers to itself by (compiled into "You are …") →
+  `meta.identity`; when the source gives the bot a name, that's the
+  identity. Agent scope and who it acts for → `meta.purpose`,
+  `meta.client`.
   Voice/register descriptors ("warm and friendly", "crisp and
   professional", "the way a real barista talks") → `meta.tone`, one
   short phrase. Channel the agent runs on → `meta.modality` (required):
@@ -501,7 +507,7 @@ the source warrants it.
   Per-stage behavior → flow `instructions`. Facts → `knowledge`
   (FAQ, glossary, tables). Tools → `capabilities`. There is no
   agent-level free-text prompt field — the compiler synthesizes the
-  role line from `meta`, and the rendered prompt is built from the
+  role line from `meta.identity`, and the rendered prompt is built from the
   structured fields. The test for tone vs. guardrail: is the clause
   describing how the agent *sounds* (tone), or what the agent must
   (not) *do* turn by turn (guardrail)? If in doubt, it's a guardrail —

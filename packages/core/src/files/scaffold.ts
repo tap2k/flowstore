@@ -10,8 +10,9 @@ export function scaffoldNewProject(opts: { name: string; id?: string }): Spec {
     agent: {
       $schema: "flowstore://spec/agent/v0",
       id,
+      name: opts.name,
       meta: {
-        name: opts.name,
+        identity: opts.name,
         purpose: "",
         modality: "voice",
       },

@@ -6,7 +6,8 @@ function baseSpec(): Spec {
   return {
     agent: {
       id: "agent_1",
-      meta: { name: "X", purpose: "", modality: "voice", languages: ["EN"] },
+      name: "x",
+      meta: { identity: "X", purpose: "", modality: "voice", languages: ["EN"] },
       entry_flow_id: "f1",
       variables: { a: { type: "string" }, b: { type: "number" } },
     },
@@ -45,11 +46,11 @@ describe("useSpecStore — variable declaration removal", () => {
   });
 
   it("still deep-merges a partial meta patch — siblings survive", () => {
-    // The chat tool sends partial meta like { meta: { name } } and relies on
+    // The chat tool sends partial meta like { meta: { identity } } and relies on
     // modality/languages being preserved. The map-replace fix must not regress this.
-    useSpecStore.getState().updateAgent({ meta: { name: "Y" } } as Partial<Agent>);
+    useSpecStore.getState().updateAgent({ meta: { identity: "Y" } } as Partial<Agent>);
     const meta = useSpecStore.getState().spec?.agent.meta;
-    expect(meta?.name).toBe("Y");
+    expect(meta?.identity).toBe("Y");
     expect(meta?.modality).toBe("voice");
     expect(meta?.languages).toEqual(["EN"]);
   });

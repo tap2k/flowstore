@@ -13,7 +13,7 @@ import { debouncedLocalStorage, isPlainObject } from "./scopedStorage";
 const REPLACE_KEYS = new Set(["variables"]);
 
 // One-level deep merge: nested plain objects merge, arrays/primitives replace.
-// Keeps partial patches like `{ meta: { name } }` from wiping sibling fields like `meta.languages`.
+// Keeps partial patches like `{ meta: { identity } }` from wiping sibling fields like `meta.languages`.
 // Open-keyed map fields (REPLACE_KEYS) replace instead of merging so deletions stick.
 function mergePatch<T extends object>(base: T, patch: Partial<T>): T {
   const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
@@ -66,7 +66,8 @@ function blankFlow(id: string): Flow {
 function blankAgent(entryFlowId: string): Agent {
   return {
     id: genId("agent"),
-    meta: { name: "Untitled", purpose: "", modality: "voice", languages: ["EN"] },
+    name: "Untitled",
+    meta: { identity: "", purpose: "", modality: "voice", languages: ["EN"] },
     entry_flow_id: entryFlowId,
   };
 }

@@ -98,10 +98,11 @@ const AgentPatchSchema: JSONSchema = {
   type: "object",
   description: "Fields to overwrite on the agent. Only included fields change.",
   properties: {
+    name: { type: "string", description: "Repo/display label for the agent. Never shown to the model." },
     meta: {
       type: "object",
       properties: {
-        name: { type: "string" },
+        identity: { type: "string", description: "The name the agent inhabits; compiled into the system prompt as \"You are …\"." },
         purpose: { type: "string" },
         client: { type: "string" },
         modality: { type: "string", enum: ["voice", "text", "multimodal"] },

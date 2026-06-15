@@ -2,9 +2,10 @@
   "agent": {
     "$schema": "flowstore://spec/agent/v0",
     "id": "agent_northwind_fnol",
+    "name": "northwind-fnol",
     "version": "0.1.0",
     "meta": {
-      "name": "Nova",
+      "identity": "Nova",
       "purpose": "Take first-notice-of-loss claims for Northwind Insurance: verify the caller, capture the claim, file it.",
       "client": "Northwind Insurance",
       "tone": "Calm and reassuring.",

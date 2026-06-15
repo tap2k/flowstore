@@ -20,8 +20,17 @@ export function AgentSheet({ onClose }: { onClose: () => void }) {
       <Field label="Name">
         <input
           className={inputClass}
-          value={agent.meta.name}
-          onChange={(e) => patch({ meta: { ...agent.meta, name: e.target.value } })}
+          value={agent.name}
+          onChange={(e) => patch({ name: e.target.value })}
+          placeholder="Repo / display name, e.g. northwind-fnol"
+        />
+      </Field>
+      <Field label="Identity">
+        <input
+          className={inputClass}
+          value={agent.meta.identity}
+          onChange={(e) => patch({ meta: { ...agent.meta, identity: e.target.value } })}
+          placeholder="How the agent refers to itself, e.g. Nova"
         />
       </Field>
       <Field label="Purpose">

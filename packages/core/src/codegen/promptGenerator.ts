@@ -303,7 +303,7 @@ function renderRuntimeContext(spec: Spec, vars?: Record<string, unknown>): strin
 function renderRole(spec: Spec): string {
   const { meta } = spec.agent;
   const lines: string[] = [];
-  lines.push(`You are ${meta.name}.`);
+  lines.push(`You are ${meta.identity}.`);
   if (meta.purpose) lines.push(meta.purpose);
   if (meta.client) lines.push(`This is on behalf of ${meta.client}.`);
   if (meta.tone) lines.push(`Tone: ${meta.tone}`);

@@ -30,7 +30,7 @@ describe("compileSystemPrompt — baseline", () => {
 
   it("emits sections in role → guardrails → flows → knowledge order", () => {
     // role line first; FLOW OF CALL after it.
-    expect(baseline.startsWith(`You are ${coffee.agent.meta.name}.`)).toBe(true);
+    expect(baseline.startsWith(`You are ${coffee.agent.meta.identity}.`)).toBe(true);
     expect(baseline).toContain("FLOW OF CALL:");
   });
 });

@@ -39,7 +39,7 @@ export function SaveToNewRepoModal({ onClose, onOpenSettings }: SaveToNewRepoMod
   const spec = useSpecStore((s) => s.spec);
   const setLoaded = useGithubProjectStore((s) => s.setLoaded);
 
-  const [name, setName] = useState(spec?.agent.meta.name ?? "");
+  const [name, setName] = useState(spec?.agent.name ?? "");
   const [isPrivate, setIsPrivate] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
