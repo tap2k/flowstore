@@ -163,20 +163,25 @@ export const CapabilitySchema = Type.Object(
 
 const AgentMetaSchema = Type.Object(
   {
-    // Who the agent *is* — the name it inhabits, fed verbatim into the system
-    // prompt ("You are {identity}."). This is persona, not a file label: the
-    // repo/display name lives on the agent envelope as `name`. An agent filed
-    // as "northwind-fnol" can still introduce itself as "Nova".
+    // identity/purpose/client/tone compose the synthesized role line at the top
+    // of the system prompt: "You are {identity}[, on behalf of {client}].
+    // {purpose} Tone: {tone}". Persona, not file metadata — the repo/display
+    // label lives on the agent envelope as `name`.
+
+    // The name the agent inhabits ("You are {identity}."). Accepts {var}
+    // placeholders, so identity can be a per-call input rather than a literal:
+    // "{assistant_name}" renders "You are Lucía." when that variable is set.
     identity: Type.String(),
     purpose: Type.String(),
+    // Who the agent acts on behalf of — distinct from `identity` (the same
+    // persona can front for different clients). Renders "on behalf of {client}".
     client: Type.Optional(Type.String()),
+    // How the agent sounds (register/voice), not what it does — behavioral rules
+    // belong in guardrails. Appended as "Tone: {tone}".
     tone: Type.Optional(Type.String()),
-    // The channel the agent runs on. Required — it's a defining, design-time
-    // fact about the agent (it shapes the compiled system prompt and the
-    // persona that tests it), not a per-run knob. "voice" ⇒ spoken/telephony,
-    // "text" ⇒ chat, "multimodal" ⇒ deployed on both. Runtime audio knobs
-    // (TTS voice, VAD, transport) stay out of the spec; this is semantic, like
-    // `languages`.
+    // The channel the agent runs on — a design-time fact that shapes the prompt,
+    // not a per-run knob (runtime audio settings like TTS voice/VAD stay out of
+    // the spec). "voice" ⇒ spoken/telephony, "text" ⇒ chat, "multimodal" ⇒ both.
     modality: Type.Union([
       Type.Literal("voice"),
       Type.Literal("text"),
@@ -291,10 +296,9 @@ export const AgentSchema = Type.Object(
   {
     $schema: Type.Optional(Type.String()),
     id: Type.String(),
-    // Repo/display label — document metadata, parallel to `id`. Used for the
-    // tab title, the app header, the README scaffold, and the save-to-repo
-    // default. Never enters the compiled system prompt; the agent's persona
-    // name is `meta.identity`.
+    // Repo/display label — document metadata, parallel to `id` (tab title, app
+    // header, README scaffold, save-to-repo default). Never enters the compiled
+    // system prompt; the agent's persona name is `meta.identity`.
     name: Type.String(),
     version: Type.Optional(Type.String()),
     meta: AgentMetaSchema,

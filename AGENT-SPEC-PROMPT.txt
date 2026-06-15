@@ -44,7 +44,7 @@ V0 SCHEMA
     "id": "agent_<snake_case>",
     "name": "string (repo/display label, e.g. \"northwind-fnol\")",
     "meta": {
-      "identity": "string (the name the agent inhabits, e.g. \"Nova\")",
+      "identity": "string (the name the agent inhabits, e.g. \"Nova\"; may be a {var} placeholder when the name is supplied per call)",
       "purpose": "one-sentence description",
       "client": "string (optional)",
       "tone": "one short phrase describing voice/register (optional)",
@@ -491,8 +491,10 @@ the source warrants it.
   fed to the model) → top-level `agent.name`. The name the agent
   inhabits and refers to itself by (compiled into "You are …") →
   `meta.identity`; when the source gives the bot a name, that's the
-  identity. Agent scope and who it acts for → `meta.purpose`,
-  `meta.client`.
+  identity. If the name is injected at call time (the source names a
+  runtime variable for it rather than a fixed name), set identity to that
+  `{placeholder}` instead of a literal. Agent scope and who it acts for →
+  `meta.purpose`, `meta.client`.
   Voice/register descriptors ("warm and friendly", "crisp and
   professional", "the way a real barista talks") → `meta.tone`, one
   short phrase. Channel the agent runs on → `meta.modality` (required):
