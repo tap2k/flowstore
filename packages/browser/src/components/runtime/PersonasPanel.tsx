@@ -478,7 +478,7 @@ function PersonaRow({
                 title="Load this persona's prompt + world (vars + mocks) into the Simulate tab buffer."
                 className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
               >
-                Open in Sim ▶
+                Simulate ▶
               </button>
               <button
                 type="button"
