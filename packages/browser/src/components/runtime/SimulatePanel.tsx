@@ -379,10 +379,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     const guardrails = (current.agent.guardrails ?? [])
       .map((g) => g.statement?.trim())
       .filter((s): s is string => !!s);
-    const businessGoals = (current.agent.business_goals ?? [])
-      .filter((g) => g.expression?.trim() || g.name?.trim())
-      .map((g) => ({ id: g.id, name: g.name ?? g.id, expression: g.expression ?? "" }));
-    // No early return on empty guardrails/goals: the judge still checks
+    // No early return on empty guardrails: the judge still checks
     // hallucination grounding, which is universal.
     const judgeDispatch = resolveDispatch(judgeModel);
     if (!judgeDispatch.provider || !judgeDispatch.apiKey) {
@@ -393,7 +390,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         failure_mode: "none",
         failure_turns: [],
         guardrails: [],
-        business_goals: [],
         hallucinations: [],
       });
       return;
@@ -417,7 +413,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       promises.push(
         judgeGuardrails({
           guardrails,
-          businessGoals,
           systemPrompt: useSimulateStore.getState().systemPrompt,
           transcript: finalTranscript.map((t) => ({ role: t.role, text: t.text })),
           provider,
@@ -1013,7 +1008,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
                 <button
                   onClick={() => void evaluate()}
                   disabled={evaluating || busy || isRunning}
-                  title="Holistically judge the transcript so far for hallucinations and against the agent's guardrails and business goals."
+                  title="Holistically judge the transcript so far for hallucinations and against the agent's guardrails."
                   className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
                 >
                   {evaluating ? "Evaluating…" : "Evaluate"}
@@ -1050,7 +1045,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
               <button
                 onClick={() => void evaluate()}
                 disabled={evaluating}
-                title="Holistically judge the transcript for hallucinations and against the agent's guardrails and business goals."
+                title="Holistically judge the transcript for hallucinations and against the agent's guardrails."
                 className="rounded border border-zinc-300 px-2 py-1 text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
               >
                 {evaluating ? "Evaluating…" : "Evaluate"}
@@ -1433,7 +1428,7 @@ function RubricsCard({
 }
 
 // Holistic evaluation verdict for the current transcript: hallucination
-// grounding (always judged) plus the agent's guardrails and business goals.
+// grounding (always judged) plus the agent's guardrails.
 // Results-only display — the trigger is the "Evaluate" button in the footer
 // next to Send. Unlike RubricsCard this needs no active case (it judges
 // against grounding and the agent's own stated invariants), so it renders on
@@ -1444,16 +1439,8 @@ function GuardrailEvalCard({ verdict }: { verdict: GuardrailVerdict }) {
     ? "border-zinc-200 bg-white text-zinc-900"
     : verdict.verdict === "fail"
       ? "border-red-200 bg-red-50 text-red-900"
-      : verdict.verdict === "partial"
-        ? "border-amber-200 bg-amber-50 text-amber-900"
-        : "border-emerald-200 bg-emerald-50 text-emerald-900";
-  const headIcon = skipped
-    ? "○"
-    : verdict.verdict === "fail"
-      ? "✗"
-      : verdict.verdict === "partial"
-        ? "◐"
-        : "✓";
+      : "border-emerald-200 bg-emerald-50 text-emerald-900";
+  const headIcon = skipped ? "○" : verdict.verdict === "fail" ? "✗" : "✓";
   const metIcon = (met: string) => (met === "no" ? "✗" : met === "yes" ? "✓" : "·");
   return (
     <div className={`rounded border ${color} p-2 text-[11px] space-y-1`}>
@@ -1482,23 +1469,6 @@ function GuardrailEvalCard({ verdict }: { verdict: GuardrailVerdict }) {
             <div key={`g-${i}`} className="text-[10px]">
               <span className={g.met === "no" ? "text-red-700" : "text-zinc-600"}>
                 {metIcon(g.met)} {g.statement}
-              </span>
-              {g.reason && <span className="text-zinc-500"> — {g.reason}</span>}
-            </div>
-          ))}
-          {verdict.business_goals.map((g, i) => (
-            <div key={`bg-${i}`} className="text-[10px]">
-              <span
-                className={
-                  g.met === "no"
-                    ? "text-red-700"
-                    : g.met === "partially"
-                      ? "text-amber-700"
-                      : "text-zinc-600"
-                }
-              >
-                {g.met === "no" ? "✗" : g.met === "yes" ? "✓" : g.met === "partially" ? "◐" : "·"}{" "}
-                goal: {g.id}
               </span>
               {g.reason && <span className="text-zinc-500"> — {g.reason}</span>}
             </div>

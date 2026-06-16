@@ -378,7 +378,7 @@ export function ImportExportToolbar({
           {exportOpen && (
             <div className="absolute right-0 top-full mt-1 z-20 min-w-[14rem] rounded-md border border-zinc-200 bg-white shadow-md py-1">
               <button onClick={exportSpecJson} className={menuItemClass}>
-                Export JSON
+                Export JSON <span className="text-zinc-400">(spec only)</span>
               </button>
               <button onClick={exportZip} className={menuItemClass}>
                 Export ZIP

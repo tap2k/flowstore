@@ -753,14 +753,6 @@ function renderEvaluationBlock(e: EvaluationContext): string {
       const mark = gr.met === "no" ? "✗" : gr.met === "yes" ? "✓" : "·";
       lines.push(`  ${mark} ${gr.statement}${gr.reason ? ` — ${gr.reason}` : ""}`);
     }
-    if (g.business_goals.length > 0) {
-      lines.push("business goals:");
-      for (const bg of g.business_goals) {
-        const mark =
-          bg.met === "no" ? "✗" : bg.met === "yes" ? "✓" : bg.met === "partially" ? "◐" : "·";
-        lines.push(`  ${mark} ${bg.id}${bg.reason ? ` — ${bg.reason}` : ""}`);
-      }
-    }
   }
   const cv = e.caseVerdicts;
   if (cv && cv.evaluable > 0) {
