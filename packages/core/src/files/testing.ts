@@ -24,6 +24,7 @@ export function loadTestingArtifacts(
 ): TestingArtifacts {
   files = migrateTestingFiles(files);
   const ignored: IgnoredFile[] = [];
+
   return {
     testCases: loadCollection<TestCase>(
       files,

@@ -168,18 +168,7 @@ export const useTestsStore = create<TestsState>()(
       },
 
       deleteGold: (id) => {
-        set((s) => {
-          // Cascade: cases referencing the deleted gold drop their gold_id.
-          const cases = s.cases.map((c) => {
-            if (c.gold_id !== id) return c;
-            const { gold_id: _drop, ...rest } = c;
-            return rest;
-          });
-          return {
-            golds: s.golds.filter((g) => g.id !== id),
-            cases,
-          };
-        });
+        set((s) => ({ golds: s.golds.filter((g) => g.id !== id) }));
       },
 
       uniqueGoldId: (base) => uniqueId(get().golds, base, "gold"),

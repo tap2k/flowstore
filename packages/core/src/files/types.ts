@@ -27,7 +27,8 @@ export interface IgnoredFile {
 // Sibling testing artifacts that live alongside the spec but are not part
 // of the runtime-compiled artifact. A persona owns its world (vars + per-
 // cap mocks) inline; persona-driven cases inherit that world. Scripted
-// cases carry their own vars+mocks instead.
+// cases carry their own vars+mocks instead. Each gold carries its own
+// vars for the injected context it was captured in.
 export interface TestingArtifacts {
   testCases: TestCase[];
   personas: Persona[];

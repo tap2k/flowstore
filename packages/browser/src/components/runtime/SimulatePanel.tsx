@@ -340,9 +340,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     setRubricVerdicts(
       Object.fromEntries(boundIds.map((id) => [id, "pending" as const])),
     );
-    const goldRecord = activeCase.gold_id
-      ? allGolds.find((g) => g.id === activeCase.gold_id) ?? null
-      : null;
     const finalTranscript = useSimulateStore.getState().transcript;
     await Promise.all(
       boundIds.map(async (id) => {
@@ -353,7 +350,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         const verdict = await judgeRubric({
           rubric,
           transcript: finalTranscript.map((t) => ({ role: t.role, text: t.text })),
-          gold: goldRecord,
           provider: judgeDispatch.provider,
           apiKey: judgeDispatch.apiKey,
           model: judgeDispatch.wireModel,

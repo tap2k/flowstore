@@ -228,13 +228,9 @@ const updatePersonaTool: Tool = {
 
 // ---- Read (for the merge-write path) --------------------------------------
 //
-// Read tools exist only for personas and test cases, because those are the only
-// artifacts whose vars/mocks *merge* on update — so the model must know the
-// current state before patching or it risks clobbering. Rubrics and golds
-// replace-whole-field, so there's no silent-clobber trap; a get_rubric /
-// get_gold would only serve copy/clone, which isn't load-bearing yet. Deferred
-// deliberately — add them (as siblings, not a generic reader) if a real need
-// shows up. If batch reads here get painful, widen these two to accept id | id[].
+// Read tools exist for personas, test cases, and golds. Personas and cases
+// need them because vars/mocks *merge* on update. Golds need get_gold so
+// the model can inspect turns before creating a test case with them.
 const getPersonaTool: Tool = {
   definition: {
     name: "get_persona",
@@ -284,7 +280,6 @@ const caseProps: Record<string, JSONSchema> = {
   state_assertions: { type: "array", items: StateAssertionSchema },
   transcript_assertions: { type: "array", items: TranscriptAssertionSchema },
   capability_assertions: { type: "array", items: CapabilityAssertionSchema },
-  gold_id: { type: "string", description: "Reference gold transcript for gold-comparing rubrics." },
   max_turns: { type: "integer", minimum: 1, description: "Cap on persona-driven runs." },
   language: { type: "string", description: "Language code (e.g. 'EN'); required when the spec declares >1 language." },
   tags: { type: "array", items: { type: "string" }, description: "Free-form labels for suite filtering." },
@@ -383,7 +378,7 @@ const createRubricTool: Tool = {
     name: "create_rubric",
     description:
       "Create an LLM-judge rubric — a criterion a judge model scores the transcript against. " +
-      "`prompt_template` may use {transcript}, {criteria}, {gold_standard} placeholders; if omitted, a " +
+      "`prompt_template` may use {transcript}, {criteria}, {scale.min}, {scale.max} placeholders; if omitted, a " +
       "standard template is used. `scale` defaults to { min: 1, max: 5 }. Reference it from a case's " +
       "evaluators[] by its id. Returns the new rubric id.",
     parameters: {
@@ -392,7 +387,7 @@ const createRubricTool: Tool = {
         name: { type: "string" },
         criteria: { type: "string", description: "What this rubric scores (e.g. 'empathy and tone')." },
         scale: ScaleSchema,
-        prompt_template: { type: "string", description: "Judge prompt with {transcript}/{criteria}/{gold_standard} placeholders." },
+        prompt_template: { type: "string", description: "Judge prompt with {transcript}/{criteria}/{scale.min}/{scale.max} placeholders." },
         model: { type: "string", description: "Optional per-rubric judge-model pin." },
       },
       required: ["criteria"],
@@ -471,8 +466,8 @@ const createGoldTool: Tool = {
     name: "create_gold",
     description:
       "Create a gold — a verbatim reference transcript showing how a conversation should go. " +
-      "`turns` is an ordered list of { role: 'agent'|'user', text }. Consumed by gold-comparing rubrics " +
-      "(a case references it via gold_id). Returns the new gold id.",
+      "`turns` is an ordered list of { role: 'agent'|'user', text }. The gold runner replays user turns " +
+      "and compares the agent's output to the gold's agent turns. Returns the new gold id.",
     parameters: {
       type: "object",
       properties: {
@@ -538,7 +533,7 @@ const updateGoldTool: Tool = {
 const deleteGoldTool: Tool = {
   definition: {
     name: "delete_gold",
-    description: "Delete a gold by id. Cases referencing it drop their gold_id.",
+    description: "Delete a gold by id.",
     parameters: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
   },
   impl: (args) => {
@@ -546,6 +541,22 @@ const deleteGoldTool: Tool = {
     if (!tests().golds.some((g) => g.id === id)) return { ok: false, error: `gold not found: ${id}` };
     tests().deleteGold(id);
     return { ok: true };
+  },
+};
+
+const getGoldTool: Tool = {
+  definition: {
+    name: "get_gold",
+    description:
+      "Return the full record for a gold by id — including its turns. " +
+      "Call this before create_test_case when you want to pre-fill user_turns from a gold's user side.",
+    parameters: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+  },
+  impl: (args) => {
+    const { id } = args as { id: string };
+    const gold = tests().golds.find((g) => g.id === id);
+    if (!gold) return { ok: false, error: `gold not found: ${id}` };
+    return { ok: true, record: gold };
   },
 };
 
@@ -561,6 +572,7 @@ export const testTools: Tool[] = [
   createRubricTool,
   updateRubricTool,
   deleteRubricTool,
+  getGoldTool,
   createGoldTool,
   updateGoldTool,
   deleteGoldTool,

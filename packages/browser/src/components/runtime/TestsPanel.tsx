@@ -279,6 +279,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
   const casesCount = useTestsStore((s) => s.cases.length);
   const spec = useSpecStore((s) => s.spec);
   const simulateMode = useSimulateStore((s) => s.mode);
+  const reset = useSimulateStore((s) => s.reset);
   const setPersonaPrompt = useSimulateStore((s) => s.setPersonaPrompt);
   const setPersonaTraits = useSimulateStore((s) => s.setPersonaTraits);
   const setMockReturns = useSimulateStore((s) => s.setMockReturns);
@@ -317,9 +318,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
   const [evaluators, setEvaluators] = useState<string[]>(testCase.evaluators ?? []);
   const [notes, setNotes] = useState(testCase.notes ?? "");
   const [tags, setTags] = useState<string[]>(testCase.tags ?? []);
-  const [goldId, setGoldId] = useState(testCase.gold_id ?? "");
   const [language, setLanguage] = useState(testCase.language ?? "");
-  const golds = useTestsStore((s) => s.golds);
   const allCases = useTestsStore((s) => s.cases);
   const setSimulateContextVars = useSimulateStore((s) => s.setContextVars);
   const setMockError = useSimulateStore((s) => s.setMockError);
@@ -342,7 +341,6 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
     setEvaluators(testCase.evaluators ?? []);
     setNotes(testCase.notes ?? "");
     setTags(testCase.tags ?? []);
-    setGoldId(testCase.gold_id ?? "");
     setLanguage(testCase.language ?? "");
   }, [testCase.id]);
 
@@ -385,7 +383,6 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
     JSON.stringify(evaluators) !== JSON.stringify(testCase.evaluators ?? []) ||
     notes !== (testCase.notes ?? "") ||
     JSON.stringify(tags) !== JSON.stringify(testCase.tags ?? []) ||
-    goldId !== (testCase.gold_id ?? "") ||
     language !== (testCase.language ?? "");
 
   function handleSave() {
@@ -408,7 +405,6 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
       ...(Object.keys(mocks).length > 0 ? { mocks } : {}),
       ...(notes.trim() ? { notes: notes.trim() } : {}),
       ...(tags.length > 0 ? { tags } : {}),
-      ...(goldId ? { gold_id: goldId } : {}),
       ...(showLanguage && language ? { language } : {}),
       ...(perTurnRows.length > 0 ? { assertions: groupPerTurn(perTurnRows) } : {}),
       ...(transcriptAssertions.length > 0
@@ -447,7 +443,8 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
     onBack();
   }
 
-  function handleOpenInSimulate() {
+  async function handleOpenInSimulate() {
+    await reset();
     // Hydrate the simulate buffer with the resolved fixture (persona ∪ case),
     // and the simulated-user prompt from whichever actor drives the case:
     // the bound persona's system_prompt (persona actor) or the case's inline
@@ -546,25 +543,6 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
         <TagsField tags={tags} suggestions={tagSuggestions} onChange={setTags} />
 
         <div className="flex gap-2">
-          <div className="flex-1 min-w-0">
-            <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
-              gold
-            </label>
-            <select
-              value={goldId}
-              onChange={(e) => setGoldId(e.target.value)}
-              className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700"
-              title="Reference gold transcript for {gold_standard} substitution in gold-comparing rubrics bound to this case."
-            >
-              <option value="">— none —</option>
-              {golds.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name || g.id}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {showLanguage && (
             <div className="w-24 shrink-0">
               <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
@@ -1595,7 +1573,7 @@ function RubricInlineEditor({
           value={promptTemplate}
           onChange={(e) => setPromptTemplate(e.target.value)}
           rows={5}
-          placeholder="LLM-judge prompt. Placeholders: {transcript}, {criteria}, {gold_standard}, {scale.min}, {scale.max}."
+          placeholder="LLM-judge prompt. Placeholders: {transcript}, {criteria}, {scale.min}, {scale.max}."
           className="w-full resize-y rounded border border-zinc-300 bg-white p-1.5 font-mono text-[10px] leading-snug"
         />
       </div>

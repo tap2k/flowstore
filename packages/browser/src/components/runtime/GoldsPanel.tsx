@@ -1,8 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useEffect, useRef, useState } from "react";
 import type { Gold } from "@flowstore/core/schema/files/gold";
+import type { MockBehavior } from "@flowstore/core/schema/files/mockBehavior";
 import { useTestsStore } from "@/lib/store/tests";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useUiStore } from "@/lib/store/ui";
+import { useSpecStore } from "@/lib/store/spec";
+import { collectDeclaredVariables, type DeclaredVariable } from "@flowstore/core/runtime/contextVars";
+import { collectMockableCapabilities, type MockableCapability } from "@flowstore/core/runtime/capabilityMocks";
+import { caseWorldToRuntime } from "@flowstore/core/runtime/personaRuntime";
+import { VarsEditor } from "./persona/VarsEditor";
+import { MocksEditor } from "./persona/MocksEditor";
 
 // Saved-gold library for the Run pill's Golds tab. Same vertical
 // list-with-inline-expand pattern as Personas. Golds are file-backed
@@ -19,6 +26,8 @@ export function GoldsPanel() {
   const saveCase = useTestsStore((s) => s.saveCase);
   const uniqueCaseId = useTestsStore((s) => s.uniqueCaseId);
   const setPendingCaseId = useTestsStore((s) => s.setPendingCaseId);
+  const spec = useSpecStore((s) => s.spec);
+  const declared = spec ? collectDeclaredVariables(spec) : [];
 
   // Selection lives in the store so a Simulate capture (capture ▾ → as
   // gold) can open the freshly created gold's editor on tab switch.
@@ -28,8 +37,13 @@ export function GoldsPanel() {
   // "▶ Run" replays a gold's user turns through the live agent on the
   // Simulate tab; the SimulatePanel reads activeGoldId to drive the run and
   // the gold-vs-live comparison.
+  const reset = useSimulateStore((s) => s.reset);
   const setActiveGoldId = useSimulateStore((s) => s.setActiveGoldId);
+  const setContextVars = useSimulateStore((s) => s.setContextVars);
+  const setMockReturns = useSimulateStore((s) => s.setMockReturns);
+  const setMockError = useSimulateStore((s) => s.setMockError);
   const setOpenSimulateTab = useUiStore((s) => s.setOpenSimulateTab);
+  const mockableCaps = useMemo(() => collectMockableCapabilities(spec), [spec]);
 
   function startNew() {
     const defaultName = `Gold ${golds.length + 1}`;
@@ -72,8 +86,23 @@ export function GoldsPanel() {
                 key={g.id}
                 gold={g}
                 expanded={selectedId === g.id}
+                declared={declared}
+                mockableCaps={mockableCaps}
                 onToggle={() => setSelectedId(selectedId === g.id ? null : g.id)}
-                onRun={() => {
+                onRun={async () => {
+                  await reset();
+                  if (spec) {
+                    const { vars: rVars, returns, errors } = caseWorldToRuntime(
+                      spec,
+                      undefined,
+                      { vars: g.vars, mocks: g.mocks },
+                    );
+                    setContextVars(rVars);
+                    setMockReturns(returns);
+                    for (const [name, err] of Object.entries(errors)) {
+                      setMockError(name, err);
+                    }
+                  }
                   setActiveGoldId(g.id);
                   setOpenSimulateTab("simulate");
                 }}
@@ -104,8 +133,6 @@ export function GoldsPanel() {
                     id: newId,
                     ...(g.name ? { name: g.name } : {}),
                     user_turns: userTurns,
-                    gold_id: g.id,
-                    tags: [`src:gold:${g.id}`],
                   });
                   setPendingCaseId(newId);
                   setOpenSimulateTab("tests");
@@ -122,6 +149,8 @@ export function GoldsPanel() {
 interface GoldRowProps {
   gold: Gold;
   expanded: boolean;
+  declared: DeclaredVariable[];
+  mockableCaps: MockableCapability[];
   onToggle: () => void;
   onRun: () => void;
   onSave: (g: Gold) => void;
@@ -130,10 +159,12 @@ interface GoldRowProps {
   onCreateTest: () => void;
 }
 
-function GoldRow({ gold, expanded, onToggle, onRun, onSave, onCopy, onDelete, onCreateTest }: GoldRowProps) {
+function GoldRow({ gold, expanded, declared, mockableCaps, onToggle, onRun, onSave, onCopy, onDelete, onCreateTest }: GoldRowProps) {
   const [name, setName] = useState(gold.name ?? "");
   const [notes, setNotes] = useState(gold.notes ?? "");
   const [turns, setTurns] = useState(gold.turns);
+  const [vars, setVars] = useState<Record<string, unknown>>(gold.vars ?? {});
+  const [mocks, setMocks] = useState<Record<string, MockBehavior>>(gold.mocks ?? {});
   const rowRef = useRef<HTMLLIElement>(null);
 
   useEffect(() => {
@@ -141,6 +172,8 @@ function GoldRow({ gold, expanded, onToggle, onRun, onSave, onCopy, onDelete, on
       setName(gold.name ?? "");
       setNotes(gold.notes ?? "");
       setTurns(gold.turns);
+      setVars(gold.vars ?? {});
+      setMocks(gold.mocks ?? {});
     }
   }, [expanded, gold]);
 
@@ -154,7 +187,9 @@ function GoldRow({ gold, expanded, onToggle, onRun, onSave, onCopy, onDelete, on
   const dirty =
     name !== (gold.name ?? "") ||
     notes !== (gold.notes ?? "") ||
-    JSON.stringify(turns) !== JSON.stringify(gold.turns);
+    JSON.stringify(turns) !== JSON.stringify(gold.turns) ||
+    JSON.stringify(vars) !== JSON.stringify(gold.vars ?? {}) ||
+    JSON.stringify(mocks) !== JSON.stringify(gold.mocks ?? {});
 
   function handleSave() {
     onSave({
@@ -164,6 +199,8 @@ function GoldRow({ gold, expanded, onToggle, onRun, onSave, onCopy, onDelete, on
       ...(notes.trim() ? { notes: notes.trim() } : {}),
       turns,
       ...(gold.source_pointer !== undefined ? { source_pointer: gold.source_pointer } : {}),
+      ...(Object.keys(vars).length > 0 ? { vars } : {}),
+      ...(Object.keys(mocks).length > 0 ? { mocks } : {}),
     });
   }
 
@@ -248,6 +285,41 @@ function GoldRow({ gold, expanded, onToggle, onRun, onSave, onCopy, onDelete, on
             />
           </div>
 
+          {declared.length > 0 && (
+            <div>
+              <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+                vars
+              </label>
+              <VarsEditor
+                declared={declared}
+                values={vars}
+                onChange={(varName, value) => setVars((prev) => ({ ...prev, [varName]: value }))}
+              />
+            </div>
+          )}
+
+          {mockableCaps.length > 0 && (
+            <div>
+              <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+                mocks
+              </label>
+              <MocksEditor
+                caps={mockableCaps}
+                behaviors={mocks}
+                keyOf={(cap) => cap.capabilityId}
+                onChange={(k, behavior) => {
+                  const next = { ...mocks };
+                  if (behavior === undefined) {
+                    delete next[k];
+                  } else {
+                    next[k] = behavior;
+                  }
+                  setMocks(next);
+                }}
+              />
+            </div>
+          )}
+
           <div>
             <div className="flex items-baseline justify-between">
               <label className="text-[10px] uppercase tracking-wide text-zinc-500">
@@ -316,7 +388,7 @@ function GoldRow({ gold, expanded, onToggle, onRun, onSave, onCopy, onDelete, on
                 title={
                   userTurnCount === 0
                     ? "This gold has no user turns — add some before creating a test case from it."
-                    : "Create a scripted test case pre-filled with this gold's user turns and gold_id, then open it in the Tests tab."
+                    : "Create a scripted test case pre-filled with this gold's user turns, then open it in the Tests tab."
                 }
                 className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
               >

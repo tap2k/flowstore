@@ -25,6 +25,7 @@ export function PersonasPanel() {
   const savePersona = useTestsStore((s) => s.savePersona);
   const deletePersona = useTestsStore((s) => s.deletePersona);
   const uniquePersonaId = useTestsStore((s) => s.uniquePersonaId);
+  const reset = useSimulateStore((s) => s.reset);
   const setPersonaPrompt = useSimulateStore((s) => s.setPersonaPrompt);
   const setPersonaTraits = useSimulateStore((s) => s.setPersonaTraits);
   const setActiveCaseId = useSimulateStore((s) => s.setActiveCaseId);
@@ -98,7 +99,8 @@ export function PersonasPanel() {
     }
   }
 
-  function useInSimulate(p: Persona) {
+  async function useInSimulate(p: Persona) {
+    await reset();
     setPersonaPrompt(p.system_prompt ?? "");
     setPersonaTraits(p.traits);
     // Hydrate the simulate buffer with this persona's world so exploration

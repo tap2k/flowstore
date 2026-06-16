@@ -93,9 +93,6 @@ export const TestCaseSchema = Type.Object(
     // Cap on persona-driven runs so a derailed conversation can't loop forever.
     // Ignored for scripted cases (user_turns is the implicit cap).
     max_turns: Type.Optional(Type.Integer({ minimum: 1 })),
-    // Reference to tests/gold/<gold_id>.gold.json — consumed by gold-comparing
-    // rubrics (the {gold_standard} placeholder in rubric.prompt_template).
-    gold_id: Type.Optional(Type.String()),
     model: Type.Optional(Type.String()),
     // Language code for multilingual specs (e.g. "ES"). Required when spec declares >1 language;
     // runner fails loud rather than guessing.
