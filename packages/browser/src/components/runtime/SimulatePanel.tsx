@@ -908,7 +908,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             canJudge={!isRunning && !busy}
           />
         )}
-        {activeGold && hasSession && transcript.length > 0 && (
+        {activeGold && hasSession && transcript.length > 0 && !isRunning && (
           <GoldTailNote
             goldAgentCount={goldAgentTurns.length}
             liveAgentCount={transcript.filter((t) => t.role === "agent").length}
