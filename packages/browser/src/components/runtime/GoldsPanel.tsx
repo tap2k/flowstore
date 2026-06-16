@@ -51,8 +51,9 @@ export function GoldsPanel() {
     const set = new Set<string>();
     for (const g of golds) for (const t of g.tags ?? []) set.add(t);
     for (const c of cases) for (const t of c.tags ?? []) set.add(t);
+    for (const f of spec?.flows ?? []) set.add(`flow:${f.id}`);
     return [...set].sort();
-  }, [golds, cases]);
+  }, [golds, cases, spec]);
 
   function startNew() {
     const defaultName = `Gold ${golds.length + 1}`;

@@ -17,8 +17,7 @@ const USER_PROMPT_TEMPLATE = `Gold (reference) agent turn:
 Live (actual) agent turn:
 {live}
 
-Do these two agent responses convey the same intent and commitment? " +
-Consider meaning, not exact wording. Cross-language equivalence counts as equivalent.`;
+Do these two agent responses convey the same intent and commitment? Consider meaning, not exact wording. Cross-language equivalence counts as equivalent.`;
 
 export async function judgeGoldTurn(args: {
   goldTurn: string;

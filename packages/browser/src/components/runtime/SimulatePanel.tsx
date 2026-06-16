@@ -364,7 +364,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     );
   }
 
-  async function evaluateGuardrails() {
+  async function evaluate() {
     if (evaluating) return;
     const current = useSpecStore.getState().spec;
     if (!current) return;
@@ -561,7 +561,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   );
 
   async function onTranslate() {
-    // Self-guard against re-entry, mirroring evaluateGuardrails / runActiveCase.
+    // Self-guard against re-entry, mirroring evaluate / runActiveCase.
     // Both translate buttons are disabled while in flight, but that's React
     // state (stale within a tick); this keeps the invariant on the handler.
     if (translating) return;
@@ -984,7 +984,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             <div className="flex items-center gap-1.5">
               {transcript.length > 0 && (
                 <button
-                  onClick={() => void evaluateGuardrails()}
+                  onClick={() => void evaluate()}
                   disabled={evaluating || busy || isRunning}
                   title="Holistically judge the transcript so far for hallucinations and against the agent's guardrails and business goals."
                   className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
@@ -1021,7 +1021,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             )}
             {transcript.length > 0 && (
               <button
-                onClick={() => void evaluateGuardrails()}
+                onClick={() => void evaluate()}
                 disabled={evaluating}
                 title="Holistically judge the transcript for hallucinations and against the agent's guardrails and business goals."
                 className="rounded border border-zinc-300 px-2 py-1 text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"

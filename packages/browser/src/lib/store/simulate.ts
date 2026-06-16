@@ -888,6 +888,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
               // A fresh agent turn invalidates any prior evaluation.
               guardrailVerdict: null,
               rubricVerdicts: {},
+              goldTurnVerdicts: null,
             });
           },
           onPhase: (phase) => set({ voicePhase: phase }),
