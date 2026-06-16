@@ -55,7 +55,8 @@ V0 SCHEMA
       "<variable_name>": {
         "type": "string | number | boolean | enum (optional)",
         "description": "string (optional)",
-        "values": ["literal", "..."] /* only when type is enum */
+        "values": ["literal", "..."] /* only when type is enum */,
+        "provided": true /* optional; true = deployment injects this at session start (dialer payload, screen pop, caller ID). Default true for agent-level vars unless the variable is clearly populated mid-conversation (an assigns target) or returned by a capability (outputs). Omit for flow-level vars — those arise during the conversation by definition. */
       }
     },
     "guardrails": [
@@ -529,6 +530,14 @@ the source warrants it.
   speaks back doesn't need to become a variable. Before emitting
   `agent.variables`, do one pass and remove every variable with
   zero reads anywhere in the output.
+  For agent-level variables that survive this pass, set
+  `provided: true` by default — most explicitly declared
+  agent vars represent context the deployment already knows
+  (account number, policy number, caller name from a screen pop).
+  The exceptions are variables the agent earns: those that appear
+  as an `assigns` target on an exit path (`method: "llm"` captures)
+  or as a capability's `outputs`. Omit `provided` on flow-level
+  variables — they arise mid-conversation by definition.
 - capabilities: declare only when the source explicitly describes
   an external integration (CRM update, function call, retrieval).
   ALL CAPS words in source pseudocode (e.g., "RESCHEDULE",
