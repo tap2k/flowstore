@@ -39,7 +39,6 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
   const autoRun = useSimulateStore((s) => s.autoRun);
   const mode = useSimulateStore((s) => s.mode);
   const status = useSimulateStore((s) => s.status);
-  const hasTurns = useSimulateStore((s) => s.transcript.length > 0);
   const personaTurnLimit = useSimulateStore((s) => s.personaTurnLimit);
   const personaTurnsLeft = useSimulateStore((s) => s.personaTurnsLeft);
   const setPersonaPrompt = useSimulateStore((s) => s.setPersonaPrompt);
@@ -103,7 +102,7 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
   // bare "▶" for all of them: the conversation concluded ([DONE]/ended) vs. it
   // paused mid-run at the turn limit vs. a fresh idle start.
   const conversationEnded = !autoRun && status === "ended";
-  const pausedMidRun = !autoRun && status !== "ended" && hasTurns;
+  const pausedMidRun = !autoRun && status !== "ended" && personaTurnsLeft > 0;
   const loadedPersona = loadedPersonaId
     ? personas.find((p) => p.id === loadedPersonaId) ?? null
     : null;

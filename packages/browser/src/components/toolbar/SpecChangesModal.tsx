@@ -18,6 +18,7 @@ import { makeGitHubClient, readRepoToFileMap } from "@flowstore/core/files/githu
 import { loadProject } from "@flowstore/core/files";
 import { diffSpecs, renderSpecDiff, diffTestingArtifacts, renderTestingArtifactsDiff } from "@flowstore/core/spec/diff";
 import { useTestsStore } from "@/lib/store/tests";
+import { markProjectBaseline } from "@/lib/store/dirty";
 
 type State =
   | { phase: "loading" }
@@ -25,7 +26,7 @@ type State =
   // No spec committed at the branch tip yet — everything in the working copy
   // is new. We don't render a diff (there's no base); the message explains it.
   | { phase: "no-base" }
-  | { phase: "ready"; text: string; empty: boolean; remoteAdvanced: boolean };
+  | { phase: "ready"; text: string; remoteAdvanced: boolean };
 
 export function SpecChangesModal({ onClose }: { onClose: () => void }) {
   const [state, setState] = useState<State>({ phase: "loading" });
@@ -65,10 +66,17 @@ export function SpecChangesModal({ onClose }: { onClose: () => void }) {
         if (artifactDiffs.length > 0) parts.push(renderTestingArtifactsDiff(artifactDiffs));
         const knownBase = useGithubProjectStore.getState().lastKnownCommitSha;
         const remoteAdvanced = !!knownBase && knownBase !== commitSha;
+        const empty = specDiff.empty && artifactDiffs.length === 0;
+        if (empty) {
+          // Confirmed clean against GitHub — re-baseline and dismiss.
+          markProjectBaseline();
+          onClose();
+          return;
+        }
         setState({
           phase: "ready",
           text: parts.join("\n"),
-          empty: specDiff.empty && artifactDiffs.length === 0,
+          empty: false,
           remoteAdvanced,
         });
       } catch (e) {
@@ -112,13 +120,7 @@ export function SpecChangesModal({ onClose }: { onClose: () => void }) {
           </p>
         )}
 
-        {state.phase === "ready" && state.empty && (
-          <p className="text-sm text-zinc-600">
-            No differences — your working copy matches the saved version on GitHub.
-          </p>
-        )}
-
-        {state.phase === "ready" && !state.empty && (
+        {state.phase === "ready" && (
           <>
             {state.remoteAdvanced && (
               <p className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-[11px] text-amber-800 ring-1 ring-amber-200">
