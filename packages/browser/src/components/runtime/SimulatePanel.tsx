@@ -28,6 +28,7 @@ import type { Gold } from "@flowstore/core/schema/files/gold";
 import { evaluateCaseAgainstTranscript, type CaseVerdicts } from "@/lib/caseVerdicts";
 import { judgeRubric, type RubricVerdict } from "@flowstore/core/runtime/judgeRubric";
 import { judgeGuardrails, type GuardrailVerdict } from "@flowstore/core/runtime/judgeGuardrails";
+import { judgeGoldTurn, type GoldTurnVerdict } from "@flowstore/core/runtime/judgeGoldTurn";
 import type { Rubric } from "@flowstore/core/schema/files/rubric";
 
 interface SimulatePanelProps {
@@ -120,6 +121,10 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   // Holistic guardrail/business-goal verdict for the current transcript.
   const guardrailVerdict = useSimulateStore((s) => s.guardrailVerdict);
   const setGuardrailVerdict = useSimulateStore((s) => s.setGuardrailVerdict);
+  // Per-agent-turn semantic verdicts for the active gold (null = not yet run).
+  const goldTurnVerdicts = useSimulateStore((s) => s.goldTurnVerdicts);
+  const setGoldTurnVerdicts = useSimulateStore((s) => s.setGoldTurnVerdicts);
+  const patchGoldTurnVerdict = useSimulateStore((s) => s.patchGoldTurnVerdict);
   const [evaluating, setEvaluating] = useState(false);
   const verdicts: CaseVerdicts = evaluateCaseAgainstTranscript(
     activeCase,
@@ -385,20 +390,64 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       });
       return;
     }
+    // Both are non-null: the early-return guard above ensures this, but we
+    // capture them here so closures below see narrowed (non-nullable) types.
+    const { provider, apiKey, wireModel } = judgeDispatch as {
+      provider: NonNullable<typeof judgeDispatch.provider>;
+      apiKey: string;
+      wireModel: string;
+    };
     setEvaluating(true);
     setGuardrailVerdict(null);
     try {
       const finalTranscript = useSimulateStore.getState().transcript;
-      const verdict = await judgeGuardrails({
-        guardrails,
-        businessGoals,
-        systemPrompt: useSimulateStore.getState().systemPrompt,
-        transcript: finalTranscript.map((t) => ({ role: t.role, text: t.text })),
-        provider: judgeDispatch.provider,
-        apiKey: judgeDispatch.apiKey,
-        model: judgeDispatch.wireModel,
-      });
-      setGuardrailVerdict(verdict);
+      const liveAgentTurns = finalTranscript.filter((t) => t.role === "agent");
+
+      // Run guardrails and (if a gold is active) semantic turn comparison in parallel.
+      const promises: Promise<void>[] = [];
+
+      promises.push(
+        judgeGuardrails({
+          guardrails,
+          businessGoals,
+          systemPrompt: useSimulateStore.getState().systemPrompt,
+          transcript: finalTranscript.map((t) => ({ role: t.role, text: t.text })),
+          provider,
+          apiKey,
+          model: wireModel,
+        }).then(setGuardrailVerdict),
+      );
+
+      if (activeGold && liveAgentTurns.length > 0) {
+        const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+        // Seed pending verdicts for diverged turns only (exact matches need no LLM call).
+        const initialVerdicts: Record<number, GoldTurnVerdict | "pending"> = {};
+        liveAgentTurns.forEach((turn, idx) => {
+          const goldText = goldAgentTurns[idx];
+          if (goldText !== undefined && norm(goldText) !== norm(turn.text)) {
+            initialVerdicts[idx] = "pending";
+          }
+        });
+        setGoldTurnVerdicts(initialVerdicts);
+
+        promises.push(
+          ...Object.keys(initialVerdicts).map(async (idxStr) => {
+            const idx = Number(idxStr);
+            const goldText = goldAgentTurns[idx]!;
+            const liveText = liveAgentTurns[idx].text;
+            const verdict = await judgeGoldTurn({
+              goldTurn: goldText,
+              liveTurn: liveText,
+              provider,
+              apiKey,
+              model: wireModel,
+            });
+            patchGoldTurnVerdict(idx, verdict);
+          }),
+        );
+      }
+
+      await Promise.all(promises);
     } finally {
       setEvaluating(false);
     }
@@ -768,7 +817,10 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           // more turns than the gold has (drift past the gold's end).
           const goldRef =
             activeGold && agentIndex !== null
-              ? { text: goldAgentTurns[agentIndex - 1] }
+              ? {
+                  text: goldAgentTurns[agentIndex - 1],
+                  verdict: goldTurnVerdicts?.[agentIndex - 1] ?? null,
+                }
               : null;
           return (
             <div key={i} className="space-y-1">
@@ -779,7 +831,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
                 displayText={showTranslated ? translations.get(t.ts) : undefined}
                 onFork={mode === "text" ? onForkTurn : undefined}
               />
-              {goldRef && <GoldTurnRef goldText={goldRef.text} liveText={t.text} />}
+              {goldRef && <GoldTurnRef goldText={goldRef.text} liveText={t.text} verdict={goldRef.verdict} />}
               {turnVerdicts.map((row, ri) => {
                 const v = row.verdict;
                 const pending = v?.verdict === "pending" || !v;
@@ -1170,9 +1222,11 @@ function ActiveGoldStrip({
 function GoldTurnRef({
   goldText,
   liveText,
+  verdict,
 }: {
   goldText: string | undefined;
   liveText: string;
+  verdict: GoldTurnVerdict | "pending" | null;
 }) {
   if (goldText === undefined) {
     return (
@@ -1183,13 +1237,30 @@ function GoldTurnRef({
   }
   const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
   const exact = norm(goldText) === norm(liveText);
+
+  let marker: React.ReactNode;
+  let note: React.ReactNode = null;
+  if (exact) {
+    marker = <span className="font-mono text-emerald-600">≈</span>;
+  } else if (verdict === "pending") {
+    marker = <span className="font-mono text-amber-400">≠</span>;
+    note = <span className="ml-1 text-zinc-400 italic">judging…</span>;
+  } else if (verdict?.equivalent) {
+    marker = <span className="font-mono text-emerald-500">≠</span>;
+    note = <span className="ml-1 text-zinc-500">{verdict.note}</span>;
+  } else if (verdict) {
+    marker = <span className="font-mono text-red-500 font-bold">≠</span>;
+    note = <span className="ml-1 text-red-400">{verdict.note}</span>;
+  } else {
+    marker = <span className="font-mono text-amber-600">≠</span>;
+  }
+
   return (
     <div className="ml-6 text-[10px] leading-snug">
-      <span className={`font-mono ${exact ? "text-emerald-600" : "text-amber-600"}`}>
-        {exact ? "≈" : "≠"}
-      </span>{" "}
+      {marker}{" "}
       <span className="uppercase tracking-wide text-zinc-400">gold</span>{" "}
       <span className="whitespace-pre-wrap text-zinc-500">{goldText}</span>
+      {note && <div className="mt-0.5 ml-3">{note}</div>}
     </div>
   );
 }

@@ -33,6 +33,7 @@ import {
 import { providedVars } from "@flowstore/core/runtime/contextVars";
 import type { GuardrailVerdict } from "@flowstore/core/runtime/judgeGuardrails";
 import type { RubricVerdict } from "@flowstore/core/runtime/judgeRubric";
+import type { GoldTurnVerdict } from "@flowstore/core/runtime/judgeGoldTurn";
 import { resolveDispatch, supportsStructuredOutput, useSettingsStore } from "@/lib/store/settings";
 import { useModelsStore } from "@/lib/store/models";
 import { useUiStore } from "@/lib/store/ui";
@@ -161,9 +162,12 @@ interface SimulateState {
   language: string | undefined;
 
   // Transcript evaluation results, in store so ChatPanel can read without recomputing.
-  // Both cleared on start/reset/send/fork; rubricVerdicts uses "pending" while in-flight.
+  // All cleared on start/reset/send/fork; rubricVerdicts uses "pending" while in-flight.
   guardrailVerdict: GuardrailVerdict | null;
   rubricVerdicts: Record<string, RubricVerdict | "pending">;
+  // Per-agent-turn semantic verdicts for the active gold (keyed by 0-based gold agent-turn
+  // index). null = evaluation not yet run. "pending" = LLM call in-flight.
+  goldTurnVerdicts: Record<number, GoldTurnVerdict | "pending"> | null;
 
   setMode: (mode: SimulateMode) => void;
   setMicMuted: (muted: boolean) => void;
@@ -201,6 +205,8 @@ interface SimulateState {
   setGuardrailVerdict: (verdict: GuardrailVerdict | null) => void;
   setRubricVerdicts: (verdicts: Record<string, RubricVerdict | "pending">) => void;
   patchRubricVerdict: (id: string, verdict: RubricVerdict | "pending") => void;
+  setGoldTurnVerdicts: (verdicts: Record<number, GoldTurnVerdict | "pending"> | null) => void;
+  patchGoldTurnVerdict: (idx: number, verdict: GoldTurnVerdict | "pending") => void;
   clearEvaluation: () => void;
 }
 
@@ -319,6 +325,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   language: undefined,
   guardrailVerdict: null,
   rubricVerdicts: {},
+  goldTurnVerdicts: null,
 
   setMode: (mode) => {
     if (get().sessionId) return; // mode is frozen during an active session
@@ -641,7 +648,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   setActiveGoldId: (id) => {
     // Binding a gold supersedes any active case (and its persisted key).
     if (id) persistActiveCaseId(null);
-    set({ activeGoldId: id, ...(id ? { activeCaseId: null } : {}) });
+    set({ activeGoldId: id, goldTurnVerdicts: null, ...(id ? { activeCaseId: null } : {}) });
   },
 
   setLanguage: (lang) => {
@@ -660,8 +667,16 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     set({ rubricVerdicts: { ...get().rubricVerdicts, [id]: verdict } });
   },
 
+  setGoldTurnVerdicts: (verdicts) => {
+    set({ goldTurnVerdicts: verdicts });
+  },
+
+  patchGoldTurnVerdict: (idx, verdict) => {
+    set({ goldTurnVerdicts: { ...get().goldTurnVerdicts, [idx]: verdict } });
+  },
+
   clearEvaluation: () => {
-    set({ guardrailVerdict: null, rubricVerdicts: {} });
+    set({ guardrailVerdict: null, rubricVerdicts: {}, goldTurnVerdicts: null });
   },
 
   autoStep: async () => {
@@ -821,6 +836,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       micMuted: false,
       guardrailVerdict: null,
       rubricVerdicts: {},
+      goldTurnVerdicts: null,
     });
 
     if (mode === "voice") {
@@ -1057,6 +1073,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       // The conversation moved on — any prior evaluation is now stale.
       guardrailVerdict: null,
       rubricVerdicts: {},
+      goldTurnVerdicts: null,
     });
 
     if (mode === "text") {
@@ -1193,6 +1210,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       autoRun: false,
       guardrailVerdict: null,
       rubricVerdicts: {},
+      goldTurnVerdicts: null,
     });
   },
 
@@ -1228,6 +1246,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       personaTurnsLeft: 0,
       guardrailVerdict: null,
       rubricVerdicts: {},
+      goldTurnVerdicts: null,
     });
   },
 
