@@ -16,6 +16,9 @@ export function GoldsPanel() {
   const saveGold = useTestsStore((s) => s.saveGold);
   const deleteGold = useTestsStore((s) => s.deleteGold);
   const uniqueGoldId = useTestsStore((s) => s.uniqueGoldId);
+  const saveCase = useTestsStore((s) => s.saveCase);
+  const uniqueCaseId = useTestsStore((s) => s.uniqueCaseId);
+  const setPendingCaseId = useTestsStore((s) => s.setPendingCaseId);
 
   // Selection lives in the store so a Simulate capture (capture ▾ → as
   // gold) can open the freshly created gold's editor on tab switch.
@@ -91,6 +94,22 @@ export function GoldsPanel() {
                   deleteGold(g.id);
                   if (selectedId === g.id) setSelectedId(null);
                 }}
+                onCreateTest={() => {
+                  const userTurns = g.turns
+                    .filter((t) => t.role === "user")
+                    .map((t) => t.text);
+                  const newId = uniqueCaseId(g.name ?? g.id);
+                  saveCase({
+                    $schema: "flowstore://test/case/v0",
+                    id: newId,
+                    ...(g.name ? { name: g.name } : {}),
+                    user_turns: userTurns,
+                    gold_id: g.id,
+                    tags: [`src:gold:${g.id}`],
+                  });
+                  setPendingCaseId(newId);
+                  setOpenSimulateTab("tests");
+                }}
               />
             ))}
           </ul>
@@ -108,9 +127,10 @@ interface GoldRowProps {
   onSave: (g: Gold) => void;
   onCopy: () => void;
   onDelete: () => void;
+  onCreateTest: () => void;
 }
 
-function GoldRow({ gold, expanded, onToggle, onRun, onSave, onCopy, onDelete }: GoldRowProps) {
+function GoldRow({ gold, expanded, onToggle, onRun, onSave, onCopy, onDelete, onCreateTest }: GoldRowProps) {
   const [name, setName] = useState(gold.name ?? "");
   const [notes, setNotes] = useState(gold.notes ?? "");
   const [turns, setTurns] = useState(gold.turns);
@@ -289,6 +309,19 @@ function GoldRow({ gold, expanded, onToggle, onRun, onSave, onCopy, onDelete }: 
               Delete
             </button>
             <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={onCreateTest}
+                disabled={userTurnCount === 0}
+                title={
+                  userTurnCount === 0
+                    ? "This gold has no user turns — add some before creating a test case from it."
+                    : "Create a scripted test case pre-filled with this gold's user turns and gold_id, then open it in the Tests tab."
+                }
+                className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+              >
+                Create Test
+              </button>
               <button
                 type="button"
                 onClick={onRun}

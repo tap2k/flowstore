@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { BUILT_IN_MODELS, resolveEndpoint, wireModelId } from "@flowstore/core/files/models";
 import type { EndpointId } from "@flowstore/core/files/models";
 import type { ProviderId } from "@flowstore/core/llm/types";
+import { useModelsStore } from "./models";
 
 const KEY = "flowstore:settings:google_api_key";
 const OPENAI_KEY = "flowstore:settings:openai_api_key";
@@ -178,20 +179,22 @@ async function fetchAndSetGithubIdentity(pat: string): Promise<void> {
 // showing "(no key)" until Save.
 export type KeyOverrides = Partial<Record<EndpointId, string>>;
 
-// Look up the dispatch parameters for a given model id, consulting
-// BUILT_IN_MODELS for endpoint inference. Returns the provider, the API
-// key from settings, and (for openai-compatible hosts) the base URL.
+// Look up the dispatch parameters for a given model id. Checks BUILT_IN_MODELS
+// first; falls back to the project-level models config (models/*.json) for
+// IDs not in the built-in catalog. Returns the provider, the API key from
+// settings (or the entry's api_key for project models), and (for
+// openai-compatible hosts) the base URL.
 // Reads settings imperatively — call from event handlers, not during render.
 // Pass `keyOverrides` to resolve against unsaved draft keys instead.
-//
-// Project-level models config (`models/*.json`) entries aren't consulted
-// here yet — the editor still reads only the built-in catalog. When
-// project-level model dispatch lands, pass the resolved entry through.
 export function resolveDispatch(modelId: string, keyOverrides?: KeyOverrides): ResolvedDispatch {
-  const builtinEntry = BUILT_IN_MODELS.models[modelId];
-  const endpoint = resolveEndpoint(modelId, builtinEntry);
-  const wireModel = wireModelId(modelId, builtinEntry);
   const s = useSettingsStore.getState();
+  const builtinEntry = BUILT_IN_MODELS.models[modelId];
+  const projectEntry = useModelsStore.getState().config?.models[modelId];
+  // Project entry wins — allows endpoints.json to override a built-in (e.g.
+  // point gemini-2.5-flash at a staging base_url).
+  const entry = projectEntry ?? builtinEntry;
+  const endpoint = resolveEndpoint(modelId, entry);
+  const wireModel = wireModelId(modelId, entry);
   // A draft value (including "") for the resolved endpoint wins over the store.
   const keyFor = (e: EndpointId, stored: string) =>
     keyOverrides && keyOverrides[e] !== undefined ? keyOverrides[e]! : stored;
@@ -208,21 +211,28 @@ export function resolveDispatch(modelId: string, keyOverrides?: KeyOverrides): R
         endpoint,
         wireModel,
       };
-    case "openai-compatible":
-      // Catchall — base_url must come from the entry; key has no settings
-      // slot today.
-      return { provider: "openai-compatible", apiKey: "", endpoint, wireModel };
+    case "openai-compatible": {
+      // base_url and api_key come from the project entry. A project model
+      // with a base_url is always dispatchable — no global settings slot.
+      const baseUrl = (entry as { base_url?: string } | undefined)?.base_url;
+      const entryKey = (entry as { api_key?: string } | undefined)?.api_key ?? "";
+      return { provider: "openai-compatible", apiKey: entryKey, baseUrl, endpoint, wireModel };
+    }
     default:
       return { provider: null, apiKey: "", endpoint: null, wireModel };
   }
 }
 
-// True iff settings carries a key for the model's endpoint. Used by the
-// model picker to filter out models the user can't dispatch. Pass
-// `keyOverrides` to test against unsaved draft keys.
+// True iff the model can be dispatched (has an API key or is a project model
+// with a base_url, which doesn't need a global key slot). Used by the model
+// picker to filter out models the user can't dispatch. Pass `keyOverrides`
+// to test against unsaved draft keys.
 export function hasKeyForModel(modelId: string, keyOverrides?: KeyOverrides): boolean {
   const r = resolveDispatch(modelId, keyOverrides);
-  return !!r.apiKey.trim();
+  if (r.apiKey.trim()) return true;
+  // Project openai-compatible models with a base_url are self-sufficient.
+  if (r.provider === "openai-compatible" && r.baseUrl) return true;
+  return false;
 }
 
 // Providers whose adapter implements strict structured output

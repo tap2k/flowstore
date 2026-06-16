@@ -1,4 +1,5 @@
 import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
+import type { ModelEntry } from "@flowstore/core/files/models";
 import {
   hasKeyForModel,
   resolveDispatch,
@@ -6,6 +7,7 @@ import {
   useSettingsStore,
   type KeyOverrides,
 } from "@/lib/store/settings";
+import { useModelsStore } from "@/lib/store/models";
 
 interface ModelPickerProps {
   value: string;
@@ -45,14 +47,41 @@ export function ModelPicker({
   voiceOnly = false,
   keyOverrides,
 }: ModelPickerProps) {
-  // Subscribe to the provider keys so the option list re-renders the moment a
-  // key is added or cleared. hasKeyForModel/resolveDispatch read the store
-  // imperatively via getState(); without these subscriptions the filtered list
-  // would go stale (a newly-keyed model wouldn't appear, a cleared one wouldn't
-  // drop) until some unrelated re-render.
+  // Subscribe to the provider keys and project models so the option list
+  // re-renders the moment a key is added or a project is loaded/cleared.
+  // hasKeyForModel/resolveDispatch read the store imperatively via getState();
+  // without these subscriptions the filtered list would go stale.
   useSettingsStore((s) => s.googleApiKey);
   useSettingsStore((s) => s.openaiApiKey);
   useSettingsStore((s) => s.openrouterApiKey);
+  const projectConfig = useModelsStore((s) => s.config);
+
+  // Merge built-in and project models; project entries shadow built-ins with
+  // the same key. Project entries are shown in a separate optgroup.
+  const builtinEntries = Object.entries(BUILT_IN_MODELS.models);
+  const projectEntries: [string, ModelEntry][] = projectConfig
+    ? Object.entries(projectConfig.models).filter(([id]) => !(id in BUILT_IN_MODELS.models))
+    : [];
+
+  function filterEntry(id: string, m: ModelEntry): boolean {
+    if (voiceOnly ? !m.voice : !!m.voice) return false;
+    if (structuredOnly && !supportsStructuredOutput(id)) return false;
+    if (id === value) return true;
+    if (!showUnconfigured && !hasKeyForModel(id, keyOverrides)) return false;
+    return true;
+  }
+
+  function renderOption(id: string, m: ModelEntry) {
+    const r = resolveDispatch(id, keyOverrides);
+    const missing = !r.apiKey.trim() && !r.baseUrl;
+    return (
+      <option key={id} value={id}>
+        {m.name ?? id}
+        {missing ? " (no key)" : ""}
+      </option>
+    );
+  }
+
   return (
     <select
       value={value}
@@ -61,31 +90,12 @@ export function ModelPicker({
       disabled={disabled}
       title={title}
     >
-      {Object.entries(BUILT_IN_MODELS.models)
-        .filter(([id, m]) => {
-          // Capability filters are HARD — an incompatible model must never be
-          // selectable or kept alive as a stale selection, or it dispatches
-          // and 404s. Voice (Live) models only speak the bidi socket and 404
-          // on generateContent, so they appear ONLY in the voiceOnly picker;
-          // every other (generateContent) picker excludes them.
-          if (voiceOnly ? !m.voice : !!m.voice) return false;
-          if (structuredOnly && !supportsStructuredOutput(id)) return false;
-          // Key presence is SOFT: keep the current selection visible so the
-          // select doesn't render blank while a provider key is missing.
-          if (id === value) return true;
-          if (!showUnconfigured && !hasKeyForModel(id, keyOverrides)) return false;
-          return true;
-        })
-        .map(([id, m]) => {
-          const r = resolveDispatch(id, keyOverrides);
-          const missing = !r.apiKey.trim();
-          return (
-            <option key={id} value={id}>
-              {m.name ?? id}
-              {missing ? " (no key)" : ""}
-            </option>
-          );
-        })}
+      {builtinEntries.filter(([id, m]) => filterEntry(id, m)).map(([id, m]) => renderOption(id, m))}
+      {projectEntries.length > 0 && (
+        <optgroup label="Project endpoints">
+          {projectEntries.filter(([id, m]) => filterEntry(id, m)).map(([id, m]) => renderOption(id, m))}
+        </optgroup>
+      )}
     </select>
   );
 }

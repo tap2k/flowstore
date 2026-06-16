@@ -11,7 +11,8 @@ export type SheetKind =
   | "guardrails"
   | "business_goals"
   | "capabilities"
-  | "knowledge";
+  | "knowledge"
+  | "endpoints";
 
 const SIMULATE_TABS = ["simulate", "tests", "personas", "golds"] as const;
 type SimulateTab = (typeof SIMULATE_TABS)[number];

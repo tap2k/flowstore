@@ -91,7 +91,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const saveGold = useTestsStore((s) => s.saveGold);
   const uniqueCaseId = useTestsStore((s) => s.uniqueCaseId);
   const uniqueGoldId = useTestsStore((s) => s.uniqueGoldId);
-  const setCaptureContext = useTestsStore((s) => s.setCaptureContext);
+  const setPendingCaseId = useTestsStore((s) => s.setPendingCaseId);
   const setSelectedGoldId = useTestsStore((s) => s.setSelectedGoldId);
   const allCases = useTestsStore((s) => s.cases);
   const allRubrics = useTestsStore((s) => s.rubrics);
@@ -437,9 +437,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       user_turns,
     };
     saveCase(testCase);
-    // Pin the just-captured full transcript so the Tests-tab editor (step
-    // 5) can render the agent+user reference panel for assertion authoring.
-    setCaptureContext({ caseId: id, transcript });
+    setPendingCaseId(id);
     setOpenSimulateTab("tests");
   }
 

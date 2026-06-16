@@ -1,14 +1,16 @@
-import type { ModelsFile, ModelEntry, ModelsRoles } from "@flowstore/core/schema/files/models";
+import type { ModelsFile, ModelEntry, ModelsRoles, CapabilityEndpoint } from "@flowstore/core/schema/files/models";
 import { ModelsFileSchema } from "@flowstore/core/schema/files/models";
+export type { CapabilityEndpoint, ModelEntry } from "@flowstore/core/schema/files/models";
 import { validateFile, formatErrors } from "@flowstore/core/validation/ajv";
 import type { FileMap, LoadError } from "./types";
 
-const MODELS_FILE_RE = /^models\/.+\.json$/;
+const MODELS_FILE = "models/endpoints.json";
 
 export interface ResolvedModelsConfig {
   models: Record<string, ModelEntry>;
   default: string | null;
   roles: ModelsRoles;
+  capabilityEndpoints: Record<string, CapabilityEndpoint>;
 }
 
 export type ModelRole = "agent" | "judge" | "user_simulation" | "authoring";
@@ -32,6 +34,7 @@ export type EndpointId =
 // Edit here when a new built-in model is supported. Catalog key is the
 // friendly handle; model_id (when set) is the wire id sent to the API.
 export const BUILT_IN_MODELS: ResolvedModelsConfig = {
+  capabilityEndpoints: {},
   models: {
     // Google
     "gemini-3.5-flash":         { name: "Gemini 3.5 Flash", endpoint: "google" },
@@ -123,36 +126,62 @@ export function loadModelsConfig(
   files: FileMap,
   errors: LoadError[],
 ): ResolvedModelsConfig | null {
-  const paths = Object.keys(files).filter((p) => MODELS_FILE_RE.test(p)).sort();
-  if (paths.length === 0) return null;
+  const content = files[MODELS_FILE];
+  if (!content) return null;
 
-  const merged: ResolvedModelsConfig = { models: {}, default: null, roles: {} };
-  for (const path of paths) {
-    let parsed: ModelsFile | null = null;
-    try {
-      parsed = JSON.parse(files[path]) as ModelsFile;
-    } catch (e) {
-      errors.push({
-        path,
-        message: e instanceof Error ? e.message : "could not parse models file",
-      });
-      continue;
-    }
-    const check = validateFile(ModelsFileSchema, parsed);
-    if (!check.valid) {
-      for (const msg of formatErrors(check.errors)) errors.push({ path, message: msg });
-      continue;
-    }
-    if (parsed.models) {
-      for (const [id, entry] of Object.entries(parsed.models)) {
-        merged.models[id] = entry;
-      }
-    }
-    if (parsed.default) merged.default = parsed.default;
-    if (parsed.roles) {
-      merged.roles = { ...merged.roles, ...parsed.roles };
-    }
+  let parsed: ModelsFile | null = null;
+  try {
+    parsed = JSON.parse(content) as ModelsFile;
+  } catch (e) {
+    errors.push({
+      path: MODELS_FILE,
+      message: e instanceof Error ? e.message : "could not parse models/endpoints.json",
+    });
+    return null;
   }
-  return merged;
+  const check = validateFile(ModelsFileSchema, parsed);
+  if (!check.valid) {
+    for (const msg of formatErrors(check.errors)) errors.push({ path: MODELS_FILE, message: msg });
+    return null;
+  }
+  return {
+    models: parsed.models ?? {},
+    default: parsed.default ?? null,
+    roles: parsed.roles ?? {},
+    capabilityEndpoints: parsed.capabilities ?? {},
+  };
+}
+
+// Serializes the models config back to models/endpoints.json. api_key is
+// stripped — credentials are never committed to project files (they live in
+// the user's settings/localStorage). Returns {} when config is null or empty
+// so the file is omitted from the save payload rather than written as empty.
+// NOTE: because api_key is stripped here, typing a key into the UI does NOT
+// flip the dirty bit — key changes are invisible to dirty tracking. This is
+// intentional: keys aren't saved to GitHub so they shouldn't gate saves.
+export function decomposeModelsConfig(config: ResolvedModelsConfig | null): FileMap {
+  if (!config) return {};
+  const hasModels = Object.keys(config.models).length > 0;
+  const hasCaps = Object.keys(config.capabilityEndpoints).length > 0;
+  const hasDefault = !!config.default;
+  const hasRoles = Object.keys(config.roles).length > 0;
+  if (!hasModels && !hasCaps && !hasDefault && !hasRoles) return {};
+
+  // Strip api_key from each entry before serializing.
+  const models: Record<string, ModelEntry> = {};
+  for (const [id, entry] of Object.entries(config.models)) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { api_key: _stripped, ...rest } = entry as ModelEntry & { api_key?: string };
+    models[id] = rest as ModelEntry;
+  }
+
+  const file: ModelsFile = {
+    $schema: "flowstore://spec/models/v0",
+    ...(Object.keys(models).length ? { models } : {}),
+    ...(config.default ? { default: config.default } : {}),
+    ...(Object.keys(config.roles).length ? { roles: config.roles } : {}),
+    ...(hasCaps ? { capabilities: config.capabilityEndpoints } : {}),
+  };
+  return { [MODELS_FILE]: JSON.stringify(file, null, 2) };
 }
 

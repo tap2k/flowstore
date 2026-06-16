@@ -10,7 +10,8 @@ import {
   readRepoToFileMap,
   writeFileMapToRepo,
 } from "@flowstore/core/files/github";
-import { decomposeSpec, decomposeTestingArtifacts, loadProject } from "@flowstore/core/files";
+import { decomposeSpec, decomposeTestingArtifacts, decomposeModelsConfig, loadProject } from "@flowstore/core/files";
+import { useModelsStore } from "@/lib/store/models";
 import { loadSpec } from "@/lib/store/loadSpec";
 import { useTestsStore } from "@/lib/store/tests";
 import { toSlug } from "@/lib/slug";
@@ -149,6 +150,7 @@ export function GitHubProjectControls({
       const fileMap = {
         ...decomposeSpec(spec),
         ...decomposeTestingArtifacts(useTestsStore.getState().toTestingArtifacts()),
+        ...decomposeModelsConfig(useModelsStore.getState().config),
       };
       // Skip the optimistic concurrency check the *first* time we save
       // after a save-to-new-repo. Account-installed GitHub Apps and
@@ -207,12 +209,12 @@ export function GitHubProjectControls({
         repo: location.repo,
         ref: location.ref,
       });
-      const { spec: loaded, comments, testingArtifacts, errors } = loadProject(files);
+      const { spec: loaded, comments, testingArtifacts, errors, modelsConfig } = loadProject(files);
       if (!loaded) {
         setError(errors.map((e) => e.message).join("; ") || "Refresh failed");
         return;
       }
-      loadSpec(loaded, { testingArtifacts, comments });
+      loadSpec(loaded, { testingArtifacts, comments, modelsConfig });
       setCommitSha(commitSha);
       // Refresh reloaded the spec from GitHub — local matches remote, so
       // re-baseline dirtiness to the just-loaded payload. Don't stamp
@@ -245,6 +247,7 @@ export function GitHubProjectControls({
       const fileMap = {
         ...decomposeSpec(spec),
         ...decomposeTestingArtifacts(useTestsStore.getState().toTestingArtifacts()),
+        ...decomposeModelsConfig(useModelsStore.getState().config),
       };
       const res = await writeFileMapToRepo(
         { client, owner: location.owner, repo: location.repo, ref: branchName },

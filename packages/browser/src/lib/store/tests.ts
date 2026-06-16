@@ -6,7 +6,6 @@ import type { Persona } from "@flowstore/core/schema/files/persona";
 import type { Rubric } from "@flowstore/core/schema/files/rubric";
 import type { Gold } from "@flowstore/core/schema/files/gold";
 import type { TestingArtifacts } from "@flowstore/core/files";
-import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
 import { toSlug } from "@/lib/slug";
 
 // In-memory home for the testing surface's authored artifacts. Mirrors
@@ -19,28 +18,18 @@ import { toSlug } from "@/lib/slug";
 // a persona for persona-driven runs (and inherit its world), or carry
 // their own vars+mocks for scripted runs.
 
-// When the user captures a Simulate transcript as a test case, the Tests
-// tab editor needs the full agent+user transcript to show as a read-only
-// reference (so they can author assertions against what they actually
-// saw). This lives in-memory only — the just-captured transcript isn't
-// re-derived from the case file after a reload. captureContext.caseId
-// pins the reference to the specific case so reopening another case
-// doesn't see stale capture data.
-export interface CaptureContext {
-  caseId: string;
-  transcript: TranscriptTurn[];
-}
-
 export interface TestsState {
   cases: TestCase[];
   golds: Gold[];
   personas: Persona[];
   rubrics: Rubric[];
-  captureContext: CaptureContext | null;
   // Which gold is expanded in the Golds tab editor. Ephemeral session
   // state (not persisted) — set on capture/new/copy so the freshly
-  // created gold opens inline, mirroring captureContext for cases.
+  // created gold opens inline.
   selectedGoldId: string | null;
+  // Case to auto-open in the Tests tab editor after creation (capture
+  // from Simulate or "Create Test" from a gold).
+  pendingCaseId: string | null;
 
   setAll: (artifacts: TestingArtifacts) => void;
   clear: () => void;
@@ -69,17 +58,16 @@ export interface TestsState {
   deleteRubric: (id: string) => void;
   uniqueRubricId: (base: string) => string;
 
-  setCaptureContext: (ctx: CaptureContext | null) => void;
   setSelectedGoldId: (id: string | null) => void;
+  setPendingCaseId: (id: string | null) => void;
 }
 
 // Persisted under "flowstore:tests" — the file-backed authoring artifacts
 // (cases / golds / personas / rubrics) survive a reload and an HMR module
-// re-eval, since persist rehydrates at store-creation time. captureContext is
-// deliberately excluded from partialize: the reference transcript is ephemeral
-// session state, re-captured on the next Simulate run, not re-derived from a
-// case file. merge coerces any non-array slice back to [] (robustness against
-// a hand-edited localStorage blob).
+// re-eval, since persist rehydrates at store-creation time. selectedGoldId and
+// pendingCaseId are ephemeral session state excluded from partialize. merge
+// coerces any non-array slice back to [] (robustness against a hand-edited
+// localStorage blob).
 export const useTestsStore = create<TestsState>()(
   persist(
     (set, get) => ({
@@ -87,8 +75,8 @@ export const useTestsStore = create<TestsState>()(
       golds: [],
       personas: [],
       rubrics: [],
-      captureContext: null,
       selectedGoldId: null,
+      pendingCaseId: null,
 
       setAll: (artifacts) => {
         set({
@@ -96,8 +84,8 @@ export const useTestsStore = create<TestsState>()(
           golds: artifacts.golds,
           personas: artifacts.personas,
           rubrics: artifacts.rubrics,
-          captureContext: null,
           selectedGoldId: null,
+          pendingCaseId: null,
         });
       },
 
@@ -107,8 +95,8 @@ export const useTestsStore = create<TestsState>()(
           golds: [],
           personas: [],
           rubrics: [],
-          captureContext: null,
           selectedGoldId: null,
+          pendingCaseId: null,
         });
       },
 
@@ -224,12 +212,12 @@ export const useTestsStore = create<TestsState>()(
 
       uniqueRubricId: (base) => uniqueId(get().rubrics, base, "rubric"),
 
-      setCaptureContext: (ctx) => {
-        set({ captureContext: ctx });
-      },
-
       setSelectedGoldId: (id) => {
         set({ selectedGoldId: id });
+      },
+
+      setPendingCaseId: (id) => {
+        set({ pendingCaseId: id });
       },
     }),
     {

@@ -55,21 +55,23 @@ export function TestsPanel() {
     setSelectedId(id);
   }
 
-  // If a capture just happened, jump straight to the editor for that case.
-  // Track which captureContext we've already auto-selected so navigating
-  // back to the list doesn't get pulled back into the editor on re-render.
-  const captureContext = useTestsStore((s) => s.captureContext);
-  const handledCaptureRef = useRef<string | null>(null);
+  // Auto-open the editor for a newly created case (capture from Simulate
+  // or "Create Test" from a gold). Clear after handling so navigating
+  // back to the list doesn't re-enter the editor on re-render.
+  const pendingCaseId = useTestsStore((s) => s.pendingCaseId);
+  const setPendingCaseId = useTestsStore((s) => s.setPendingCaseId);
+  const handledPendingRef = useRef<string | null>(null);
   useEffect(() => {
     if (
-      captureContext &&
-      captureContext.caseId !== handledCaptureRef.current &&
-      cases.some((c) => c.id === captureContext.caseId)
+      pendingCaseId &&
+      pendingCaseId !== handledPendingRef.current &&
+      cases.some((c) => c.id === pendingCaseId)
     ) {
-      setSelectedId(captureContext.caseId);
-      handledCaptureRef.current = captureContext.caseId;
+      setSelectedId(pendingCaseId);
+      handledPendingRef.current = pendingCaseId;
+      setPendingCaseId(null);
     }
-  }, [captureContext, cases]);
+  }, [pendingCaseId, cases, setPendingCaseId]);
 
   const selected = selectedId ? cases.find((c) => c.id === selectedId) ?? null : null;
 
@@ -274,7 +276,6 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
   const uniqueCaseId = useTestsStore((s) => s.uniqueCaseId);
   const personas = useTestsStore((s) => s.personas);
   const rubrics = useTestsStore((s) => s.rubrics);
-  const captureContext = useTestsStore((s) => s.captureContext);
   const casesCount = useTestsStore((s) => s.cases.length);
   const spec = useSpecStore((s) => s.spec);
   const simulateMode = useSimulateStore((s) => s.mode);
@@ -360,11 +361,6 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
     () => (actor === "persona" ? personas.find((p) => p.id === personaId) : undefined),
     [actor, personaId, personas],
   );
-  const referenceTranscript =
-    captureContext && captureContext.caseId === testCase.id
-      ? captureContext.transcript
-      : null;
-
   // Dirty = any editable field diverged from the saved record. Matches
   // the persona-row pattern so the Save button greys out after a save
   // (testCase prop updates → draft already matches → dirty becomes false).
@@ -703,30 +699,6 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
             onChange={setEvaluators}
           />
         </Section>
-
-        {referenceTranscript && (
-          <Section label="reference transcript (read-only)">
-            <div className="rounded border border-zinc-200 bg-zinc-50 p-2 space-y-1.5 max-h-64 overflow-auto">
-              {referenceTranscript.map((t, i) => (
-                <div key={i} className="text-[11px]">
-                  <span
-                    className={
-                      t.role === "agent"
-                        ? "font-mono text-[10px] text-emerald-700"
-                        : "font-mono text-[10px] text-zinc-500"
-                    }
-                  >
-                    {t.role}
-                  </span>
-                  <span className="ml-1.5 text-zinc-800 whitespace-pre-wrap">{t.text}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-1 text-[10px] text-zinc-500">
-              Captured from the Simulate session that created this case.
-            </div>
-          </Section>
-        )}
 
         <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-200">
           <button

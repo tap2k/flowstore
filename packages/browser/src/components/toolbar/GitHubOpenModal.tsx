@@ -157,7 +157,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
         }
         throw e;
       }
-      const { spec, comments, testingArtifacts, errors } = loadProject(files);
+      const { spec, comments, testingArtifacts, errors, modelsConfig } = loadProject(files);
       if (!spec) {
         // Repo has commits (e.g., README only) but no flowstore project — offer init.
         // If load errors look structural (malformed flowstore files), surface them so
@@ -176,7 +176,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
         setError(msg);
         return;
       }
-      loadSpec(spec, { testingArtifacts, comments });
+      loadSpec(spec, { testingArtifacts, comments, modelsConfig });
       setLoaded(
         { owner: repo.owner, repo: repo.repo, ref: selectedBranch },
         commitSha,
@@ -240,7 +240,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
         throw e;
       }
 
-      const { spec, comments, testingArtifacts, errors } = loadProject(files);
+      const { spec, comments, testingArtifacts, errors, modelsConfig } = loadProject(files);
       if (!spec) {
         const msg =
           errors.length > 0
@@ -249,7 +249,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
         setUrlError(msg);
         return;
       }
-      loadSpec(spec, { testingArtifacts, comments });
+      loadSpec(spec, { testingArtifacts, comments, modelsConfig });
       setLoaded(
         { owner: parsed.owner, repo: parsed.repo, ref: branch },
         commitSha,

@@ -19,9 +19,9 @@ export interface VoiceSessionConfig {
   model: string;
   systemPrompt: string;
   tools: ToolDefinition[];
-  // Resolves a capability tool call to a JSON-serializable mock result —
-  // the store passes resolveMockedCall bound to the current mocks/errors.
-  resolveTool: (name: string, args: Record<string, unknown>) => unknown;
+  // Resolves a capability tool call to a JSON-serializable result. May be
+  // async when the call hits a live capability endpoint.
+  resolveTool: (name: string, args: Record<string, unknown>) => Promise<unknown> | unknown;
   // When the agent speaks first: trigger one model generation right after
   // connect so it greets without waiting for user audio (the voice analog of
   // text mode's synthetic [begin] turn).
@@ -161,7 +161,7 @@ export class VoiceSession {
     });
   }
 
-  private handleMessage(msg: LiveServerMessage): void {
+  private async handleMessage(msg: LiveServerMessage): Promise<void> {
     if (this.closed) return;
 
     // Server is ready — now it's safe to fire the agent-speaks-first opener.
@@ -207,16 +207,16 @@ export class VoiceSession {
       this.flushAgentTurn();
     }
 
-    // Capability calls — resolve against the mocks and answer the socket.
+    // Capability calls — resolve against the mocks/endpoints and answer the socket.
     const calls = msg.toolCall?.functionCalls ?? [];
     if (calls.length > 0) {
-      const responses = calls.map((call) => {
+      const responses = await Promise.all(calls.map(async (call) => {
         const name = call.name ?? "";
         const args = (call.args ?? {}) as Record<string, unknown>;
-        const result = this.cfg.resolveTool(name, args);
+        const result = await this.cfg.resolveTool(name, args);
         this.pendingCapabilities.push({ name, args, result });
         return { id: call.id, name, response: { result } };
-      });
+      }));
       this.session?.sendToolResponse({ functionResponses: responses });
     }
   }

@@ -1,20 +1,22 @@
 import type { Spec } from "@flowstore/core/schema/v0";
 import type { TestingArtifacts } from "@flowstore/core/files";
+import type { ResolvedModelsConfig } from "@flowstore/core/files/models";
 import type { Comment } from "@flowstore/core/schema/files/comment";
 import { useSpecStore } from "./spec";
 import { useTestsStore } from "./tests";
+import { useModelsStore } from "./models";
 import { useCommentsStore } from "./comments";
 import { useSimulateStore } from "./simulate";
 import { useChatStore } from "./chat";
 
 export interface LoadSpecOptions {
   // Project-backed loads (GitHub open/refresh, ZIP/folder import) pass the
-  // artifacts and comments that travelled with the spec. Omit both — a "bare"
-  // load (imported JSON, from-source build, trash) — and any prior tests and
-  // comments are cleared: a bare spec has no claim to the previous project's
-  // golds/cases/personas/rubrics or review threads.
+  // artifacts, comments, and models config that travelled with the spec. Omit
+  // all — a "bare" load (imported JSON) — and prior state is cleared: a bare
+  // spec has no claim to the previous project's golds/cases/endpoints/threads.
   testingArtifacts?: TestingArtifacts;
   comments?: Comment[];
+  modelsConfig?: ResolvedModelsConfig | null;
 }
 
 // The single sanctioned way to swap the active spec. Every store whose
@@ -31,6 +33,12 @@ export function loadSpec(spec: Spec | null, opts: LoadSpecOptions = {}): void {
     useTestsStore.getState().setAll(opts.testingArtifacts);
   } else {
     useTestsStore.getState().clear();
+  }
+
+  if (opts.modelsConfig !== undefined) {
+    useModelsStore.getState().set(opts.modelsConfig);
+  } else {
+    useModelsStore.getState().clear();
   }
 
   useCommentsStore.getState().setAll(opts.comments ?? []);

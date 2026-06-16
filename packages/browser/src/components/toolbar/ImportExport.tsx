@@ -9,14 +9,17 @@ import { GuardrailsSheet } from "@/components/sheets/GuardrailsSheet";
 import { BusinessGoalsSheet } from "@/components/sheets/BusinessGoalsSheet";
 import { CapabilitiesSheet } from "@/components/sheets/CapabilitiesSheet";
 import { KnowledgeSheet } from "@/components/sheets/KnowledgeSheet";
+import { EndpointsSheet } from "@/components/sheets/EndpointsSheet";
 import { GitHubOpenModal } from "@/components/toolbar/GitHubOpenModal";
 import { GitHubProjectControls } from "@/components/toolbar/GitHubProjectControls";
 import {
   decomposeSpec,
   decomposeTestingArtifacts,
   decomposeComments,
+  decomposeModelsConfig,
   loadProject,
 } from "@flowstore/core/files";
+import { useModelsStore } from "@/lib/store/models";
 import { loadSpec, type LoadSpecOptions } from "@/lib/store/loadSpec";
 import { useCommentsStore } from "@/lib/store/comments";
 import { useTestsStore } from "@/lib/store/tests";
@@ -216,6 +219,7 @@ export function ImportExportToolbar({
     const fileMap = {
       ...decomposeSpec(spec),
       ...decomposeTestingArtifacts(useTestsStore.getState().toTestingArtifacts()),
+      ...decomposeModelsConfig(useModelsStore.getState().config),
       // Comments too — a ZIP is the complete project archive (and import reads
       // them back), unlike GitHub which writes comment files on authoring.
       ...decomposeComments(useCommentsStore.getState().comments),
@@ -313,6 +317,9 @@ export function ImportExportToolbar({
         </button>
         <button onClick={() => setOpenSheet("knowledge")} disabled={!spec} className={buttonClass}>
           Knowledge
+        </button>
+        <button onClick={() => setOpenSheet("endpoints")} className={buttonClass}>
+          Endpoints
         </button>
 
         {/* Translations dropdown — CSV round-trip for translatable strings. */}
@@ -437,6 +444,7 @@ export function ImportExportToolbar({
       {openSheet === "business_goals" && <BusinessGoalsSheet onClose={() => setOpenSheet(null)} />}
       {openSheet === "capabilities" && <CapabilitiesSheet onClose={() => setOpenSheet(null)} />}
       {openSheet === "knowledge" && <KnowledgeSheet onClose={() => setOpenSheet(null)} />}
+      {openSheet === "endpoints" && <EndpointsSheet onClose={() => setOpenSheet(null)} />}
     </>
   );
 }
@@ -468,7 +476,7 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
   }
 
   function loadFileMap(files: FileMap, emptyMessage: string) {
-    const { spec, comments, testingArtifacts, errors: loadErrors } = loadProject(files);
+    const { spec, comments, testingArtifacts, errors: loadErrors, modelsConfig } = loadProject(files);
     if (!spec) {
       setErrors(
         loadErrors.length > 0
@@ -477,9 +485,9 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
       );
       return;
     }
-    // Project-backed import: hand the artifacts + comments to loadSpec via the
-    // commit path so they replace (not orphan onto) whatever was loaded before.
-    handleParsed(spec, { testingArtifacts, comments });
+    // Project-backed import: hand the artifacts + comments + endpoints to
+    // loadSpec so they replace whatever was loaded before.
+    handleParsed(spec, { testingArtifacts, comments, modelsConfig });
   }
 
   function readFile(file: File) {

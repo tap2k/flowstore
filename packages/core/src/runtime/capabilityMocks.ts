@@ -1,5 +1,6 @@
 import type { Capability, Spec, VariableDecl } from "@flowstore/core/schema/v0";
 import type { ToolDefinition } from "@flowstore/core/llm/types";
+import type { CapabilityEndpoint } from "@flowstore/core/files/models";
 
 export interface MockableOutput {
   name: string;
@@ -53,16 +54,35 @@ export function buildCapabilityTools(spec: Spec | null): ToolDefinition[] {
   });
 }
 
-// Resolves a capability call (by name) to its mocked outputs. If the
-// capability is marked as error-behavior via mockErrors, returns a
-// `{ error: string }` sentinel that promptClient detects and feeds back
-// to the LLM as a tool error. Static returns otherwise; `{}` when
-// neither is set.
-export function resolveMockedCall(
+// Resolves a capability call to its outputs. Checks live endpoints first:
+// if a URL is configured for this capability, POSTs the LLM's args to it
+// and returns the JSON response. Falls back to the static mock (or error
+// sentinel) when no endpoint is configured or the fetch fails.
+export async function resolveMockedCall(
   capabilityName: string,
+  callArgs: Record<string, unknown>,
   mockReturns: Record<string, Record<string, unknown>>,
   mockErrors: Record<string, string> = {},
-): Record<string, unknown> | { error: string } {
+  liveEndpoints: Record<string, CapabilityEndpoint> = {},
+): Promise<Record<string, unknown> | { error: string }> {
+  const endpoint = liveEndpoints[capabilityName];
+  if (endpoint) {
+    try {
+      const method = endpoint.method ?? "POST";
+      const body = method === "GET" ? undefined : JSON.stringify(callArgs);
+      const res = await fetch(endpoint.url, {
+        method,
+        headers: { "Content-Type": "application/json", ...(endpoint.headers ?? {}) },
+        ...(body !== undefined ? { body } : {}),
+      });
+      if (!res.ok) {
+        return { error: `live endpoint ${res.status}: ${await res.text().catch(() => res.statusText)}` };
+      }
+      return (await res.json()) as Record<string, unknown>;
+    } catch (e) {
+      return { error: `live endpoint unreachable: ${e instanceof Error ? e.message : String(e)}` };
+    }
+  }
   const errorMsg = mockErrors[capabilityName];
   if (errorMsg !== undefined) return { error: errorMsg };
   return mockReturns[capabilityName] ?? {};

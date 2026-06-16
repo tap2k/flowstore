@@ -35,8 +35,9 @@ export async function sendPromptTurn(args: {
   // Capabilities exposed as tools. Empty/omitted ⇒ single-shot, identical to a
   // capability-free turn (the model gets no tools, so it never calls one).
   tools?: ToolDefinition[];
-  // Resolves a tool call to a JSON-serializable result (the capability mock).
-  resolveTool?: (call: ToolCall) => unknown;
+  // Resolves a tool call to a JSON-serializable result. May be async (e.g.
+  // when the call hits a live capability endpoint instead of a static mock).
+  resolveTool?: (call: ToolCall) => Promise<unknown> | unknown;
 }): Promise<PromptTurnResponse> {
   const tools = args.tools ?? [];
   const messages: ChatMessage[] = args.history.map(toChatMessage);
@@ -63,7 +64,7 @@ export async function sendPromptTurn(args: {
     // then let the model continue.
     messages.push({ role: "assistant", content: res.text, toolCalls: res.toolCalls });
     for (const call of res.toolCalls) {
-      const value = args.resolveTool ? args.resolveTool(call) : {};
+      const value = args.resolveTool ? await args.resolveTool(call) : {};
       const callArgs =
         call.arguments && typeof call.arguments === "object"
           ? (call.arguments as Record<string, unknown>)

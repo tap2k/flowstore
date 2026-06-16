@@ -3,7 +3,8 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { debouncedLocalStorage } from "./scopedStorage";
 import { useSpecStore } from "./spec";
 import { useTestsStore } from "./tests";
-import { decomposeSpec, decomposeTestingArtifacts } from "@flowstore/core/files";
+import { useModelsStore } from "./models";
+import { decomposeSpec, decomposeTestingArtifacts, decomposeModelsConfig } from "@flowstore/core/files";
 
 // Tracks whether the in-memory project has edits not yet committed to GitHub.
 // Powers the header pill, the beforeunload guard, and Cmd+S routing. "Saved"
@@ -84,7 +85,11 @@ function currentSig(): string {
   const spec = useSpecStore.getState().spec;
   // No spec → no project to save; the empty payload is its own baseline.
   const files = spec
-    ? { ...decomposeSpec(spec), ...decomposeTestingArtifacts(useTestsStore.getState().toTestingArtifacts()) }
+    ? {
+        ...decomposeSpec(spec),
+        ...decomposeTestingArtifacts(useTestsStore.getState().toTestingArtifacts()),
+        ...decomposeModelsConfig(useModelsStore.getState().config),
+      }
     : {};
   const keys = Object.keys(files).sort();
   return JSON.stringify(keys.map((k) => [k, files[k]]));
@@ -117,8 +122,10 @@ export function startDirtyTracking(): () => void {
   };
   const unsubSpec = useSpecStore.subscribe(onChange);
   const unsubTests = useTestsStore.subscribe(onChange);
+  const unsubModels = useModelsStore.subscribe(onChange);
   return () => {
     unsubSpec();
     unsubTests();
+    unsubModels();
   };
 }

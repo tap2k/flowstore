@@ -34,6 +34,7 @@ import { providedVars } from "@flowstore/core/runtime/contextVars";
 import type { GuardrailVerdict } from "@flowstore/core/runtime/judgeGuardrails";
 import type { RubricVerdict } from "@flowstore/core/runtime/judgeRubric";
 import { resolveDispatch, supportsStructuredOutput, useSettingsStore } from "@/lib/store/settings";
+import { useModelsStore } from "@/lib/store/models";
 import { useUiStore } from "@/lib/store/ui";
 import { useSpecStore } from "@/lib/store/spec";
 import { createScopedJsonStorage, isPlainObject } from "@/lib/store/scopedStorage";
@@ -843,8 +844,9 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           model,
           systemPrompt,
           tools: buildCapabilityTools(spec),
-          resolveTool: (name) =>
-            resolveMockedCall(name, get().mockReturns, get().mockErrors),
+          resolveTool: (name, args) =>
+            resolveMockedCall(name, args, get().mockReturns, get().mockErrors,
+              useModelsStore.getState().config?.capabilityEndpoints ?? {}),
           chatbotInitiates: spec.agent.chatbot_initiates ?? false,
           language,
           onUserTurn: (text) => {
@@ -928,8 +930,12 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
             provider,
             baseUrl,
             tools: buildCapabilityTools(spec),
-            resolveTool: (call) =>
-              resolveMockedCall(call.name, get().mockReturns, get().mockErrors),
+            resolveTool: async (call) => {
+              const callArgs = call.arguments && typeof call.arguments === "object"
+                ? (call.arguments as Record<string, unknown>) : {};
+              return resolveMockedCall(call.name, callArgs, get().mockReturns, get().mockErrors,
+                useModelsStore.getState().config?.capabilityEndpoints ?? {});
+            },
           });
           const latencyMs = Math.round(performance.now() - t0);
           const agentTurn: TranscriptTurn = {
@@ -1075,7 +1081,12 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           provider: creds.provider,
           baseUrl: creds.baseUrl,
           tools: buildCapabilityTools(specSnapshot),
-          resolveTool: (call) => resolveMockedCall(call.name, get().mockReturns),
+          resolveTool: async (call) => {
+            const callArgs = call.arguments && typeof call.arguments === "object"
+              ? (call.arguments as Record<string, unknown>) : {};
+            return resolveMockedCall(call.name, callArgs, get().mockReturns, get().mockErrors,
+              useModelsStore.getState().config?.capabilityEndpoints ?? {});
+          },
         });
         // Session was reset while the LLM call was in-flight — drop the stale
         // result rather than writing it into the freshly-cleared state.
