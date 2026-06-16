@@ -10,6 +10,7 @@ import { collectMockableCapabilities, type MockableCapability } from "@flowstore
 import { caseWorldToRuntime } from "@flowstore/core/runtime/personaRuntime";
 import { VarsEditor } from "./persona/VarsEditor";
 import { MocksEditor } from "./persona/MocksEditor";
+import { TagChips, TagsField } from "./TagsUI";
 
 // Saved-gold library for the Run pill's Golds tab. Same vertical
 // list-with-inline-expand pattern as Personas. Golds are file-backed
@@ -27,7 +28,8 @@ export function GoldsPanel() {
   const uniqueCaseId = useTestsStore((s) => s.uniqueCaseId);
   const setPendingCaseId = useTestsStore((s) => s.setPendingCaseId);
   const spec = useSpecStore((s) => s.spec);
-  const declared = spec ? collectDeclaredVariables(spec) : [];
+  const cases = useTestsStore((s) => s.cases);
+  const declared = useMemo(() => spec ? collectDeclaredVariables(spec) : [], [spec]);
 
   // Selection lives in the store so a Simulate capture (capture ▾ → as
   // gold) can open the freshly created gold's editor on tab switch.
@@ -44,6 +46,13 @@ export function GoldsPanel() {
   const setMockError = useSimulateStore((s) => s.setMockError);
   const setOpenSimulateTab = useUiStore((s) => s.setOpenSimulateTab);
   const mockableCaps = useMemo(() => collectMockableCapabilities(spec), [spec]);
+
+  const tagSuggestions = useMemo(() => {
+    const set = new Set<string>();
+    for (const g of golds) for (const t of g.tags ?? []) set.add(t);
+    for (const c of cases) for (const t of c.tags ?? []) set.add(t);
+    return [...set].sort();
+  }, [golds, cases]);
 
   function startNew() {
     const defaultName = `Gold ${golds.length + 1}`;
@@ -88,6 +97,7 @@ export function GoldsPanel() {
                 expanded={selectedId === g.id}
                 declared={declared}
                 mockableCaps={mockableCaps}
+                tagSuggestions={tagSuggestions}
                 onToggle={() => setSelectedId(selectedId === g.id ? null : g.id)}
                 onRun={async () => {
                   await reset();
@@ -151,6 +161,7 @@ interface GoldRowProps {
   expanded: boolean;
   declared: DeclaredVariable[];
   mockableCaps: MockableCapability[];
+  tagSuggestions: string[];
   onToggle: () => void;
   onRun: () => void;
   onSave: (g: Gold) => void;
@@ -159,9 +170,10 @@ interface GoldRowProps {
   onCreateTest: () => void;
 }
 
-function GoldRow({ gold, expanded, declared, mockableCaps, onToggle, onRun, onSave, onCopy, onDelete, onCreateTest }: GoldRowProps) {
+function GoldRow({ gold, expanded, declared, mockableCaps, tagSuggestions, onToggle, onRun, onSave, onCopy, onDelete, onCreateTest }: GoldRowProps) {
   const [name, setName] = useState(gold.name ?? "");
   const [notes, setNotes] = useState(gold.notes ?? "");
+  const [tags, setTags] = useState<string[]>(gold.tags ?? []);
   const [turns, setTurns] = useState(gold.turns);
   const [vars, setVars] = useState<Record<string, unknown>>(gold.vars ?? {});
   const [mocks, setMocks] = useState<Record<string, MockBehavior>>(gold.mocks ?? {});
@@ -171,6 +183,7 @@ function GoldRow({ gold, expanded, declared, mockableCaps, onToggle, onRun, onSa
     if (expanded) {
       setName(gold.name ?? "");
       setNotes(gold.notes ?? "");
+      setTags(gold.tags ?? []);
       setTurns(gold.turns);
       setVars(gold.vars ?? {});
       setMocks(gold.mocks ?? {});
@@ -187,6 +200,7 @@ function GoldRow({ gold, expanded, declared, mockableCaps, onToggle, onRun, onSa
   const dirty =
     name !== (gold.name ?? "") ||
     notes !== (gold.notes ?? "") ||
+    JSON.stringify(tags) !== JSON.stringify(gold.tags ?? []) ||
     JSON.stringify(turns) !== JSON.stringify(gold.turns) ||
     JSON.stringify(vars) !== JSON.stringify(gold.vars ?? {}) ||
     JSON.stringify(mocks) !== JSON.stringify(gold.mocks ?? {});
@@ -197,10 +211,11 @@ function GoldRow({ gold, expanded, declared, mockableCaps, onToggle, onRun, onSa
       id: gold.id,
       ...(name.trim() ? { name: name.trim() } : {}),
       ...(notes.trim() ? { notes: notes.trim() } : {}),
-      turns,
       ...(gold.source_pointer !== undefined ? { source_pointer: gold.source_pointer } : {}),
+      ...(tags.length > 0 ? { tags } : {}),
       ...(Object.keys(vars).length > 0 ? { vars } : {}),
       ...(Object.keys(mocks).length > 0 ? { mocks } : {}),
+      turns,
     });
   }
 
@@ -254,6 +269,7 @@ function GoldRow({ gold, expanded, declared, mockableCaps, onToggle, onRun, onSa
             {gold.name || gold.id}
           </div>
           <div className="truncate font-mono text-[10px] text-zinc-500">{gold.id}</div>
+          <TagChips tags={gold.tags} />
         </div>
         <span className="ml-2 text-zinc-400">{expanded ? "▾" : "▸"}</span>
       </button>
@@ -284,6 +300,13 @@ function GoldRow({ gold, expanded, declared, mockableCaps, onToggle, onRun, onSa
               className="w-full resize-y rounded border border-zinc-300 bg-white p-1.5 text-[11px] leading-snug"
             />
           </div>
+
+          <TagsField
+            tags={tags}
+            suggestions={tagSuggestions}
+            listId={`gold-tag-suggestions-${gold.id}`}
+            onChange={setTags}
+          />
 
           {declared.length > 0 && (
             <div>

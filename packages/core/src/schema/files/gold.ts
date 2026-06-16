@@ -12,10 +12,6 @@ export const GoldTurnSchema = Type.Object(
   {
     role: Type.Union([Type.Literal("agent"), Type.Literal("user")]),
     text: Type.String(),
-    // Optional free-form category tags (e.g. "Happy Path", "Sad Path") for
-    // stress-test goldens classifying user-input rows. awaaz's
-    // stress_test_* golds carry these; ignore if not present.
-    properties: Type.Optional(Type.Array(Type.String())),
   },
   { additionalProperties: false },
 );
@@ -26,10 +22,11 @@ export const GoldSchema = Type.Object(
     id: Type.String(),
     name: Type.Optional(Type.String()),
     notes: Type.Optional(Type.String()),
-    turns: Type.Array(GoldTurnSchema),
     source_pointer: Type.Optional(Type.String()),
+    tags: Type.Optional(Type.Array(Type.String())),
     vars: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
     mocks: Type.Optional(Type.Record(Type.String(), MockBehaviorSchema)),
+    turns: Type.Array(GoldTurnSchema),
   },
   { additionalProperties: false },
 );

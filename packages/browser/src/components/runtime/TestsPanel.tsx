@@ -11,6 +11,7 @@ import { collectDeclaredVariables } from "@flowstore/core/runtime/contextVars";
 import { collectMockableCapabilities } from "@flowstore/core/runtime/capabilityMocks";
 import { VarsEditor } from "./persona/VarsEditor";
 import { MocksEditor } from "./persona/MocksEditor";
+import { TagChips, TagsField } from "./TagsUI";
 
 type Actor = "scripted" | "persona" | "inline";
 type UserTurn = NonNullable<TestCase["user_turns"]>[number];
@@ -136,7 +137,7 @@ function CaseList({
                     <div className="truncate font-mono text-[10px] text-zinc-500">
                       {c.id} | {actorOf(c)}
                     </div>
-                    <CaseTags tags={c.tags} />
+                    <TagChips tags={c.tags} />
                   </div>
                   <span className="ml-2 text-zinc-400">▸</span>
                 </button>
@@ -149,110 +150,6 @@ function CaseList({
   );
 }
 
-// Tags surfaced as chips on each case row. Namespace-aware styling only:
-// `flow:<id>` tags get a tint (the lightweight convention for associating a
-// case with the flow(s) it exercises — see testCase.ts), bare scenario tags
-// (happy / negotiation / safety …) are neutral, and `src:*` provenance is
-// hidden here (bookkeeping, not useful at-a-glance). No spec lookup or
-// staleness check — that waits for flow maps.
-function CaseTags({ tags }: { tags: string[] | undefined }) {
-  if (!tags?.length) return null;
-  const shown = tags.filter((t) => !t.startsWith("src:"));
-  if (shown.length === 0) return null;
-  return (
-    <div className="mt-1 flex flex-wrap gap-1">
-      {shown.map((t) => {
-        const isFlow = t.startsWith("flow:");
-        return (
-          <span
-            key={t}
-            title={t}
-            className={`rounded px-1.5 py-0.5 text-[9px] font-medium ${
-              isFlow ? "bg-indigo-100 text-indigo-700" : "bg-zinc-100 text-zinc-600"
-            }`}
-          >
-            {isFlow ? t.slice("flow:".length) : t}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-// Minimal tags editor: add/remove chips + a native <datalist> that autocompletes
-// from the existing library vocabulary (and flow:<id> per spec flow). flow: chips
-// get a tint; everything else is neutral. No validation — a flow: tag is just a
-// string until flow maps make it precise.
-function TagsField({
-  tags,
-  suggestions,
-  onChange,
-}: {
-  tags: string[];
-  suggestions: string[];
-  onChange: (next: string[]) => void;
-}) {
-  const [draft, setDraft] = useState("");
-  function add(raw: string) {
-    const t = raw.trim();
-    setDraft("");
-    if (!t || tags.includes(t)) return;
-    onChange([...tags, t]);
-  }
-  return (
-    <div>
-      <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
-        tags
-      </label>
-      {tags.length > 0 && (
-        <div className="mt-1 flex flex-wrap gap-1">
-          {tags.map((t) => {
-            const isFlow = t.startsWith("flow:");
-            return (
-              <span
-                key={t}
-                className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                  isFlow ? "bg-indigo-100 text-indigo-700" : "bg-zinc-100 text-zinc-600"
-                }`}
-              >
-                {isFlow ? t.slice("flow:".length) : t}
-                <button
-                  type="button"
-                  onClick={() => onChange(tags.filter((x) => x !== t))}
-                  title="remove tag"
-                  className="leading-none text-zinc-400 hover:text-red-600"
-                >
-                  ×
-                </button>
-              </span>
-            );
-          })}
-        </div>
-      )}
-      <input
-        type="text"
-        list="case-tag-suggestions"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            add(draft);
-          }
-        }}
-        onBlur={() => add(draft)}
-        placeholder="add tag — e.g. happy, negotiation, flow:…"
-        className="mt-1 w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400"
-      />
-      {/* Options only once the user types — an empty datalist won't pop the
-          whole list open on focus (native <datalist> behavior in Chrome). */}
-      <datalist id="case-tag-suggestions">
-        {draft.trim() !== "" &&
-          suggestions.map((s) => <option key={s} value={s} />)}
-      </datalist>
-    </div>
-  );
-}
 
 interface CaseEditorProps {
   testCase: TestCase;
@@ -349,12 +246,14 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
   const mockableCaps = useMemo(() => collectMockableCapabilities(spec), [spec]);
   // Datalist vocabulary: every tag already in the library (so the folksonomy
   // converges instead of sprawling) plus a flow:<id> suggestion per spec flow.
+  const allGolds = useTestsStore((s) => s.golds);
   const tagSuggestions = useMemo(() => {
     const set = new Set<string>();
     for (const c of allCases) for (const t of c.tags ?? []) set.add(t);
+    for (const g of allGolds) for (const t of g.tags ?? []) set.add(t);
     for (const f of spec?.flows ?? []) set.add(`flow:${f.id}`);
     return [...set].sort();
-  }, [allCases, spec]);
+  }, [allCases, allGolds, spec]);
   const boundPersona = useMemo(
     () => (actor === "persona" ? personas.find((p) => p.id === personaId) : undefined),
     [actor, personaId, personas],
@@ -540,7 +439,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
           />
         </div>
 
-        <TagsField tags={tags} suggestions={tagSuggestions} onChange={setTags} />
+        <TagsField tags={tags} suggestions={tagSuggestions} listId="case-tag-suggestions" onChange={setTags} />
 
         <div className="flex gap-2">
           {showLanguage && (
