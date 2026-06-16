@@ -226,6 +226,15 @@ const updatePersonaTool: Tool = {
   },
 };
 
+// ---- Read (for the merge-write path) --------------------------------------
+//
+// Read tools exist only for personas and test cases, because those are the only
+// artifacts whose vars/mocks *merge* on update — so the model must know the
+// current state before patching or it risks clobbering. Rubrics and golds
+// replace-whole-field, so there's no silent-clobber trap; a get_rubric /
+// get_gold would only serve copy/clone, which isn't load-bearing yet. Deferred
+// deliberately — add them (as siblings, not a generic reader) if a real need
+// shows up. If batch reads here get painful, widen these two to accept id | id[].
 const getPersonaTool: Tool = {
   definition: {
     name: "get_persona",
