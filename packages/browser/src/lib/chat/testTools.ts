@@ -467,12 +467,19 @@ const createGoldTool: Tool = {
     description:
       "Create a gold — a verbatim reference transcript showing how a conversation should go. " +
       "`turns` is an ordered list of { role: 'agent'|'user', text }. The gold runner replays user turns " +
-      "and compares the agent's output to the gold's agent turns. Returns the new gold id.",
+      "and compares the agent's output to the gold's agent turns. " +
+      "`vars` sets the scenario context (variable values like loan amount, customer name) used when replaying this gold in sim. " +
+      "`mocks` sets capability return values keyed by capability name. " +
+      "`tags` are free-form labels (e.g. 'happy-path', 'lang:hi', 'flow:intro') for filtering. " +
+      "Returns the new gold id.",
     parameters: {
       type: "object",
       properties: {
         name: { type: "string" },
         notes: { type: "string" },
+        tags: { type: "array", items: { type: "string" }, description: "e.g. ['happy-path', 'lang:hi', 'flow:intro']" },
+        vars: { type: "object", description: "Variable values for this scenario (e.g. { LOAN_AMOUNT: 1500, CUSTOMER_NAME: 'Rahul' })." },
+        mocks: { type: "object", description: "Capability mock returns keyed by capability name." },
         turns: { type: "array", items: GoldTurnSchema },
         source_pointer: { type: "string", description: "Where this gold came from (a doc/source reference)." },
       },
@@ -487,6 +494,9 @@ const createGoldTool: Tool = {
       id,
       name: a.name,
       notes: a.notes,
+      tags: a.tags,
+      vars: a.vars,
+      mocks: a.mocks,
       turns: a.turns,
       source_pointer: a.source_pointer,
     });
@@ -500,7 +510,9 @@ const createGoldTool: Tool = {
 const updateGoldTool: Tool = {
   definition: {
     name: "update_gold",
-    description: "Patch fields on an existing gold by id. `turns` replaces the whole transcript.",
+    description:
+      "Patch fields on an existing gold by id. `turns` replaces the whole transcript. " +
+      "`vars` and `mocks` replace the scenario context and capability mocks respectively.",
     parameters: {
       type: "object",
       properties: {
@@ -510,6 +522,9 @@ const updateGoldTool: Tool = {
           properties: {
             name: { type: "string" },
             notes: { type: "string" },
+            tags: { type: "array", items: { type: "string" } },
+            vars: { type: "object", description: "Variable values for this scenario." },
+            mocks: { type: "object", description: "Capability mock returns keyed by capability name." },
             turns: { type: "array", items: GoldTurnSchema },
             source_pointer: { type: "string" },
           },
@@ -548,8 +563,8 @@ const getGoldTool: Tool = {
   definition: {
     name: "get_gold",
     description:
-      "Return the full record for a gold by id — including its turns. " +
-      "Call this before create_test_case when you want to pre-fill user_turns from a gold's user side.",
+      "Return the full record for a gold by id — turns, vars, mocks, and tags. " +
+      "Call this before update_gold to inspect current vars/mocks, or before create_test_case to pre-fill user_turns from the gold's user side.",
     parameters: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
   },
   impl: (args) => {
