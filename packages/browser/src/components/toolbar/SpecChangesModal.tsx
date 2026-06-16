@@ -76,7 +76,6 @@ export function SpecChangesModal({ onClose }: { onClose: () => void }) {
         setState({
           phase: "ready",
           text: parts.join("\n"),
-          empty: false,
           remoteAdvanced,
         });
       } catch (e) {
