@@ -135,6 +135,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const [input, setInput] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[] | null>(null);
   const [translations, setTranslations] = useState<Map<number, string>>(new Map());
+  const [goldTranslations, setGoldTranslations] = useState<Map<number, string>>(new Map());
   const [showTranslated, setShowTranslated] = useState(false);
   const [translating, setTranslating] = useState(false);
   const [translateError, setTranslateError] = useState<string | null>(null);
@@ -193,6 +194,13 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     setTranslations(new Map());
     setShowTranslated(false);
     setTranslateError(null);
+  }
+
+  // Reset gold translations when the active gold changes.
+  const prevGoldIdRef = useRef(activeGoldId);
+  if (prevGoldIdRef.current !== activeGoldId) {
+    prevGoldIdRef.current = activeGoldId;
+    setGoldTranslations(new Map());
   }
 
   useEffect(() => {
@@ -559,29 +567,42 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const uncachedTurns = transcript.filter(
     (t) => t.text && !translations.has(t.ts),
   );
+  const uncachedGoldItems = activeGold
+    ? goldAgentTurns
+        .map((text, idx) => ({ idx, text }))
+        .filter(({ idx }) => !goldTranslations.has(idx))
+    : [];
+  const hasUncached = uncachedTurns.length > 0 || uncachedGoldItems.length > 0;
 
   async function onTranslate() {
     // Self-guard against re-entry, mirroring evaluate / runActiveCase.
     // Both translate buttons are disabled while in flight, but that's React
     // state (stale within a tick); this keeps the invariant on the handler.
     if (translating) return;
-    if (uncachedTurns.length === 0 && showTranslated) {
+    if (!hasUncached && showTranslated) {
       setShowTranslated(false);
       return;
     }
     setTranslating(true);
     setTranslateError(null);
     try {
-      if (uncachedTurns.length > 0) {
-        const result = await translateBatchToEnglish(
-          uncachedTurns.map((t) => ({ id: String(t.ts), text: t.text })),
-          googleApiKey,
-          defaultModel,
-        );
+      if (hasUncached) {
+        const items = [
+          ...uncachedTurns.map((t) => ({ id: String(t.ts), text: t.text })),
+          ...uncachedGoldItems.map(({ idx, text }) => ({ id: `gold:${idx}`, text })),
+        ];
+        const result = await translateBatchToEnglish(items, googleApiKey, defaultModel);
         setTranslations((prev) => {
           const next = new Map(prev);
           for (const [id, eng] of Object.entries(result)) {
-            next.set(Number(id), eng);
+            if (!id.startsWith("gold:")) next.set(Number(id), eng);
+          }
+          return next;
+        });
+        setGoldTranslations((prev) => {
+          const next = new Map(prev);
+          for (const [id, eng] of Object.entries(result)) {
+            if (id.startsWith("gold:")) next.set(Number(id.slice(5)), eng);
           }
           return next;
         });
@@ -596,7 +617,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
 
   const translateLabel = translating
     ? "…"
-    : showTranslated && uncachedTurns.length === 0
+    : showTranslated && !hasUncached
       ? "show original"
       : "translate";
   const translateVisible = !!googleApiKey && transcript.some((t) => t.text);
@@ -831,7 +852,13 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
                 displayText={showTranslated ? translations.get(t.ts) : undefined}
                 onFork={mode === "text" ? onForkTurn : undefined}
               />
-              {goldRef && <GoldTurnRef goldText={goldRef.text} liveText={t.text} verdict={goldRef.verdict} />}
+              {goldRef && (
+                <GoldTurnRef
+                  goldText={goldRef.text}
+                  displayText={showTranslated ? goldTranslations.get((agentIndex ?? 0) - 1) : undefined}
+                  verdict={goldRef.verdict}
+                />
+              )}
               {turnVerdicts.map((row, ri) => {
                 const v = row.verdict;
                 const pending = v?.verdict === "pending" || !v;
@@ -1221,45 +1248,40 @@ function ActiveGoldStrip({
 // verdict. undefined goldText = the agent ran past the gold's last turn.
 function GoldTurnRef({
   goldText,
-  liveText,
+  displayText,
   verdict,
 }: {
   goldText: string | undefined;
-  liveText: string;
+  displayText?: string;
   verdict: GoldTurnVerdict | "pending" | null;
 }) {
   if (goldText === undefined) {
     return (
       <div className="ml-6 text-[10px] text-zinc-400">
-        <span className="font-mono">•</span> past gold — no reference turn
+        <span className="font-mono">·</span> past gold — no reference turn
       </div>
     );
   }
-  const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
-  const exact = norm(goldText) === norm(liveText);
 
-  let marker: React.ReactNode;
+  let dot: React.ReactNode;
   let note: React.ReactNode = null;
-  if (exact) {
-    marker = <span className="font-mono text-emerald-600">≈</span>;
-  } else if (verdict === "pending") {
-    marker = <span className="font-mono text-amber-400">≠</span>;
-    note = <span className="ml-1 text-zinc-400 italic">judging…</span>;
+  if (verdict === "pending") {
+    dot = <span className="font-mono text-zinc-400">·</span>;
+    note = <span className="italic text-zinc-400">judging…</span>;
   } else if (verdict?.equivalent) {
-    marker = <span className="font-mono text-emerald-500">≠</span>;
-    note = <span className="ml-1 text-zinc-500">{verdict.note}</span>;
+    dot = <span className="font-mono text-emerald-500">✓</span>;
+    note = <span className="text-zinc-500">{verdict.note}</span>;
   } else if (verdict) {
-    marker = <span className="font-mono text-red-500 font-bold">≠</span>;
-    note = <span className="ml-1 text-red-400">{verdict.note}</span>;
+    dot = <span className="font-mono text-red-500">✗</span>;
+    note = <span className="text-red-400">{verdict.note}</span>;
   } else {
-    marker = <span className="font-mono text-amber-600">≠</span>;
+    dot = <span className="font-mono text-zinc-400">·</span>;
   }
 
   return (
     <div className="ml-6 text-[10px] leading-snug">
-      {marker}{" "}
-      <span className="uppercase tracking-wide text-zinc-400">gold</span>{" "}
-      <span className="whitespace-pre-wrap text-zinc-500">{goldText}</span>
+      {dot}{" "}
+      <span className="whitespace-pre-wrap text-zinc-500">{displayText ?? goldText}</span>
       {note && <div className="mt-0.5 ml-3">{note}</div>}
     </div>
   );
