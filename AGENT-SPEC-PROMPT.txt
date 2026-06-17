@@ -189,6 +189,10 @@ Condition expressions:
   ("`{verified}` is true").
 - For `method: "calculation"`, variables appear bare in expressions
   (`verified == True`, `loan_amount > 50000`).
+- Default to plain intent. Only when a specific input is reliably
+  misread (e.g. a relative date like "कल" not counted as a date) add
+  one or two illustrative cues — `... (e.g. "कल")`, never an exhaustive
+  list.
 
 Conditions are exactly two fields: `expression` and `method`. For
 an exit that should fire after every turn (e.g. "after the user
@@ -213,19 +217,16 @@ TURN BUDGETS
 When the source caps how many times the agent retries before giving
 up — "after 3 failed verification attempts, escalate to a human",
 "ask for the date up to twice, then move on", "if they don't confirm
-after two tries, end the call" — model the cap as a dedicated exit
-with `max_turns: <N>` and no `condition`. The runtime counts agent
-turns spent in the flow and fires this exit deterministically once
-the budget is reached; its `goto` is the escape target (the
-human-handoff flow, the next flow, END). `max_turns` and `condition`
-are mutually exclusive on the same exit — express "retry until X OR
-budget runs out" as two sibling exits: the conditional one (the
-success/branch case) listed first, the `max_turns` budget-fallback
-last. Only emit `max_turns` when the source states an actual numeric
-cap; do NOT synthesize a budget for a flow the source lets retry
-indefinitely. Don't model a cap as an `llm` condition like "the
-customer has failed several times" — the runtime LLM can't reliably
-count turns, which is the whole reason the budget exists.
+after two tries, end the call" — write the cap into the flow's
+`instructions` as an explicit step-by-step count the model can follow
+turn to turn: e.g. "If there is no response, re-ask once with
+different wording; if there is still no response, thank them and end."
+Name the exact (small) number and the action at each step — vague
+phrasings like "after several attempts" fail, because the model has to
+track the count itself from the conversation so far. Keep budgets
+small (one or two retries) — these are short voice interactions. Pair
+the give-up step with an exit to its escape target (the human-handoff
+flow, the next flow, or END); a plain re-ask just stays in the flow.
 
 Assigns: `assigns[var]` is exactly two fields, `method` and `value`.
 `value` is required, interpreted by `method`:
