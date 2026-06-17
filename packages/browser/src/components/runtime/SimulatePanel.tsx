@@ -155,7 +155,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const availableLanguages = spec?.agent.meta.languages ?? [];
   const language = useSimulateStore((s) => s.language);
   const setLanguage = useSimulateStore((s) => s.setLanguage);
-  const hasCapabilities = (spec?.agent.capabilities?.length ?? 0) > 0;
 
   // Default is undefined ("auto"): the prompt renders in the default language
   // and voice auto-detects, following the caller per turn. Reset to auto when
@@ -1709,12 +1708,14 @@ function TurnView({
     );
   }
 
-  // The runner emits exit_path_taken / flow_exited after the agent's utterance,
-  // when routing for the next turn is decided. Use the first one as the boundary:
-  // events before it set up the utterance, events from it on describe routing.
-  let splitIdx = events.findIndex(
-    (ev) => ev.type === "exit_path_taken" || ev.type === "flow_exited",
-  );
+  // The runner emits exit_path_taken after the agent's utterance, when routing
+  // for the next turn is decided. Use the first one as the boundary: events
+  // before it set up the utterance, events from it on describe routing.
+  // Key on exit_path_taken only — it covers transition and terminal routing
+  // both (to_flow_id is null for terminal). flow_exited also fires for
+  // reason="interrupted"/"returned", which are mid-turn stack pops, not
+  // next-turn routing; splitting on those would mis-group an interrupt turn.
+  let splitIdx = events.findIndex((ev) => ev.type === "exit_path_taken");
   if (splitIdx < 0) splitIdx = events.length;
   const preEvents = events.slice(0, splitIdx);
   const postEvents = events.slice(splitIdx);
