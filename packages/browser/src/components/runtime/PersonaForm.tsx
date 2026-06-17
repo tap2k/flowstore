@@ -84,7 +84,10 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
   };
   const personaHasKey = hasKeyForModel(model);
   // ASR shaping only makes sense for a voice/multimodal agent (a text agent
-  // never sees raw transcription); gate the control on it.
+  // never sees raw transcription); gate the control on it. These are persona
+  // traits, not sim-mode controls — the value is saved on the persona and read
+  // by the seeded Python harness too, so it's always editable; only the live
+  // interactive effect is Text-mode only (see asrShape gate in autoStep).
   const voiceAgent =
     spec.agent.meta.modality === "voice" || spec.agent.meta.modality === "multimodal";
 
@@ -546,7 +549,7 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
                   onChange={(e) =>
                     setTrait("asr", e.target.value === "off" ? undefined : e.target.value)
                   }
-                  title="ASR shaping (persona trait): an unintelligible caller — garble this persona's turns like raw transcription (lowercase, no punctuation, fillers/false-starts) before they reach the agent. Saved on the persona; read by the harness too."
+                  title="ASR shaping (persona trait): an unintelligible caller — garble this persona's turns like raw transcription (lowercase, no punctuation, fillers/false-starts) before they reach the agent. Saved on the persona; the seeded harness reads it too. Live effect is Text-mode only."
                   className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
                 >
                   <option value="off">asr: off</option>
@@ -559,7 +562,7 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
                   onChange={(e) =>
                     setTrait("barge_in", Number(e.target.value) || undefined)
                   }
-                  title="Barge-in (persona trait): an impatient caller — how often they cut the agent off mid-reply (trims the prior agent turn before the persona responds). Saved on the persona; read by the harness too. Text/prompt mode only."
+                  title="Barge-in (persona trait): an impatient caller — how often they cut the agent off mid-reply (trims the prior agent turn before the persona responds). Saved on the persona; the seeded harness reads it too. Live effect is Text-mode only."
                   className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
                 >
                   <option value="0">barge: off</option>

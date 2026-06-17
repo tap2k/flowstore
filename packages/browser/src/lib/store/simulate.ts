@@ -781,13 +781,16 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         // persona), so the same level also drives the Python harness. Gate to a
         // known level (same as the harness) so a hand-edited junk value is a
         // no-op rather than mis-shaping. Non-seeded — see asrShape.ts.
+        // Text/prompt mode only, matching barge-in above: against the runner the
+        // Python harness owns the seeded asr_shape, so browser shaping would
+        // double-garble and diverge from the reproducible path.
         const asr = get().personaTraits?.asr;
         const asrLevel: AsrLevel =
           asr === "clean" || asr === "light" || asr === "heavy" ? asr : "off";
         const meta = get().specSnapshot?.agent.meta;
         const voiceish = meta?.modality === "voice" || meta?.modality === "multimodal";
         const toSend =
-          voiceish && asrLevel !== "off"
+          get().mode === "text" && voiceish && asrLevel !== "off"
             ? asrShape(cleaned, asrLevel, get().language ?? meta?.languages?.[0] ?? "EN")
             : cleaned;
         // Delegate to send() so the user turn goes through the same path
