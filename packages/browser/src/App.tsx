@@ -188,7 +188,7 @@ export function App() {
                   Run
                 </button>
               )}
-              {githubLocation && !historyOpen && (
+              {import.meta.env.VITE_DEV === "1" && githubLocation && !historyOpen && (
                 <button
                   onClick={() => setHistoryOpen(true)}
                   title="Revision history"
