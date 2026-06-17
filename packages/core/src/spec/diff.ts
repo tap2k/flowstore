@@ -642,3 +642,71 @@ function fmtVal(v: unknown): string {
 function countStr(c: ChangeCount): string {
   return `+${c.added} ~${c.changed} -${c.removed}`;
 }
+
+// Produce a ≤72-char git commit subject from a SpecDiff.
+// Names changed flows/entities when there are ≤2; falls back to counts.
+export function summarizeSpecDiff(diff: SpecDiff): string {
+  if (diff.empty) return "Update spec";
+
+  const parts: string[] = [];
+
+  const fa = diff.flows.filter((d) => d.kind === "added");
+  const fr = diff.flows.filter((d) => d.kind === "removed");
+  const fc = diff.flows.filter((d) => d.kind === "changed");
+
+  if (fa.length === 1) parts.push(`add flow "${fa[0].ref.name}"`);
+  else if (fa.length > 1) parts.push(`add ${fa.length} flows`);
+
+  if (fr.length === 1) parts.push(`remove flow "${fr[0].ref.name}"`);
+  else if (fr.length > 1) parts.push(`remove ${fr.length} flows`);
+
+  if (fc.length === 1) parts.push(`update flow "${fc[0].ref.name}"`);
+  else if (fc.length > 1) parts.push(`update ${fc.length} flows`);
+
+  if (diff.agent) {
+    const fields = diff.agent.fields?.map((f) => f.field) ?? [];
+    if (fields.includes("name")) parts.push("rename agent");
+    if (fields.includes("system_prompt")) parts.push("update system prompt");
+
+    if (diff.agent.children) {
+      const byType = new Map<string, { added: number; removed: number; changed: number; first: EntityDiff }>();
+      for (const c of diff.agent.children) {
+        const entry = byType.get(c.entity);
+        if (entry) {
+          if (c.kind === "added") entry.added++;
+          else if (c.kind === "removed") entry.removed++;
+          else entry.changed++;
+        } else {
+          byType.set(c.entity, {
+            added: c.kind === "added" ? 1 : 0,
+            removed: c.kind === "removed" ? 1 : 0,
+            changed: c.kind === "changed" ? 1 : 0,
+            first: c,
+          });
+        }
+      }
+      for (const [type, counts] of byType) {
+        const total = counts.added + counts.removed + counts.changed;
+        const label = type.replace(/_/g, " ");
+        if (total === 1) {
+          const verb = counts.added ? "add" : counts.removed ? "remove" : "update";
+          parts.push(`${verb} ${label} "${counts.first.ref.name}"`);
+        } else {
+          const verb = counts.added && !counts.removed && !counts.changed ? "add"
+            : counts.removed && !counts.added && !counts.changed ? "remove"
+            : "update";
+          parts.push(`${verb} ${total} ${label}s`);
+        }
+      }
+    }
+  }
+
+  if (parts.length === 0) return "Update spec";
+
+  const subject = ucfirst(parts[0]) + (parts.length > 1 ? "; " + parts.slice(1).join("; ") : "");
+  return subject.length <= 72 ? subject : subject.slice(0, 69) + "…";
+}
+
+function ucfirst(s: string): string {
+  return s ? s[0].toUpperCase() + s.slice(1) : s;
+}

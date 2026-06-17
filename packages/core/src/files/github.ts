@@ -288,6 +288,30 @@ export async function readRepoAtTree(
   return { files, commitSha, treeSha };
 }
 
+export interface RevisionRow {
+  sha: string;
+  shortSha: string;
+  message: string;
+  author: string;
+  date: string | null;
+}
+
+export async function listCommits(loc: GitHubLocation, perPage = 30): Promise<RevisionRow[]> {
+  const res = await loc.client.rest.repos.listCommits({
+    owner: loc.owner,
+    repo: loc.repo,
+    sha: loc.ref,
+    per_page: perPage,
+  });
+  return res.data.map((c) => ({
+    sha: c.sha,
+    shortSha: c.sha.slice(0, 7),
+    message: c.commit.message.split("\n")[0],
+    author: c.author?.login ?? c.commit.author?.name ?? "unknown",
+    date: c.commit.author?.date ?? null,
+  }));
+}
+
 // Atomic multi-file commit via the Git Data API. base_tree inherits any
 // untracked supplementary files (docs/, assets/, etc.) so they aren't dropped.
 // If expectedCommitSha is passed and the ref has advanced past it, throws
