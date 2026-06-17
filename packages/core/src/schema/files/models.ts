@@ -49,7 +49,7 @@ const CapabilityEndpoint = Type.Object(
 // dot-notation (e.g. "text", "data.message", "choices.0.content").
 // ended_path (optional) extracts a boolean from the response that signals
 // the session has ended (e.g. "endInteraction").
-// session_id strategy: "uuid" = generate a UUID client-side (default).
+// Session IDs are always generated as UUID v4 client-side.
 const AgentEndpoint = Type.Object(
   {
     name: Type.Optional(Type.String()),
@@ -64,7 +64,6 @@ const AgentEndpoint = Type.Object(
     turn_headers: Type.Optional(Type.Record(Type.String(), Type.String())),
     response_text_path: Type.String(),
     ended_path: Type.Optional(Type.String()),
-    session_id: Type.Optional(Type.Literal("uuid")),
   },
   { additionalProperties: false },
 );
