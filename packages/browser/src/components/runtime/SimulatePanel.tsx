@@ -470,7 +470,9 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   }
 
   function stopActiveCase() {
-    if (!isRunning) return;
+    // isRunning covers scripted replay; autoRun covers the persona-driven loop
+    // (where isRunning has already flipped back to false). Either means "stop".
+    if (!isRunning && !useSimulateStore.getState().autoRun) return;
     stopRequestedRef.current = true;
     // Persona-driven cases run via the existing autoRun loop; the
     // canonical way to halt that loop is setAutoRun(false). For
@@ -719,7 +721,10 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       {activeCase && (
         <ActiveCaseStrip
           testCase={activeCase}
-          isRunning={isRunning}
+          // A persona-driven case runs via the store's autoRun loop, not the
+          // local isRunning flag (runActiveCase hands off and returns). Fold
+          // autoRun in so the strip shows ■ and its Stop works for that path.
+          isRunning={isRunning || (!!activeCase.persona_id && autoRun)}
           hasSession={hasSession}
           busy={busy}
           verdicts={verdicts}
@@ -817,7 +822,13 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
 
       {/* Persona owns the world: prompt + vars + per-cap mocks. Load
           picks the next run's persona; vars/mocks editors are inline. */}
-      {spec && <PersonaForm spec={spec} disabled={false} />}
+      {spec && (
+        <PersonaForm
+          spec={spec}
+          disabled={false}
+          hideRunControls={!!activeCase || !!activeGold}
+        />
+      )}
 
       <div ref={scrollRef} className="flex-1 overflow-auto p-3 space-y-3 text-sm">
         {!hasSession && status !== "starting" && (

@@ -27,9 +27,13 @@ import { MocksEditor } from "./persona/MocksEditor";
 interface PersonaFormProps {
   spec: Spec;
   disabled: boolean;
+  // When a case/gold is the active binding, that strip owns the run controls
+  // (▶/■/↻). Hide the persona's own run cluster so there's exactly one run
+  // control on screen; the persona editor (prompt/vars/mocks) stays visible.
+  hideRunControls?: boolean;
 }
 
-export function PersonaForm({ spec, disabled }: PersonaFormProps) {
+export function PersonaForm({ spec, disabled, hideRunControls = false }: PersonaFormProps) {
   const declaredVars = useMemo(() => collectDeclaredVariables(spec), [spec]);
   const mockableCaps = useMemo(() => collectMockableCapabilities(spec), [spec]);
 
@@ -45,6 +49,7 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
   const setPersonaTraits = useSimulateStore((s) => s.setPersonaTraits);
   const setAutoRun = useSimulateStore((s) => s.setAutoRun);
   const setPersonaTurnLimit = useSimulateStore((s) => s.setPersonaTurnLimit);
+  const reset = useSimulateStore((s) => s.reset);
 
   const contextVars = useSimulateStore((s) => s.contextVars);
   const setContextVar = useSimulateStore((s) => s.setContextVar);
@@ -106,6 +111,25 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
   const loadedPersona = loadedPersonaId
     ? personas.find((p) => p.id === loadedPersonaId) ?? null
     : null;
+
+  // The ▶/■/↻ button. Three intents, keyed off the state the glyph shows:
+  //   ■ running  → stop the loop.
+  //   ↻ ended    → genuine fresh session, then run. The ended transcript can
+  //                hold a trailing unsent [DONE] turn; resuming from it makes a
+  //                malformed history, so we reset() first (matches the tooltip).
+  //   ▶ idle/paused → seed or resume the loop in the current session. From a
+  //                cold idle the SimulatePanel effect bootstraps the session.
+  function onToggleRun() {
+    if (autoRun) {
+      setAutoRun(false);
+      return;
+    }
+    if (conversationEnded) {
+      void reset().then(() => setAutoRun(true));
+      return;
+    }
+    setAutoRun(true);
+  }
 
   // Adapt the runtime store shape into the editor's Behavior dict, keyed
   // by capability NAME (the runtime dimension). MocksEditor's keyOf
@@ -285,57 +309,58 @@ export function PersonaForm({ spec, disabled }: PersonaFormProps) {
             {configured ? "configured" : "empty"}
           </span>
         </button>
-        <div className="flex items-center gap-1">
-          <span className="text-[10px] text-zinc-500">Turns:</span>
-          <input
-            type="number"
-            min={1}
-            max={200}
-            value={personaTurnLimit}
-            onChange={(e) => setPersonaTurnLimit(parseInt(e.target.value, 10))}
-            disabled={disabled || autoRun || routeSynthesizing}
-            title="Hard cap on user turns. Stops the loop if the agent gets stuck."
-            className="w-10 rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
-          />
-          <button
-            type="button"
-            onClick={() => setAutoRun(!autoRun)}
-            disabled={!configured || !personaHasKey || mode === "voice" || routeSynthesizing}
-            title={
-              routeSynthesizing
-                ? "Synthesizing the persona — hold on."
-                : mode === "voice"
-                ? "Persona auto-run is text/runner only — voice is mic-driven."
-                : !personaHasKey
-                ? "Add an API key in Settings for the model the persona picker is set to."
-                : !configured
-                  ? "Write a persona system prompt to start."
-                  : autoRun
-                    ? "Stop the persona. An in-flight reply is dropped."
-                    : conversationEnded
-                      ? "Conversation ended. Click to restart the persona from a fresh session."
-                      : pausedMidRun
-                        ? "Paused (stopped or hit the turn limit). Click to run more turns."
-                        : "Start: persona runs for the configured number of turns, then pauses. Click again for more."
-            }
-            className={
-              autoRun
-                ? "rounded border border-red-300 bg-red-50 px-2 py-0.5 text-[11px] text-red-700 hover:bg-red-100 disabled:opacity-40"
-                : conversationEnded
-                  ? "rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"
+        {!hideRunControls && (
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-zinc-500">Turns:</span>
+            <input
+              type="number"
+              min={1}
+              max={200}
+              value={personaTurnLimit}
+              onChange={(e) => setPersonaTurnLimit(parseInt(e.target.value, 10))}
+              disabled={disabled || autoRun || routeSynthesizing}
+              title="Hard cap on user turns. Stops the loop if the agent gets stuck."
+              className="w-10 rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
+            />
+            <button
+              type="button"
+              onClick={onToggleRun}
+              disabled={!configured || !personaHasKey || mode === "voice" || routeSynthesizing}
+              aria-label={autoRun ? "Stop persona" : conversationEnded ? "Restart persona" : "Run persona"}
+              title={
+                routeSynthesizing
+                  ? "Synthesizing the persona — hold on."
+                  : mode === "voice"
+                  ? "Persona auto-run is text/runner only — voice is mic-driven."
+                  : !personaHasKey
+                  ? "Add an API key in Settings for the model the persona picker is set to."
+                  : !configured
+                    ? "Write a persona system prompt to start."
+                    : autoRun
+                      ? "Stop the persona loop. A reply already in flight finishes; the loop halts after."
+                      : conversationEnded
+                        ? "Conversation ended. Click to restart the persona in a fresh session."
+                        : pausedMidRun
+                          ? "Paused (stopped or hit the turn limit). Click to run more turns."
+                          : "Start: persona runs for the configured number of turns, then pauses. Click again for more."
+              }
+              className={
+                autoRun
+                  ? "rounded border border-red-300 bg-red-50 px-2 py-0.5 text-[11px] text-red-700 hover:bg-red-100 disabled:opacity-40"
                   : "rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-            }
-          >
-            {autoRun ? "■" : conversationEnded ? "✓" : "▶"}
-          </button>
-          {mode === "voice" ? null : autoRun ? (
-            <span className="text-[10px] text-zinc-400">· {personaTurnsLeft} left</span>
-          ) : conversationEnded ? (
-            <span className="text-[10px] text-emerald-600">· done</span>
-          ) : pausedMidRun ? (
-            <span className="text-[10px] text-amber-600">· paused</span>
-          ) : null}
-        </div>
+              }
+            >
+              {autoRun ? "■" : conversationEnded ? "↻" : "▶"}
+            </button>
+            {mode === "voice" ? null : autoRun ? (
+              <span className="text-[10px] text-zinc-400">· {personaTurnsLeft} left</span>
+            ) : conversationEnded ? (
+              <span className="text-[10px] text-emerald-600">· done</span>
+            ) : pausedMidRun ? (
+              <span className="text-[10px] text-amber-600">· paused</span>
+            ) : null}
+          </div>
+        )}
       </div>
 
       {open && (
