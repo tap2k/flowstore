@@ -13,7 +13,7 @@ interface ModelsState {
   removeCapabilityEndpoint: (name: string) => void;
 }
 
-const EMPTY: ResolvedModelsConfig = { models: {}, default: null, roles: {}, capabilityEndpoints: {} };
+const EMPTY: ResolvedModelsConfig = { models: {}, default: null, roles: {}, capabilityEndpoints: {}, agents: {} };
 
 export const useModelsStore = create<ModelsState>()((set, get) => ({
   config: null,

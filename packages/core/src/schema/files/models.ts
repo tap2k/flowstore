@@ -40,6 +40,35 @@ const CapabilityEndpoint = Type.Object(
   { additionalProperties: false },
 );
 
+// External agent endpoint — an opaque HTTP conversational agent that flowstore
+// drives by sending user turns and receiving agent replies. The agent handles
+// its own inference; flowstore only manages the conversation loop and evaluation.
+//
+// URL and body templates support {{session_id}} and {{input}} substitution.
+// response_text_path extracts the reply text from the JSON response using
+// dot-notation (e.g. "text", "data.message", "choices.0.content").
+// ended_path (optional) extracts a boolean from the response that signals
+// the session has ended (e.g. "endInteraction").
+// session_id strategy: "uuid" = generate a UUID client-side (default).
+const AgentEndpoint = Type.Object(
+  {
+    name: Type.Optional(Type.String()),
+    turn_url: Type.String(),
+    turn_method: Type.Optional(Type.Union([
+      Type.Literal("GET"),
+      Type.Literal("POST"),
+      Type.Literal("PUT"),
+      Type.Literal("PATCH"),
+    ])),
+    turn_body: Type.Optional(Type.Unknown()),
+    turn_headers: Type.Optional(Type.Record(Type.String(), Type.String())),
+    response_text_path: Type.String(),
+    ended_path: Type.Optional(Type.String()),
+    session_id: Type.Optional(Type.Literal("uuid")),
+  },
+  { additionalProperties: false },
+);
+
 // Roles are conventional but open-ended; agent/judge/user_simulation/authoring
 // cover the MVP plan's named roles, additional roles allowed by extension.
 const ModelsRoles = Type.Object(
@@ -64,6 +93,9 @@ export const ModelsFileSchema = Type.Object(
     // key as mock_returns). When set, simulation calls the real endpoint
     // instead of returning the static mock.
     capabilities: Type.Optional(Type.Record(Type.String(), CapabilityEndpoint)),
+    // Named external agent endpoints. When one is selected in the simulate
+    // panel, flowstore sends user turns to it instead of calling an LLM.
+    agents: Type.Optional(Type.Record(Type.String(), AgentEndpoint)),
   },
   { additionalProperties: false },
 );
@@ -72,3 +104,4 @@ export type ModelsFile = Static<typeof ModelsFileSchema>;
 export type ModelEntry = Static<typeof ModelEntry>;
 export type ModelsRoles = Static<typeof ModelsRoles>;
 export type CapabilityEndpoint = Static<typeof CapabilityEndpoint>;
+export type AgentEndpoint = Static<typeof AgentEndpoint>;

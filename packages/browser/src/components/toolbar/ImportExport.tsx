@@ -318,9 +318,11 @@ export function ImportExportToolbar({
         <button onClick={() => setOpenSheet("knowledge")} disabled={!spec} className={buttonClass}>
           Knowledge
         </button>
-        <button onClick={() => setOpenSheet("endpoints")} className={buttonClass}>
-          Endpoints
-        </button>
+        {import.meta.env.VITE_DEV === "1" && (
+          <button onClick={() => setOpenSheet("endpoints")} className={buttonClass}>
+            Endpoints
+          </button>
+        )}
 
         {/* Translations dropdown — CSV round-trip for translatable strings. */}
         <div ref={translationsAnchorRef} className="relative">

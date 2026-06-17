@@ -7,6 +7,11 @@ import {
   sendTurn as apiSendTurn,
   startSession as apiStartSession,
 } from "@flowstore/core/runtime/textClient";
+import {
+  sendAgentTurn,
+  generateSessionId,
+} from "@flowstore/core/runtime/httpAgentClient";
+import type { AgentEndpoint } from "@flowstore/core/files/models";
 import { sendPromptTurn, type CapabilityInvocation } from "@flowstore/core/runtime/promptClient";
 import { generatePersonaTurn } from "@flowstore/core/runtime/personaClient";
 import { generateRoutePersona } from "@flowstore/core/runtime/personaGen";
@@ -54,11 +59,12 @@ export type SimulateStatus =
 // "text" and "voice" are both browser-direct prompt mode (compiled monolith
 // system prompt, capability mocks, no Python runner) — they differ only in
 // transport (turn-based HTTP vs. a Gemini Live bidi audio socket). "runner"
-// drives the Python per-flow runtime. isPromptMode groups the two browser-
-// direct modes for the UI/state checks that apply to both.
-export type SimulateMode = "text" | "voice" | "runner";
+// drives the Python per-flow runtime. "external" drives an opaque HTTP
+// conversational agent (e.g. Awaaz, Rasa) via httpAgentClient.
+// isPromptMode groups the two browser-direct LLM modes.
+export type SimulateMode = "text" | "voice" | "runner" | "external";
 
-export const isPromptMode = (m: SimulateMode): boolean => m !== "runner";
+export const isPromptMode = (m: SimulateMode): boolean => m === "text" || m === "voice";
 
 // Elicits the agent's opener in prompt mode (Gemini requires at least one user content).
 // Filtered from transcript display and captured cases.
@@ -102,6 +108,8 @@ export interface StartArgs {
   // Only meaningful for the openai-compatible adapter (OpenRouter).
   baseUrl?: string;
   language?: string;
+  // External agent endpoint — required when mode === "external".
+  agentEntry?: AgentEndpoint & { id: string };
 }
 
 interface SimulateState {
@@ -160,6 +168,10 @@ interface SimulateState {
   // undefined = "auto" (default language, voice auto-detects). A code pins scripts/FAQ and
   // hints voice transcription. Lifted from SimulatePanel so "Open in Sim" can override the picker.
   language: string | undefined;
+
+  // Active external agent endpoint (set when mode === "external"). Stored so
+  // send() can call it without re-resolving from the models store each turn.
+  agentEntry: (AgentEndpoint & { id: string }) | null;
 
   // Transcript evaluation results, in store so ChatPanel can read without recomputing.
   // All cleared on start/reset/send/fork; rubricVerdicts uses "pending" while in-flight.
@@ -323,6 +335,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   activeCaseId: loadActiveCaseId(),
   activeGoldId: null,
   language: undefined,
+  agentEntry: null,
   guardrailVerdict: null,
   rubricVerdicts: {},
   goldTurnVerdicts: null,
@@ -801,7 +814,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   },
 
   start: async (args) => {
-    const { mode, spec, apiKey, model, provider, baseUrl, language } = args;
+    const { mode, spec, apiKey, model, provider, baseUrl, language, agentEntry } = args;
     const { contextVars, mockReturns } = get();
     // Ship only the session-start payload (`provided`-declared keys) — the
     // rest of the vars buffer is character sheet, which the agent must earn
@@ -829,6 +842,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       error: null,
       sessionId: null,
       baseUrl: baseUrl ?? null,
+      agentEntry: agentEntry ?? null,
       systemPrompt: null,
       specSnapshot: null,
       lastUsage: null,
@@ -979,6 +993,37 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       return;
     }
 
+    if (mode === "external") {
+      if (!agentEntry) {
+        set({ status: "error", error: "No external agent endpoint configured." });
+        return;
+      }
+      try {
+        const sessionId = generateSessionId();
+        set({ sessionId, specSnapshot: spec, status: "starting" });
+        if (spec.agent.chatbot_initiates) {
+          const t0 = performance.now();
+          const res = await sendAgentTurn(agentEntry, sessionId, "");
+          const latencyMs = Math.round(performance.now() - t0);
+          set({
+            transcript: [{
+              role: "agent",
+              text: res.text,
+              ts: Date.now(),
+              events: [],
+              latencyMs,
+            }],
+            status: res.ended ? "ended" : "ready",
+          });
+        } else {
+          set({ status: "ready" });
+        }
+      } catch (e) {
+        set({ status: "error", error: e instanceof Error ? e.message : "Failed to start external agent session." });
+      }
+      return;
+    }
+
     if (!baseUrl) {
       set({ status: "error", error: "Runner URL is required for runner mode." });
       return;
@@ -1042,6 +1087,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       mode,
       sessionId,
       baseUrl,
+      agentEntry,
       status,
       transcript,
       events,
@@ -1144,6 +1190,32 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           error: e instanceof Error ? e.message : "Turn failed.",
           autoRun: false,
         });
+      }
+      return;
+    }
+
+    if (mode === "external") {
+      if (!agentEntry) return;
+      try {
+        const t0 = performance.now();
+        const res = await sendAgentTurn(agentEntry, sessionId, trimmed);
+        if (get().sessionId !== sessionId) return;
+        const latencyMs = Math.round(performance.now() - t0);
+        const agentTurn: TranscriptTurn = {
+          role: "agent",
+          text: res.text,
+          ts: Date.now(),
+          events: [],
+          latencyMs,
+        };
+        set({
+          transcript: [...get().transcript, agentTurn],
+          status: res.ended ? "ended" : "ready",
+          ...(res.ended ? { autoRun: false } : {}),
+        });
+      } catch (e) {
+        if (get().sessionId !== sessionId) return;
+        set({ transcript, status: "error", error: e instanceof Error ? e.message : "Turn failed.", autoRun: false });
       }
       return;
     }

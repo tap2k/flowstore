@@ -1,6 +1,6 @@
-import type { ModelsFile, ModelEntry, ModelsRoles, CapabilityEndpoint } from "@flowstore/core/schema/files/models";
+import type { ModelsFile, ModelEntry, ModelsRoles, CapabilityEndpoint, AgentEndpoint } from "@flowstore/core/schema/files/models";
 import { ModelsFileSchema } from "@flowstore/core/schema/files/models";
-export type { CapabilityEndpoint, ModelEntry } from "@flowstore/core/schema/files/models";
+export type { CapabilityEndpoint, ModelEntry, AgentEndpoint } from "@flowstore/core/schema/files/models";
 import { validateFile, formatErrors } from "@flowstore/core/validation/ajv";
 import type { FileMap, LoadError } from "./types";
 
@@ -11,6 +11,7 @@ export interface ResolvedModelsConfig {
   default: string | null;
   roles: ModelsRoles;
   capabilityEndpoints: Record<string, CapabilityEndpoint>;
+  agents: Record<string, AgentEndpoint>;
 }
 
 export type ModelRole = "agent" | "judge" | "user_simulation" | "authoring";
@@ -35,6 +36,7 @@ export type EndpointId =
 // friendly handle; model_id (when set) is the wire id sent to the API.
 export const BUILT_IN_MODELS: ResolvedModelsConfig = {
   capabilityEndpoints: {},
+  agents: {},
   models: {
     // Google
     "gemini-3.5-flash":         { name: "Gemini 3.5 Flash", endpoint: "google" },
@@ -149,6 +151,7 @@ export function loadModelsConfig(
     default: parsed.default ?? null,
     roles: parsed.roles ?? {},
     capabilityEndpoints: parsed.capabilities ?? {},
+    agents: parsed.agents ?? {},
   };
 }
 
@@ -165,7 +168,8 @@ export function decomposeModelsConfig(config: ResolvedModelsConfig | null): File
   const hasCaps = Object.keys(config.capabilityEndpoints).length > 0;
   const hasDefault = !!config.default;
   const hasRoles = Object.keys(config.roles).length > 0;
-  if (!hasModels && !hasCaps && !hasDefault && !hasRoles) return {};
+  const hasAgents = Object.keys(config.agents).length > 0;
+  if (!hasModels && !hasCaps && !hasDefault && !hasRoles && !hasAgents) return {};
 
   // Strip api_key from each entry before serializing.
   const models: Record<string, ModelEntry> = {};
@@ -181,6 +185,7 @@ export function decomposeModelsConfig(config: ResolvedModelsConfig | null): File
     ...(config.default ? { default: config.default } : {}),
     ...(Object.keys(config.roles).length ? { roles: config.roles } : {}),
     ...(hasCaps ? { capabilities: config.capabilityEndpoints } : {}),
+    ...(hasAgents ? { agents: config.agents } : {}),
   };
   return { [MODELS_FILE]: JSON.stringify(file, null, 2) };
 }

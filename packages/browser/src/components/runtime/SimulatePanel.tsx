@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSpecStore, type Selection } from "@/lib/store/spec";
 import type { Spec } from "@flowstore/core/schema/v0";
 import { DEFAULT_MODEL_ID, resolveDispatch, useSettingsStore } from "@/lib/store/settings";
+import { useModelsStore } from "@/lib/store/models";
 import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
 import {
   isPromptMode,
@@ -30,6 +31,10 @@ import { judgeRubric, type RubricVerdict } from "@flowstore/core/runtime/judgeRu
 import { judgeGuardrails, type GuardrailVerdict } from "@flowstore/core/runtime/judgeGuardrails";
 import { judgeGoldTurn, type GoldTurnVerdict } from "@flowstore/core/runtime/judgeGoldTurn";
 import type { Rubric } from "@flowstore/core/schema/files/rubric";
+import type { AgentEndpoint } from "@flowstore/core/files/models";
+
+// Stable empty fallback so Zustand selector never returns a new {} reference.
+const NO_AGENTS: Record<string, AgentEndpoint> = {};
 
 interface SimulatePanelProps {
   open: boolean;
@@ -42,6 +47,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const agentModel = useSettingsStore((s) => s.simulateAgentModel);
   const voiceModel = useSettingsStore((s) => s.simulateVoiceModel);
   const setSimulateVoiceModel = useSettingsStore((s) => s.setSimulateVoiceModel);
+  const configuredAgents = useModelsStore((s) => s.config?.agents ?? NO_AGENTS);
   // The agent model is provider-locked to Gemini Live in voice mode; the two
   // pickers and their dispatch are kept separate (see settings.simulateVoiceModel).
   const model = mode === "voice" ? voiceModel : agentModel;
@@ -134,6 +140,9 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
 
   const [input, setInput] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[] | null>(null);
+  // Tracks which external agent is selected (key in configuredAgents). Only
+  // meaningful when mode === "external".
+  const [selectedAgentId, setSelectedAgentId] = useState<string>(() => Object.keys(configuredAgents)[0] ?? "");
   const [translations, setTranslations] = useState<Map<number, string>>(new Map());
   const [goldTranslations, setGoldTranslations] = useState<Map<number, string>>(new Map());
   const [showTranslated, setShowTranslated] = useState(false);
@@ -235,16 +244,20 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       return;
     }
     setValidationErrors(null);
+    const selectedAgent = mode === "external"
+      ? Object.entries(configuredAgents).map(([id, ep]) => ({ id, ...ep })).find(
+          (a) => a.id === selectedAgentId
+        ) ?? null
+      : null;
     await start({
       mode,
       spec: current,
       apiKey,
-      // wireModel — what gets sent to the LLM API. Catalog key (model) and
-      // wire id differ when the entry sets model_id (Claude on OpenRouter).
       model: dispatch.wireModel,
       provider: dispatch.provider,
       baseUrl: mode === "runner" ? runnerUrl : dispatch.baseUrl,
       language,
+      agentEntry: selectedAgent ?? undefined,
     });
   }
 
@@ -728,15 +741,27 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       )}
       <div className="flex items-center gap-2 border-b border-zinc-200 px-4 py-1.5 text-[11px]">
         <select
-          value={mode}
-          onChange={(e) => setMode(e.target.value as SimulateMode)}
+          value={mode === "external" ? `external:${selectedAgentId}` : mode}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v.startsWith("external:")) {
+              const id = v.slice("external:".length);
+              setSelectedAgentId(id);
+              setMode("external");
+            } else {
+              setMode(v as SimulateMode);
+            }
+          }}
           disabled={hasSession}
-          title="Simulation mode. Text and Voice run browser-direct (prompt mode); Runner drives the Python runtime. Locked once a session is running."
+          title="Simulation mode. Text and Voice run browser-direct (prompt mode); Runner drives the Python runtime; External drives a configured agent endpoint. Locked once a session is running."
           className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
         >
           <option value="text">Text</option>
           <option value="voice">Voice</option>
           {runnerUrl && <option value="runner">Runner</option>}
+          {Object.entries(configuredAgents).map(([id, ep]) => (
+            <option key={id} value={`external:${id}`}>{ep.name ?? id}</option>
+          ))}
         </select>
         {mode === "voice" ? (
           <ModelPicker
@@ -747,7 +772,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             className="truncate rounded border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-900 hover:border-zinc-200 disabled:opacity-60 cursor-pointer disabled:cursor-default"
             voiceOnly
           />
-        ) : (
+        ) : mode !== "external" ? (
           <ModelPicker
             value={model}
             onChange={setSimulateAgentModel}
@@ -758,10 +783,9 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
                 : "Model the agent uses in prompt mode"
             }
             className="truncate rounded border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-900 hover:border-zinc-200 disabled:opacity-60 cursor-pointer disabled:cursor-default"
-            // Runner mode shows everything: the runner may have its own keys.
             showUnconfigured={mode === "runner"}
           />
-        )}
+        ) : null}
         {availableLanguages.length > 1 && (
           <select
             // "auto" (unpinned) compiles a multilingual prompt — every declared
