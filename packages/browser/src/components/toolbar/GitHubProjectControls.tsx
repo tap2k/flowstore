@@ -16,6 +16,8 @@ import { loadSpec } from "@/lib/store/loadSpec";
 import { useTestsStore } from "@/lib/store/tests";
 import { toSlug } from "@/lib/slug";
 import { useDirtyStore, markProjectBaseline } from "@/lib/store/dirty";
+import { useUiStore } from "@/lib/store/ui";
+import { diffSpecs, summarizeSpecDiff } from "@flowstore/core/spec/diff";
 
 const iconButtonClass =
   "rounded-md border border-zinc-200 p-1.5 text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 disabled:hover:bg-transparent";
@@ -78,6 +80,8 @@ export function GitHubProjectControls({
   const setLoaded = useGithubProjectStore((s) => s.setLoaded);
   const setCommitSha = useGithubProjectStore((s) => s.setCommitSha);
   const setCanWrite = useGithubProjectStore((s) => s.setCanWrite);
+
+  const setHistoryOpen = useUiStore((s) => s.setHistoryOpen);
 
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -160,13 +164,16 @@ export function GitHubProjectControls({
       const pendingForce = useGithubProjectStore.getState().pendingForceSave;
       const effectiveForce = force || pendingForce;
       const opts = effectiveForce ? {} : { expectedCommitSha: lastSha ?? undefined };
+      const savedSpec = useGithubProjectStore.getState().savedSpec;
+      const commitMessage = savedSpec ? summarizeSpecDiff(diffSpecs(savedSpec, spec)) : "Update spec";
       const res = await writeFileMapToRepo(
         { client, owner: location.owner, repo: location.repo, ref: location.ref },
         fileMap,
-        "Update spec from flowstore editor",
+        commitMessage,
         opts,
       );
       setCommitSha(res.commitSha);
+      useGithubProjectStore.getState().setSavedSpec(spec);
       // Single-shot flag: clear on first successful save so subsequent saves
       // resume normal optimistic concurrency (and surface real collaborator
       // conflicts).
@@ -216,6 +223,7 @@ export function GitHubProjectControls({
       }
       loadSpec(loaded, { testingArtifacts, comments, modelsConfig });
       setCommitSha(commitSha);
+      useGithubProjectStore.getState().setSavedSpec(loaded);
       // Refresh reloaded the spec from GitHub — local matches remote, so
       // re-baseline dirtiness to the just-loaded payload. Don't stamp
       // lastSavedAt; this wasn't a save.
@@ -449,6 +457,7 @@ export function GitHubProjectControls({
           onSubmit={doSaveToNewBranch}
         />
       )}
+
     </>
   );
 }

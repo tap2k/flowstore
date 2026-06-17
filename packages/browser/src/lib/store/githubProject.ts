@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { Spec } from "@flowstore/core/schema/v0";
 
 const STORAGE_KEY = "flowstore:github_project";
 
@@ -77,6 +78,11 @@ interface GithubProjectState {
   // 403 backstop (collaborator write succeeds but addCollaborator 403s).
   setCanAdmin: (canAdmin: boolean) => void;
   setPendingForceSave: (b: boolean) => void;
+  // In-memory snapshot of the spec at last open/save — used to generate
+  // a meaningful diff-based commit message without a GitHub round-trip.
+  // Not persisted (a full spec in localStorage would be large and stale).
+  savedSpec: Spec | null;
+  setSavedSpec: (spec: Spec | null) => void;
   clear: () => void;
 }
 
@@ -150,6 +156,8 @@ export const useGithubProjectStore = create<GithubProjectState>((set) => ({
   canWrite: initial.canWrite,
   canAdmin: initial.canAdmin,
   pendingForceSave: initial.pendingForceSave,
+  savedSpec: null,
+  setSavedSpec: (spec) => set({ savedSpec: spec }),
   setLoaded: (location, commitSha, canWrite = true, canAdmin = true) => {
     // setLoaded resets pendingForceSave by default — fresh project means
     // the flag's history doesn't apply. SaveToNewRepoModal then turns it
@@ -220,6 +228,6 @@ export const useGithubProjectStore = create<GithubProjectState>((set) => ({
   },
   clear: () => {
     persist(emptyPersisted());
-    set(emptyPersisted());
+    set({ ...emptyPersisted(), savedSpec: null });
   },
 }));

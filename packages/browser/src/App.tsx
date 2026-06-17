@@ -10,6 +10,7 @@ import { SystemPromptPanel } from "@/components/runtime/SystemPromptPanel";
 import { SaveToNewRepoModal } from "@/components/toolbar/SaveToNewRepoModal";
 import { ShareModal } from "@/components/toolbar/ShareModal";
 import { SpecChangesModal } from "@/components/toolbar/SpecChangesModal";
+import { HistoryPanel } from "@/components/toolbar/HistoryPanel";
 import { useSpecStore } from "@/lib/store/spec";
 import { useUiStore } from "@/lib/store/ui";
 import { useSettingsStore } from "@/lib/store/settings";
@@ -32,6 +33,8 @@ export function App() {
   const [chatOpen, setChatOpen] = useState(false);
   const simulateOpen = useUiStore((s) => s.simulateOpen);
   const setSimulateOpen = useUiStore((s) => s.setSimulateOpen);
+  const historyOpen = useUiStore((s) => s.historyOpen);
+  const setHistoryOpen = useUiStore((s) => s.setHistoryOpen);
   const [promptOpen, setPromptOpen] = useState(false);
   const [saveRepoOpen, setSaveRepoOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -185,6 +188,16 @@ export function App() {
                   Run
                 </button>
               )}
+              {githubLocation && !historyOpen && (
+                <button
+                  onClick={() => setHistoryOpen(true)}
+                  title="Revision history"
+                  className="flex items-center gap-1.5 rounded-full bg-white border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
+                >
+                  <HistoryIcon />
+                  History
+                </button>
+              )}
               {hasLlmKey && !chatOpen && (
                 <button
                   onClick={() => setChatOpen(true)}
@@ -208,6 +221,7 @@ export function App() {
               setSettingsOpen(true);
             }}
           />
+          <HistoryPanel open={historyOpen} onClose={() => setHistoryOpen(false)} />
           <ChatPanel
             open={chatOpen}
             onClose={() => setChatOpen(false)}
@@ -326,6 +340,15 @@ function SimulateIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <polygon points="5 3 19 12 5 21 5 3" />
+    </svg>
+  );
+}
+
+function HistoryIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
     </svg>
   );
 }

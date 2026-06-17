@@ -42,6 +42,9 @@ interface UiState {
   // so deep surfaces (the flow/edge inspectors' "Load in Sim") can open it.
   simulateOpen: boolean;
   setSimulateOpen: (open: boolean) => void;
+
+  historyOpen: boolean;
+  setHistoryOpen: (open: boolean) => void;
 }
 
 // Only openSimulateTab persists (under "flowstore:ui") — which Run-pill tab the
@@ -67,6 +70,9 @@ export const useUiStore = create<UiState>()(
 
       simulateOpen: false,
       setSimulateOpen: (open) => set({ simulateOpen: open }),
+
+      historyOpen: false,
+      setHistoryOpen: (open) => set({ historyOpen: open }),
     }),
     {
       name: "flowstore:ui",
