@@ -2,12 +2,21 @@ import { Type, type Static } from "@sinclair/typebox";
 
 // Per-model entry. `name` is a human label; `endpoint` names which provider
 // adapter dispatches calls — when absent, the loader infers from the model
-// id prefix (gpt*/o* → openai, claude* → openai-compatible-via-openrouter,
-// gemini* → google). `model_id` overrides the entry's key for the actual
-// API call (e.g. an entry keyed "claude-sonnet" could carry the wire id
-// "claude-sonnet-4-5"). `base_url` is used with `endpoint: openai-compatible`
-// to target a self-hosted or staging inference server (Ollama, vLLM, etc.).
-// `api_key` supplies the bearer token for that server; omit for keyless servers.
+// id prefix (gemini* → google, gpt*/o-series → openai, anthropic/* →
+// openrouter); ids that don't match (bare claude-*, grok-*, llama-*) need an
+// explicit `endpoint`. See `resolveEndpoint` for the authoritative rule.
+// `model_id` overrides the entry's key for the actual API call (e.g. an entry
+// keyed "claude-sonnet" could carry the wire id "claude-sonnet-4-5").
+// `base_url` is used with `endpoint: openai-compatible` to target a
+// self-hosted or staging inference server (Ollama, vLLM, etc.). `api_key`
+// supplies the bearer token for that server; omit for keyless servers — it is
+// a secret and is stripped before the config is committed (see
+// decomposeModelsConfig).
+//
+// Open shape (additionalProperties: true): unknown keys are tolerated so a
+// provider-specific knob or a forward-version field doesn't reject the whole
+// file. Contrast the endpoint types below, which flowstore fully consumes and
+// so keeps closed.
 const ModelEntry = Type.Object(
   {
     name: Type.Optional(Type.String()),
@@ -26,6 +35,13 @@ const ModelEntry = Type.Object(
 // Live HTTP endpoint for a named capability. When configured, simulation
 // POSTs the LLM's tool-call args to `url` as JSON and uses the response
 // body as the capability result instead of the static mock.
+//
+// `headers` is the auth channel (Authorization, x-api-key, …); it is treated
+// as a secret and stripped before the config is committed (see
+// decomposeModelsConfig), so it is session-only — re-entered, never written to
+// the project file. Closed shape (additionalProperties: false): flowstore is
+// the sole consumer of these fields, so an unknown key is a typo to catch, not
+// an extension point — unlike ModelEntry above.
 const CapabilityEndpoint = Type.Object(
   {
     url: Type.String(),
@@ -50,6 +66,13 @@ const CapabilityEndpoint = Type.Object(
 // ended_path (optional) extracts a boolean from the response that signals
 // the session has ended (e.g. "endInteraction").
 // Session IDs are always generated as UUID v4 client-side.
+//
+// `turn_headers` is the auth channel and is treated as a secret: stripped
+// before the config is committed (see decomposeModelsConfig), so it is
+// session-only and never written to the project file. Closed shape
+// (additionalProperties: false) for the same reason as CapabilityEndpoint —
+// flowstore fully owns this contract, so an unknown key is a typo, not an
+// extension point.
 const AgentEndpoint = Type.Object(
   {
     name: Type.Optional(Type.String()),

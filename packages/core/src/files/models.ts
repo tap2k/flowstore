@@ -85,12 +85,13 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
 };
 
 
-// Endpoint resolution: explicit on the entry wins; otherwise infer from id
-// prefix for the unambiguous cases (gemini → google, gpt/o-series →
-// openai, anthropic/ prefix → openrouter, meta-llama/ prefix → deepinfra).
-// Bare claude-/grok-/llama- model ids stay unresolved on purpose; the same
-// model lives on multiple hosts and inference can't pick the right one.
-// Returns null when the entry needs explicit `endpoint` to dispatch.
+// Endpoint resolution: explicit on the entry wins (a known id dispatches to
+// that adapter; an unknown explicit id falls through to the openai-compatible
+// catchall). Otherwise infer from id prefix for the unambiguous cases (gemini
+// → google, gpt/o-series → openai, anthropic/ prefix → openrouter). Bare
+// claude-/grok-/llama- and meta-llama/ model ids stay unresolved on purpose:
+// the same model lives on multiple hosts and inference can't pick the right
+// one, so they need an explicit `endpoint`. Returns null when unresolvable.
 const KNOWN_ENDPOINTS: ReadonlySet<EndpointId> = new Set([
   "google",
   "openai",
@@ -155,13 +156,27 @@ export function loadModelsConfig(
   };
 }
 
-// Serializes the models config back to models/endpoints.json. api_key is
-// stripped — credentials are never committed to project files (they live in
-// the user's settings/localStorage). Returns {} when config is null or empty
-// so the file is omitted from the save payload rather than written as empty.
-// NOTE: because api_key is stripped here, typing a key into the UI does NOT
-// flip the dirty bit — key changes are invisible to dirty tracking. This is
-// intentional: keys aren't saved to GitHub so they shouldn't gate saves.
+// Drops named keys from an object — used to strip the credential-bearing
+// fields below before serializing.
+function omit<T extends object>(obj: T, ...keys: string[]): T {
+  const out = { ...obj } as Record<string, unknown>;
+  for (const k of keys) delete out[k];
+  return out as T;
+}
+
+// Serializes the models config back to models/endpoints.json. Every
+// credential-bearing field is stripped first — project files are committed to
+// GitHub and must never carry secrets (SCHEMA.md "Execution Separate From
+// Spec"). Three channels carry them, one per config shape:
+//   • ModelEntry.api_key          — bearer for an openai-compatible server
+//   • CapabilityEndpoint.headers  — Authorization / x-api-key on a live cap
+//   • AgentEndpoint.turn_headers  — Authorization / x-api-key on an external agent
+// All three live only in-memory for the session (re-entered each time), the
+// same as api_key always has. Returns {} when config is null or empty so the
+// file is omitted from the save payload rather than written as empty.
+// NOTE: because these are stripped here, editing a key or a header in the UI
+// does NOT flip the dirty bit — those changes are invisible to dirty tracking.
+// Intentional: secrets aren't saved to GitHub so they shouldn't gate saves.
 export function decomposeModelsConfig(config: ResolvedModelsConfig | null): FileMap {
   if (!config) return {};
   const hasModels = Object.keys(config.models).length > 0;
@@ -171,21 +186,23 @@ export function decomposeModelsConfig(config: ResolvedModelsConfig | null): File
   const hasAgents = Object.keys(config.agents).length > 0;
   if (!hasModels && !hasCaps && !hasDefault && !hasRoles && !hasAgents) return {};
 
-  // Strip api_key from each entry before serializing.
-  const models: Record<string, ModelEntry> = {};
-  for (const [id, entry] of Object.entries(config.models)) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { api_key: _stripped, ...rest } = entry as ModelEntry & { api_key?: string };
-    models[id] = rest as ModelEntry;
-  }
+  const models: Record<string, ModelEntry> = Object.fromEntries(
+    Object.entries(config.models).map(([id, e]) => [id, omit(e, "api_key")]),
+  );
+  const capabilities: Record<string, CapabilityEndpoint> = Object.fromEntries(
+    Object.entries(config.capabilityEndpoints).map(([n, e]) => [n, omit(e, "headers")]),
+  );
+  const agents: Record<string, AgentEndpoint> = Object.fromEntries(
+    Object.entries(config.agents).map(([n, e]) => [n, omit(e, "turn_headers")]),
+  );
 
   const file: ModelsFile = {
     $schema: "flowstore://spec/models/v0",
     ...(Object.keys(models).length ? { models } : {}),
     ...(config.default ? { default: config.default } : {}),
     ...(Object.keys(config.roles).length ? { roles: config.roles } : {}),
-    ...(hasCaps ? { capabilities: config.capabilityEndpoints } : {}),
-    ...(hasAgents ? { agents: config.agents } : {}),
+    ...(hasCaps ? { capabilities } : {}),
+    ...(hasAgents ? { agents } : {}),
   };
   return { [MODELS_FILE]: JSON.stringify(file, null, 2) };
 }

@@ -79,11 +79,26 @@ export async function sendAgentTurn(
   }
 
   const json = await res.json() as unknown;
-  const text = getPath(json, agent.response_text_path);
+  const raw = getPath(json, agent.response_text_path);
+  // A path that resolves to nothing is almost always a misconfigured
+  // response_text_path, not a genuine empty reply — surface it. Returning ""
+  // here would be indistinguishable from the agent going silent, and in
+  // persona auto-run an empty reply reads as "the agent ended the call",
+  // silently halting the loop on what is really a config error.
+  if (raw === undefined || raw === null) {
+    const shape = json && typeof json === "object"
+      ? `top-level keys: ${Object.keys(json as object).join(", ") || "none"}`
+      : `response was ${typeof json}`;
+    throw new Error(
+      `response_text_path "${agent.response_text_path}" matched nothing in the agent response (${shape})`,
+    );
+  }
+  // ended_path is optional per-turn — agents typically send it only on the
+  // final turn — so a missing signal correctly means "not ended".
   const ended = agent.ended_path ? Boolean(getPath(json, agent.ended_path)) : false;
 
   return {
-    text: typeof text === "string" ? text : String(text ?? ""),
+    text: typeof raw === "string" ? raw : String(raw),
     ended,
   };
 }

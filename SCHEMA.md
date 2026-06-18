@@ -83,6 +83,14 @@ The line is "does this travel with the spec across deployments?" — not "does t
 
 Model selection is **execution**, not spec: **each agent owns its model at its deployment/runtime layer**, never in the shared spec — so a spec stays model-agnostic and carries no model choice or credentials across deployments. The runtime is told which model to use at execution time: the reference runner reads a `FLOWSTORE_LLM_MODEL` env var plus an optional per-request `model` override, and the browser simulator keeps its model in local settings. Wire ids, API keys, endpoint URLs, region-specific routing, telephony / STT / TTS / voice / VAD config all belong to this execution layer too.
 
+The editor realizes this execution layer as a single project file, `models/endpoints.json` (TypeBox in [`packages/core/src/schema/files/models.ts`](./packages/core/src/schema/files/models.ts)), holding three kinds of execution config — none of which travels in the compiled spec:
+
+- **Custom models** (`models`) — project-specific or self-hosted inference entries (provider adapter, `base_url`, wire `model_id`) layered over the built-in catalog. `default` and `roles` pin which entry is used where.
+- **Live capability endpoints** (`capabilities`) — a real HTTP endpoint keyed by capability name; when set, simulation POSTs the LLM's tool-call args there and uses the response as the capability result instead of the static mock. The spec's `capabilities[]` declares *what* a capability is; this declares *where* it runs.
+- **External agent endpoints** (`agents`) — opaque HTTP conversational agents (e.g. Awaaz, Rasa) that do their own inference. Selecting one puts the simulator in **external mode**: flowstore sends user turns and reads replies, driving only the conversation loop and the *transcript-level* testing surface (personas, rubrics, golds, guardrail judging, transcript and per-turn assertions) against an agent it did not author. Because the agent is a black box, there is no observable variable bag or tool-call stream, so `state_assertions` and `capability_assertions` don't apply here (same limitation as prompt mode). The spec is **not** compiled or consulted in this mode — it is how you exercise a black-box agent with the same harness used for flowstore-authored ones.
+
+Secret-bearing fields in this file — model `api_key`, capability `headers`, agent `turn_headers` — are stripped before the project is committed and live only in the local session (re-entered each time). This is the concrete enforcement of "sharing or exporting a spec must not leak credentials."
+
 ---
 
 ## Three Methods

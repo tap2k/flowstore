@@ -266,7 +266,7 @@ function HeadersEditor({
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-zinc-500">headers</span>
+        <span className="text-[10px] text-zinc-500">headers (not saved to disk)</span>
         <button
           className="text-[10px] text-zinc-400 hover:text-zinc-700"
           onClick={() => onChange({ ...headers, "": "" })}
