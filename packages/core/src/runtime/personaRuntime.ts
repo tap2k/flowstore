@@ -41,6 +41,24 @@ export function resolveFixture(
   };
 }
 
+// Effective actor prompt for a case = persona base + case overlay, appended.
+// Symmetric with resolveFixture: where the case overlays the persona's vars and
+// mocks (case wins per key), the case's system_prompt overlays the persona's
+// prompt — but text has no keys, so the overlay is APPENDED, not merged. The
+// persona supplies the reusable actor; the case layers a per-scenario addendum
+// ("…for this call you're angry and in a hurry"). A persona-less case (inline
+// actor) resolves to just its own system_prompt — pass `undefined` for the
+// persona. A scripted case has no actor prompt and resolves to "".
+export function resolveActorPrompt(
+  persona: { system_prompt?: string } | undefined,
+  testCase: { system_prompt?: string },
+): string {
+  const base = (persona?.system_prompt ?? "").trim();
+  const overlay = (testCase.system_prompt ?? "").trim();
+  if (base && overlay) return `${base}\n\n${overlay}`;
+  return base || overlay;
+}
+
 // Fixture (vars + mocks keyed by capability id) → runtime simulate-store
 // shape (mockReturns/mockErrors keyed by capability NAME). Every capability in
 // the spec gets an entry in `errors` (null when unmocked) so callers can clear
