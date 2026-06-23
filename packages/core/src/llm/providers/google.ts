@@ -77,11 +77,51 @@ type GeminiResponseBody = {
   error?: { code?: number; message?: string; status?: string };
 };
 
+// Gemini occasionally returns a candidate with no parts and this finishReason
+// when its function-call decoding goes off the rails. It's stochastic (a
+// sampling failure, not a deterministic rejection of the input), so re-issuing
+// the identical request almost always succeeds. 2.5 Flash hits it frequently
+// when tools are in play, so we transparently retry rather than surface it.
+const MALFORMED_FN_CALL = "MALFORMED_FUNCTION_CALL";
+const MAX_MALFORMED_RETRIES = 3;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export async function callGoogle(
   apiKey: string,
   model: string,
   req: ChatRequest,
 ): Promise<ChatResponse> {
+  let lastReason = MALFORMED_FN_CALL;
+  for (let attempt = 0; attempt <= MAX_MALFORMED_RETRIES; attempt++) {
+    if (attempt > 0) await sleep(250 * attempt);
+    const candidate = await requestCandidate(apiKey, model, req);
+    // Empty parts + MALFORMED_FUNCTION_CALL: retry (the only retryable case).
+    // parseCandidate handles every other empty-parts reason (STOP → end_turn,
+    // MAX_TOKENS → hint, etc.) and real content.
+    const parts = candidate.content?.parts;
+    if ((!parts || parts.length === 0) && candidate.finishReason === MALFORMED_FN_CALL) {
+      lastReason = candidate.finishReason;
+      continue;
+    }
+    return parseCandidate(candidate, candidate._usage);
+  }
+  throw new Error(
+    `Gemini returned empty content (finishReason: ${lastReason}) after ${
+      MAX_MALFORMED_RETRIES + 1
+    } attempts — the model failed to emit a valid function call; try rephrasing or a different model`,
+  );
+}
+
+type ParsedCandidate = NonNullable<GeminiResponseBody["candidates"]>[number] & {
+  _usage: GeminiResponseBody["usageMetadata"];
+};
+
+async function requestCandidate(
+  apiKey: string,
+  model: string,
+  req: ChatRequest,
+): Promise<ParsedCandidate> {
   const body: GeminiRequestBody = {
     systemInstruction: req.systemPrompt.trim()
       ? { parts: [{ text: req.systemPrompt }] }
@@ -121,7 +161,7 @@ export async function callGoogle(
 
   const candidate = json.candidates?.[0];
   if (!candidate) throw new Error("Gemini returned no candidates");
-  return parseCandidate(candidate, json.usageMetadata);
+  return { ...candidate, _usage: json.usageMetadata };
 }
 
 function serializeMessages(messages: ChatMessage[]): GeminiContent[] {
