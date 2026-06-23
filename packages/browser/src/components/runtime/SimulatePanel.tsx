@@ -287,11 +287,19 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           // its text (barge-in truncation is a --voice harness concern).
           await send(typeof turn === "string" ? turn : turn.text);
         }
-      } else if (activeCase.persona_id) {
-        // Persona-driven: kick the existing autoRun loop. The persona
-        // prompt was already loaded into the buffer by Open in Sim ▶;
-        // we just enable autoRun and let the existing autoStep machinery
-        // play through.
+      } else if (activeCase.persona_id || activeCase.system_prompt) {
+        // Actor-driven (bound persona or inline system_prompt): kick the
+        // existing autoRun loop so autoStep generates the synthetic user
+        // turns. Open in Sim ▶ loads the simulated-user prompt into the
+        // buffer, but activeCaseId is persisted and can be restored
+        // without that hydration (e.g. after a reload). For an inline
+        // case the prompt *is* the case's own system_prompt, so load it
+        // straight from activeCase to make the run self-contained. A
+        // persona case needs persona resolution (handled by Open in Sim).
+        if (activeCase.system_prompt) {
+          useSimulateStore.getState().setPersonaPrompt(activeCase.system_prompt);
+          useSimulateStore.getState().setPersonaTraits(undefined);
+        }
         useSimulateStore.getState().setAutoRun(true);
         // For persona-driven runs we can't await completion here — the
         // loop is driven by an effect elsewhere. Skip rubric judging in
