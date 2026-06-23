@@ -12,19 +12,33 @@ import { generatePersonaContent } from "@flowstore/core/runtime/personaContentGe
 import { personaToRuntime } from "@flowstore/core/runtime/personaRuntime";
 import { VarsEditor } from "./persona/VarsEditor";
 import { MocksEditor } from "./persona/MocksEditor";
+import { TagChips, TagsField } from "./TagsUI";
 
 // Saved-persona library for the Run pill's Personas tab. Each row expands
-// inline to edit name + notes + system_prompt (the actor's voice) + the
-// character-INTRINSIC fixture (vars + mocks true of this character in every
-// test — situational fixture lives on the case instead). Personas are
-// file-backed (tests/personas/<id>.persona.json); save / delete mark the
-// project dirty and ride on the next GitHub Save.
+// inline to edit name + notes + tags + system_prompt (the actor's voice) +
+// the complete, standalone-runnable fixture (vars + mocks — character facts
+// plus a baseline situation, so the persona runs with no case; a case
+// overrides specific keys per scenario). Personas are file-backed
+// (tests/personas/<id>.persona.json); save / delete mark the project dirty
+// and ride on the next GitHub Save.
 
 export function PersonasPanel() {
   const personas = useTestsStore((s) => s.personas);
+  const cases = useTestsStore((s) => s.cases);
+  const golds = useTestsStore((s) => s.golds);
   const savePersona = useTestsStore((s) => s.savePersona);
   const deletePersona = useTestsStore((s) => s.deletePersona);
   const uniquePersonaId = useTestsStore((s) => s.uniquePersonaId);
+
+  // Shared tag vocabulary across the whole testing surface, so a persona can
+  // be filtered with the same labels as the cases/golds it sits beside.
+  const tagSuggestions = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of personas) for (const t of p.tags ?? []) set.add(t);
+    for (const c of cases) for (const t of c.tags ?? []) set.add(t);
+    for (const g of golds) for (const t of g.tags ?? []) set.add(t);
+    return Array.from(set).sort();
+  }, [personas, cases, golds]);
   const reset = useSimulateStore((s) => s.reset);
   const setPersonaPrompt = useSimulateStore((s) => s.setPersonaPrompt);
   const setPersonaTraits = useSimulateStore((s) => s.setPersonaTraits);
@@ -216,6 +230,7 @@ export function PersonasPanel() {
               <PersonaRow
                 key={p.id}
                 persona={p}
+                tagSuggestions={tagSuggestions}
                 expanded={selectedId === p.id}
                 onToggle={() => setSelectedId(selectedId === p.id ? null : p.id)}
                 onSave={(updated) => savePersona(updated)}
@@ -247,6 +262,7 @@ export function PersonasPanel() {
 
 interface PersonaRowProps {
   persona: Persona;
+  tagSuggestions: string[];
   expanded: boolean;
   onToggle: () => void;
   onSave: (p: Persona) => void;
@@ -257,6 +273,7 @@ interface PersonaRowProps {
 
 function PersonaRow({
   persona,
+  tagSuggestions,
   expanded,
   onToggle,
   onSave,
@@ -275,6 +292,7 @@ function PersonaRow({
   // expand, hydrate from the saved record. On Save, push to the store.
   const [name, setName] = useState(persona.name ?? "");
   const [notes, setNotes] = useState(persona.notes ?? "");
+  const [tags, setTags] = useState<string[]>(persona.tags ?? []);
   const [systemPrompt, setSystemPrompt] = useState(persona.system_prompt ?? "");
   const [vars, setVars] = useState<Record<string, unknown>>(persona.vars ?? {});
   const [mocks, setMocks] = useState<Record<string, MockBehavior>>(persona.mocks ?? {});
@@ -285,6 +303,7 @@ function PersonaRow({
     if (expanded) {
       setName(persona.name ?? "");
       setNotes(persona.notes ?? "");
+      setTags(persona.tags ?? []);
       setSystemPrompt(persona.system_prompt ?? "");
       setVars(persona.vars ?? {});
       setMocks(persona.mocks ?? {});
@@ -298,6 +317,7 @@ function PersonaRow({
   const dirty =
     name !== (persona.name ?? "") ||
     notes !== (persona.notes ?? "") ||
+    JSON.stringify(tags) !== JSON.stringify(persona.tags ?? []) ||
     systemPrompt !== (persona.system_prompt ?? "") ||
     JSON.stringify(vars) !== JSON.stringify(persona.vars ?? {}) ||
     JSON.stringify(mocks) !== JSON.stringify(persona.mocks ?? {});
@@ -310,6 +330,7 @@ function PersonaRow({
       ...(persona.model !== undefined ? { model: persona.model } : {}),
       ...(name.trim() ? { name: name.trim() } : {}),
       ...(notes.trim() ? { notes: notes.trim() } : {}),
+      ...(tags.length > 0 ? { tags } : {}),
       system_prompt: systemPrompt,
       ...(Object.keys(vars).length > 0 ? { vars } : {}),
       ...(Object.keys(mocks).length > 0 ? { mocks } : {}),
@@ -367,6 +388,7 @@ function PersonaRow({
           <div className="truncate font-mono text-[10px] text-zinc-500">
             {persona.id} | {varsCount} vars · {mocksCount} mocks
           </div>
+          <TagChips tags={persona.tags} />
         </div>
         <span className="ml-2 text-zinc-400">{expanded ? "▾" : "▸"}</span>
       </button>
@@ -403,6 +425,13 @@ function PersonaRow({
               className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400"
             />
           </div>
+
+          <TagsField
+            tags={tags}
+            suggestions={tagSuggestions}
+            listId={`persona-tags-${persona.id}`}
+            onChange={setTags}
+          />
 
           <div>
             <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
