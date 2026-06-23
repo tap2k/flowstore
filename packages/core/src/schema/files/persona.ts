@@ -67,6 +67,12 @@ export const PersonaSchema = Type.Object(
         Type.Union([Type.String(), Type.Number(), Type.Boolean()]),
       ),
     ),
+    // Suite-filter labels, symmetric with TestCase.tags. Colon-namespace
+    // convention ("lang:hi", "flow:<flow_id>"); bare tags for routing buckets
+    // ("negotiation", "cooperative"). Unvalidated annotation — not a coverage
+    // guarantee. Lets a persona be filtered the same way the cases that bind it
+    // are.
+    tags: Type.Optional(Type.Array(Type.String())),
   },
   { additionalProperties: false },
 );
