@@ -83,7 +83,7 @@ project/
 ├── comments/<uuid>.comment.json             # additive per-comment files; anchored to any entity
 ├── tests/
 │   ├── cases/<id>.test.json                 # one actor (user_turns | persona_id | system_prompt) + situational vars/mocks + evaluators
-│   ├── personas/<id>.persona.json           # reusable actor: required system_prompt + character-intrinsic vars/mocks
+│   ├── personas/<id>.persona.json           # reusable actor: required system_prompt + complete standalone-runnable vars/mocks (case overrides per scenario)
 │   ├── evaluators/<name>.py                 # deterministic Python evaluators
 │   ├── rubrics/<id>.rubric.json             # llm-judge evaluators (declarative)
 │   ├── gold/<id>.gold.json                  # verbatim reference transcripts; independent of cases
@@ -233,7 +233,7 @@ What `flowstore-init-project` writes. Every collection accepts either form; the 
 | `knowledge/glossary.json` | File (array) | Promote to `knowledge/glossary/<domain>.json` when terms span fields. |
 | `knowledge/tables/` | Directory (per-id `*.csv` + `*.meta.json`) | Stay in directory form (CSV affordance). |
 | `tests/cases/` | Directory (per-id `*.test.json`) | Stay in directory form; file form unwieldy. |
-| `tests/personas/` | Directory (per-id `*.persona.json`) | Collapse to file form if ≤3 small personas. A persona is a reusable actor: required `system_prompt` + the character-**intrinsic** `vars`/`mocks` (facts true of them in every test). Situational fixture lives on the case; a persona-bound case resolves to `persona ∪ case` (case wins). A scripted case carries its fixture inline rather than binding a persona for it. |
+| `tests/personas/` | Directory (per-id `*.persona.json`) | Collapse to file form if ≤3 small personas. A persona is a reusable actor: required `system_prompt` + a **complete, standalone-runnable** `vars`/`mocks` fixture (character facts + a baseline situation, so it runs with no case). A case is a scenario overlay: a persona-bound case resolves to `persona ∪ case` (case wins). A scripted case carries its fixture inline rather than binding a persona for it. |
 | `tests/rubrics/` | Directory (per-id `*.rubric.json`) | Stay in directory form (multi-paragraph templates). |
 | `tests/evaluators/` | Directory (Python files) | Not validated as JSON. Built-ins vendored; user-added go alongside. |
 | `tests/gold/` | Directory (per-id `*.gold.json`) | Golds are independent of cases; one gold may seed many derived cases. |

@@ -18,9 +18,10 @@ export interface RuntimePersonaWorld {
   errors: Record<string, string | null>;
 }
 
-// A fixture is the vars + per-capability mocks an artifact carries. Personas
-// carry the character-intrinsic fixture; cases / decision tests carry the
-// situational fixture.
+// A fixture is the vars + per-capability mocks an artifact carries. A persona
+// carries a complete, standalone-runnable fixture (character facts + baseline
+// situation); a case / decision test carries a scenario overlay that overrides
+// specific keys.
 export interface Fixture {
   vars?: Record<string, unknown>;
   mocks?: Record<string, MockBehavior>;

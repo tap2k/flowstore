@@ -56,8 +56,8 @@ const CapabilityAssertion = Type.Object(
 );
 
 // Exactly one actor: user_turns (scripted), persona_id (reusable actor), or system_prompt
-// (inline actor). Enforced in loader/runner, not schema. Fixture (vars + mocks) is
-// situational; persona ∪ case, case wins. Evaluators resolve in tests/evaluators/ or
+// (inline actor). Enforced in loader/runner, not schema. Fixture (vars + mocks) is a
+// scenario overlay on the persona's baseline; persona ∪ case, case wins. Evaluators resolve in tests/evaluators/ or
 // tests/rubrics/; per-file `model` pins reproducibility (see FILE-MODEL.md).
 // Plain text, or a barge-in object ({text, barge_in: true}) the --voice harness uses
 // to truncate the agent's prior reply to what the caller heard before cutting in.
@@ -79,9 +79,11 @@ export const TestCaseSchema = Type.Object(
     // Inline one-off simulated-user actor: drives LLM-as-user without a
     // reusable persona file. Mutually exclusive with user_turns / persona_id.
     system_prompt: Type.Optional(Type.String()),
-    // Situational fixture merged over (overriding) the persona's. vars is a character
-    // sheet — only provided-declared keys ship at run time (see VariableDeclSchema.provided).
-    // mocks keyed by capability id, replacing the persona's mock per capability.
+    // Scenario overlay: situational fixture merged over (overriding) the
+    // persona's baseline — vary specific keys for this scenario, the case wins.
+    // vars is a character sheet — only provided-declared keys ship at run time
+    // (see VariableDeclSchema.provided). mocks keyed by capability id, replacing
+    // the persona's mock per capability.
     vars: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
     mocks: Type.Optional(Type.Record(Type.String(), MockBehaviorSchema)),
     evaluators: Type.Optional(Type.Array(Type.String())),

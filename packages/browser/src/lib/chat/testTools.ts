@@ -146,9 +146,9 @@ const createPersonaTool: Tool = {
     name: "create_persona",
     description:
       "Create a reusable persona — an ACTOR that plays the user side of a simulated conversation. " +
-      "`system_prompt` is required and drives LLM-as-user. Put character-intrinsic facts in vars/mocks " +
-      "(true of this character in every test); situational fixtures belong on the test case. " +
-      "Returns the new persona id.",
+      "`system_prompt` is required and drives LLM-as-user. Give it a complete, standalone-runnable fixture: " +
+      "fill vars with every declared variable the agent reads and mocks for every capability whose outputs it reads. " +
+      "A test case overrides specific keys per scenario. Returns the new persona id.",
     parameters: {
       type: "object",
       properties: {

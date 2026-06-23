@@ -2,9 +2,9 @@ import { Type, type Static } from "@sinclair/typebox";
 
 // Per-capability mock behavior. `static` returns a literal object the call
 // resolves to; `error` raises the documented error string the runner surfaces
-// back to the model as a tool error. Attaches to personas (character-intrinsic
-// returns) and to test cases / decision tests (situational returns); a case's
-// mock replaces the persona's for the same capability id.
+// back to the model as a tool error. Attaches to personas (the baseline
+// returns the agent reads) and to test cases / decision tests (scenario
+// overrides); a case's mock replaces the persona's for the same capability id.
 // `returns` is the object the capability call resolves to — a {output_name:
 // value} dict matching the capability's declared outputs. Typed as a Record
 // rather than Unknown so authoring errors (a bare string, a number) fail at
