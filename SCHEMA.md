@@ -473,13 +473,14 @@ Also: `id`, optional `name`, `notes`, `model` (per-file user-simulation model ov
 
 ### Test Case (`flowstore://test/case/v0`)
 
-A case names an **actor** (how the conversation is driven) plus a **scenario overlay** — the situational fixture that overrides the bound persona's baseline for this scenario. Exactly one actor — the binding invariant, enforced in the loader/runner, not the schema:
+A case names an **actor** (how the conversation is driven) plus a **scenario overlay** — the situational fixture that overrides the bound persona's baseline for this scenario. The binding invariant (enforced in the loader/runner, not the schema): a case is **scripted XOR actor-driven**.
 
 - **Scripted** — `user_turns: string[]`; the runner feeds these verbatim.
 - **Referenced persona** — `persona_id`; an LLM-as-user driven by that persona's `system_prompt`. `max_turns` caps the loop (default per-runner).
 - **Inline prompt** — `system_prompt: string`; an LLM-as-user driven by a one-off prompt with no reusable persona file.
+- **Persona + overlay** — `persona_id` **and** `system_prompt` together; the case's `system_prompt` is a per-scenario **prompt overlay appended** to the bound persona's, varying behavior ("…for this call you're angry and in a hurry") without forking a new persona. This is symmetric with how `vars`/`mocks` overlay the persona's baseline — text has no keys, so the overlay appends rather than merges.
 
-A scripted case never binds a persona just for its fixture — it carries the fixture inline. **Fixture resolution:** the effective fixture for a persona-bound case is `persona ∪ case` — `vars` merge per key, `mocks` **replace per capability id**, the case always winning. A scripted / inline case (no persona) resolves to just its own fixture.
+`user_turns` (scripted) is mutually exclusive with the actor fields; `persona_id` and `system_prompt` compose. A scripted case never binds a persona just for its fixture — it carries the fixture inline. **Prompt resolution:** the effective actor prompt is `persona.system_prompt` + (appended) `case.system_prompt`; either alone resolves to just itself. **Fixture resolution:** the effective fixture for a persona-bound case is `persona ∪ case` — `vars` merge per key, `mocks` **replace per capability id**, the case always winning. A scripted / inline case (no persona) resolves to just its own fixture.
 
 Situational fixture: `vars?` and `mocks?` (same shapes as on the persona). Optional assertion/eval fields: `assertions[]` (per-turn substring), `transcript_assertions[]` (substring/regex/count/terminate-within over the whole transcript), `state_assertions[]` (against final variable state; runner target only), `capability_assertions[]` (was this capability invoked?), `evaluators[]` (rubric names resolving to `tests/rubrics/<n>.rubric.json` or `tests/evaluators/<n>.py`), `gold_id` (reference transcript for gold-comparing rubrics), `language`, `model`, `tags[]`.
 

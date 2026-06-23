@@ -230,15 +230,26 @@ describe("validateTesting", () => {
 
   it("flags a test case with no actor (no user_turns / persona_id / system_prompt)", () => {
     const issues = validateTesting(null, artifacts({ testCases: [{ id: "t1" } as never] }));
-    expect(hasMsg(issues, "must carry exactly one actor")).toBe(true);
+    expect(hasMsg(issues, "must carry an actor")).toBe(true);
   });
 
-  it("flags a test case with more than one actor", () => {
+  it("flags a scripted case that also names an actor (user_turns + persona_id)", () => {
     const issues = validateTesting(
       null,
       artifacts({ testCases: [{ id: "t1", user_turns: ["hi"], persona_id: "p1" } as never] }),
     );
-    expect(hasMsg(issues, "exactly one actor allowed")).toBe(true);
+    expect(hasMsg(issues, "mutually exclusive")).toBe(true);
+  });
+
+  it("allows persona_id + system_prompt together (inline prompt is a per-scenario overlay)", () => {
+    const issues = validateTesting(
+      coffee,
+      artifacts({
+        personas: [{ id: "p1", system_prompt: "You are Maria." } as never],
+        testCases: [{ id: "t1", persona_id: "p1", system_prompt: "…and today you're furious." } as never],
+      }),
+    );
+    expect(issues).toEqual([]);
   });
 
   it("flags a test case bound to an unknown persona", () => {

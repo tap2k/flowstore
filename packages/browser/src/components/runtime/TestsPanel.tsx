@@ -6,13 +6,18 @@ import { useTestsStore } from "@/lib/store/tests";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useUiStore } from "@/lib/store/ui";
-import { caseWorldToRuntime } from "@flowstore/core/runtime/personaRuntime";
+import { caseWorldToRuntime, resolveActorPrompt } from "@flowstore/core/runtime/personaRuntime";
 import { collectDeclaredVariables } from "@flowstore/core/runtime/contextVars";
 import { collectMockableCapabilities } from "@flowstore/core/runtime/capabilityMocks";
 import { VarsEditor } from "./persona/VarsEditor";
 import { MocksEditor } from "./persona/MocksEditor";
 import { TagChips, TagsField } from "./TagsUI";
 
+// Authoring picks one actor. The model/runners also support a persona + inline
+// `system_prompt` overlay on the SAME case (the inline prompt appends to the
+// persona's — see resolveActorPrompt), but that combination isn't exposed in
+// this radio yet: hand-author the case JSON (persona_id + system_prompt) to use
+// it. Open in Sim ▶ and the runners resolve it correctly either way.
 type Actor = "scripted" | "persona" | "inline";
 type UserTurn = NonNullable<TestCase["user_turns"]>[number];
 
@@ -345,15 +350,13 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
   async function handleOpenInSimulate() {
     await reset();
     // Hydrate the simulate buffer with the resolved fixture (persona ∪ case),
-    // and the simulated-user prompt from whichever actor drives the case:
-    // the bound persona's system_prompt (persona actor) or the case's inline
-    // system_prompt. A scripted case has no simulated-user prompt to load.
-    if (actor === "persona") {
-      setPersonaPrompt(boundPersona?.system_prompt ?? "");
+    // and the simulated-user prompt: the bound persona's system_prompt, the
+    // case's inline system_prompt, or — when both are present — the persona's
+    // with the inline prompt appended as a per-scenario overlay
+    // (resolveActorPrompt). A scripted case has no simulated-user prompt.
+    if (actor !== "scripted") {
+      setPersonaPrompt(resolveActorPrompt(boundPersona, { system_prompt: inlinePrompt }));
       setPersonaTraits(boundPersona?.traits);
-    } else if (actor === "inline") {
-      setPersonaPrompt(inlinePrompt);
-      setPersonaTraits(undefined);
     }
     if (spec) {
       const { vars: rVars, returns, errors } = caseWorldToRuntime(

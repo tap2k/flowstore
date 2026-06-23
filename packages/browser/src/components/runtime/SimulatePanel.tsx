@@ -287,11 +287,9 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           // its text (barge-in truncation is a --voice harness concern).
           await send(typeof turn === "string" ? turn : turn.text);
         }
-      } else if (activeCase.persona_id) {
-        // Persona-driven: kick the existing autoRun loop. The persona
-        // prompt was already loaded into the buffer by Open in Sim ▶;
-        // we just enable autoRun and let the existing autoStep machinery
-        // play through.
+      } else if (activeCase.persona_id || activeCase.system_prompt) {
+        // Actor-driven: the prompt was hydrated by Open in Sim ▶ (persona base
+        // + any inline overlay); just enable autoRun and let autoStep play through.
         useSimulateStore.getState().setAutoRun(true);
         // For persona-driven runs we can't await completion here — the
         // loop is driven by an effect elsewhere. Skip rubric judging in
@@ -723,7 +721,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           // A persona-driven case runs via the store's autoRun loop, not the
           // local isRunning flag (runActiveCase hands off and returns). Fold
           // autoRun in so the strip shows ■ and its Stop works for that path.
-          isRunning={isRunning || (!!activeCase.persona_id && autoRun)}
+          isRunning={isRunning || ((!!activeCase.persona_id || !!activeCase.system_prompt) && autoRun)}
           hasSession={hasSession}
           busy={busy}
           verdicts={verdicts}

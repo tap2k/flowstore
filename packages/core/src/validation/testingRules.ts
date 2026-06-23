@@ -13,7 +13,7 @@ export interface TestingIssue {
 
 // Cross-file checks across testing artifacts and the spec:
 //   - persona.mocks / test_case.mocks keys refer to known capabilities
-//   - every case carries exactly one actor (user_turns | persona_id |
+//   - every case is scripted (user_turns) XOR actor-driven (persona_id and/or
 //     system_prompt) — the binding invariant
 //   - test_case.persona_id refers to a known persona
 //   - test_case.capability_assertions[].capability refers to a known capability
@@ -59,23 +59,25 @@ export function validateTesting(
     } else {
       testIds.add(t.id);
     }
-    // Binding invariant: exactly one actor drives the case. user_turns =
-    // scripted; persona_id = referenced simulated user; system_prompt = inline
-    // simulated user. A scripted case carries its fixture inline rather than
-    // binding a persona for it, so these never combine.
+    // Binding invariant: a case is EITHER scripted (user_turns) OR actor-driven
+    // (an LLM-as-user). An actor-driven case names a persona, an inline
+    // system_prompt, or BOTH — when both, the inline prompt is a per-scenario
+    // overlay appended to the persona's (see resolveActorPrompt). Scripted is
+    // exclusive with the actor fields: a fixed user script and an LLM actor
+    // can't both drive the same conversation.
     const hasTurns = Array.isArray(t.user_turns);
     const hasPersona = typeof t.persona_id === "string";
     const hasInlinePrompt = typeof t.system_prompt === "string";
-    const actorCount = (hasTurns ? 1 : 0) + (hasPersona ? 1 : 0) + (hasInlinePrompt ? 1 : 0);
-    if (actorCount === 0) {
+    const hasActor = hasPersona || hasInlinePrompt;
+    if (!hasTurns && !hasActor) {
       issues.push({
         at: { kind: "test_case", id: t.id },
-        message: "must carry exactly one actor: user_turns (scripted), persona_id (referenced), or system_prompt (inline)",
+        message: "must carry an actor: user_turns (scripted), persona_id and/or system_prompt (LLM-as-user)",
       });
-    } else if (actorCount > 1) {
+    } else if (hasTurns && hasActor) {
       issues.push({
         at: { kind: "test_case", id: t.id },
-        message: "exactly one actor allowed: user_turns, persona_id, and system_prompt are mutually exclusive (situational fixture goes in vars/mocks, not a bound persona)",
+        message: "user_turns (scripted) is mutually exclusive with persona_id/system_prompt (LLM actor) — a fixed script and a live actor can't both drive the conversation",
       });
     }
     if (t.max_turns !== undefined && hasTurns) {

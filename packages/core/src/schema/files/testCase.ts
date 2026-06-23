@@ -55,8 +55,10 @@ const CapabilityAssertion = Type.Object(
   { additionalProperties: false },
 );
 
-// Exactly one actor: user_turns (scripted), persona_id (reusable actor), or system_prompt
-// (inline actor). Enforced in loader/runner, not schema. Fixture (vars + mocks) is a
+// Actor: a case is scripted (user_turns) XOR actor-driven. An actor-driven case
+// names persona_id (reusable actor), system_prompt (inline actor), or BOTH —
+// when both, system_prompt is a per-scenario overlay appended to the persona's
+// (resolveActorPrompt). Enforced in loader/runner, not schema. Fixture (vars + mocks) is a
 // scenario overlay on the persona's baseline; persona ∪ case, case wins. Evaluators resolve in tests/evaluators/ or
 // tests/rubrics/; per-file `model` pins reproducibility (see FILE-MODEL.md).
 // Plain text, or a barge-in object ({text, barge_in: true}) the --voice harness uses
@@ -76,8 +78,12 @@ export const TestCaseSchema = Type.Object(
     name: Type.Optional(Type.String()),
     notes: Type.Optional(Type.String()),
     user_turns: Type.Optional(Type.Array(ScriptedTurn)),
-    // Inline one-off simulated-user actor: drives LLM-as-user without a
-    // reusable persona file. Mutually exclusive with user_turns / persona_id.
+    // Inline simulated-user prompt. Alone (no persona_id) it's a one-off
+    // LLM-as-user actor with no reusable persona file. WITH a persona_id it's a
+    // per-scenario overlay: appended to the bound persona's system_prompt to
+    // vary this scenario's behavior without forking a new persona (symmetric
+    // with how vars/mocks overlay the persona's baseline — see
+    // resolveActorPrompt). Mutually exclusive with user_turns only.
     system_prompt: Type.Optional(Type.String()),
     // Scenario overlay: situational fixture merged over (overriding) the
     // persona's baseline — vary specific keys for this scenario, the case wins.
