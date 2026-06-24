@@ -132,7 +132,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
 
   async function openProject() {
     if (!client || selectedRepoIdx < 0 || !repos || !selectedBranch) return;
-    if (existingSpec && !window.confirm("Replace the current spec?")) return;
+    if (existingSpec && !window.confirm("Replace the current spec? Unsaved changes will be lost.")) return;
     const repo = repos[selectedRepoIdx];
     setOpeningProject(true);
     setError(null);
@@ -197,6 +197,10 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
 
   function initializeProject() {
     if (!initOffer) return;
+    // Scaffolding a fresh project replaces whatever is loaded, same as opening
+    // an existing one — guard it identically so an in-progress spec can't be
+    // wiped to a blank scaffold without a heads-up.
+    if (existingSpec && !window.confirm("Replace the current spec with a blank project? Unsaved changes will be lost.")) return;
     const { repo, branch, commitSha } = initOffer;
     const scaffold = scaffoldNewProject({ name: repo.repo });
     loadSpec(scaffold);
@@ -210,7 +214,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
       setUrlError("Not a valid GitHub URL.");
       return;
     }
-    if (existingSpec && !window.confirm("Replace the current spec?")) return;
+    if (existingSpec && !window.confirm("Replace the current spec? Unsaved changes will be lost.")) return;
     setUrlOpening(true);
     setUrlError(null);
     try {

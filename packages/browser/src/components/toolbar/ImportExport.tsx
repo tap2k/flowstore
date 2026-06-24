@@ -278,7 +278,7 @@ export function ImportExportToolbar({
   function commitImport(parsed: unknown, opts?: LoadSpecOptions) {
     const result = validateSpec(parsed);
     if (!result.valid) return formatErrors(result.errors);
-    if (spec && !window.confirm("Replace the current spec?")) return null;
+    if (spec && !window.confirm("Replace the current spec? Unsaved changes will be lost.")) return null;
     loadSpec(result.spec, opts);
     // Imported specs are portable artifacts — they have no claim to whichever
     // GitHub repo we were previously connected to. Clearing the connection
