@@ -72,7 +72,7 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
 
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [problemsOpen, setProblemsOpen] = useState(true);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"double" | "single" | null>(null);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const availableLanguages = spec?.agent.meta.languages ?? [];
@@ -115,14 +115,20 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
     setMode("view");
   }
 
-  function copy() {
+  function copy(singleBracket = false) {
     // Copy yields the LITERAL prompt (compiledText / the edit buffer), never the
     // display-trimmed text — what you paste must match what the LLM receives.
     // See bodyForDisplay for the deliberate View-mode divergence.
-    void navigator.clipboard.writeText(mode === "edit" ? editorValue : compiledText);
-    setCopied(true);
+    const text = mode === "edit" ? editorValue : compiledText;
+    // Single-bracket export down-converts {{var}} → {var} for runtimes whose
+    // interpolation is single-brace (e.g. Awaaz). Lossy by nature: any literal
+    // single brace in the prompt becomes indistinguishable from a placeholder on
+    // such a runtime — flowstore stays {{var}} internally; this is export-only.
+    const out = singleBracket ? text.replace(/\{\{([A-Za-z_]\w*)\}\}/g, "{$1}") : text;
+    void navigator.clipboard.writeText(out);
+    setCopied(singleBracket ? "single" : "double");
     if (copiedTimer.current) clearTimeout(copiedTimer.current);
-    copiedTimer.current = setTimeout(() => setCopied(false), 1500);
+    copiedTimer.current = setTimeout(() => setCopied(null), 1500);
   }
 
   // A diagnostic is jumpable unless it's a schema error with no entity anchor.
@@ -169,13 +175,22 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
         <div className="text-sm font-semibold text-zinc-900">System prompt</div>
         <div className="flex items-center gap-1">
           <button
-            onClick={copy}
-            title="Copy the prompt to the clipboard as plain text."
+            onClick={() => copy(false)}
+            title="Copy the prompt with {{variable}} placeholders (flowstore's convention)."
             className={`rounded px-2 py-1 text-[11px] ${
-              copied ? "text-emerald-600" : "text-zinc-600 hover:bg-zinc-100"
+              copied === "double" ? "text-emerald-600" : "text-zinc-600 hover:bg-zinc-100"
             }`}
           >
-            {copied ? "copied ✓" : "copy"}
+            {copied === "double" ? "copied ✓" : "copy"}
+          </button>
+          <button
+            onClick={() => copy(true)}
+            title="Copy with {{variable}} down-converted to single-brace {variable}, for runtimes with single-brace interpolation (e.g. Awaaz). Note: literal single braces in the prompt become ambiguous on those runtimes."
+            className={`rounded px-2 py-1 text-[11px] ${
+              copied === "single" ? "text-emerald-600" : "text-zinc-600 hover:bg-zinc-100"
+            }`}
+          >
+            {copied === "single" ? "copied ✓" : "copy (single-bracket)"}
           </button>
           <button
             onClick={onClose}
