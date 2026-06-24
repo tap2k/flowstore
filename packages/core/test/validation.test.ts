@@ -194,25 +194,6 @@ describe("validateGraph", () => {
       expect(byCode(issues, "system-prompt-multiple-generated")).toEqual([]);
     });
   });
-
-  describe("legacy single-brace placeholder migration warning", () => {
-    it("flags a single-brace {name} in flow instructions, anchored at the flow", () => {
-      const issues = validateGraph(
-        spec({ flows: [{ id: "f1", type: "happy", instructions: "Hi {customer_name}.", exit_paths: [] }] }),
-      );
-      const w = byCode(issues, "legacy-single-brace-variable");
-      expect(w).toHaveLength(1);
-      expect(w[0].severity).toBe("warning");
-      expect(w[0].at).toEqual({ kind: "flow", flowId: "f1" });
-    });
-
-    it("does not flag a well-formed double-brace {{name}}", () => {
-      const issues = validateGraph(
-        spec({ flows: [{ id: "f1", type: "happy", instructions: "Hi {{customer_name}}.", exit_paths: [] }] }),
-      );
-      expect(byCode(issues, "legacy-single-brace-variable")).toEqual([]);
-    });
-  });
 });
 
 describe("validateSpec (ajv)", () => {

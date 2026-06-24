@@ -22,7 +22,6 @@ export type GraphIssueCode =
   | "unknown-capability"
   | "unreachable-flow"
   | "variable-casing"
-  | "legacy-single-brace-variable"
   | "provided-on-flow-variable";
 
 export interface GraphIssue {
@@ -177,38 +176,7 @@ export function validateGraph(spec: Spec): GraphIssue[] {
   }
 
   issues.push(...lintVariableCasing(spec));
-  issues.push(...lintLegacyBraces(spec));
 
-  return issues;
-}
-
-// Migration aid: flags author text still using the legacy single-brace `{name}`
-// placeholder syntax. Substitution now matches `{{name}}` only, so a stray
-// `{name}` reaches the model verbatim instead of being filled. A warning (not an
-// error) — the compiler accepts either — pointing at the spot to double-brace.
-function lintLegacyBraces(spec: Spec): GraphIssue[] {
-  const issues: GraphIssue[] = [];
-  const flag = (name: string, at: IssueLocation) => {
-    issues.push({
-      code: "legacy-single-brace-variable",
-      at,
-      severity: "warning",
-      message: `placeholder {${name}} uses legacy single-brace syntax — write {{${name}}} so it is substituted instead of reaching the model literally`,
-    });
-  };
-  for (const name of legacyBraceNames(spec.agent.system_prompt ?? "")) flag(name, { kind: "global" });
-  for (const f of spec.flows) {
-    const flowAt: IssueLocation = { kind: "flow", flowId: f.id };
-    for (const name of legacyBraceNames(f.instructions ?? "")) flag(name, flowAt);
-    for (const s of f.scripts ?? []) {
-      for (const t of localizedValues(s.text)) {
-        for (const name of legacyBraceNames(t)) flag(name, flowAt);
-      }
-      for (const arr of Object.values(s.variations ?? {})) {
-        for (const v of arr) for (const name of legacyBraceNames(v)) flag(name, flowAt);
-      }
-    }
-  }
   return issues;
 }
 
@@ -324,22 +292,12 @@ function lintVariableCasing(spec: Spec): GraphIssue[] {
 
 const IDENTIFIER_RE = /[A-Za-z_]\w*/g;
 const PLACEHOLDER_RE = /\{\{([A-Za-z_]\w*)\}\}/g;
-// A single-brace `{name}` that is NOT part of a `{{name}}` pair — the legacy
-// pre-double-brace syntax. Lookarounds keep it from matching the inner edges of
-// a well-formed `{{name}}`.
-const LEGACY_BRACE_RE = /(?<!\{)\{([A-Za-z_]\w*)\}(?!\})/g;
 
 function placeholderNames(text: string): string[] {
   const names: string[] = [];
   for (const m of text.matchAll(PLACEHOLDER_RE)) {
     if (m[1] !== "generated") names.push(m[1]); // {{generated}} is the codegen splice, not a var
   }
-  return names;
-}
-
-function legacyBraceNames(text: string): string[] {
-  const names: string[] = [];
-  for (const m of text.matchAll(LEGACY_BRACE_RE)) names.push(m[1]);
   return names;
 }
 
