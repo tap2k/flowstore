@@ -44,7 +44,7 @@ V0 SCHEMA
     "id": "agent_<snake_case>",
     "name": "string (repo/display label, e.g. \"northwind-fnol\")",
     "meta": {
-      "identity": "string (the name the agent inhabits, e.g. \"Nova\"; may be a {var} placeholder when the name is supplied per call)",
+      "identity": "string (the name the agent inhabits, e.g. \"Nova\"; may be a {{var}} placeholder when the name is supplied per call)",
       "purpose": "one-sentence description",
       "tone": "one short phrase describing voice/register (optional)",
       "modality": "voice | text | multimodal" /* required */,
@@ -179,14 +179,14 @@ Condition expressions:
 - Keep them short and unambiguous. The runtime LLM evaluates them
   against the full conversation context — verbose phrasings don't
   improve accuracy. Aim for 6–10 words.
-- For `method: "llm"`, you MAY embed `{session_variable}` references
-  (e.g. `{extended_loan_due_date}`, `{loan_amount}`) and the runtime
+- For `method: "llm"`, you MAY embed `{{session_variable}}` references
+  (e.g. `{{extended_loan_due_date}}`, `{{loan_amount}}`) and the runtime
   will substitute the live value before the expression is shown to
   the LLM at routing-decision time. Useful when the gate compares
   against a concrete runtime value ("customer's committed date is
-  on or before {extended_loan_due_date}"). Style: prefer prose for
+  on or before {{extended_loan_due_date}}"). Style: prefer prose for
   state assertions ("customer is verified") over parroting names
-  ("`{verified}` is true").
+  ("`{{verified}}` is true").
 - For `method: "calculation"`, variables appear bare in expressions
   (`verified == True`, `loan_amount > 50000`).
 - Default to plain intent. Only when a specific input is reliably
@@ -236,7 +236,7 @@ Assigns: `assigns[var]` is exactly two fields, `method` and `value`.
 - `llm`: natural-language description of what to extract
   ({ method: "llm", value: "the date the customer committed to pay" })
 Don't default to `direct` when the value comes from the conversation —
-that's `llm`. `direct` does not interpolate `{placeholders}`.
+that's `llm`. `direct` does not interpolate `{{placeholders}}`.
 
 exit_path.goto semantics:
 - a flow id — transition into that flow.
@@ -429,7 +429,7 @@ EXAMPLE TRANSCRIPT
 conversation for this flow. Otherwise omit — synthetic transcripts
 are generated on demand in the editor, not during parse. When
 extracted, format each turn as "Agent: ..." or "User: ..." on its
-own line, and use {variable_name} placeholders for any specific
+own line, and use {{variable_name}} placeholders for any specific
 values that come from variables.
 
 ---
@@ -494,7 +494,7 @@ the source warrants it.
   `meta.identity`; when the source gives the bot a name, that's the
   identity. If the name is injected at call time (the source names a
   runtime variable for it rather than a fixed name), set identity to that
-  `{placeholder}` instead of a literal. There is no separate field for
+  `{{placeholder}}` instead of a literal. There is no separate field for
   who the agent acts for — a bare principal name isn't self-describing,
   so fold it into `meta.identity` ("Lucía from Tala") and `meta.purpose`,
   and put any official-channel / authority claims in `guardrails`. Agent
@@ -523,7 +523,7 @@ the source warrants it.
   noise.
 - variables: declare a variable only when something in the spec
   actually reads it — a `condition.expression` (calculation),
-  another `assigns.value` (calculation), a `{placeholder}` in a
+  another `assigns.value` (calculation), a `{{placeholder}}` in a
   script, a capability's `inputs`/`outputs`, or a by-name
   reference in `instructions`. A variable that is assigned but
   never read is dead schema; drop it. A field the source mentions
