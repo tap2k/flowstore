@@ -59,7 +59,7 @@ export function coerceValue(decl: VariableDecl, raw: string | boolean): unknown 
   return trimmed;
 }
 
-const PLACEHOLDER_RE = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+const PLACEHOLDER_RE = /\{\{([A-Za-z_][A-Za-z0-9_]*)\}\}/g;
 
 function collectLocalizedStrings(value: unknown, out: string[]): void {
   if (typeof value === "string") {

@@ -1217,8 +1217,8 @@ function EvaluatorsList({
       scale: { min: 1, max: 5 },
       prompt_template:
         "Evaluate the following transcript against the criteria.\n\n" +
-        "Criteria: {criteria}\n\nTranscript:\n{transcript}\n\n" +
-        "Return a JSON object with `score` (integer {scale.min}-{scale.max}) " +
+        "Criteria: {{criteria}}\n\nTranscript:\n{{transcript}}\n\n" +
+        "Return a JSON object with `score` (integer {{scale.min}}-{{scale.max}}) " +
         "and `notes` (one-sentence explanation citing the specific turn(s) that " +
         "drove the score; turn 1 is the agent's first message).",
     });
@@ -1358,7 +1358,7 @@ function RubricInlineEditor({
   // (saveRubric marks the project dirty). Save commits the draft. scale is the
   // numeric range the judge returns; consumers (the editor's display, the
   // runner's threshold/mean math) read it, so surface it for editing here. Use
-  // {scale.min}/{scale.max} in the prompt_template to keep the prose range in
+  // {{scale.min}}/{{scale.max}} in the prompt_template to keep the prose range in
   // sync with this field.
   const [name, setName] = useState(rubric.name ?? "");
   const [criteria, setCriteria] = useState(rubric.criteria);
@@ -1475,7 +1475,7 @@ function RubricInlineEditor({
           value={promptTemplate}
           onChange={(e) => setPromptTemplate(e.target.value)}
           rows={5}
-          placeholder="LLM-judge prompt. Placeholders: {transcript}, {criteria}, {scale.min}, {scale.max}."
+          placeholder="LLM-judge prompt. Placeholders: {{transcript}}, {{criteria}}, {{scale.min}}, {{scale.max}}."
           className="w-full resize-y rounded border border-zinc-300 bg-white p-1.5 font-mono text-[10px] leading-snug"
         />
       </div>

@@ -1,8 +1,8 @@
 import { Type, type Static } from "@sinclair/typebox";
 
 // LLM-judge rubric: a criterion the judge model evaluates against the
-// transcript. `prompt_template` supports {transcript}, {criteria},
-// {gold_standard} placeholders — substituted at evaluation time by the
+// transcript. `prompt_template` supports {{transcript}}, {{criteria}},
+// {{gold_standard}} placeholders — substituted at evaluation time by the
 // testing scripts. `scale` carries the numeric range the judge returns;
 // pass/fail thresholding lives in the script.
 const Scale = Type.Object(

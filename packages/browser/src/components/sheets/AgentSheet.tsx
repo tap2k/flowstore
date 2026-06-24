@@ -96,15 +96,15 @@ export function AgentSheet({ onClose }: { onClose: () => void }) {
           className={`${inputClass} resize-y min-h-[50px] font-mono`}
           value={agent.system_prompt ?? ""}
           onChange={(e) => patch({ system_prompt: e.target.value || undefined })}
-          placeholder={"{generated}"}
+          placeholder={"{{generated}}"}
         />
         <p className="text-[11px] text-zinc-500 mt-1 leading-snug">
           Free text wrapped around the compiled prompt.{" "}
-          <code className="bg-zinc-100 px-1 py-0.5 rounded text-[10px]">{"{generated}"}</code>{" "}
+          <code className="bg-zinc-100 px-1 py-0.5 rounded text-[10px]">{"{{generated}}"}</code>{" "}
           expands to the spec-derived sections.{" "}
-          <code className="bg-zinc-100 px-1 py-0.5 rounded text-[10px]">{"{variable}"}</code>{" "}
+          <code className="bg-zinc-100 px-1 py-0.5 rounded text-[10px]">{"{{variable}}"}</code>{" "}
           references work as elsewhere. Omitting{" "}
-          <code className="bg-zinc-100 px-1 py-0.5 rounded text-[10px]">{"{generated}"}</code>{" "}
+          <code className="bg-zinc-100 px-1 py-0.5 rounded text-[10px]">{"{{generated}}"}</code>{" "}
           fully overrides codegen.
         </p>
       </Field>

@@ -415,11 +415,11 @@
       "scripts": [
         {
           "id": "cf_s1",
-          "text": "Alright — that's a {size} {drink_style} with {milk} milk and {syrup} syrup. Sound right?"
+          "text": "Alright — that's a {{size}} {{drink_style}} with {{milk}} milk and {{syrup}} syrup. Sound right?"
         },
         {
           "id": "cf_s2",
-          "text": "Alright — a {size} {drink_style} tea. Sound right?"
+          "text": "Alright — a {{size}} {{drink_style}} tea. Sound right?"
         },
         {
           "id": "cf_s3",

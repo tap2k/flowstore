@@ -127,8 +127,8 @@
         {
           "id": "cl_s2",
           "text": {
-            "en-US": "Your estimated payout is {payout_estimate}. Filing now.",
-            "es-MX": "Su pago estimado es {payout_estimate}. Lo registro ahora."
+            "en-US": "Your estimated payout is {{payout_estimate}}. Filing now.",
+            "es-MX": "Su pago estimado es {{payout_estimate}}. Lo registro ahora."
           }
         }
       ],

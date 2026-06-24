@@ -136,8 +136,8 @@ const ScaleSchema: JSONSchema = {
 
 const DEFAULT_RUBRIC_TEMPLATE =
   "You are grading a conversation transcript.\n\n" +
-  "Criterion: {criteria}\n\n" +
-  "Transcript:\n{transcript}\n\n" +
+  "Criterion: {{criteria}}\n\n" +
+  "Transcript:\n{{transcript}}\n\n" +
   "Return a single integer score on the rubric's scale (higher is better) plus a one-sentence justification.";
 
 
@@ -378,7 +378,7 @@ const createRubricTool: Tool = {
     name: "create_rubric",
     description:
       "Create an LLM-judge rubric — a criterion a judge model scores the transcript against. " +
-      "`prompt_template` may use {transcript}, {criteria}, {scale.min}, {scale.max} placeholders; if omitted, a " +
+      "`prompt_template` may use {{transcript}}, {{criteria}}, {{scale.min}}, {{scale.max}} placeholders; if omitted, a " +
       "standard template is used. `scale` defaults to { min: 1, max: 5 }. Reference it from a case's " +
       "evaluators[] by its id. Returns the new rubric id.",
     parameters: {
@@ -387,7 +387,7 @@ const createRubricTool: Tool = {
         name: { type: "string" },
         criteria: { type: "string", description: "What this rubric scores (e.g. 'empathy and tone')." },
         scale: ScaleSchema,
-        prompt_template: { type: "string", description: "Judge prompt with {transcript}/{criteria}/{scale.min}/{scale.max} placeholders." },
+        prompt_template: { type: "string", description: "Judge prompt with {{transcript}}/{{criteria}}/{{scale.min}}/{{scale.max}} placeholders." },
         model: { type: "string", description: "Optional per-rubric judge-model pin." },
       },
       required: ["criteria"],

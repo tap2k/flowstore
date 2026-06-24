@@ -36,9 +36,9 @@ describe("computeDiagnostics", () => {
     expect(computeDiagnostics(coffee)).toEqual([]);
   });
 
-  it("surfaces a graph warning (system_prompt missing {generated})", () => {
+  it("surfaces a graph warning (system_prompt missing {{generated}})", () => {
     const s = structuredClone(coffee);
-    s.agent.system_prompt = "You are a bot."; // no {generated}
+    s.agent.system_prompt = "You are a bot."; // no {{generated}}
     const diags = computeDiagnostics(s);
     const w = diags.find((d) => d.code === "system-prompt-missing-generated");
     expect(w).toBeDefined();

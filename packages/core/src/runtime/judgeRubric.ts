@@ -7,10 +7,10 @@ import type { Rubric } from "@flowstore/core/schema/files/rubric";
 // structured output {score, notes}, clamps score to the rubric's scale.
 // Pure runtime helper — no spec / browser dependency. Substituted
 // placeholders:
-//   {criteria}  → rubric.criteria
-//   {transcript}→ formatted agent+user transcript
-//   {scale.min} → rubric.scale.min
-//   {scale.max} → rubric.scale.max
+//   {{criteria}}  → rubric.criteria
+//   {{transcript}}→ formatted agent+user transcript
+//   {{scale.min}} → rubric.scale.min
+//   {{scale.max}} → rubric.scale.max
 
 export interface RubricTurn {
   role: "agent" | "user";
@@ -54,10 +54,10 @@ export async function judgeRubric(args: {
 
   const scale = rubric.scale ?? { min: 1, max: 5 };
   const judgePrompt = rubric.prompt_template
-    .replace("{criteria}", rubric.criteria ?? "")
-    .replace("{transcript}", formatTranscript(transcript))
-    .replace("{scale.min}", String(scale.min))
-    .replace("{scale.max}", String(scale.max));
+    .replace("{{criteria}}", rubric.criteria ?? "")
+    .replace("{{transcript}}", formatTranscript(transcript))
+    .replace("{{scale.min}}", String(scale.min))
+    .replace("{{scale.max}}", String(scale.max));
 
   try {
     const parsed = await generateStructuredJson<{ score: number; notes: string }>(

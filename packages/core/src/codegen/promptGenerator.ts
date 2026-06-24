@@ -17,7 +17,7 @@ import {
 // A segment maps a [start, end) range of the compiled text back to the spec
 // entity that produced it. `runtimeContext` is derived from variable *values*
 // rather than a single editable entity, so consumers treat it as un-linkable.
-// `templateWrapper` is the author-owned text on either side of `{generated}`
+// `templateWrapper` is the author-owned text on either side of `{{generated}}`
 // in `agent.system_prompt`; clicking it should land in the AgentSheet.
 export type PromptSource =
   | { kind: "role" }
@@ -31,7 +31,7 @@ export type PromptSource =
 
 // Reserved placeholder in `agent.system_prompt`. Expands to all spec-derived
 // sections (role/guardrails/flows/knowledge…). Omitting it is full override.
-export const GENERATED_PLACEHOLDER = "{generated}";
+export const GENERATED_PLACEHOLDER = "{{generated}}";
 
 // Sentinel `language` value requesting multilingual emission — every declared
 // language, labeled, instead of resolving to one. A single param (a real code,
@@ -58,7 +58,7 @@ const BLOCK_SEP = "\n\n";
 // structured tool schema to the model API, not described in prose.
 //
 // Compiles the system prompt together with parallel source segments.
-// Substitution happens per-block *before* offsets are recorded, so a {var}
+// Substitution happens per-block *before* offsets are recorded, so a {{var}}
 // whose value differs in length from its placeholder cannot shift the offsets
 // of later segments. `text` is byte-for-byte identical to the legacy
 // concatenation, so generateSystemPrompt is a thin wrapper over it.
@@ -92,8 +92,8 @@ export function compileSystemPrompt(
     untrimmed = inner.text;
     segments = inner.segments;
   } else {
-    // Splice on the RAW template before sub runs so `{generated}` is never
-    // exposed to `{var}` substitution and a caller-supplied vars.generated
+    // Splice on the RAW template before sub runs so `{{generated}}` is never
+    // exposed to `{{var}}` substitution and a caller-supplied vars.generated
     // can't clobber the placeholder.
     const idx = tmpl.indexOf(GENERATED_PLACEHOLDER);
     if (idx < 0) {
@@ -144,7 +144,7 @@ export function compileSystemPrompt(
 
 // Builds the spec-derived prompt body and its segments without applying the
 // final trim()+"\n" — the outer compileSystemPrompt owns whitespace
-// normalization so it can splice `{generated}` cleanly.
+// normalization so it can splice `{{generated}}` cleanly.
 function compileInnerRaw(
   spec: Spec,
   ctx: RenderCtx,
@@ -217,7 +217,7 @@ function compileInnerRaw(
   });
 
   // Caller (compileSystemPrompt) owns trim+newline normalization so it can
-  // splice `{generated}` cleanly. Inner body and segments are returned raw.
+  // splice `{{generated}}` cleanly. Inner body and segments are returned raw.
   return { text: body, segments };
 }
 
@@ -269,14 +269,14 @@ function renderMultilingual(ctx: RenderCtx): string {
   ].join("\n");
 }
 
-// Replaces `{name}` placeholders with values from `vars`. Unknown placeholders
+// Replaces `{{name}}` placeholders with values from `vars`. Unknown placeholders
 // are left as-is; null/undefined values leave the placeholder so the author
 // can spot a missing var instead of getting silent ""s in the prompt.
 export function substituteVars(text: string, vars: Record<string, unknown>): string {
   let out = text;
   for (const [name, value] of Object.entries(vars)) {
     if (value === null || value === undefined) continue;
-    out = out.split(`{${name}}`).join(String(value));
+    out = out.split(`{{${name}}}`).join(String(value));
   }
   return out;
 }

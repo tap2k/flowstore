@@ -176,22 +176,41 @@ describe("validateGraph", () => {
   });
 
   describe("system_prompt template warnings", () => {
-    it("warns (severity warning) when the template omits {generated}", () => {
+    it("warns (severity warning) when the template omits {{generated}}", () => {
       const w = byCode(validateGraph(spec({ system_prompt: "You are a bot." })), "system-prompt-missing-generated");
       expect(w).toHaveLength(1);
       expect(w[0].severity).toBe("warning");
     });
 
-    it("warns when the template has multiple {generated}", () => {
+    it("warns when the template has multiple {{generated}}", () => {
       expect(
-        byCode(validateGraph(spec({ system_prompt: "{generated} {generated}" })), "system-prompt-multiple-generated"),
+        byCode(validateGraph(spec({ system_prompt: "{{generated}} {{generated}}" })), "system-prompt-multiple-generated"),
       ).toHaveLength(1);
     });
 
     it("does not warn for a well-formed template", () => {
-      const issues = validateGraph(spec({ system_prompt: "Reply briefly.\n\n{generated}" }));
+      const issues = validateGraph(spec({ system_prompt: "Reply briefly.\n\n{{generated}}" }));
       expect(byCode(issues, "system-prompt-missing-generated")).toEqual([]);
       expect(byCode(issues, "system-prompt-multiple-generated")).toEqual([]);
+    });
+  });
+
+  describe("legacy single-brace placeholder migration warning", () => {
+    it("flags a single-brace {name} in flow instructions, anchored at the flow", () => {
+      const issues = validateGraph(
+        spec({ flows: [{ id: "f1", type: "happy", instructions: "Hi {customer_name}.", exit_paths: [] }] }),
+      );
+      const w = byCode(issues, "legacy-single-brace-variable");
+      expect(w).toHaveLength(1);
+      expect(w[0].severity).toBe("warning");
+      expect(w[0].at).toEqual({ kind: "flow", flowId: "f1" });
+    });
+
+    it("does not flag a well-formed double-brace {{name}}", () => {
+      const issues = validateGraph(
+        spec({ flows: [{ id: "f1", type: "happy", instructions: "Hi {{customer_name}}.", exit_paths: [] }] }),
+      );
+      expect(byCode(issues, "legacy-single-brace-variable")).toEqual([]);
     });
   });
 });
@@ -288,11 +307,11 @@ describe("validateGraph — canonical-case variable lint", () => {
 
   const casingWarnings = (issues: { code: string }[]) => issues.filter((i) => i.code === "variable-casing");
 
-  it("flags a {placeholder} cased differently from the declared variable", () => {
+  it("flags a {{placeholder}} cased differently from the declared variable", () => {
     const issues = validateGraph(
       castSpec({
         variables: { customer_name: { type: "string" } },
-        flows: [{ id: "f1", type: "happy", instructions: "Hi {Customer_Name}.", exit_paths: [] }],
+        flows: [{ id: "f1", type: "happy", instructions: "Hi {{Customer_Name}}.", exit_paths: [] }],
       }),
     );
     const w = casingWarnings(issues);
@@ -341,7 +360,7 @@ describe("validateGraph — canonical-case variable lint", () => {
     const issues = validateGraph(
       castSpec({
         variables: { customer_name: { type: "string" } },
-        flows: [{ id: "f1", type: "happy", instructions: "Hi {customer_name}.", exit_paths: [] }],
+        flows: [{ id: "f1", type: "happy", instructions: "Hi {{customer_name}}.", exit_paths: [] }],
       }),
     );
     expect(casingWarnings(issues)).toEqual([]);

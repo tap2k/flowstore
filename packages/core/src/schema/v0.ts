@@ -170,7 +170,7 @@ const AgentMetaSchema = Type.Object(
     // ("Tala") isn't self-describing, so it's woven into identity ("Lucía from
     // Tala") and purpose, and enforced (official-channel claims) in guardrails.
 
-    // The name the agent inhabits ("You are {identity}."). Accepts {var}
+    // The name the agent inhabits ("You are {identity}."). Accepts {{var}}
     // placeholders, so identity can be a per-call input rather than a literal:
     // "{assistant_name}" renders "You are Lucía." when that variable is set.
     identity: Type.String(),
@@ -303,10 +303,10 @@ export const AgentSchema = Type.Object(
     meta: AgentMetaSchema,
     chatbot_initiates: Type.Optional(Type.Boolean()),
     // Optional author-owned wrapper around the compiled system prompt.
-    // The placeholder `{generated}` expands to all spec-derived sections
+    // The placeholder `{{generated}}` expands to all spec-derived sections
     // (role, guardrails, flows, knowledge…). Omitting the placeholder is a
     // deliberate full override; codegen surfaces a warning but allows it.
-    // `{variable}` substitution applies just as in flow instructions.
+    // `{{variable}}` substitution applies just as in flow instructions.
     // Single-language by design: this is LLM-facing framing the model reads,
     // not a verbatim utterance, so it stays a plain string (the model handles
     // multilingual reasoning natively). Only user-facing utterances — script

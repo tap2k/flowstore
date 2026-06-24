@@ -22,6 +22,7 @@ export type GraphIssueCode =
   | "unknown-capability"
   | "unreachable-flow"
   | "variable-casing"
+  | "legacy-single-brace-variable"
   | "provided-on-flow-variable";
 
 export interface GraphIssue {
@@ -176,7 +177,38 @@ export function validateGraph(spec: Spec): GraphIssue[] {
   }
 
   issues.push(...lintVariableCasing(spec));
+  issues.push(...lintLegacyBraces(spec));
 
+  return issues;
+}
+
+// Migration aid: flags author text still using the legacy single-brace `{name}`
+// placeholder syntax. Substitution now matches `{{name}}` only, so a stray
+// `{name}` reaches the model verbatim instead of being filled. A warning (not an
+// error) — the compiler accepts either — pointing at the spot to double-brace.
+function lintLegacyBraces(spec: Spec): GraphIssue[] {
+  const issues: GraphIssue[] = [];
+  const flag = (name: string, at: IssueLocation) => {
+    issues.push({
+      code: "legacy-single-brace-variable",
+      at,
+      severity: "warning",
+      message: `placeholder {${name}} uses legacy single-brace syntax — write {{${name}}} so it is substituted instead of reaching the model literally`,
+    });
+  };
+  for (const name of legacyBraceNames(spec.agent.system_prompt ?? "")) flag(name, { kind: "global" });
+  for (const f of spec.flows) {
+    const flowAt: IssueLocation = { kind: "flow", flowId: f.id };
+    for (const name of legacyBraceNames(f.instructions ?? "")) flag(name, flowAt);
+    for (const s of f.scripts ?? []) {
+      for (const t of localizedValues(s.text)) {
+        for (const name of legacyBraceNames(t)) flag(name, flowAt);
+      }
+      for (const arr of Object.values(s.variations ?? {})) {
+        for (const v of arr) for (const name of legacyBraceNames(v)) flag(name, flowAt);
+      }
+    }
+  }
   return issues;
 }
 
@@ -184,13 +216,13 @@ export function validateGraph(spec: Spec): GraphIssue[] {
 // Its premise — that {placeholders} must be fillable by the bag (provided
 // seed / capability outputs / assigns) — is wrong: script placeholders are
 // also MODEL-FILLED templates (the slot-filler pattern; see the coffee
-// example's {size}/{milk}), where the LLM substitutes from conversation
-// context and a literal {var} reaching the model is correct authoring. Bag
+// example's {{size}}/{{milk}}), where the LLM substitutes from conversation
+// context and a literal {{var}} reaching the model is correct authoring. Bag
 // fillability and template fillability are different questions; a useful lint
 // would need to know which placeholders the author intends as machine-bound.
 
 // Variables are spontaneous — referencing one anywhere conjures it — so a
-// mis-cased reference (`{Customer_Name}` vs `customer_name`) silently creates a
+// mis-cased reference (`{{Customer_Name}}` vs `customer_name`) silently creates a
 // second, always-empty variable instead of erroring. This rule buckets every
 // variable reference case-insensitively and warns when one logical variable is
 // written with more than one casing, anchored at each off-casing site.
@@ -213,7 +245,7 @@ function lintVariableCasing(spec: Spec): GraphIssue[] {
   };
 
   // Anchors — sites that are unambiguously variable names (no expression
-  // parsing): declarations, {placeholder} substitutions, and assign targets.
+  // parsing): declarations, {{placeholder}} substitutions, and assign targets.
   const declared = spec.agent.variables ?? {};
   for (const name of Object.keys(declared)) {
     declaredKeys.add(name);
@@ -291,13 +323,23 @@ function lintVariableCasing(spec: Spec): GraphIssue[] {
 }
 
 const IDENTIFIER_RE = /[A-Za-z_]\w*/g;
-const PLACEHOLDER_RE = /\{([A-Za-z_]\w*)\}/g;
+const PLACEHOLDER_RE = /\{\{([A-Za-z_]\w*)\}\}/g;
+// A single-brace `{name}` that is NOT part of a `{{name}}` pair — the legacy
+// pre-double-brace syntax. Lookarounds keep it from matching the inner edges of
+// a well-formed `{{name}}`.
+const LEGACY_BRACE_RE = /(?<!\{)\{([A-Za-z_]\w*)\}(?!\})/g;
 
 function placeholderNames(text: string): string[] {
   const names: string[] = [];
   for (const m of text.matchAll(PLACEHOLDER_RE)) {
-    if (m[1] !== "generated") names.push(m[1]); // {generated} is the codegen splice, not a var
+    if (m[1] !== "generated") names.push(m[1]); // {{generated}} is the codegen splice, not a var
   }
+  return names;
+}
+
+function legacyBraceNames(text: string): string[] {
+  const names: string[] = [];
+  for (const m of text.matchAll(LEGACY_BRACE_RE)) names.push(m[1]);
   return names;
 }
 

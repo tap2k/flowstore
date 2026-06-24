@@ -47,13 +47,13 @@ describe("fnol-min fixture — visible_when + placeholder", () => {
     expect(fnol.agent.variables!.payout_estimate.visible_when).toBe("identity_verified == True");
   });
 
-  it("leaves {payout_estimate} literal when no vars are bound", () => {
-    expect(compileSystemPrompt(fnol).text).toContain("{payout_estimate}");
+  it("leaves {{payout_estimate}} literal when no vars are bound", () => {
+    expect(compileSystemPrompt(fnol).text).toContain("{{payout_estimate}}");
   });
 
   it("substitutes the placeholder when the variable is bound", () => {
     const text = compileSystemPrompt(fnol, { payout_estimate: "$4,200" }).text;
     expect(text).toContain("Your estimated payout is $4,200.");
-    expect(text).not.toContain("{payout_estimate}");
+    expect(text).not.toContain("{{payout_estimate}}");
   });
 });

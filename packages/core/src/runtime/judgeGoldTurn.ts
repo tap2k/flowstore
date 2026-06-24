@@ -12,10 +12,10 @@ const SYSTEM_PROMPT =
   "even if the phrasing, language, or word choice differs.";
 
 const USER_PROMPT_TEMPLATE = `Gold (reference) agent turn:
-{gold}
+{{gold}}
 
 Live (actual) agent turn:
-{live}
+{{live}}
 
 Do these two agent responses convey the same intent and commitment? Consider meaning, not exact wording. Cross-language equivalence counts as equivalent.`;
 
@@ -27,8 +27,8 @@ export async function judgeGoldTurn(args: {
   model: string;
 }): Promise<GoldTurnVerdict> {
   const { goldTurn, liveTurn, provider, apiKey, model } = args;
-  const userPrompt = USER_PROMPT_TEMPLATE.replace("{gold}", goldTurn).replace(
-    "{live}",
+  const userPrompt = USER_PROMPT_TEMPLATE.replace("{{gold}}", goldTurn).replace(
+    "{{live}}",
     liveTurn,
   );
   try {
