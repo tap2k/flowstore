@@ -1,0 +1,19 @@
+# Cloudflare Pages response headers. Vite copies public/ into dist/, and Pages
+# serves dist/_headers at deploy. Applies to the deployed site only — `vite dev`
+# is unaffected, so validate CSP on a Pages *preview* deployment, not locally.
+#
+# CSP rationale (XSS hardens the plaintext credentials in localStorage):
+#   script-src   tight, no 'unsafe-inline' — this is the directive that actually
+#                defends the LLM keys + GitHub token. googletagmanager is the one
+#                external script (GA4 gtag.js); it's a named origin, not a hole.
+#   style-src    'unsafe-inline' — React/Tailwind inject inline styles; inline
+#                styles don't carry the script-exfil risk, standard relaxation.
+#   connect-src  permissive (https: wss:) by design — the app is BYO-endpoint
+#                (custom runner URL, openai-compatible base_url, live capability
+#                endpoints are all arbitrary user input; Gemini Live needs wss).
+#                Safe because script-src stays tight: no injected code to abuse it.
+#   img-src      *.google-analytics.com for GA beacon pixels; data: for inline svg.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.google-analytics.com; font-src 'self'; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
