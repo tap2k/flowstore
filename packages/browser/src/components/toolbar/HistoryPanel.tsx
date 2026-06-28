@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
 import { useDirtyStore } from "@/lib/store/dirty";
@@ -29,28 +29,33 @@ export function HistoryPanel({ open, onClose }: { open: boolean; onClose: () => 
   const pat = useSettingsStore((s) => s.githubPat);
   const branch = location?.ref ?? "this branch";
 
-  useEffect(() => {
-    if (!open) return;
+  const load = useCallback(async (signal: { cancelled: boolean }) => {
     setState({ phase: "loading" });
     setRestoring(null);
-    let cancelled = false;
-    (async () => {
-      if (!location || !pat) {
-        setState({ phase: "error", message: "No project open." });
-        return;
-      }
-      try {
-        const loc = { client: makeGitHubClient(pat), owner: location.owner, repo: location.repo, ref: location.ref };
-        const rows = await listCommits(loc);
-        if (cancelled) return;
-        setState(rows.length === 0 ? { phase: "empty" } : { phase: "ready", rows });
-      } catch (e) {
-        if (cancelled) return;
-        setState({ phase: "error", message: e instanceof Error ? e.message : String(e) });
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [open]);
+    if (!location || !pat) {
+      setState({ phase: "error", message: "No project open." });
+      return;
+    }
+    try {
+      const loc = { client: makeGitHubClient(pat), owner: location.owner, repo: location.repo, ref: location.ref };
+      const rows = await listCommits(loc);
+      if (signal.cancelled) return;
+      setState(rows.length === 0 ? { phase: "empty" } : { phase: "ready", rows });
+    } catch (e) {
+      if (signal.cancelled) return;
+      setState({ phase: "error", message: e instanceof Error ? e.message : String(e) });
+    }
+  }, [location, pat]);
+
+  // Refetch when the panel opens and whenever HEAD advances (e.g. an in-app
+  // save bumps currentSha). External pushes the app can't observe are covered
+  // by the manual Refresh button.
+  useEffect(() => {
+    if (!open) return;
+    const signal = { cancelled: false };
+    void load(signal);
+    return () => { signal.cancelled = true; };
+  }, [open, currentSha, load]);
 
   async function restore(sha: string) {
     if (!location || !pat) return;
@@ -86,9 +91,18 @@ export function HistoryPanel({ open, onClose }: { open: boolean; onClose: () => 
           <p className="text-sm font-semibold text-zinc-900">Revision history</p>
           <p className="font-mono text-[11px] text-zinc-500">{branch}</p>
         </div>
-        <button onClick={onClose} className="mt-0.5 text-xs text-zinc-500 hover:text-zinc-900">
-          close
-        </button>
+        <div className="mt-0.5 flex items-center gap-3">
+          <button
+            onClick={() => void load({ cancelled: false })}
+            disabled={state.phase === "loading"}
+            className="text-xs text-zinc-500 hover:text-zinc-900 disabled:opacity-40"
+          >
+            refresh
+          </button>
+          <button onClick={onClose} className="text-xs text-zinc-500 hover:text-zinc-900">
+            close
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto px-2 py-1">

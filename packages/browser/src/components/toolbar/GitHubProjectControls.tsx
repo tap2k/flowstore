@@ -19,6 +19,16 @@ import { useDirtyStore, markProjectBaseline } from "@/lib/store/dirty";
 import { useUiStore } from "@/lib/store/ui";
 import { diffSpecs, summarizeSpecDiff } from "@flowstore/core/spec/diff";
 
+// Combine an optional user comment with the auto-generated diff summary into a
+// git commit message. A comment becomes the subject line (git convention: short
+// title, blank line, body) with the diff summary as the body; without one, the
+// summary stands alone as the subject so history stays readable either way.
+function buildCommitMessage(comment: string | undefined, summary: string): string {
+  const title = comment?.trim();
+  if (!title) return summary;
+  return `${title}\n\n${summary}`;
+}
+
 const iconButtonClass =
   "rounded-md border border-zinc-200 p-1.5 text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 disabled:hover:bg-transparent";
 const menuItemClass =
@@ -74,7 +84,6 @@ export function GitHubProjectControls({
   const pat = useSettingsStore((s) => s.githubPat);
   const spec = useSpecStore((s) => s.spec);
   const location = useGithubProjectStore((s) => s.location);
-  const lastSha = useGithubProjectStore((s) => s.lastKnownCommitSha);
   const canWrite = useGithubProjectStore((s) => s.canWrite);
   const canAdmin = useGithubProjectStore((s) => s.canAdmin);
   const setLoaded = useGithubProjectStore((s) => s.setLoaded);
@@ -89,6 +98,7 @@ export function GitHubProjectControls({
   const [conflictRemoteSha, setConflictRemoteSha] = useState<string | null>(null);
   const [protectedBlocked, setProtectedBlocked] = useState(false);
   const [newBranchOpen, setNewBranchOpen] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [saveMenuOpen, setSaveMenuOpen] = useState(false);
   const saveMenuRef = useRef<HTMLDivElement>(null);
 
@@ -144,8 +154,13 @@ export function GitHubProjectControls({
   }
   if (!pat) return null;
 
-  async function doSave(force: boolean) {
-    if (!location || !spec) return;
+  async function doSave(force: boolean, comment?: string) {
+    if (!location) return;
+    // Read spec fresh from the store rather than the closed-over render value,
+    // so a save triggered before React re-rendered (or via the static Cmd+S
+    // listener) writes the latest edits, not a stale snapshot.
+    const spec = useSpecStore.getState().spec;
+    if (!spec) return;
     setSaving(true);
     setError(null);
     setProtectedBlocked(false);
@@ -163,9 +178,19 @@ export function GitHubProjectControls({
       // we absorb whatever HEAD has become. The flag is single-shot.
       const pendingForce = useGithubProjectStore.getState().pendingForceSave;
       const effectiveForce = force || pendingForce;
-      const opts = effectiveForce ? {} : { expectedCommitSha: lastSha ?? undefined };
+      // Read the baseline SHA fresh from the store, not a closed-over render
+      // value. A second save fired before React re-rendered (or via the
+      // static Cmd+S listener, which already reads location/canWrite via
+      // getState for the same reason) would otherwise send the SHA from *before*
+      // the first save — making our own just-pushed commit look like a
+      // collaborator's and throwing a phantom ConflictError.
+      const baselineSha = useGithubProjectStore.getState().lastKnownCommitSha;
+      const opts = effectiveForce ? {} : { expectedCommitSha: baselineSha ?? undefined };
       const savedSpec = useGithubProjectStore.getState().savedSpec;
-      const commitMessage = savedSpec ? summarizeSpecDiff(diffSpecs(savedSpec, spec)) : "Update spec";
+      const commitMessage = buildCommitMessage(
+        comment,
+        savedSpec ? summarizeSpecDiff(diffSpecs(savedSpec, spec)) : "Update spec",
+      );
       const res = await writeFileMapToRepo(
         { client, owner: location.owner, repo: location.repo, ref: location.ref },
         fileMap,
@@ -333,11 +358,11 @@ export function GitHubProjectControls({
             <button
               onClick={() => {
                 setSaveMenuOpen(false);
-                void doSave(false);
+                setSaveDialogOpen(true);
               }}
               className={menuItemClass}
             >
-              Save to <span className="font-mono">{location.ref}</span>
+              Save to <span className="font-mono">{location.ref}</span>…
             </button>
             <button
               onClick={() => {
@@ -455,6 +480,18 @@ export function GitHubProjectControls({
           saving={saving}
           onCancel={() => setNewBranchOpen(false)}
           onSubmit={doSaveToNewBranch}
+        />
+      )}
+
+      {saveDialogOpen && (
+        <SaveCommentModal
+          branch={location.ref}
+          saving={saving}
+          onCancel={() => setSaveDialogOpen(false)}
+          onSubmit={async (comment) => {
+            await doSave(false, comment);
+            setSaveDialogOpen(false);
+          }}
         />
       )}
 
@@ -587,6 +624,70 @@ function NewBranchModal({ baseBranch, saving, onCancel, onSubmit }: NewBranchMod
             className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save to branch"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface SaveCommentModalProps {
+  branch: string;
+  saving: boolean;
+  onCancel: () => void;
+  onSubmit: (comment: string) => void;
+}
+
+// Captures an optional short note before saving to the current branch. The note
+// becomes the commit subject; the auto-generated diff summary becomes the body
+// (see buildCommitMessage). The comment is optional — Save stays enabled with
+// an empty box so this never adds friction for users who don't want a note.
+// Cmd/Ctrl+Enter submits from the textarea so a save is one keystroke away.
+function SaveCommentModal({ branch, saving, onCancel, onSubmit }: SaveCommentModalProps) {
+  const [comment, setComment] = useState("");
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      onClick={onCancel}
+    >
+      <div
+        className="bg-white rounded-lg shadow-lg w-full max-w-md p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-lg font-semibold text-zinc-900 mb-2">
+          Save to <span className="font-mono">{branch}</span>
+        </h2>
+        <p className="text-xs text-zinc-600 mb-3">
+          Add an optional comment to describe this change.
+        </p>
+        <textarea
+          autoFocus
+          rows={3}
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+              e.preventDefault();
+              if (!saving) onSubmit(comment);
+            }
+          }}
+          placeholder="Comment (optional)"
+          className="w-full resize-none rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+        />
+        <div className="flex justify-end gap-2 pt-3">
+          <button
+            onClick={onCancel}
+            className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onSubmit(comment)}
+            disabled={saving}
+            className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save"}
           </button>
         </div>
       </div>

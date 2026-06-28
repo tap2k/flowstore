@@ -227,6 +227,10 @@ export async function readRepoToFileMap(
     owner: loc.owner,
     repo: loc.repo,
     ref: `heads/${loc.ref}`,
+    // Bypass Octokit's ETag cache: this read often follows a save (Get-latest,
+    // refresh), and a 304 with the pre-save ref would silently load stale
+    // content. See readHeadSha for the refs-API eventual-consistency notes.
+    headers: { "If-None-Match": "" },
   });
   const commitSha = ref.data.object.sha;
   const commit = await loc.client.rest.git.getCommit({
@@ -302,6 +306,10 @@ export async function listCommits(loc: GitHubLocation, perPage = 30): Promise<Re
     repo: loc.repo,
     sha: loc.ref,
     per_page: perPage,
+    // Force a fresh response. Octokit sends conditional requests (ETag) and
+    // GitHub caches the commits endpoint briefly, so a refetch right after a
+    // push can otherwise return a 304 with the stale list.
+    headers: { "If-None-Match": "" },
   });
   return res.data.map((c) => ({
     sha: c.sha,
@@ -310,6 +318,43 @@ export async function listCommits(loc: GitHubLocation, perPage = 30): Promise<Re
     author: c.author?.login ?? c.commit.author?.name ?? "unknown",
     date: c.commit.author?.date ?? null,
   }));
+}
+
+// Read the branch HEAD, tolerating GitHub's eventual consistency on the refs
+// API. Immediately after an updateRef, a getRef can be served by a lagging read
+// replica that still reports the *previous* SHA for a few seconds — which would
+// otherwise look like a collaborator pushed a conflicting commit (observed as a
+// phantom "Someone else saved changes" on a user's own back-to-back saves).
+//
+// When `expected` is provided and the first read disagrees, we re-read a few
+// times with backoff. The conditional-request cache is bypassed each time (the
+// "" If-None-Match) so we get a fresh value, not a 304. If the ref converges to
+// `expected`, the disagreement was replica lag and we proceed; if it settles on
+// a different SHA, it's a genuine conflict and the caller throws.
+async function readHeadSha(loc: GitHubLocation, expected?: string): Promise<string> {
+  const delaysMs = [0, 400, 900, 1600];
+  let last = "";
+  for (const delay of delaysMs) {
+    if (delay > 0) await sleep(delay);
+    const ref = await loc.client.rest.git.getRef({
+      owner: loc.owner,
+      repo: loc.repo,
+      ref: `heads/${loc.ref}`,
+      // Bypass Octokit's ETag cache so a post-write read can't return a 304
+      // with the stale ref value.
+      headers: { "If-None-Match": "" },
+    });
+    last = ref.data.object.sha;
+    // No baseline to reconcile against, or the read already matches it → done.
+    if (!expected || last === expected) return last;
+    // Disagrees with expected: could be replica lag (will converge to expected)
+    // or a real conflict (will stay different). Retry to find out.
+  }
+  return last;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // Atomic multi-file commit via the Git Data API. base_tree inherits any
@@ -327,12 +372,7 @@ export async function writeFileMapToRepo(
   let baseCommitSha: string | undefined;
   let baseTreeSha: string | undefined;
   try {
-    const ref = await loc.client.rest.git.getRef({
-      owner: loc.owner,
-      repo: loc.repo,
-      ref: `heads/${loc.ref}`,
-    });
-    baseCommitSha = ref.data.object.sha;
+    baseCommitSha = await readHeadSha(loc, opts.expectedCommitSha);
     if (opts.expectedCommitSha && opts.expectedCommitSha !== baseCommitSha) {
       throw new ConflictError(opts.expectedCommitSha, baseCommitSha);
     }
@@ -343,6 +383,7 @@ export async function writeFileMapToRepo(
     });
     baseTreeSha = commit.data.tree.sha;
   } catch (e: unknown) {
+    if (e instanceof ConflictError) throw e;
     if (!isNotFound(e) && !isEmptyRepo(e)) throw e;
   }
 

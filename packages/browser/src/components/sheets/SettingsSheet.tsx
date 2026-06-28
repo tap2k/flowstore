@@ -137,7 +137,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         onChange={setOpenrouter}
         help={
           <>
-            For Claude (Anthropic doesn&apos;t allow browser-direct calls) and any
+            For any
             other model OpenRouter hosts. Get a key at{" "}
             <a
               href="https://openrouter.ai/keys"
@@ -151,10 +151,6 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           </>
         }
       />
-      <p className="text-[11px] text-zinc-500 -mt-1">
-        All keys are stored in this browser&apos;s localStorage. Anyone with
-        access to this browser can read them.
-      </p>
 
       <div className="space-y-2">
         <label className="text-xs font-medium text-zinc-700">Default model</label>
