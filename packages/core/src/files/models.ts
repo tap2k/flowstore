@@ -64,7 +64,7 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
 
     // Anthropic (via OpenRouter — Anthropic blocks browser-direct CORS)
     "claude-opus-4.8":          { name: "Claude Opus 4.8", endpoint: "openrouter", model_id: "anthropic/claude-opus-4.8" },
-    "claude-sonnet-4.6":        { name: "Claude Sonnet 4.6", endpoint: "openrouter", model_id: "anthropic/claude-sonnet-4.6" },
+    "claude-sonnet-5":          { name: "Claude Sonnet 5", endpoint: "openrouter", model_id: "anthropic/claude-sonnet-5" },
     "claude-haiku-4.5":         { name: "Claude Haiku 4.5", endpoint: "openrouter", model_id: "anthropic/claude-haiku-4.5" },
 
     // Open-weight on OpenRouter. The :free suffix routes to the free tier.
