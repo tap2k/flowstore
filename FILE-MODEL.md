@@ -297,19 +297,16 @@ Per-uuid additive files at project root (`comments/<uuid>.comment.json`). Each c
   "id": "c-2026-05-21-a8f3",
   "anchor": {
     "kind": "flow",                      // closed enum (TypeBox schema): flow | exit_path | capability | guardrail | business_goal | variable | faq | glossary | table | persona | rubric | evaluator | test_case | mock
-    "agent_id": "30day-past-due-hindi",  // present iff entity is agent-scoped or below; omit for project-scoped
-    "id": "verify_identity"              // the entity's id within its scope
+    "id": "verify_identity"              // the entity's id; for exit_path, the composite "<flow_id>::<exit_path_id>"
   },
-  "thread_id": "t-2026-05-21-3b2c",
-  "parent_id": null,                     // null = top of thread; else id of comment being replied to
   "author": "nirja",                     // GitHub username
-  "timestamp": "2026-05-21T15:00:00Z",
+  "timestamp": "2026-05-21T15:00:00Z",   // ISO-8601 UTC
   "body": "Should this flow handle the case where...?",
-  "resolved_by": null                    // comment id that resolves this thread, or null
+  "resolved": false                      // flipped to true on the original file to close the thread
 }
 ```
 
-Pure additive — two collaborators creating comments simultaneously write two files; never conflict. Threading via `parent_id`. Resolution by another comment marked `resolved_by`. When the anchored entity is removed, cascade-delete handles the orphaned comments (validation flags them otherwise).
+Pure additive — two collaborators creating comments simultaneously write two files; never conflict. Threading is **flat** in v1: all comments on the same anchor are siblings, ordered by `timestamp` (no `parent_id`/reply nesting yet). Resolution flips `resolved: true` on a comment rather than recording a separate resolving comment. When the anchored entity is removed, cascade-delete handles the orphaned comments (validation flags them otherwise).
 
 ---
 
