@@ -42,8 +42,8 @@ import type { GoldTurnVerdict } from "@flowstore/core/runtime/judgeGoldTurn";
 import { resolveDispatch, supportsStructuredOutput, useSettingsStore } from "@/lib/store/settings";
 import { buildTransitionTable } from "@flowstore/core/runtime/transitionTable";
 import {
-  runFlowWatcher,
-  resolveTransition,
+  runFlowDecode,
+  resolveDecodedPath,
   type ResolvedAttribution,
 } from "@flowstore/core/runtime/flowWatcher";
 import { useModelsStore } from "@/lib/store/models";
@@ -1434,34 +1434,26 @@ async function attributeTurn(
   const seq = get().attributionSeq + 1;
   set({ attributionSeq: seq });
 
-  const prevFlowId = get().currentFlowId ?? spec.agent.entry_flow_id;
   const table = buildTransitionTable(spec);
   const transcript = get().transcript.map((t) => ({ role: t.role, text: t.text }));
 
   try {
-    const raw = await runFlowWatcher(spec, creds.provider, creds.apiKey, creds.model, {
-      prevFlowId,
+    // Decode the whole path from the whole transcript — no fed-forward prevFlow
+    // (kills the auto-run staleness) and later turns fix earlier ones.
+    const steps = await runFlowDecode(spec, creds.provider, creds.apiKey, creds.model, {
       transcript,
     });
     // A newer turn or a reset/fork superseded this call.
     if (get().sessionId !== sessionId || get().attributionSeq !== seq) return;
-    const resolved = resolveTransition(prevFlowId, raw, table);
-    const cur = get();
-    const edges =
-      resolved.edgeId && !cur.traversedEdgeIds.includes(resolved.edgeId)
-        ? [...cur.traversedEdgeIds, resolved.edgeId]
-        : cur.traversedEdgeIds;
-    const flows =
-      resolved.status !== "stay" &&
-      resolved.status !== "unknown" &&
-      !cur.traversedFlowIds.includes(resolved.flowId)
-        ? [...cur.traversedFlowIds, resolved.flowId]
-        : cur.traversedFlowIds;
+    const resolved = resolveDecodedPath(spec.agent.entry_flow_id, steps, table);
+    if (!resolved) return;
+    // Replace (not append) — the decode re-derives the whole path, so the trail
+    // self-corrects instead of accreting past mistakes.
     set({
-      attribution: resolved,
-      currentFlowId: resolved.flowId,
-      traversedEdgeIds: edges,
-      traversedFlowIds: flows,
+      attribution: resolved.current,
+      currentFlowId: resolved.current.flowId,
+      traversedEdgeIds: resolved.traversedEdgeIds,
+      traversedFlowIds: resolved.traversedFlowIds,
     });
   } catch {
     // Watcher failure is non-fatal — leave the prior glow untouched.
