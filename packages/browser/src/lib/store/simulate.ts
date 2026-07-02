@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { create, type StoreApi } from "zustand";
 import type { Spec } from "@flowstore/core/schema/v0";
 import type { RuntimeEvent } from "@flowstore/core/runtime/eventTypes";
 import { type TranscriptTurn } from "@flowstore/core/runtime/transcript";
@@ -40,6 +40,12 @@ import type { GuardrailVerdict } from "@flowstore/core/runtime/judgeGuardrails";
 import type { RubricVerdict } from "@flowstore/core/runtime/judgeRubric";
 import type { GoldTurnVerdict } from "@flowstore/core/runtime/judgeGoldTurn";
 import { resolveDispatch, supportsStructuredOutput, useSettingsStore } from "@/lib/store/settings";
+import { buildTransitionTable } from "@flowstore/core/runtime/transitionTable";
+import {
+  runFlowWatcher,
+  resolveTransition,
+  type ResolvedAttribution,
+} from "@flowstore/core/runtime/flowWatcher";
 import { useModelsStore } from "@/lib/store/models";
 import { useUiStore } from "@/lib/store/ui";
 import { useSpecStore } from "@/lib/store/spec";
@@ -180,6 +186,17 @@ interface SimulateState {
   // Per-agent-turn semantic verdicts for the active gold (keyed by 0-based gold agent-turn
   // index). null = evaluation not yet run. "pending" = LLM call in-flight.
   goldTurnVerdicts: Record<number, GoldTurnVerdict | "pending"> | null;
+
+  // Prompt-mode graph attribution (the flow watcher — see @flowstore/core
+  // runtime/flowWatcher). The runner gets exact attribution from its events;
+  // prompt mode (text) has no source, so a small structured LLM call infers the
+  // current flow + the transition taken, and reachability flags illegal jumps.
+  // It writes currentFlowId/traversedEdgeIds (reusing the existing canvas glow)
+  // AND this `attribution` (confidence texture + failure paint). null in
+  // runner/external/voice modes and before the first attributed turn.
+  // attributionSeq race-guards async watcher results against newer turns/resets.
+  attribution: ResolvedAttribution | null;
+  attributionSeq: number;
 
   setMode: (mode: SimulateMode) => void;
   setMicMuted: (muted: boolean) => void;
@@ -339,6 +356,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   guardrailVerdict: null,
   rubricVerdicts: {},
   goldTurnVerdicts: null,
+  attribution: null,
+  attributionSeq: 0,
 
   setMode: (mode) => {
     if (get().sessionId) return; // mode is frozen during an active session
@@ -854,6 +873,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       guardrailVerdict: null,
       rubricVerdicts: {},
       goldTurnVerdicts: null,
+      attribution: null,
     });
 
     if (mode === "voice") {
@@ -984,6 +1004,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
             lastUsage: res.usage ?? null,
             status: "ready",
           });
+          // Attribute the opener so the graph lights up before the first user turn.
+          void attributeTurn(set, get, sessionId);
         } else {
           set({ status: "ready" });
         }
@@ -1182,6 +1204,9 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           status: endsConvo ? "ended" : "ready",
           ...(endsConvo ? { autoRun: false } : {}),
         });
+        // Light the graph for this turn (async, non-blocking — the reply is
+        // already shown).
+        void attributeTurn(set, get, sessionId);
       } catch (e) {
         // Roll back the optimistic user turn (see the runner branch) and stop
         // the persona loop. Guard against writing into state that was already
@@ -1287,6 +1312,10 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       guardrailVerdict: null,
       rubricVerdicts: {},
       goldTurnVerdicts: null,
+      // Invalidate any in-flight watcher (fork keeps the sessionId, so bumping
+      // the seq is what drops a stale result) and clear the stale glow.
+      attribution: null,
+      attributionSeq: get().attributionSeq + 1,
     });
   },
 
@@ -1323,6 +1352,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       guardrailVerdict: null,
       rubricVerdicts: {},
       goldTurnVerdicts: null,
+      attribution: null,
     });
   },
 
@@ -1337,7 +1367,7 @@ function stripDoneMarker(text: string): { text: string; done: boolean } {
   return { text: text.replace(re, "").trim(), done: true };
 }
 
-type SimulateRole = "agent" | "persona";
+type SimulateRole = "agent" | "persona" | "extractor";
 
 function readLlmCreds(role: SimulateRole): {
   apiKey: string;
@@ -1349,7 +1379,14 @@ function readLlmCreds(role: SimulateRole): {
   // Read fresh from settings on each prompt-mode turn so key/model changes
   // mid-session apply without forcing a reset.
   const s = useSettingsStore.getState();
-  const model = role === "persona" ? s.simulatePersonaModel : s.simulateAgentModel;
+  // The flow watcher rides the default model (no dedicated picker); the agent
+  // and persona have their own per-location picks.
+  const model =
+    role === "persona"
+      ? s.simulatePersonaModel
+      : role === "extractor"
+        ? s.defaultModel
+        : s.simulateAgentModel;
   const dispatch = resolveDispatch(model);
   const labels: Record<string, string> = {
     google: "Google",
@@ -1367,4 +1404,66 @@ function readLlmCreds(role: SimulateRole): {
     baseUrl: dispatch.baseUrl,
     endpointLabel: dispatch.endpoint ? labels[dispatch.endpoint] : "provider",
   };
+}
+
+// Prompt-mode graph attribution: after an agent turn lands in text mode, ask the
+// flow watcher (default model, structured JSON) which flow the monolith is now
+// in, resolve it against the licensed-transition table, and write the result +
+// the reused glow fields (currentFlowId / traversedEdgeIds). Fire-and-forget:
+// the reply is already shown; the glow catches up ~½s later. Non-fatal on every
+// failure path (no key, non-JSON provider, LLM error) — the sim just runs without
+// a glow. `attributionSeq` drops a stale result when a newer turn or reset raced
+// ahead. (Concurrency note: on rapid back-to-back turns the watcher may read a
+// prevFlowId that a still-in-flight prior watcher hasn't committed — the seq
+// guard keeps only the latest turn's result, so the glow can lag a step but never
+// sticks wrong. Acceptable for a glance-value visualization.)
+async function attributeTurn(
+  set: StoreApi<SimulateState>["setState"],
+  get: StoreApi<SimulateState>["getState"],
+  sessionId: string,
+): Promise<void> {
+  const spec = get().specSnapshot;
+  if (!spec) return;
+  const creds = readLlmCreds("extractor");
+  // The watcher needs strict structured JSON, which only Google/OpenAI provide
+  // (the canonical predicate — same gate the persona fixture generator uses).
+  // Any other provider, or a missing key → disable silently, no glow.
+  if (!creds.provider || !creds.apiKey) return;
+  if (!supportsStructuredOutput(useSettingsStore.getState().defaultModel)) return;
+
+  const seq = get().attributionSeq + 1;
+  set({ attributionSeq: seq });
+
+  const prevFlowId = get().currentFlowId ?? spec.agent.entry_flow_id;
+  const table = buildTransitionTable(spec);
+  const transcript = get().transcript.map((t) => ({ role: t.role, text: t.text }));
+
+  try {
+    const raw = await runFlowWatcher(spec, creds.provider, creds.apiKey, creds.model, {
+      prevFlowId,
+      transcript,
+    });
+    // A newer turn or a reset/fork superseded this call.
+    if (get().sessionId !== sessionId || get().attributionSeq !== seq) return;
+    const resolved = resolveTransition(prevFlowId, raw, table);
+    const cur = get();
+    const edges =
+      resolved.edgeId && !cur.traversedEdgeIds.includes(resolved.edgeId)
+        ? [...cur.traversedEdgeIds, resolved.edgeId]
+        : cur.traversedEdgeIds;
+    const flows =
+      resolved.status !== "stay" &&
+      resolved.status !== "unknown" &&
+      !cur.traversedFlowIds.includes(resolved.flowId)
+        ? [...cur.traversedFlowIds, resolved.flowId]
+        : cur.traversedFlowIds;
+    set({
+      attribution: resolved,
+      currentFlowId: resolved.flowId,
+      traversedEdgeIds: edges,
+      traversedFlowIds: flows,
+    });
+  } catch {
+    // Watcher failure is non-fatal — leave the prior glow untouched.
+  }
 }

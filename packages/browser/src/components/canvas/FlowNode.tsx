@@ -1,5 +1,6 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { FlowType } from "@flowstore/core/schema/v0";
+import type { ResolvedAttribution } from "@flowstore/core/runtime/flowWatcher";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useCommentsStore } from "@/lib/store/comments";
 
@@ -21,6 +22,43 @@ function issueRing(level: "error" | "warning" | undefined): string | null {
   return level === "error" ? "ring-1 ring-red-300 shadow-sm" : level === "warning" ? "ring-1 ring-amber-300 shadow-sm" : null;
 }
 
+// The halo for the flow the sim is currently in. A thick ring competes with the
+// node's own colored border, so the active state leans on a bright colored GLOW
+// (a large soft box-shadow) that reads at a glance from across the canvas. In
+// runner mode (or before the first attributed prompt-mode turn) `attr` is null →
+// the full-strength sky glow. In prompt mode the flow watcher supplies a
+// confidence + status:
+//  - illegal jump → red glow, pulsing: the agent behaved like a flow the spec
+//    can't reach from the previous one (off-spec, or a missing edge).
+//  - otherwise confidence is rendered as texture, NOT a number — the glow fades
+//    and the ring thins as certainty drops, and a genuine close call pulses. The
+//    shimmer is the OBSERVER's uncertainty ("we're not sure it's here"), not a
+//    claim about the model.
+const GLOW_SKY_STRONG = "shadow-[0_0_22px_4px_rgba(2,132,199,0.7)]";
+const GLOW_SKY_SOFT = "shadow-[0_0_16px_2px_rgba(2,132,199,0.45)]";
+const GLOW_RED = "shadow-[0_0_22px_4px_rgba(239,68,68,0.7)]";
+
+function activeRingClass(attr: ResolvedAttribution | null): string {
+  if (!attr)
+    return `ring-4 ring-sky-500 ring-offset-2 ${GLOW_SKY_STRONG}`;
+  if (attr.status === "illegal")
+    return `ring-4 ring-red-500 ring-offset-2 ${GLOW_RED} animate-pulse motion-reduce:animate-none`;
+  const c = attr.confidence;
+  if (c >= 0.66) return `ring-4 ring-sky-500 ring-offset-2 ${GLOW_SKY_STRONG}`;
+  if (c >= 0.33) return `ring-4 ring-sky-400 ring-offset-2 ${GLOW_SKY_SOFT}`;
+  return `ring-2 ring-sky-300 ring-offset-1 ${GLOW_SKY_SOFT} animate-pulse motion-reduce:animate-none`;
+}
+
+// A human-readable reason for a red/shimmer glow, appended to the node tooltip.
+function attributionHint(attr: ResolvedAttribution | null): string | undefined {
+  if (!attr) return undefined;
+  if (attr.status === "illegal")
+    return "Off-spec: the agent behaved like a flow the spec can't reach from the previous one.";
+  if (attr.confidence < 0.33)
+    return `Low-confidence attribution (${Math.round(attr.confidence * 100)}%) — this transition is a close call.`;
+  return undefined;
+}
+
 const typeStyles: Record<FlowType, { border: string; badge: string; label: string }> = {
   happy:     { border: "border-emerald-400", badge: "bg-emerald-100 text-emerald-800", label: "happy" },
   sad:       { border: "border-amber-400",   badge: "bg-amber-100 text-amber-800",     label: "sad" },
@@ -35,6 +73,12 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
   const issueTitle = hasIssues ? data.issues!.join("\n") : undefined;
   const level = data.issueLevel;
   const isActive = useSimulateStore((s) => s.currentFlowId === id);
+  // Attribution belongs to the active flow only (attribution.flowId ===
+  // currentFlowId, set together). null for non-active nodes and runner mode.
+  const attribution = useSimulateStore((s) => (s.currentFlowId === id ? s.attribution : null));
+  const activeRing = activeRingClass(attribution);
+  const hint = attributionHint(attribution);
+  const title = [issueTitle, isActive ? hint : undefined].filter(Boolean).join("\n") || undefined;
   const unresolvedComments = useCommentsStore(
     (s) => (s.commentsByAnchor.get(`flow/${id}`) ?? []).filter((c) => !c.resolved).length,
   );
@@ -45,8 +89,9 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
         id={id}
         name={data.name}
         issueLevel={level}
-        issueTitle={issueTitle}
+        issueTitle={title}
         isActive={isActive}
+        activeRing={activeRing}
         selected={selected}
       />
     );
@@ -54,12 +99,12 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
 
   return (
     <div
-      title={issueTitle}
+      title={title}
       className={`relative rounded-md border-2 ${issueBorder(level, style.border)} bg-white px-3.5 py-2.5 min-w-[200px] max-w-[260px] text-left ${
         selected
           ? "ring-2 ring-zinc-900 ring-offset-1 shadow-md"
           : isActive
-          ? "ring-2 ring-sky-500 ring-offset-1 shadow-md"
+          ? activeRing
           : issueRing(level) ?? "shadow-sm"
       }`}
     >
@@ -91,6 +136,7 @@ function JunctionNode({
   issueLevel,
   issueTitle,
   isActive,
+  activeRing,
   selected,
 }: {
   id: string;
@@ -98,6 +144,7 @@ function JunctionNode({
   issueLevel: "error" | "warning" | undefined;
   issueTitle: string | undefined;
   isActive: boolean;
+  activeRing: string;
   selected: boolean;
 }) {
   // Rotated square renders as a diamond. The label sits in a counter-rotated
@@ -109,7 +156,7 @@ function JunctionNode({
     (selected
       ? "ring-2 ring-zinc-900 ring-offset-1 shadow-md"
       : isActive
-        ? "ring-2 ring-sky-500 ring-offset-1 shadow-md"
+        ? activeRing
         : "shadow-sm");
   const border = issueBorder(issueLevel, "border-sky-400");
 
