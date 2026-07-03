@@ -13,13 +13,16 @@
  * A transcript file is JSON: [{ "role": "agent"|"user", "text": "...", "flow"?: "id" }].
  * `flow` on agent turns (optional) is ground truth → prints turn-by-turn agreement.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Spec } from "@flowstore/core/schema/v0";
 import { runFlowDecode, buildDecodeUserPrompt, resolveDecodedPath } from "@flowstore/core/runtime/flowWatcher";
 import { buildTransitionTable } from "@flowstore/core/runtime/transitionTable";
 import { readDirectoryToFileMap } from "@flowstore/core/files/node";
 import { loadProject } from "@flowstore/core/files/load";
+import { startSession, sendTurn, endSession } from "@flowstore/core/runtime/textClient";
+import type { RuntimeEvent } from "@flowstore/core/runtime/eventTypes";
 
 type Turn = { role: "agent" | "user"; text: string; flow?: string };
 
@@ -105,7 +108,125 @@ async function incremental() {
   }
 }
 
+// --suite <dir>: run every *.json transcript in a dir (each with ground-truth
+// `flow` labels on agent turns), score full-decode + incremental-final agreement,
+// print a table. The measure step of the measure→fix→re-measure loop.
+async function suite(dir: string) {
+  const table = buildTransitionTable(spec);
+  const files = readdirSync(dir).filter((f) => f.endsWith(".json")).sort();
+  console.log(`spec: ${specPath}\nprovider: ${provider}  model: ${model}\nsuite: ${dir} (${files.length} transcripts)\n`);
+  let totTurns = 0, totOk = 0;
+  const failures: string[] = [];
+  for (const file of files) {
+    const turns = JSON.parse(readFileSync(join(dir, file), "utf8")) as Turn[];
+    const truth = turns.filter((t) => t.role === "agent").map((t) => t.flow);
+    let steps;
+    try {
+      steps = await runFlowDecode(spec, provider!, apiKey, model, { transcript: turns });
+    } catch (e) {
+      console.log(`  ${file}: THREW ${e instanceof Error ? e.message : e}`);
+      failures.push(`${file}: threw`);
+      continue;
+    }
+    const n = Math.min(steps.length, truth.length);
+    let ok = 0;
+    const detail: string[] = [];
+    for (let i = 0; i < n; i++) {
+      if (steps[i].flow_id === truth[i]) ok++;
+      else detail.push(`turn[${i}] got ${steps[i].flow_id} want ${truth[i]}`);
+    }
+    if (steps.length !== truth.length) detail.push(`LENGTH got ${steps.length} want ${truth.length}`);
+    totTurns += truth.length;
+    totOk += ok;
+    const r = resolveDecodedPath(spec.agent.entry_flow_id, steps, table);
+    const status = r?.current.status ?? "-";
+    console.log(`  ${file}: ${ok}/${truth.length}  final=${r?.current.flowId ?? "-"} [${status}]${detail.length ? "\n      " + detail.join("\n      ") : ""}`);
+    if (detail.length) failures.push(`${file}: ${detail.join("; ")}`);
+  }
+  console.log(`\nTOTAL: ${totOk}/${totTurns} (${totTurns ? Math.round((100 * totOk) / totTurns) : 0}%)`);
+  if (failures.length) console.log(`failures:\n  ${failures.join("\n  ")}`);
+}
+
+// --runner <url>: use the live per-flow runner as ground truth. Drive a scripted
+// user through it (--user-turns <file>: JSON array of user texts), collect the
+// REAL agent utterances + the exact flow path from runtime events, then decode
+// that transcript and score against the runner's own trajectory. This is the §2
+// validation loop from the planning doc — no hand labels, no synthetic agent text.
+async function runnerTruth(runnerUrl: string) {
+  const userTurns: string[] = JSON.parse(
+    readFileSync(arg("user-turns") ?? "/dev/null", "utf8"),
+  );
+  const table = buildTransitionTable(spec);
+  const lastFlow = (events: RuntimeEvent[], fallback: string): string => {
+    let cur = fallback;
+    for (const ev of events) if (ev.type === "flow_entered") cur = ev.flow_id;
+    return cur;
+  };
+
+  console.log(`spec: ${specPath}\nrunner: ${runnerUrl}\ndecode: ${provider} ${model}\n`);
+  const start = await startSession({ baseUrl: runnerUrl, spec, apiKey, model });
+  const transcript: Turn[] = [];
+  const truth: string[] = [];
+  const trueEdges: string[] = [];
+  let flow = spec.agent.entry_flow_id;
+  const absorb = (agentText: string, events: RuntimeEvent[]) => {
+    flow = lastFlow(events, flow);
+    for (const ev of events) {
+      if (ev.type === "exit_path_taken") trueEdges.push(`${ev.from_flow_id}__${ev.exit_path_id}`);
+    }
+    transcript.push({ role: "agent", text: agentText });
+    truth.push(flow);
+  };
+  if (start.agent_text) absorb(start.agent_text, start.events);
+  let ended = start.ended;
+  for (const u of userTurns) {
+    if (ended) break;
+    transcript.push({ role: "user", text: u });
+    const res = await sendTurn({ baseUrl: runnerUrl, sessionId: start.session_id, userText: u });
+    absorb(res.agent_text, res.events);
+    ended = res.ended;
+  }
+  await endSession(runnerUrl, start.session_id);
+
+  console.log("runner transcript:");
+  for (const t of transcript) console.log(`  ${t.role}: ${t.text.slice(0, 110)}`);
+  console.log(`\nrunner true path: ${truth.join(" → ")}`);
+  console.log(`runner true edges: ${trueEdges.join(", ") || "(none)"}\n`);
+
+  const steps = await runFlowDecode(spec, provider!, apiKey, model, { transcript });
+  const n = Math.min(steps.length, truth.length);
+  let ok = 0;
+  for (let i = 0; i < n; i++) {
+    const hit = steps[i].flow_id === truth[i];
+    if (hit) ok++;
+    console.log(`  [${i}] decoded=${steps[i].flow_id.padEnd(28)} truth=${truth[i].padEnd(28)} ${hit ? "✓" : "✗"}`);
+  }
+  if (steps.length !== truth.length) console.log(`  LENGTH decoded=${steps.length} truth=${truth.length}`);
+  const r = resolveDecodedPath(spec.agent.entry_flow_id, steps, table);
+  console.log(`\nagreement: ${ok}/${truth.length} (${Math.round((100 * ok) / truth.length)}%)`);
+  console.log(`decoded edges: ${r?.traversedEdgeIds.join(", ")}`);
+  console.log(`edge match: ${JSON.stringify(r?.traversedEdgeIds) === JSON.stringify([...new Set(trueEdges)]) ? "EXACT" : "differs"}`);
+
+  // --save <file>: freeze this runner conversation (real utterances + true flow
+  // labels) as a suite fixture, so prompt iteration re-decodes a FIXED transcript
+  // instead of re-rolling a stochastic runner conversation each time.
+  const savePath = arg("save");
+  if (savePath) {
+    let ai = 0;
+    const fixture = transcript.map((t) =>
+      t.role === "agent" ? { ...t, flow: truth[ai++] } : t,
+    );
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(savePath, JSON.stringify(fixture, null, 2));
+    console.log(`saved fixture: ${savePath}`);
+  }
+}
+
 async function main() {
+  const runnerUrl = arg("runner");
+  if (runnerUrl) return runnerTruth(runnerUrl);
+  const suiteDir = arg("suite");
+  if (suiteDir) return suite(suiteDir);
   if (has("incremental")) return incremental();
   console.log(`spec: ${specPath}\nprovider: ${provider}  model: ${model}\n`);
   let steps;

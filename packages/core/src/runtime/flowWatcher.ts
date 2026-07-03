@@ -33,9 +33,16 @@ How the walk works:
 - A transition fires only when the conversation satisfies an EXIT condition of the current flow, an INTERRUPT trigger (from any flow), or a RETURN to a caller. Weigh those predicates — don't switch flows just because the wording drifts.
 - So the output is mostly RUNS of the same flow with a few sharp changes, not a different flow every turn.
 
-Rules:
+THE MASTER RULE — label the flow whose JOB the agent's utterance is performing:
+- If the utterance continues the current flow's job (a follow-up, a re-ask, a clarification), it is the SAME flow — even if the user's message already satisfied an exit condition. Moving happens when the agent starts DOING the next job, not when the user merely qualifies for it.
+- If the utterance performs a DIFFERENT flow's job (speaks its script, asks its question, delivers its close), label THAT flow — even when the turn routed through intermediates to get there (label the destination, not the pass-through).
+
+Other rules:
 - Use flow ids from the graph ONLY; never invent one.
 - Each change should follow a real edge (an exit of the flow you were in, an interrupt, or a return). But if a turn clearly matches a flow that is NOT reachable that way, report it anyway — a genuine off-spec jump is a real signal, not something to hide.
+- Interrupts fire ONLY on their explicit trigger, and only on the agent turn that comes immediately AFTER the user message containing the trigger — never on a turn that precedes it. A polite goodbye, thanks, or closing pleasantry at the natural end of the conversation is NOT an interrupt — the agent is still in the flow that is closing; do not mistake "gracias, hasta luego" for a busy/stop/callback interrupt.
+- If the agent merely REPEATS its previous question (e.g. after silence, noise, or "..."), that is the same flow re-asking — label the flow that owns the question, not a silence/blank handler.
+- An EMPTY agent turn carries no evidence of its own: label it with the flow the walk had reached at that point (the licensed continuation of the previous turn), never an interrupt.
 - via_exit_path_id: the exit id taken to enter this flow from the previous turn's flow; "SAME" if the flow did not change; "UNKNOWN" if it changed but you can't tell which exit.
 - confidence is 0..1 per turn — low at genuinely ambiguous boundaries.`;
 
