@@ -109,7 +109,7 @@ export function CapabilitiesSheet({ onClose }: { onClose: () => void }) {
                     </label>
                   )}
                 </div>
-                {c.non_blocking && (
+                {(c.non_blocking || c.pending_message !== undefined) && (
                   <input
                     className={inputClass}
                     value={typeof c.pending_message === "string" ? c.pending_message : ""}

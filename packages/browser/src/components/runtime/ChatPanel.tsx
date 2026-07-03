@@ -6,6 +6,7 @@ import { useGithubProjectStore } from "@/lib/store/githubProject";
 import { useSimulateStore, type SimulateMode, type TranscriptTurn } from "@/lib/store/simulate";
 import { useTestsStore } from "@/lib/store/tests";
 import { useChatStore } from "@/lib/store/chat";
+import { useAssistantChangesStore } from "@/lib/store/assistantChanges";
 import { evaluateCaseAgainstTranscript, type CaseVerdicts } from "@/lib/caseVerdicts";
 import type { GuardrailVerdict } from "@flowstore/core/runtime/judgeGuardrails";
 import type { Rubric } from "@flowstore/core/schema/files/rubric";
@@ -258,6 +259,11 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Request failed.");
     } finally {
+      // Settle the canvas attribution for everything the tool calls touched:
+      // glow the changed nodes/edges and focus the primary change, once per
+      // turn. In the finally so a mid-loop error still attributes the edits
+      // that did land.
+      useAssistantChangesStore.getState().commitTurn();
       setBusy(false);
     }
   }

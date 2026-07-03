@@ -19,9 +19,11 @@ import { FlowNode, type FlowNodeData } from "./FlowNode";
 import { ParallelEdge } from "./ParallelEdge";
 import { isCalcRouteJunction } from "@flowstore/core/schema/flowJunction";
 import { autoLayout } from "./layout";
+import { resolvePositions } from "./placement";
 import { loadPositions, savePositions, type Positions } from "./positions";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSimulateStore } from "@/lib/store/simulate";
+import { useAssistantChangesStore } from "@/lib/store/assistantChanges";
 import { validateGraph, groupIssuesByFlow, groupIssuesByEdge } from "@flowstore/core/validation/graphRules";
 import { worstSeverity } from "@/lib/diagnostics";
 
@@ -49,6 +51,24 @@ function withTraversed(edge: Edge, live: boolean): Edge {
       height: live ? 24 : 16,
     },
     animated: live,
+  };
+}
+
+// An edge the ASSISTANT just added or re-routed (see assistantChanges.ts).
+// Purple to match the node glow (the "AI did this" hue — deliberately not
+// red-ish, which reads as an error); steady (no marching ants — `animated`
+// is the sim's live-transition signature).
+const ASSISTANT_EDGE_STROKE = "#a855f7"; // purple-500
+function withAssistantGlow(edge: Edge): Edge {
+  return {
+    ...edge,
+    style: {
+      ...edge.style,
+      stroke: ASSISTANT_EDGE_STROKE,
+      strokeWidth: 3,
+      filter: "drop-shadow(0 0 5px rgba(168,85,247,0.7))",
+    },
+    markerEnd: { type: MarkerType.ArrowClosed, color: ASSISTANT_EDGE_STROKE, width: 20, height: 20 },
   };
 }
 
@@ -154,6 +174,9 @@ function buildGraph(spec: Spec): { nodes: Node[]; edges: Edge[] } {
         source: f.id,
         target: xp.goto,
         type: "parallel",
+        // Carried so later styling passes can tell an issue-colored stroke
+        // from a plain type-colored one (issues must not be restyled over).
+        data: { issueLevel: edgeLevel },
         label,
         labelStyle: { fontSize: 11, fill: "#52525b" },
         labelBgStyle: { fill: "#fafafa" },
@@ -187,13 +210,6 @@ function buildGraph(spec: Spec): { nodes: Node[]; edges: Edge[] } {
   }
 
   return { nodes, edges };
-}
-
-function applySavedPositions(nodes: Node[], edges: Edge[], saved: Positions): Node[] {
-  const laidOut = autoLayout(nodes, edges);
-  return laidOut.map((n) =>
-    saved[n.id] ? { ...n, position: saved[n.id] } : n
-  );
 }
 
 export function Canvas() {
@@ -303,13 +319,14 @@ function CanvasInner({ spec }: { spec: Spec }) {
   const initial = useMemo(() => {
     const g = buildGraph(spec);
     const saved = loadPositions(specId);
-    return { nodes: applySavedPositions(g.nodes, g.edges, saved), edges: g.edges };
+    return { nodes: resolvePositions(g.nodes, g.edges, saved), edges: g.edges };
   }, [spec, specId]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
   const traversedEdgeIds = useSimulateStore((s) => s.traversedEdgeIds);
   const simulateStatus = useSimulateStore((s) => s.status);
+  const assistantEdgeIds = useAssistantChangesStore((s) => s.glowEdgeIds);
   // Store-side selection drives node.selected so programmatic selection
   // (addFlow, inspector close button, focus-on-comment-anchor, etc.)
   // shows the React Flow ring, not just the inspector. Click-driven
@@ -348,13 +365,26 @@ function CanvasInner({ spec }: { spec: Spec }) {
     const isLive = simulateStatus === "ready" || simulateStatus === "thinking";
     const selectedEdgeId =
       selection?.kind === "edge" ? `${selection.flowId}__${selection.exitPathId}` : null;
+    const assistantGlow = new Set(assistantEdgeIds);
     setEdges(
       initial.edges.map((e) => {
-        const styled = traversed.has(e.id) ? withTraversed(e, e.id === lastId && isLive) : e;
+        // Sim traversal outranks assistant glow: mid-run liveness is the
+        // scarcer signal. Issue strokes also outrank it — assistant edits are
+        // exactly the ones that create transient invalid states, and hiding a
+        // red edge under a purple glow for the glow window would bury the one
+        // signal that needs acting on. (Nodes get both: border stays red while
+        // the halo glows; an edge has only one stroke, so issues win outright.)
+        // Selection outranks everything, matching node rings.
+        const hasIssue = Boolean((e.data as { issueLevel?: "error" | "warning" })?.issueLevel);
+        const styled = traversed.has(e.id)
+          ? withTraversed(e, e.id === lastId && isLive)
+          : assistantGlow.has(e.id) && !hasIssue
+          ? withAssistantGlow(e)
+          : e;
         return e.id === selectedEdgeId ? withSelected(styled) : styled;
       }),
     );
-  }, [initial, traversedEdgeIds, simulateStatus, selection, setEdges]);
+  }, [initial, traversedEdgeIds, simulateStatus, assistantEdgeIds, selection, setEdges]);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
