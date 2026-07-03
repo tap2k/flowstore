@@ -223,6 +223,9 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         </p>
       </div>
 
+      {/* Deliberately circular — a fresh prod session can't reach the runner
+          tier while the runner is a dev-only prototype. Drop the wrapper when
+          it ships; the runner-gated editors key off runnerUrl and follow. */}
       {(import.meta.env.VITE_DEV === "1" || storedRunnerUrl !== "") && (
         <div className="space-y-2">
           <label className="text-xs font-medium text-zinc-700">Runner URL</label>

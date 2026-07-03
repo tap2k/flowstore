@@ -20,6 +20,7 @@ export type GraphIssueCode =
   | "goto-unknown"
   | "max-turns-with-condition"
   | "unknown-capability"
+  | "retrieve-on-turn-not-retrieval"
   | "unreachable-flow"
   | "variable-casing"
   | "provided-on-flow-variable";
@@ -81,7 +82,7 @@ export function validateGraph(spec: Spec): GraphIssue[] {
     }
   }
 
-  const capabilityIds = new Set((spec.agent.capabilities ?? []).map((c) => c.id));
+  const capsById = new Map((spec.agent.capabilities ?? []).map((c) => [c.id, c]));
 
   for (const f of spec.flows) {
     if (f.type === "interrupt" && !f.entry_condition) {
@@ -91,13 +92,22 @@ export function validateGraph(spec: Spec): GraphIssue[] {
         message: "Interrupt flow is missing entry_condition",
       });
     }
-    for (const capId of f.tools ?? []) {
-      if (!capabilityIds.has(capId)) {
-        issues.push({
-          code: "unknown-capability",
-          at: { kind: "flow", flowId: f.id },
-          message: `tools entry "${capId}" not in agent.capabilities`,
-        });
+    for (const field of ["tools", "retrieve_on_turn"] as const) {
+      for (const capId of f[field] ?? []) {
+        const cap = capsById.get(capId);
+        if (!cap) {
+          issues.push({
+            code: "unknown-capability",
+            at: { kind: "flow", flowId: f.id },
+            message: `${field} entry "${capId}" not in agent.capabilities`,
+          });
+        } else if (field === "retrieve_on_turn" && cap.kind !== "retrieval") {
+          issues.push({
+            code: "retrieve-on-turn-not-retrieval",
+            at: { kind: "flow", flowId: f.id },
+            message: `retrieve_on_turn entry "${capId}" is kind "${cap.kind}" — pre-LLM auto-fire requires kind "retrieval"`,
+          });
+        }
       }
     }
     for (const xp of f.exit_paths) {
@@ -116,7 +126,7 @@ export function validateGraph(spec: Spec): GraphIssue[] {
         });
       }
       for (const action of xp.actions ?? []) {
-        if (!capabilityIds.has(action.capability_id)) {
+        if (!capsById.has(action.capability_id)) {
           issues.push({
             code: "unknown-capability",
             at: { kind: "edge", flowId: f.id, exitPathId: xp.id },
