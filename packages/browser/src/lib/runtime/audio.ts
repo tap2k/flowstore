@@ -9,26 +9,10 @@
 // The Gemini Live API speaks raw little-endian PCM: 16 kHz mono in, 24 kHz
 // mono out. These are the only two rates here; nothing else negotiates them.
 
+import workletUrl from "./capture-worklet.js?url";
+
 const INPUT_SAMPLE_RATE = 16000;
 const OUTPUT_SAMPLE_RATE = 24000;
-
-// Inline AudioWorklet processor. Forwards raw mono Float32 frames to the main
-// thread; downsampling + PCM conversion happen there (cheaper to keep the
-// audio-thread code trivial). Shipped as a Blob URL so there's no separate
-// worklet file for Vite to special-case.
-const WORKLET_SOURCE = `
-class CaptureProcessor extends AudioWorkletProcessor {
-  process(inputs) {
-    const input = inputs[0];
-    if (input && input[0]) {
-      // Copy — the underlying buffer is reused by the audio thread.
-      this.port.postMessage(input[0].slice(0));
-    }
-    return true;
-  }
-}
-registerProcessor('flowstore-capture', CaptureProcessor);
-`;
 
 function floatTo16BitPCM(samples: Float32Array): Int16Array {
   const out = new Int16Array(samples.length);
@@ -78,7 +62,6 @@ export class MicCapture {
   private stream: MediaStream | null = null;
   private node: AudioWorkletNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
-  private workletUrl: string | null = null;
   muted = false;
 
   constructor(private onChunk: (base64Pcm16: string) => void) {}
@@ -88,9 +71,7 @@ export class MicCapture {
       audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
     });
     this.ctx = new AudioContext();
-    const blob = new Blob([WORKLET_SOURCE], { type: "application/javascript" });
-    this.workletUrl = URL.createObjectURL(blob);
-    await this.ctx.audioWorklet.addModule(this.workletUrl);
+    await this.ctx.audioWorklet.addModule(workletUrl);
     this.source = this.ctx.createMediaStreamSource(this.stream);
     this.node = new AudioWorkletNode(this.ctx, "flowstore-capture");
     const fromRate = this.ctx.sampleRate;
@@ -113,12 +94,10 @@ export class MicCapture {
     this.source?.disconnect();
     this.stream?.getTracks().forEach((t) => t.stop());
     void this.ctx?.close();
-    if (this.workletUrl) URL.revokeObjectURL(this.workletUrl);
     this.ctx = null;
     this.stream = null;
     this.node = null;
     this.source = null;
-    this.workletUrl = null;
   }
 }
 
