@@ -1486,6 +1486,9 @@ async function attributeTurn(
 ): Promise<void> {
   const spec = get().specSnapshot;
   if (!spec) return;
+  // User toggle (Simulate panel / settings) — off saves one LLM call per agent
+  // turn (rate-limit headroom for persona batches; cost on expensive models).
+  if (!useSettingsStore.getState().simulateAttribution) return;
   const creds = readLlmCreds("extractor");
   // The watcher needs strict structured JSON, which only Google/OpenAI provide
   // (the canonical predicate — same gate the persona fixture generator uses).
