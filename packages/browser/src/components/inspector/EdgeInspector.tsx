@@ -1,4 +1,5 @@
 import { useSpecStore } from "@/lib/store/spec";
+import { useSettingsStore } from "@/lib/store/settings";
 import type { ExitPath, ExitPathAction, AssignValue, Method } from "@flowstore/core/schema/v0";
 import { GOTO_END, GOTO_RETURN, isReturnGoto } from "@flowstore/core/schema/v0";
 import { ListEditor } from "./ListEditor";
@@ -61,6 +62,13 @@ export function EdgeInspector() {
   const updateExitPath = useSpecStore((s) => s.updateExitPath);
   const removeExitPath = useSpecStore((s) => s.removeExitPath);
   const setSelection = useSpecStore((s) => s.setSelection);
+  const runnerUrl = useSettingsStore((s) => s.runnerUrl);
+  // assigns/actions execute only in the runner — prompt mode neither renders
+  // them into the compiled prompt nor fires them on transition — so only
+  // surface the editors when a runner is plausibly in play (mirrors the
+  // visible_when gate). A spec that already carries them always shows: an
+  // imported spec must never hold behavior the author can't see or remove.
+  const runnerFeatures = import.meta.env.VITE_DEV === "1" || runnerUrl !== "";
 
   if (!flow || !exitPath) return null;
 
@@ -128,6 +136,7 @@ export function EdgeInspector() {
           />
         </Field>
 
+        {(runnerFeatures || assignRows.length > 0) && (
         <Field label="Assigns">
           <ListEditor<AssignRow>
             items={assignRows}
@@ -175,7 +184,9 @@ export function EdgeInspector() {
             )}
           />
         </Field>
+        )}
 
+        {(runnerFeatures || (exitPath.actions ?? []).length > 0) && (
         <Field label="Actions">
           <ListEditor<ExitPathAction>
             items={exitPath.actions ?? []}
@@ -213,6 +224,7 @@ export function EdgeInspector() {
             </p>
           )}
         </Field>
+        )}
 
         <div className="pt-2 border-t border-zinc-200 space-y-2">
           <LoadInSimButton target={{ kind: "exit", flowId: flow.id, exitPathId: exitPath.id }} />

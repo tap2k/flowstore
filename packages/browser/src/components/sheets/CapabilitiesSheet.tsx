@@ -1,4 +1,5 @@
 import { useSpecStore } from "@/lib/store/spec";
+import { useSettingsStore } from "@/lib/store/settings";
 import { genId } from "@flowstore/core/ids";
 import type { Capability, CapabilityKind } from "@flowstore/core/schema/v0";
 import { ListEditor } from "@/components/inspector/ListEditor";
@@ -8,6 +9,13 @@ import { SheetShell } from "./SheetShell";
 export function CapabilitiesSheet({ onClose }: { onClose: () => void }) {
   const capabilities = useSpecStore((s) => s.spec?.agent.capabilities) ?? [];
   const updateAgent = useSpecStore((s) => s.updateAgent);
+  const runnerUrl = useSettingsStore((s) => s.runnerUrl);
+  // non_blocking (and its pending_message) is honored only by the runner —
+  // prompt mode resolves every tool call synchronously — so only surface it
+  // when a runner is plausibly in play (mirrors the visible_when gate), or
+  // when the spec already carries it. ends_conversation is NOT gated: prompt
+  // mode honors it (the sim ends the session on the captured invocation).
+  const runnerFeatures = import.meta.env.VITE_DEV === "1" || runnerUrl !== "";
 
   return (
     <SheetShell
@@ -77,7 +85,7 @@ export function CapabilitiesSheet({ onClose }: { onClose: () => void }) {
                 />
               </div>
             </div>
-            {import.meta.env.VITE_DEV === "1" && c.kind === "function" && (
+            {c.kind === "function" && (
               <div className="space-y-1.5 pt-1">
                 <div className="flex flex-wrap items-center gap-4">
                   <label className="flex items-center gap-1.5 text-[11px] text-zinc-600">
@@ -90,14 +98,16 @@ export function CapabilitiesSheet({ onClose }: { onClose: () => void }) {
                     />
                     Ends the conversation
                   </label>
-                  <label className="flex items-center gap-1.5 text-[11px] text-zinc-600">
-                    <input
-                      type="checkbox"
-                      checked={c.non_blocking ?? false}
-                      onChange={(e) => update({ ...c, non_blocking: e.target.checked || undefined })}
-                    />
-                    Non-blocking (keep the conversation going while it runs)
-                  </label>
+                  {(runnerFeatures || c.non_blocking) && (
+                    <label className="flex items-center gap-1.5 text-[11px] text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={c.non_blocking ?? false}
+                        onChange={(e) => update({ ...c, non_blocking: e.target.checked || undefined })}
+                      />
+                      Non-blocking (keep the conversation going while it runs)
+                    </label>
+                  )}
                 </div>
                 {c.non_blocking && (
                   <input
