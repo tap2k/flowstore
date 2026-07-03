@@ -57,6 +57,8 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   // specifically (not whichever provider the picker is on).
   const googleApiKey = useSettingsStore((s) => s.googleApiKey);
   const setSimulateAgentModel = useSettingsStore((s) => s.setSimulateAgentModel);
+  const simulateAttribution = useSettingsStore((s) => s.simulateAttribution);
+  const setSimulateAttribution = useSettingsStore((s) => s.setSimulateAttribution);
   // Voice (Live) models 404 via generateContent; if one leaked into the agent slot, snap back.
   // Done during render to match the language-reset guard below.
   if (BUILT_IN_MODELS.models[agentModel]?.voice) {
@@ -788,6 +790,20 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             showUnconfigured={mode === "runner"}
           />
         ) : null}
+        {mode === "text" && (
+          <label
+            title="Animate the canvas during simulation — one small LLM call per agent turn (default model) lights the current flow, transitions, and off-spec jumps. Turn off to save a call per turn (rate-limited keys, persona batch runs)."
+            className="flex items-center gap-1 text-[11px] text-zinc-700 cursor-pointer select-none"
+          >
+            <input
+              type="checkbox"
+              checked={simulateAttribution}
+              onChange={(e) => setSimulateAttribution(e.target.checked)}
+              className="h-3 w-3 accent-zinc-700"
+            />
+            animate
+          </label>
+        )}
         {availableLanguages.length > 1 && (
           <select
             // "auto" (unpinned) compiles a multilingual prompt — every declared

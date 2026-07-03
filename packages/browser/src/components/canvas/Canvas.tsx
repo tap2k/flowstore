@@ -25,18 +25,30 @@ import { useSimulateStore } from "@/lib/store/simulate";
 import { validateGraph, groupIssuesByFlow, groupIssuesByEdge } from "@flowstore/core/validation/graphRules";
 import { worstSeverity } from "@/lib/diagnostics";
 
-const ACTIVE_EDGE_STROKE = "#0ea5e9";
+const ACTIVE_EDGE_STROKE = "#0284c7"; // sky-600 — the live transition
+const TRAVERSED_EDGE_STROKE = "#bae6fd"; // sky-200 — a faded already-taken edge
 // zinc-900 — matches the node selection ring, so a selected edge reads the
 // same as a selected node. ParallelEdge ignores React Flow's `selected` flag
 // (it only renders the style we pass), so selection has to be styled here.
 const SELECTED_EDGE_STROKE = "#18181b";
 
-function withTraversed(edge: Edge, animated: boolean): Edge {
+// A traversed edge. `live` = the transition just taken this turn: thick, bright,
+// glowing, animated so the eye lands on it. Prior traversed edges fade to a thin
+// pale trail so history doesn't compete with the current step.
+function withTraversed(edge: Edge, live: boolean): Edge {
+  const stroke = live ? ACTIVE_EDGE_STROKE : TRAVERSED_EDGE_STROKE;
   return {
     ...edge,
-    style: { ...edge.style, stroke: ACTIVE_EDGE_STROKE, strokeWidth: 2.5 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: ACTIVE_EDGE_STROKE, width: 18, height: 18 },
-    animated,
+    style: live
+      ? { ...edge.style, stroke, strokeWidth: 4, filter: "drop-shadow(0 0 6px rgba(2,132,199,0.9))" }
+      : { ...edge.style, stroke, strokeWidth: 2 },
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      color: stroke,
+      width: live ? 24 : 16,
+      height: live ? 24 : 16,
+    },
+    animated: live,
   };
 }
 

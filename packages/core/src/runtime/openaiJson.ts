@@ -15,6 +15,8 @@ interface GenerateJsonOpts {
   systemPrompt?: string;
   userPrompt: string;
   responseSchema: Record<string, unknown>;
+  maxOutputTokens?: number;
+  thinkingBudget?: number; // accepted for interface parity; OpenAI has no equivalent
 }
 
 // Recursive walk: lowercase `type`, force additionalProperties:false on object
@@ -56,7 +58,7 @@ export async function generateJsonOpenAI<T = unknown>(
 
   const schema = toJsonSchema(opts.responseSchema) as Record<string, unknown>;
 
-  const body = {
+  const body: Record<string, unknown> = {
     model,
     messages,
     response_format: {
@@ -68,6 +70,7 @@ export async function generateJsonOpenAI<T = unknown>(
       },
     },
   };
+  if (opts.maxOutputTokens !== undefined) body.max_tokens = opts.maxOutputTokens;
 
   const res = await fetch(ENDPOINT, {
     method: "POST",

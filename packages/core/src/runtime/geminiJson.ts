@@ -15,14 +15,22 @@ export async function generateJson<T = unknown>(
     systemPrompt?: string;
     userPrompt: string;
     responseSchema: Record<string, unknown>;
+    maxOutputTokens?: number;
+    thinkingBudget?: number;
   },
 ): Promise<T> {
+  const generationConfig: Record<string, unknown> = {
+    responseMimeType: "application/json",
+    responseSchema: opts.responseSchema,
+  };
+  if (opts.maxOutputTokens !== undefined) generationConfig.maxOutputTokens = opts.maxOutputTokens;
+  // thinkingConfig is a no-op on non-2.5 models; harmless to send.
+  if (opts.thinkingBudget !== undefined) {
+    generationConfig.thinkingConfig = { thinkingBudget: opts.thinkingBudget };
+  }
   const body: Record<string, unknown> = {
     contents: [{ role: "user", parts: [{ text: opts.userPrompt }] }],
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: opts.responseSchema,
-    },
+    generationConfig,
   };
   if (opts.systemPrompt?.trim()) {
     body.systemInstruction = { parts: [{ text: opts.systemPrompt }] };

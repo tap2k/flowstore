@@ -10,6 +10,7 @@ const OPENROUTER_KEY = "flowstore:settings:openrouter_api_key";
 const DEFAULT_MODEL_KEY = "flowstore:settings:default_model";
 const RUNNER_KEY = "flowstore:settings:runner_url";
 const GITHUB_PAT_KEY = "flowstore:settings:github_pat";
+const SIM_ATTRIBUTION_KEY = "flowstore:settings:simulate_attribution";
 const GITHUB_LOGIN_KEY = "flowstore:settings:github_login";
 const GITHUB_NAME_KEY = "flowstore:settings:github_name";
 
@@ -52,6 +53,13 @@ interface SettingsState {
   // because a voice session can only dispatch to a Live-capable model.
   simulateVoiceModel: string;
   runnerUrl: string;
+  // Live canvas attribution during prompt-mode simulation (the flow watcher —
+  // one extra structured LLM call per agent turn on the default model). ON by
+  // default: the lit canvas is the point of simulating next to the graph. Turn
+  // off to save rate-limit headroom during persona batch runs (agent + persona
+  // + watcher = 3 calls/turn), to trim cost on expensive default models, or to
+  // stop the glow. Persisted.
+  simulateAttribution: boolean;
   githubPat: string;
   // Identity echoed from `GET /user` after a PAT is set. Used by Comments
   // for author display. Both undefined until a PAT is configured and the
@@ -68,6 +76,7 @@ interface SettingsState {
   setSimulateVoiceModel: (model: string) => void;
   setGenerateModel: (model: string) => void;
   setRunnerUrl: (url: string) => void;
+  setSimulateAttribution: (on: boolean) => void;
   setGithubPat: (pat: string) => void;
   setGithubIdentity: (login: string, name: string) => void;
 }
@@ -107,6 +116,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   simulateVoiceModel: DEFAULT_VOICE_MODEL_ID,
   defaultModel: DEFAULT_MODEL_ID,
   runnerUrl: "",
+  simulateAttribution: true,
   githubPat: "",
   githubLogin: "",
   githubName: "",
@@ -136,6 +146,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     const trimmed = url.trim().replace(/\/+$/, "");
     persistString(RUNNER_KEY, trimmed);
     set({ runnerUrl: trimmed });
+  },
+  // Stored only when OFF ("0") — absence means the default (on).
+  setSimulateAttribution: (on) => {
+    persistString(SIM_ATTRIBUTION_KEY, on ? "" : "0");
+    set({ simulateAttribution: on });
   },
   setGithubPat: (pat) => {
     const trimmed = pat.trim();
@@ -277,6 +292,9 @@ export function loadSavedSettings(): void {
       patch.simulateJudgeModel = defaultModel;
     }
     if (runner !== null) patch.runnerUrl = runner;
+    if (window.localStorage.getItem(SIM_ATTRIBUTION_KEY) === "0") {
+      patch.simulateAttribution = false;
+    }
     if (pat) patch.githubPat = pat;
     if (login) patch.githubLogin = login;
     if (name) patch.githubName = name;

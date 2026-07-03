@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { create, type StoreApi } from "zustand";
 import type { Spec } from "@flowstore/core/schema/v0";
 import type { RuntimeEvent } from "@flowstore/core/runtime/eventTypes";
 import { type TranscriptTurn } from "@flowstore/core/runtime/transcript";
@@ -40,6 +40,13 @@ import type { GuardrailVerdict } from "@flowstore/core/runtime/judgeGuardrails";
 import type { RubricVerdict } from "@flowstore/core/runtime/judgeRubric";
 import type { GoldTurnVerdict } from "@flowstore/core/runtime/judgeGoldTurn";
 import { resolveDispatch, supportsStructuredOutput, useSettingsStore } from "@/lib/store/settings";
+import { buildTransitionTable } from "@flowstore/core/runtime/transitionTable";
+import {
+  runFlowDecode,
+  resolveDecodedPath,
+  type ResolvedAttribution,
+  type ResolvedPath,
+} from "@flowstore/core/runtime/flowWatcher";
 import { useModelsStore } from "@/lib/store/models";
 import { useUiStore } from "@/lib/store/ui";
 import { useSpecStore } from "@/lib/store/spec";
@@ -180,6 +187,17 @@ interface SimulateState {
   // Per-agent-turn semantic verdicts for the active gold (keyed by 0-based gold agent-turn
   // index). null = evaluation not yet run. "pending" = LLM call in-flight.
   goldTurnVerdicts: Record<number, GoldTurnVerdict | "pending"> | null;
+
+  // Prompt-mode graph attribution (the flow watcher — see @flowstore/core
+  // runtime/flowWatcher). The runner gets exact attribution from its events;
+  // prompt mode (text) has no source, so a small structured LLM call infers the
+  // current flow + the transition taken, and reachability flags illegal jumps.
+  // It writes currentFlowId/traversedEdgeIds (reusing the existing canvas glow)
+  // AND this `attribution` (confidence texture + failure paint). null in
+  // runner/external/voice modes and before the first attributed turn.
+  // attributionSeq race-guards async watcher results against newer turns/resets.
+  attribution: ResolvedAttribution | null;
+  attributionSeq: number;
 
   setMode: (mode: SimulateMode) => void;
   setMicMuted: (muted: boolean) => void;
@@ -339,6 +357,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   guardrailVerdict: null,
   rubricVerdicts: {},
   goldTurnVerdicts: null,
+  attribution: null,
+  attributionSeq: 0,
 
   setMode: (mode) => {
     if (get().sessionId) return; // mode is frozen during an active session
@@ -854,6 +874,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       guardrailVerdict: null,
       rubricVerdicts: {},
       goldTurnVerdicts: null,
+      attribution: null,
     });
 
     if (mode === "voice") {
@@ -944,7 +965,16 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           existingOverride ??
           generateSystemPrompt(spec, shippedVars, { language: language ?? ALL_LANGUAGES });
         const sessionId = `prompt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        set({ sessionId, systemPrompt, specSnapshot: spec });
+        // Light the entry flow immediately — the sim starts there, so the graph
+        // shouldn't sit dark until the first decode resolves. The watcher walks
+        // it forward from here.
+        set({
+          sessionId,
+          systemPrompt,
+          specSnapshot: spec,
+          currentFlowId: spec.agent.entry_flow_id,
+          traversedFlowIds: [spec.agent.entry_flow_id],
+        });
 
         if (spec.agent.chatbot_initiates) {
           const openerTurn: TranscriptTurn = {
@@ -984,6 +1014,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
             lastUsage: res.usage ?? null,
             status: "ready",
           });
+          // Attribute the opener so the graph lights up before the first user turn.
+          void attributeTurn(set, get, sessionId);
         } else {
           set({ status: "ready" });
         }
@@ -1182,6 +1214,9 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           status: endsConvo ? "ended" : "ready",
           ...(endsConvo ? { autoRun: false } : {}),
         });
+        // Light the graph for this turn (async, non-blocking — the reply is
+        // already shown).
+        void attributeTurn(set, get, sessionId);
       } catch (e) {
         // Roll back the optimistic user turn (see the runner branch) and stop
         // the persona loop. Guard against writing into state that was already
@@ -1287,6 +1322,10 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       guardrailVerdict: null,
       rubricVerdicts: {},
       goldTurnVerdicts: null,
+      // Invalidate any in-flight watcher (fork keeps the sessionId, so bumping
+      // the seq is what drops a stale result) and clear the stale glow.
+      attribution: null,
+      attributionSeq: get().attributionSeq + 1,
     });
   },
 
@@ -1323,6 +1362,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       guardrailVerdict: null,
       rubricVerdicts: {},
       goldTurnVerdicts: null,
+      attribution: null,
     });
   },
 
@@ -1337,7 +1377,7 @@ function stripDoneMarker(text: string): { text: string; done: boolean } {
   return { text: text.replace(re, "").trim(), done: true };
 }
 
-type SimulateRole = "agent" | "persona";
+type SimulateRole = "agent" | "persona" | "extractor";
 
 function readLlmCreds(role: SimulateRole): {
   apiKey: string;
@@ -1349,7 +1389,14 @@ function readLlmCreds(role: SimulateRole): {
   // Read fresh from settings on each prompt-mode turn so key/model changes
   // mid-session apply without forcing a reset.
   const s = useSettingsStore.getState();
-  const model = role === "persona" ? s.simulatePersonaModel : s.simulateAgentModel;
+  // The flow watcher rides the default model (no dedicated picker); the agent
+  // and persona have their own per-location picks.
+  const model =
+    role === "persona"
+      ? s.simulatePersonaModel
+      : role === "extractor"
+        ? s.defaultModel
+        : s.simulateAgentModel;
   const dispatch = resolveDispatch(model);
   const labels: Record<string, string> = {
     google: "Google",
@@ -1367,4 +1414,107 @@ function readLlmCreds(role: SimulateRole): {
     baseUrl: dispatch.baseUrl,
     endpointLabel: dispatch.endpoint ? labels[dispatch.endpoint] : "provider",
   };
+}
+
+// Animate the glow THROUGH a multi-hop turn rather than snapping to the final
+// flow — a turn that traverses intent → commit → unable visibly walks each node.
+// Single-hop turns (the common case) settle instantly. The edge trail shows at
+// once; only the node glow walks. Superseded by the next decode/reset via the
+// seq + sessionId guard, so a stale walk can't write into a fresh session.
+let walkTimer: ReturnType<typeof setTimeout> | null = null;
+const WALK_STEP_MS = 380;
+
+function walkPath(
+  set: StoreApi<SimulateState>["setState"],
+  get: StoreApi<SimulateState>["getState"],
+  seq: number,
+  sessionId: string,
+  resolved: ResolvedPath,
+): void {
+  if (walkTimer) {
+    clearTimeout(walkTimer);
+    walkTimer = null;
+  }
+  set({ traversedEdgeIds: resolved.traversedEdgeIds, traversedFlowIds: resolved.traversedFlowIds });
+
+  const flows = resolved.traversedFlowIds;
+  const from = get().currentFlowId;
+  const startIdx = from ? flows.lastIndexOf(from) : -1;
+  const walk = flows.slice(startIdx + 1);
+
+  // Nothing new to traverse (a stay, or the glow is already at the final flow) →
+  // settle immediately.
+  if (walk.length <= 1) {
+    set({ currentFlowId: resolved.current.flowId, attribution: resolved.current });
+    return;
+  }
+
+  let i = 0;
+  const step = () => {
+    walkTimer = null;
+    if (get().sessionId !== sessionId || get().attributionSeq !== seq) return;
+    const last = i === walk.length - 1;
+    set({
+      currentFlowId: walk[i],
+      // Intermediates glow as a confident pass-through; the final hop carries the
+      // real resolution (confidence + any illegal flag).
+      attribution: last
+        ? resolved.current
+        : { ...resolved.current, flowId: walk[i], status: "legal", edgeId: null, exitPathId: null },
+    });
+    i += 1;
+    if (i < walk.length) walkTimer = setTimeout(step, WALK_STEP_MS);
+  };
+  step();
+}
+
+// Prompt-mode graph attribution: after an agent turn lands in text mode, decode
+// the whole transcript with the flow watcher (default model, structured JSON),
+// resolve the path against the licensed-transition table, and write the result +
+// the reused glow fields (currentFlowId / traversedEdgeIds). Fire-and-forget:
+// the reply is already shown; the glow catches up ~½s later. Non-fatal on every
+// failure path (no key, non-JSON provider, LLM error) — the sim just runs without
+// a glow. `attributionSeq` drops a stale result when a newer turn or reset raced
+// ahead; each decode re-derives the full path from the transcript, so there is
+// no cross-turn state for concurrent calls to corrupt.
+async function attributeTurn(
+  set: StoreApi<SimulateState>["setState"],
+  get: StoreApi<SimulateState>["getState"],
+  sessionId: string,
+): Promise<void> {
+  const spec = get().specSnapshot;
+  if (!spec) return;
+  // User toggle (Simulate panel / settings) — off saves one LLM call per agent
+  // turn (rate-limit headroom for persona batches; cost on expensive models).
+  if (!useSettingsStore.getState().simulateAttribution) return;
+  const creds = readLlmCreds("extractor");
+  // The watcher needs strict structured JSON, which only Google/OpenAI provide
+  // (the canonical predicate — same gate the persona fixture generator uses).
+  // Any other provider, or a missing key → disable silently, no glow.
+  if (!creds.provider || !creds.apiKey) return;
+  if (!supportsStructuredOutput(useSettingsStore.getState().defaultModel)) return;
+
+  const seq = get().attributionSeq + 1;
+  set({ attributionSeq: seq });
+
+  const table = buildTransitionTable(spec);
+  const transcript = get().transcript.map((t) => ({ role: t.role, text: t.text }));
+
+  try {
+    // Decode the whole path from the whole transcript — no fed-forward prevFlow
+    // (kills the auto-run staleness) and later turns fix earlier ones.
+    const steps = await runFlowDecode(spec, creds.provider, creds.apiKey, creds.model, {
+      transcript,
+    });
+    // A newer turn or a reset/fork superseded this call.
+    if (get().sessionId !== sessionId || get().attributionSeq !== seq) return;
+    const resolved = resolveDecodedPath(spec.agent.entry_flow_id, steps, table);
+    if (!resolved) return;
+    walkPath(set, get, seq, sessionId, resolved);
+  } catch (e) {
+    // Watcher failure is non-fatal — leave the prior glow untouched. Surface it
+    // to the console so a broken decode (e.g. a schema the provider rejects)
+    // isn't invisible.
+    console.warn("[flow-watcher] decode failed:", e);
+  }
 }
