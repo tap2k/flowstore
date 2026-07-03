@@ -1455,7 +1455,10 @@ async function attributeTurn(
       traversedEdgeIds: resolved.traversedEdgeIds,
       traversedFlowIds: resolved.traversedFlowIds,
     });
-  } catch {
-    // Watcher failure is non-fatal — leave the prior glow untouched.
+  } catch (e) {
+    // Watcher failure is non-fatal — leave the prior glow untouched. Surface it
+    // to the console so a broken decode (e.g. a schema the provider rejects)
+    // isn't invisible.
+    console.warn("[flow-watcher] decode failed:", e);
   }
 }

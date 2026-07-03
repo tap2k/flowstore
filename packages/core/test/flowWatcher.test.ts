@@ -111,6 +111,20 @@ describe("resolveDecodedPath", () => {
     expect(r.current).toMatchObject({ status: "stay", flowId: "confirm", confidence: 0.85 });
   });
 
+  it("pops back to the caller when the decode leaves an interrupt", () => {
+    // greet → order → (complaint interrupt) → confirm. Leaving the interrupt, the
+    // hop must resolve from order (the caller) not complaint, so order→confirm is
+    // a legal edge — not an illegal jump with a lost edge.
+    const steps: FlowPathStep[] = [
+      { flow_id: "order", via_exit_path_id: "e_greet", confidence: 0.9 },
+      { flow_id: "complaint", via_exit_path_id: null, confidence: 0.9 },
+      { flow_id: "confirm", via_exit_path_id: "e_coffee", confidence: 0.8 },
+    ];
+    const r = resolveDecodedPath("greet", steps, table)!;
+    expect(r.traversedEdgeIds).toEqual(["greet__e_greet", "order__e_coffee"]);
+    expect(r.current).toMatchObject({ status: "legal", flowId: "confirm" });
+  });
+
   it("surfaces an illegal jump on the last hop", () => {
     const steps: FlowPathStep[] = [
       { flow_id: "greet", via_exit_path_id: null, confidence: 0.9 },

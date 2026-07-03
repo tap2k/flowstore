@@ -177,10 +177,13 @@ export async function runFlowDecode(
           items: {
             type: "OBJECT",
             properties: {
+              // Plain STRING, not an enum: some providers reject an `enum` inside
+              // array items, and a hallucinated id is already handled downstream
+              // (resolveTransition → status "unknown"). The valid ids are in the
+              // GRAPH block of the prompt.
               flow_id: {
                 type: "STRING",
-                enum: spec.flows.map((f) => f.id),
-                description: "Flow the agent is operating in at this agent turn.",
+                description: "Flow id (from the GRAPH) the agent is operating in at this agent turn.",
               },
               via_exit_path_id: {
                 type: "STRING",
@@ -293,9 +296,16 @@ export function resolveDecodedPath(
   table: TransitionTable,
 ): ResolvedPath | null {
   if (steps.length === 0) return null;
+  const interrupts = interruptFlowIds(table);
   const traversedEdgeIds: string[] = [];
   const traversedFlowIds: string[] = [entryFlowId];
   let prev = entryFlowId;
+  // The flow active BEFORE the current interrupt — a RETURN pops back to it. So
+  // when the decode leaves an interrupt straight into a normal flow (it dropped
+  // the intermediate return-to-caller step), resolve the hop from the caller,
+  // not the interrupt — otherwise interrupt→next-flow reads as an illegal jump
+  // and its exit edge is lost.
+  let interruptCaller: string | null = null;
   let current: ResolvedAttribution = {
     flowId: entryFlowId,
     fromFlowId: entryFlowId,
@@ -305,7 +315,9 @@ export function resolveDecodedPath(
     confidence: clamp01(steps[0].confidence),
   };
   for (const step of steps) {
-    const resolved = resolveTransition(prev, step, table);
+    const leavingInterrupt = interrupts.has(prev) && !interrupts.has(step.flow_id);
+    const resolveFrom = leavingInterrupt && interruptCaller ? interruptCaller : prev;
+    const resolved = resolveTransition(resolveFrom, step, table);
     current = resolved;
     if (resolved.edgeId && !traversedEdgeIds.includes(resolved.edgeId)) {
       traversedEdgeIds.push(resolved.edgeId);
@@ -315,6 +327,12 @@ export function resolveDecodedPath(
       traversedFlowIds[traversedFlowIds.length - 1] !== resolved.flowId
     ) {
       traversedFlowIds.push(resolved.flowId);
+    }
+    // Maintain the interrupt-return stack.
+    if (interrupts.has(step.flow_id) && !interrupts.has(prev)) {
+      interruptCaller = prev; // just pushed into an interrupt — remember the caller
+    } else if (!interrupts.has(step.flow_id)) {
+      interruptCaller = null; // back in a normal flow
     }
     prev = resolved.flowId;
   }
