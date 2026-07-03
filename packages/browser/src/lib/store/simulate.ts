@@ -45,6 +45,7 @@ import {
   runFlowDecode,
   resolveDecodedPath,
   type ResolvedAttribution,
+  type ResolvedPath,
 } from "@flowstore/core/runtime/flowWatcher";
 import { useModelsStore } from "@/lib/store/models";
 import { useUiStore } from "@/lib/store/ui";
@@ -964,7 +965,16 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           existingOverride ??
           generateSystemPrompt(spec, shippedVars, { language: language ?? ALL_LANGUAGES });
         const sessionId = `prompt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        set({ sessionId, systemPrompt, specSnapshot: spec });
+        // Light the entry flow immediately — the sim starts there, so the graph
+        // shouldn't sit dark until the first decode resolves. The watcher walks
+        // it forward from here.
+        set({
+          sessionId,
+          systemPrompt,
+          specSnapshot: spec,
+          currentFlowId: spec.agent.entry_flow_id,
+          traversedFlowIds: [spec.agent.entry_flow_id],
+        });
 
         if (spec.agent.chatbot_initiates) {
           const openerTurn: TranscriptTurn = {
@@ -1417,6 +1427,58 @@ function readLlmCreds(role: SimulateRole): {
 // prevFlowId that a still-in-flight prior watcher hasn't committed — the seq
 // guard keeps only the latest turn's result, so the glow can lag a step but never
 // sticks wrong. Acceptable for a glance-value visualization.)
+// Animate the glow THROUGH a multi-hop turn rather than snapping to the final
+// flow — a turn that traverses intent → commit → unable visibly walks each node.
+// Single-hop turns (the common case) settle instantly. The edge trail shows at
+// once; only the node glow walks. Superseded by the next decode/reset via the
+// seq + sessionId guard, so a stale walk can't write into a fresh session.
+let walkTimer: ReturnType<typeof setTimeout> | null = null;
+const WALK_STEP_MS = 380;
+
+function walkPath(
+  set: StoreApi<SimulateState>["setState"],
+  get: StoreApi<SimulateState>["getState"],
+  seq: number,
+  sessionId: string,
+  resolved: ResolvedPath,
+): void {
+  if (walkTimer) {
+    clearTimeout(walkTimer);
+    walkTimer = null;
+  }
+  set({ traversedEdgeIds: resolved.traversedEdgeIds, traversedFlowIds: resolved.traversedFlowIds });
+
+  const flows = resolved.traversedFlowIds;
+  const from = get().currentFlowId;
+  const startIdx = from ? flows.lastIndexOf(from) : -1;
+  const walk = flows.slice(startIdx + 1);
+
+  // Nothing new to traverse (a stay, or the glow is already at the final flow) →
+  // settle immediately.
+  if (walk.length <= 1) {
+    set({ currentFlowId: resolved.current.flowId, attribution: resolved.current });
+    return;
+  }
+
+  let i = 0;
+  const step = () => {
+    walkTimer = null;
+    if (get().sessionId !== sessionId || get().attributionSeq !== seq) return;
+    const last = i === walk.length - 1;
+    set({
+      currentFlowId: walk[i],
+      // Intermediates glow as a confident pass-through; the final hop carries the
+      // real resolution (confidence + any illegal flag).
+      attribution: last
+        ? resolved.current
+        : { ...resolved.current, flowId: walk[i], status: "legal", edgeId: null, exitPathId: null },
+    });
+    i += 1;
+    if (i < walk.length) walkTimer = setTimeout(step, WALK_STEP_MS);
+  };
+  step();
+}
+
 async function attributeTurn(
   set: StoreApi<SimulateState>["setState"],
   get: StoreApi<SimulateState>["getState"],
@@ -1447,14 +1509,7 @@ async function attributeTurn(
     if (get().sessionId !== sessionId || get().attributionSeq !== seq) return;
     const resolved = resolveDecodedPath(spec.agent.entry_flow_id, steps, table);
     if (!resolved) return;
-    // Replace (not append) — the decode re-derives the whole path, so the trail
-    // self-corrects instead of accreting past mistakes.
-    set({
-      attribution: resolved.current,
-      currentFlowId: resolved.current.flowId,
-      traversedEdgeIds: resolved.traversedEdgeIds,
-      traversedFlowIds: resolved.traversedFlowIds,
-    });
+    walkPath(set, get, seq, sessionId, resolved);
   } catch (e) {
     // Watcher failure is non-fatal — leave the prior glow untouched. Surface it
     // to the console so a broken decode (e.g. a schema the provider rejects)
