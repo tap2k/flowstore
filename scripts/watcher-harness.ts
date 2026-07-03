@@ -18,6 +18,8 @@ import { fileURLToPath } from "node:url";
 import type { Spec } from "@flowstore/core/schema/v0";
 import { runFlowDecode, buildDecodeUserPrompt, resolveDecodedPath } from "@flowstore/core/runtime/flowWatcher";
 import { buildTransitionTable } from "@flowstore/core/runtime/transitionTable";
+import { readDirectoryToFileMap } from "@flowstore/core/files/node";
+import { loadProject } from "@flowstore/core/files/load";
 
 type Turn = { role: "agent" | "user"; text: string; flow?: string };
 
@@ -27,10 +29,25 @@ function arg(name: string): string | undefined {
 }
 const has = (name: string) => process.argv.includes(`--${name}`);
 
-const specPath =
-  arg("spec") ??
-  fileURLToPath(new URL("../packages/core/test/fixtures/fnol-min.json", import.meta.url));
-const spec = JSON.parse(readFileSync(specPath, "utf8")) as Spec;
+// --project <dir> loads a real decomposed project (agent.json + flows/…);
+// --spec <file> or the default loads a monolithic Spec JSON.
+const projectDir = arg("project");
+let spec: Spec;
+let specPath: string;
+if (projectDir) {
+  specPath = projectDir;
+  const res = loadProject(readDirectoryToFileMap(projectDir));
+  if (!res.spec) {
+    console.error("loadProject failed:", res.errors);
+    process.exit(1);
+  }
+  spec = res.spec;
+} else {
+  specPath =
+    arg("spec") ??
+    fileURLToPath(new URL("../packages/core/test/fixtures/fnol-min.json", import.meta.url));
+  spec = JSON.parse(readFileSync(specPath, "utf8")) as Spec;
+}
 
 // Default fnol transcript: intake → verify → claim (ground truth in `flow`).
 const DEFAULT_TRANSCRIPT: Turn[] = [
