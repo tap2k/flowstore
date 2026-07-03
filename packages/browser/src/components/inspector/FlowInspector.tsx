@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
+import { useSettingsStore } from "@/lib/store/settings";
 import type { Flow, FlowType, Guardrail, Condition } from "@flowstore/core/schema/v0";
 import { defaultLanguage, isEndGoto, isReturnGoto } from "@flowstore/core/schema/v0";
 import { genId } from "@flowstore/core/ids";
@@ -36,6 +37,13 @@ export function FlowInspector() {
   const [scriptsOpen, setScriptsOpen] = useState(false);
   const [retrievalPickerOpen, setRetrievalPickerOpen] = useState(false);
   const [toolsPickerOpen, setToolsPickerOpen] = useState(false);
+  const runnerUrl = useSettingsStore((s) => s.runnerUrl);
+  // retrieve_on_turn and tools scoping execute only in the runner — prompt
+  // mode never pre-fires retrieval and never scopes the tool set per flow —
+  // so only surface the editors when a runner is plausibly in play (mirrors
+  // the visible_when gate). Existing data always shows: an imported spec must
+  // never hold behavior the author can't see or remove.
+  const runnerFeatures = import.meta.env.VITE_DEV === "1" || runnerUrl !== "";
 
   if (!flow) return null;
 
@@ -196,7 +204,8 @@ export function FlowInspector() {
           </Field>
         )}
 
-        {retrievalCaps.length > 0 && (() => {
+        {(runnerFeatures || (flow.retrieve_on_turn ?? []).length > 0) &&
+          retrievalCaps.length > 0 && (() => {
           const selectedIds = flow.retrieve_on_turn ?? [];
           const selectedCaps = selectedIds
             .map((id) => retrievalCaps.find((c) => c.id === id))
@@ -276,7 +285,8 @@ export function FlowInspector() {
           );
         })()}
 
-        {import.meta.env.VITE_DEV === "1" && (capabilities ?? []).length > 0 && (() => {
+        {(runnerFeatures || (flow.tools ?? []).length > 0) &&
+          (capabilities ?? []).length > 0 && (() => {
           const allCaps = capabilities ?? [];
           const selectedIds = flow.tools ?? [];
           const selectedCaps = selectedIds

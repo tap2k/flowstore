@@ -63,8 +63,13 @@ export function VariablesEditor({ variables, onChange, scope }: VariablesEditorP
   const runnerUrl = useSettingsStore((s) => s.runnerUrl);
   // visible_when is enforced only by the Python runner's supervisor — prompt
   // mode bakes values into the static prompt ungated — so only surface it
-  // when a runner is plausibly in play (mirrors the SettingsSheet gate).
-  const showVisibleWhen = import.meta.env.VITE_DEV === "1" || runnerUrl !== "";
+  // when a runner is plausibly in play (mirrors the SettingsSheet gate), or
+  // when a declaration already carries one: an imported spec must never hold
+  // behavior the author can't see or remove.
+  const showVisibleWhen =
+    import.meta.env.VITE_DEV === "1" ||
+    runnerUrl !== "" ||
+    rows.some((r) => r.visibleWhen !== "");
 
   function commit(next: Row[]) {
     setRows(next);
