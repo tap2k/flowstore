@@ -296,6 +296,38 @@ export interface ResolvedPath {
   current: ResolvedAttribution;
 }
 
+// Shortest directed path of exit edges from→…→to (any method), as edge ids, or
+// null if `to` is unreachable by exits. Used to reconstruct a multi-hop
+// transition the decode collapsed into one turn — e.g. a willing-to-pay step that
+// immediately escalates on a date check (intent → commit → unable) — so it lights
+// the real route and isn't mistaken for an illegal jump. Only a destination with
+// NO path from the source stays "illegal".
+function findExitPath(table: TransitionTable, from: string, to: string): string[] | null {
+  const prevEdge = new Map<string, { from: string; edge: string }>();
+  const seen = new Set<string>([from]);
+  const queue = [from];
+  while (queue.length > 0) {
+    const f = queue.shift()!;
+    for (const t of table.get(f) ?? []) {
+      if (t.kind !== "exit" || t.toFlowId === null || seen.has(t.toFlowId)) continue;
+      prevEdge.set(t.toFlowId, { from: f, edge: `${f}__${t.exitPathId}` });
+      if (t.toFlowId === to) {
+        const edges: string[] = [];
+        let cur = to;
+        while (prevEdge.has(cur)) {
+          const p = prevEdge.get(cur)!;
+          edges.unshift(p.edge);
+          cur = p.from;
+        }
+        return edges;
+      }
+      seen.add(t.toFlowId);
+      queue.push(t.toFlowId);
+    }
+  }
+  return null;
+}
+
 export function resolveDecodedPath(
   entryFlowId: string,
   steps: FlowPathStep[],
@@ -323,7 +355,18 @@ export function resolveDecodedPath(
   for (const step of steps) {
     const leavingInterrupt = interrupts.has(prev) && !interrupts.has(step.flow_id);
     const resolveFrom = leavingInterrupt && interruptCaller ? interruptCaller : prev;
-    const resolved = resolveTransition(resolveFrom, step, table);
+    let resolved = resolveTransition(resolveFrom, step, table);
+    // A collapsed multi-hop turn reads as "illegal" (no direct edge) but is
+    // legitimate if the destination is reachable by a directed path. Reconstruct
+    // it: light every hop and mark it legal. Only a truly unreachable jump stays
+    // illegal (red).
+    if (resolved.status === "illegal") {
+      const path = findExitPath(table, resolveFrom, step.flow_id);
+      if (path && path.length > 0) {
+        for (const e of path) if (!traversedEdgeIds.includes(e)) traversedEdgeIds.push(e);
+        resolved = { ...resolved, status: "legal", edgeId: path[path.length - 1] };
+      }
+    }
     current = resolved;
     if (resolved.edgeId && !traversedEdgeIds.includes(resolved.edgeId)) {
       traversedEdgeIds.push(resolved.edgeId);

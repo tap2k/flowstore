@@ -125,13 +125,25 @@ describe("resolveDecodedPath", () => {
     expect(r.current).toMatchObject({ status: "legal", flowId: "confirm" });
   });
 
-  it("surfaces an illegal jump on the last hop", () => {
+  it("reconstructs a collapsed multi-hop turn (reachable → legal, edges lit)", () => {
+    // greet → confirm has no direct edge, but greet → order → confirm is a valid
+    // path — so it's a legit multi-hop, not illegal, and both edges light.
+    const steps: FlowPathStep[] = [{ flow_id: "confirm", via_exit_path_id: null, confidence: 0.8 }];
+    const r = resolveDecodedPath("greet", steps, table)!;
+    expect(r.current).toMatchObject({ status: "legal", flowId: "confirm" });
+    expect(r.traversedEdgeIds).toEqual(["greet__e_greet", "order__e_coffee"]);
+  });
+
+  it("surfaces an illegal jump only when the target is truly unreachable", () => {
+    // confirm → greet: confirm only reaches faq (which RETURNs) — no path back to
+    // greet — so this stays illegal (red).
     const steps: FlowPathStep[] = [
-      { flow_id: "greet", via_exit_path_id: null, confidence: 0.9 },
-      { flow_id: "confirm", via_exit_path_id: null, confidence: 0.6 }, // greet can't reach confirm
+      { flow_id: "order", via_exit_path_id: "e_greet", confidence: 0.9 },
+      { flow_id: "confirm", via_exit_path_id: "e_coffee", confidence: 0.9 },
+      { flow_id: "greet", via_exit_path_id: null, confidence: 0.6 },
     ];
     const r = resolveDecodedPath("greet", steps, table)!;
-    expect(r.current).toMatchObject({ status: "illegal", flowId: "confirm" });
+    expect(r.current).toMatchObject({ status: "illegal", flowId: "greet" });
   });
 
   it("returns null for an empty path", () => {
