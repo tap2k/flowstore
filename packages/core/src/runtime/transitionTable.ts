@@ -6,7 +6,7 @@ import { isEndGoto, isReturnGoto } from "@flowstore/core/schema/v0";
 // watcher classifies against, AND the oracle for illegal-jump detection — if the
 // watcher's naive read of "current flow" isn't reachable from the prior flow via
 // this table, the agent behaved like a flow the spec can't reach from there
-// (off-spec, or a missing edge). See planning/attribution-and-uncertainty.md §8.
+// (off-spec, or a missing edge).
 //
 // Pure function of the spec; cheap; recompute on spec change. No LLM.
 

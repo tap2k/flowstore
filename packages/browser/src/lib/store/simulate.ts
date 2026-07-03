@@ -1416,17 +1416,6 @@ function readLlmCreds(role: SimulateRole): {
   };
 }
 
-// Prompt-mode graph attribution: after an agent turn lands in text mode, ask the
-// flow watcher (default model, structured JSON) which flow the monolith is now
-// in, resolve it against the licensed-transition table, and write the result +
-// the reused glow fields (currentFlowId / traversedEdgeIds). Fire-and-forget:
-// the reply is already shown; the glow catches up ~½s later. Non-fatal on every
-// failure path (no key, non-JSON provider, LLM error) — the sim just runs without
-// a glow. `attributionSeq` drops a stale result when a newer turn or reset raced
-// ahead. (Concurrency note: on rapid back-to-back turns the watcher may read a
-// prevFlowId that a still-in-flight prior watcher hasn't committed — the seq
-// guard keeps only the latest turn's result, so the glow can lag a step but never
-// sticks wrong. Acceptable for a glance-value visualization.)
 // Animate the glow THROUGH a multi-hop turn rather than snapping to the final
 // flow — a turn that traverses intent → commit → unable visibly walks each node.
 // Single-hop turns (the common case) settle instantly. The edge trail shows at
@@ -1479,6 +1468,15 @@ function walkPath(
   step();
 }
 
+// Prompt-mode graph attribution: after an agent turn lands in text mode, decode
+// the whole transcript with the flow watcher (default model, structured JSON),
+// resolve the path against the licensed-transition table, and write the result +
+// the reused glow fields (currentFlowId / traversedEdgeIds). Fire-and-forget:
+// the reply is already shown; the glow catches up ~½s later. Non-fatal on every
+// failure path (no key, non-JSON provider, LLM error) — the sim just runs without
+// a glow. `attributionSeq` drops a stale result when a newer turn or reset raced
+// ahead; each decode re-derives the full path from the transcript, so there is
+// no cross-turn state for concurrent calls to corrupt.
 async function attributeTurn(
   set: StoreApi<SimulateState>["setState"],
   get: StoreApi<SimulateState>["getState"],

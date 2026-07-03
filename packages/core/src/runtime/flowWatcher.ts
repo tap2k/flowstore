@@ -4,25 +4,21 @@ import type { ProviderId } from "@flowstore/core/llm/types";
 import { generateStructuredJson } from "./structuredOutput";
 import { findExitTo, interruptFlowIds, type TransitionTable } from "./transitionTable";
 
-// The prompt-mode flow watcher: a small structured LLM call that reads the
-// conversation and guesses which flow the monolith agent is operating in — the
-// attribution the runner gets for free from its flow stack but prompt mode has
-// no source for. Its output is fed through `resolveTransition` (deterministic)
-// against the licensed-transition table to (a) drive the canvas glow and (b)
-// detect illegal jumps (naive read ∉ licensed set). See
-// planning/attribution-and-uncertainty.md §8.
+// The prompt-mode flow watcher: infers which flow the monolith agent is
+// operating in — the attribution the runner gets for free from its flow stack
+// but prompt mode has no source for. Shape: path DECODING, not per-turn
+// classification — one structured LLM call gets the WHOLE graph and the WHOLE
+// transcript and traces the flow at each agent turn as a valid walk from the
+// entry flow (Viterbi-style). No fed-forward prior (a per-turn classifier's
+// prevFlowId went stale in auto-runs and one wrong guess poisoned every later
+// turn), later turns disambiguate earlier ones, and the trail self-corrects on
+// every re-decode. `resolveDecodedPath` then checks each hop against the
+// licensed-transition table — an unreachable hop is the off-spec signal.
 //
 // This module is pure/logic: the browser supplies creds (default model) and
-// owns the call site, race-guarding, and store writes.
-
-// Path DECODING, not per-turn classification. The earlier per-turn classifier
-// was fed a `prevFlowId` point estimate that (a) went stale in auto-runs where
-// many turns fire before any attribution resolves and (b) only ever showed one
-// flow's exits, so a single wrong guess poisoned everything after it. Instead we
-// hand the model the WHOLE graph and the WHOLE transcript and ask it to trace the
-// flow at each agent turn as a valid walk from the entry flow — a Viterbi-style
-// decode. No fed-forward prior (no error propagation), later turns disambiguate
-// earlier ones, and the trail self-corrects on every re-decode.
+// owns the call site, race-guarding, and store writes. Design rationale +
+// accuracy measurements live in the planning repo
+// (flowstore/planning/attribution-and-uncertainty.md, not in this repo).
 const SYSTEM_PROMPT = `You are tracing a customer-service agent's path through a spec graph. The spec is a set of "flows" (states); the agent moves between them along exit paths whose conditions are predicates on the conversation, plus interrupts that can fire from anywhere.
 
 You are given the WHOLE graph and the WHOLE conversation. For each AGENT turn, decide which flow the agent is operating in — producing the sequence of flows the conversation walks through. The agent speaks in one natural voice and never announces flow names; infer each flow from what it is actually doing.
