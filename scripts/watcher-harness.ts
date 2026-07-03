@@ -81,7 +81,32 @@ if (!provider) {
   process.exit(1);
 }
 
+// Mimic the browser: it re-decodes the transcript-so-far after EACH agent turn,
+// and the glow = resolveDecodedPath(...).current of that prefix. This is the path
+// that actually runs live, and it can behave differently from one full-transcript
+// decode.
+async function incremental() {
+  const table = buildTransitionTable(spec);
+  const agentIdxs = transcript.flatMap((t, i) => (t.role === "agent" ? [i] : []));
+  console.log(`spec: ${specPath}\nprovider: ${provider}  model: ${model}\nINCREMENTAL (glow after each agent turn):\n`);
+  for (let k = 0; k < agentIdxs.length; k++) {
+    const prefix = transcript.slice(0, agentIdxs[k] + 1);
+    let cur = "(threw)";
+    try {
+      const steps = await runFlowDecode(spec, provider!, apiKey, model, { transcript: prefix });
+      const r = resolveDecodedPath(spec.agent.entry_flow_id, steps, table);
+      cur = r ? `${r.current.flowId}  [${r.current.status}]  conf=${r.current.confidence.toFixed(2)}` : "(null)";
+    } catch (e) {
+      cur = `THREW: ${e instanceof Error ? e.message : e}`;
+    }
+    const truth = transcript[agentIdxs[k]].flow;
+    const ok = truth && cur.startsWith(truth) ? "✓" : truth ? `✗ (truth ${truth})` : "";
+    console.log(`  after agent[${k}]: ${cur} ${ok}`);
+  }
+}
+
 async function main() {
+  if (has("incremental")) return incremental();
   console.log(`spec: ${specPath}\nprovider: ${provider}  model: ${model}\n`);
   let steps;
   try {

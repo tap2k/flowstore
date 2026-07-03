@@ -15,6 +15,14 @@ export interface StructuredOutputOpts {
   systemPrompt?: string;
   userPrompt: string;
   responseSchema: Record<string, unknown>;
+  // Cap the response size. Important on Gemini 2.5, where THINKING tokens share
+  // the output budget — a large prompt can spend it on thinking and truncate the
+  // JSON (→ parse error). Give structured calls headroom.
+  maxOutputTokens?: number;
+  // Gemini 2.5 thinking budget. 0 disables thinking — right for a mechanical
+  // classification (no reasoning needed) and it removes the truncation risk.
+  // Ignored by providers without a thinking control.
+  thinkingBudget?: number;
 }
 
 export async function generateStructuredJson<T = unknown>(

@@ -168,6 +168,12 @@ export async function runFlowDecode(
   const parsed = await generateStructuredJson<{ path: RawStep[] }>(provider, apiKey, model, {
     systemPrompt: SYSTEM_PROMPT,
     userPrompt: buildDecodeUserPrompt(spec, args),
+    // Mechanical classification over a large prompt (whole graph + transcript):
+    // disable Gemini 2.5 thinking (it needs no reasoning and thinking tokens
+    // would otherwise share — and can truncate — the JSON output budget) and give
+    // the path array generous headroom so it never gets cut off.
+    thinkingBudget: 0,
+    maxOutputTokens: 8192,
     responseSchema: {
       type: "OBJECT",
       properties: {
