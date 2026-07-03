@@ -1,8 +1,8 @@
 import Dagre from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
 
-const NODE_WIDTH = 240;
-const NODE_HEIGHT = 90;
+export const NODE_WIDTH = 240;
+export const NODE_HEIGHT = 90;
 
 export function autoLayout(nodes: Node[], edges: Edge[]): Node[] {
   const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));

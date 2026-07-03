@@ -2,6 +2,7 @@ import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { FlowType } from "@flowstore/core/schema/v0";
 import type { ResolvedAttribution } from "@flowstore/core/runtime/flowWatcher";
 import { useSimulateStore } from "@/lib/store/simulate";
+import { useAssistantChangesStore } from "@/lib/store/assistantChanges";
 import { useCommentsStore } from "@/lib/store/comments";
 
 export interface FlowNodeData {
@@ -59,6 +60,17 @@ function attributionHint(attr: ResolvedAttribution | null): string | undefined {
   return undefined;
 }
 
+// The halo for a flow the ASSISTANT just changed (see assistantChanges.ts).
+// Purple: the established "AI did this" hue (sparkles), and — unlike red-ish
+// hues — carries no error/danger reading. It doesn't fight the canvas
+// palette: sky glow is the sim's active flow, zinc is selection, red/amber
+// are issues; interrupt nodes use violet but as a thin BORDER, a different
+// element from this soft outer halo. Steady (no pulse): in this app's
+// vocabulary pulsing means live uncertainty, and "recently edited" is a
+// fact, not a guess.
+const ASSISTANT_GLOW =
+  "ring-2 ring-purple-400 ring-offset-1 shadow-[0_0_16px_2px_rgba(168,85,247,0.45)]";
+
 const typeStyles: Record<FlowType, { border: string; badge: string; label: string }> = {
   happy:     { border: "border-emerald-400", badge: "bg-emerald-100 text-emerald-800", label: "happy" },
   sad:       { border: "border-amber-400",   badge: "bg-amber-100 text-amber-800",     label: "sad" },
@@ -76,6 +88,7 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
   // Attribution belongs to the active flow only (attribution.flowId ===
   // currentFlowId, set together). null for non-active nodes and runner mode.
   const attribution = useSimulateStore((s) => (s.currentFlowId === id ? s.attribution : null));
+  const assistantGlow = useAssistantChangesStore((s) => s.glowFlowIds.includes(id));
   const activeRing = activeRingClass(attribution);
   const hint = attributionHint(attribution);
   const title = [issueTitle, isActive ? hint : undefined].filter(Boolean).join("\n") || undefined;
@@ -92,6 +105,7 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
         issueTitle={title}
         isActive={isActive}
         activeRing={activeRing}
+        assistantGlow={assistantGlow}
         selected={selected}
       />
     );
@@ -105,6 +119,8 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
           ? "ring-2 ring-zinc-900 ring-offset-1 shadow-md"
           : isActive
           ? activeRing
+          : assistantGlow
+          ? ASSISTANT_GLOW
           : issueRing(level) ?? "shadow-sm"
       }`}
     >
@@ -137,6 +153,7 @@ function JunctionNode({
   issueTitle,
   isActive,
   activeRing,
+  assistantGlow,
   selected,
 }: {
   id: string;
@@ -145,6 +162,7 @@ function JunctionNode({
   issueTitle: string | undefined;
   isActive: boolean;
   activeRing: string;
+  assistantGlow: boolean;
   selected: boolean;
 }) {
   // Rotated square renders as a diamond. The label sits in a counter-rotated
@@ -157,7 +175,9 @@ function JunctionNode({
       ? "ring-2 ring-zinc-900 ring-offset-1 shadow-md"
       : isActive
         ? activeRing
-        : "shadow-sm");
+        : assistantGlow
+          ? ASSISTANT_GLOW
+          : "shadow-sm");
   const border = issueBorder(issueLevel, "border-sky-400");
 
   return (

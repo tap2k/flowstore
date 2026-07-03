@@ -1,4 +1,5 @@
 import { useSpecStore } from "@/lib/store/spec";
+import { useAssistantChangesStore } from "@/lib/store/assistantChanges";
 import { gitTools } from "./gitTools";
 import { testTools } from "./testTools";
 import type { Agent, ExitPath, Flow } from "@flowstore/core/schema/v0";
@@ -178,6 +179,13 @@ function store() {
   return useSpecStore.getState();
 }
 
+// Every successful spec mutation below marks what it touched so the canvas
+// can attribute the change to the assistant (glow + one camera focus per
+// turn — see assistantChanges.ts). User-driven edits never mark.
+function marks() {
+  return useAssistantChangesStore.getState();
+}
+
 function flowExists(flowId: string): boolean {
   return store().spec?.flows.some((f) => f.id === flowId) ?? false;
 }
@@ -209,6 +217,7 @@ const createFlowTool: Tool = {
     if (a.type) patch.type = a.type;
     if (a.instructions !== undefined) patch.instructions = a.instructions;
     s.updateFlow(id, patch);
+    marks().markFlow(id, { created: true });
     return { ok: true, data: { flow_id: id } };
   },
 };
@@ -227,6 +236,7 @@ const deleteFlowTool: Tool = {
     const { flow_id } = args as { flow_id: string };
     if (!flowExists(flow_id)) return { ok: false, error: `flow not found: ${flow_id}` };
     store().removeFlow(flow_id);
+    marks().unmarkFlow(flow_id);
     return { ok: true };
   },
 };
@@ -248,6 +258,7 @@ const updateFlowTool: Tool = {
     const { flow_id, patch } = args as { flow_id: string; patch: Partial<Flow> };
     if (!flowExists(flow_id)) return { ok: false, error: `flow not found: ${flow_id}` };
     store().updateFlow(flow_id, patch);
+    marks().markFlow(flow_id);
     return { ok: true };
   },
 };
@@ -291,6 +302,10 @@ const addExitPathTool: Tool = {
     if (Object.keys(patch).length > 0) {
       s.updateExitPath(a.source_flow_id, xpId, patch);
     }
+    // Keyword gotos (END/RETURN) render no edge, so glow the source flow
+    // instead — otherwise the change would be invisible.
+    if (isKeyword) marks().markFlow(a.source_flow_id);
+    else marks().markEdge(`${a.source_flow_id}__${xpId}`);
     return { ok: true, data: { exit_path_id: xpId } };
   },
 };
@@ -315,6 +330,8 @@ const deleteExitPathTool: Tool = {
     };
     if (!flowExists(flow_id)) return { ok: false, error: `flow not found: ${flow_id}` };
     store().removeExitPath(flow_id, exit_path_id);
+    // The edge is gone; the source flow is the visible remnant of the change.
+    marks().markFlow(flow_id);
     return { ok: true };
   },
 };
@@ -341,6 +358,13 @@ const updateExitPathTool: Tool = {
     };
     if (!flowExists(flow_id)) return { ok: false, error: `flow not found: ${flow_id}` };
     store().updateExitPath(flow_id, exit_path_id, patch);
+    // Re-routing to END/RETURN removes the edge from the canvas; fall back to
+    // glowing the source flow so the change stays visible.
+    if (patch.goto !== undefined && (isEndGoto(patch.goto) || isReturnGoto(patch.goto))) {
+      marks().markFlow(flow_id);
+    } else {
+      marks().markEdge(`${flow_id}__${exit_path_id}`);
+    }
     return { ok: true };
   },
 };
@@ -359,6 +383,8 @@ const updateAgentTool: Tool = {
   impl: (args) => {
     const { patch } = args as { patch: Partial<Agent> };
     store().updateAgent(patch);
+    // The only agent-level field with a canvas footprint is the entry badge.
+    if (patch.entry_flow_id) marks().markFlow(patch.entry_flow_id);
     return { ok: true };
   },
 };
