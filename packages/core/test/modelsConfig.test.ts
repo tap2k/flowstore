@@ -30,7 +30,7 @@ describe("decomposeModelsConfig — credential stripping", () => {
         check_balance: { url: "https://api/x", method: "POST", headers: { Authorization: "Bearer cap-secret" } },
       },
       agents: {
-        awaaz: {
+        voicebot: {
           turn_url: "https://agent/turn",
           response_text_path: "text",
           turn_headers: { Authorization: "Bearer agent-secret" },
@@ -50,13 +50,13 @@ describe("decomposeModelsConfig — credential stripping", () => {
     const parsed = JSON.parse(serialized);
     expect(parsed.models["local-llama"]).not.toHaveProperty("api_key");
     expect(parsed.capabilities.check_balance).not.toHaveProperty("headers");
-    expect(parsed.agents.awaaz).not.toHaveProperty("turn_headers");
+    expect(parsed.agents.voicebot).not.toHaveProperty("turn_headers");
 
     // Non-secret fields are preserved.
     expect(parsed.models["local-llama"].base_url).toBe("http://x/v1");
     expect(parsed.capabilities.check_balance.url).toBe("https://api/x");
-    expect(parsed.agents.awaaz.turn_url).toBe("https://agent/turn");
-    expect(parsed.agents.awaaz.response_text_path).toBe("text");
+    expect(parsed.agents.voicebot.turn_url).toBe("https://agent/turn");
+    expect(parsed.agents.voicebot.response_text_path).toBe("text");
   });
 
   it("the stripped output round-trips back through the loader", () => {
@@ -66,7 +66,7 @@ describe("decomposeModelsConfig — credential stripping", () => {
         check_balance: { url: "https://api/x", headers: { Authorization: "Bearer s" } },
       },
       agents: {
-        awaaz: { turn_url: "https://agent/turn", response_text_path: "text", turn_headers: { "x-api-key": "s" } },
+        voicebot: { turn_url: "https://agent/turn", response_text_path: "text", turn_headers: { "x-api-key": "s" } },
       },
     };
     const files = decomposeModelsConfig(config);
@@ -75,7 +75,7 @@ describe("decomposeModelsConfig — credential stripping", () => {
     expect(errors).toEqual([]);
     expect(reloaded).not.toBeNull();
     expect(reloaded!.capabilityEndpoints.check_balance.headers).toBeUndefined();
-    expect(reloaded!.agents.awaaz.turn_headers).toBeUndefined();
+    expect(reloaded!.agents.voicebot.turn_headers).toBeUndefined();
   });
 
   it("returns {} for a null or fully-empty config", () => {

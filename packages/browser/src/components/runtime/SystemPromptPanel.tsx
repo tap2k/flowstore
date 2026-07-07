@@ -121,7 +121,7 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
     // See bodyForDisplay for the deliberate View-mode divergence.
     const text = mode === "edit" ? editorValue : compiledText;
     // Single-bracket export down-converts {{var}} → {var} for runtimes whose
-    // interpolation is single-brace (e.g. Awaaz). Lossy by nature: any literal
+    // interpolation is single-brace. Lossy by nature: any literal
     // single brace in the prompt becomes indistinguishable from a placeholder on
     // such a runtime — flowstore stays {{var}} internally; this is export-only.
     const out = singleBracket ? text.replace(/\{\{([A-Za-z_]\w*)\}\}/g, "{$1}") : text;
@@ -185,7 +185,7 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
           </button>
           <button
             onClick={() => copy(true)}
-            title="Copy with {{variable}} down-converted to single-brace {variable}, for runtimes with single-brace interpolation (e.g. Awaaz). Note: literal single braces in the prompt become ambiguous on those runtimes."
+            title="Copy with {{variable}} down-converted to single-brace {variable}, for runtimes with single-brace interpolation. Note: literal single braces in the prompt become ambiguous on those runtimes."
             className={`rounded px-2 py-1 text-[11px] ${
               copied === "single" ? "text-emerald-600" : "text-zinc-600 hover:bg-zinc-100"
             }`}

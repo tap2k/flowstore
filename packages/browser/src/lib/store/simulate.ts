@@ -67,7 +67,7 @@ export type SimulateStatus =
 // system prompt, capability mocks, no Python runner) — they differ only in
 // transport (turn-based HTTP vs. a Gemini Live bidi audio socket). "runner"
 // drives the Python per-flow runtime. "external" drives an opaque HTTP
-// conversational agent (e.g. Awaaz, Rasa) via httpAgentClient.
+// conversational agent (e.g. Rasa) via httpAgentClient.
 // isPromptMode groups the two browser-direct LLM modes.
 export type SimulateMode = "text" | "voice" | "runner" | "external";
 

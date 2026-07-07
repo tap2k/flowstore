@@ -23,7 +23,7 @@ Production monitoring (real-time event stream consumption, dashboards, alerting)
 
 The schema is the contract across flowstore and any runtime that consumes it. They all defer to [SCHEMA.md](./SCHEMA.md) in this repo.
 
-**Schema-change propagation:** a change to spec or testing-artifact schemas must sync (1) `flowstore-runner` — strict pydantic mirrors in `src/flowstore_runner/spec/types.py` reject unknown fields, so new fields break the runner's loader until added there; (2) the example/customer agent repos (`awaaz-dpd31`, `flowstore-example-fnol`, `medcomm-flowstore`, `pice-flowstore`) when the change needs spec edits (e.g. `provided: true` markers on `agent.variables` for vars that should seed at session start) or renames testing-artifact fields (e.g. decision-test `vars` → `state`).
+**Schema-change propagation:** a change to spec or testing-artifact schemas must sync (1) `flowstore-runner` — strict pydantic mirrors in `src/flowstore_runner/spec/types.py` reject unknown fields, so new fields break the runner's loader until added there; (2) the example/customer agent repos (`flowstore-example-fnol` and the private customer agent repos) when the change needs spec edits (e.g. `provided: true` markers on `agent.variables` for vars that should seed at session start) or renames testing-artifact fields (e.g. decision-test `vars` → `state`).
 
 ## Mission
 

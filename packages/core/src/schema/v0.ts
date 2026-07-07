@@ -167,8 +167,8 @@ const AgentMetaSchema = Type.Object(
     // system prompt: "You are {identity}. {purpose} Tone: {tone}". Persona, not
     // file metadata — the repo/display label lives on the agent envelope as
     // `name`. Who the agent acts for has no dedicated field: a bare principal
-    // ("Tala") isn't self-describing, so it's woven into identity ("Lucía from
-    // Tala") and purpose, and enforced (official-channel claims) in guardrails.
+    // ("Acme") isn't self-describing, so it's woven into identity ("Lucía from
+    // Acme") and purpose, and enforced (official-channel claims) in guardrails.
 
     // The name the agent inhabits ("You are {identity}."). Accepts {{var}}
     // placeholders, so identity can be a per-call input rather than a literal:

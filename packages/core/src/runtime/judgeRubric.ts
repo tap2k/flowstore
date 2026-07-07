@@ -2,7 +2,7 @@ import { generateStructuredJson } from "./structuredOutput";
 import type { ProviderId } from "@flowstore/core/llm/types";
 import type { Rubric } from "@flowstore/core/schema/files/rubric";
 
-// Mirror of awaaz-dpd31's scripts/_judge.py judge_one: substitutes the
+// Mirror of the example agent repos' scripts/_judge.py judge_one: substitutes the
 // rubric's prompt_template placeholders, calls a judge LLM with
 // structured output {score, notes}, clamps score to the rubric's scale.
 // Pure runtime helper — no spec / browser dependency. Substituted

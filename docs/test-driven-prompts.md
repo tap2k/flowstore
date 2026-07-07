@@ -2,7 +2,7 @@
 
 Audience: anyone authoring or iterating on a flowstore agent — designers, prompt authors, engineers. This is the **methodology** for using a script harness as a development loop. For the mechanics it stands on (the compile contract, file shapes, the result contract, mock dispatch), see [testing-from-scripts.md](./testing-from-scripts.md).
 
-The short version: **write the conversations you want before the prompt that produces them, then iterate the spec / generator / runtime until the harness goes green.** The long version is below. Examples use the neutral [`examples/coffee`](../examples/coffee) spec; the worked instances are [fnol](https://github.com/tap2k/flowstore-example-fnol) and [awaaz](https://github.com/tap2k/awaaz-dpd31).
+The short version: **write the conversations you want before the prompt that produces them, then iterate the spec / generator / runtime until the harness goes green.** The long version is below. Examples use the neutral [`examples/coffee`](../examples/coffee) spec; the worked instance is [fnol](https://github.com/tap2k/flowstore-example-fnol).
 
 ---
 
@@ -62,13 +62,13 @@ Three sources, in order of preference:
 2. **Production recordings / QA-tagged transcripts.** Higher signal than synthetic — real users surface phrasings you wouldn't invent. (Privacy considerations apply.)
 3. **Hand-authored synthetic golds.** Fine for bootstrapping. Author them *thinking like an adversary*: every gold should target one routing decision, one guardrail, or one edge case you suspect will misfire.
 
-**Extracting golds from existing material.** Both worked repos carry a `GOLD-EXTRACTION-PROMPT.txt` — an LLM prompt you feed customer source docs to emit one gold record per example conversation in the source, with a no-hallucination discipline (no example conversations in the source → empty output, which is itself the answer to "what do we need from the customer?").
+**Extracting golds from existing material.** The worked repo carries a `GOLD-EXTRACTION-PROMPT.txt` — an LLM prompt you feed customer source docs to emit one gold record per example conversation in the source, with a no-hallucination discipline (no example conversations in the source → empty output, which is itself the answer to "what do we need from the customer?").
 
 ### Phase 2 — derive test cases from golds
 
 A gold is the source of truth; a **test case** (`tests/cases/<id>.test.json`, `flowstore://test/case/v0`) is the executable extraction. The case carries the user side of the gold's turns plus assertions over what the agent must (or must not) say, the persona that supplies the world, the evaluators, and a `gold_id` back-pointer the rubric judge reads for side-by-side comparison.
 
-You can hand-author the case from the gold, or derive it mechanically: bundle each gold with the compiled spec, prompt a model to pick distinctive substring assertions from the actual flow scripts and negative assertions seeded from the guardrails, then write the case. (awaaz ships a `CASE-FROM-GOLD-PROMPT.txt` and a `derive_cases.py` that does this.) Either way, review the substring choices — routing-distinctive language needs a human eye, and an over-literal assertion fails on benign paraphrase.
+You can hand-author the case from the gold, or derive it mechanically: bundle each gold with the compiled spec, prompt a model to pick distinctive substring assertions from the actual flow scripts and negative assertions seeded from the guardrails, then write the case. Either way, review the substring choices — routing-distinctive language needs a human eye, and an over-literal assertion fails on benign paraphrase.
 
 ### Phase 3 — compile the spec to a prompt
 

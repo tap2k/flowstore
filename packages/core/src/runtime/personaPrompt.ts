@@ -5,8 +5,8 @@ import type { Modality } from "@flowstore/core/schema/v0";
 // system prompt. Everything that drives a persona composes through here.
 //
 // REFERENCE + HAND-MIRROR (not a single source). The Python harness keeps a
-// hand-maintained, byte-for-byte mirror at awaaz-dpd31/scripts/_persona.py (and
-// its copies in the other example repos), so the interactive sim and the batch
+// hand-maintained, byte-for-byte mirror at scripts/_persona.py in each example
+// agent repo, so the interactive sim and the batch
 // regression harness produce identical persona prompts — otherwise "what the sim
 // shows" stops predicting "what the suite scores". The goldens (this repo's
 // packages/core/test/personaRail.test.ts and the Python self-check) CATCH drift;
@@ -30,8 +30,8 @@ import type { Modality } from "@flowstore/core/schema/v0";
 // port can't reproduce it byte-for-byte), and only the Python regression path
 // needs it. The browser sim and that regression harness are different test
 // modalities, so minor deviance is fine. It lives where it's consumed, not in
-// this core renderer: Python-side in awaaz-dpd31/scripts/_persona.py (seeded,
-// regression-exact), and for the browser sim in
+// this core renderer: Python-side in the example repos' scripts/_persona.py
+// (seeded, regression-exact), and for the browser sim in
 // packages/browser/src/lib/runtime/asrShape.ts (a seeded portable-PRNG version).
 export function defaultPersonaInstructions(modality: Modality): string {
   const lengthRule =

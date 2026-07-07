@@ -5,12 +5,12 @@ import {
 } from "@flowstore/core/runtime/personaPrompt";
 
 // Conformance fixture for the user-sim prompt renderer. These are the strings
-// that any harness driving a persona (the browser sim, the Python harness at
-// awaaz-dpd31/scripts/_persona.py) must keep byte-for-byte in sync — see
-// planning/persona-simulation.md. Snapshotting them here means an edit is a
-// deliberate, visible change, and the mirror has a golden to match against. If
-// you change the rail or the compose shape, update the harness copies AND the
-// awaaz golden in the same change.
+// that any harness driving a persona (the browser sim, the Python harness
+// mirrors at scripts/_persona.py in the example agent repos) must keep
+// byte-for-byte in sync — see planning/persona-simulation.md. Snapshotting them
+// here means an edit is a deliberate, visible change, and the mirrors have a
+// golden to match against. If you change the rail or the compose shape, update
+// the harness copies AND their goldens in the same change.
 describe("defaultPersonaInstructions — rail conformance", () => {
   it("voice", () => {
     expect(defaultPersonaInstructions("voice")).toMatchInlineSnapshot(`

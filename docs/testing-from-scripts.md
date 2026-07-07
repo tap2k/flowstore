@@ -7,10 +7,9 @@ flowstore ships two load-bearing pieces and *no runner*:
 1. **A compiler** (`flowstore-compile`) that turns a spec into a stable `{system_prompt, tool_schemas}` JSON — a pure function of the spec.
 2. **Test-file schemas** (in [`@flowstore/core`](../packages/core/src/schema/files/)) — `test/case`, `test/persona`, `test/decision-test`, `test/rubric`, `test/gold`, `run/result`, validated on load.
 
-How you drive the LLM with that prompt, dispatch its tool calls, and evaluate the transcript is **yours to implement**. Two reference runners exist, both Gemini-driven Python you can read and retarget:
+How you drive the LLM with that prompt, dispatch its tool calls, and evaluate the transcript is **yours to implement**. A reference runner exists, Gemini-driven Python you can read and retarget:
 
-- **[flowstore-example-fnol](https://github.com/tap2k/flowstore-example-fnol)** — the comprehensive one. Capabilities + mocks, multilingual, every test type, gold-comparing rubrics.
-- **[awaaz-dpd31](https://github.com/tap2k/awaaz-dpd31)** — an outbound voice agent with **no capabilities** (so no mocks), a batch suite runner, and three run targets (compiled prompt / local runner / deployed endpoint).
+- **[flowstore-example-fnol](https://github.com/tap2k/flowstore-example-fnol)** — capabilities + mocks, multilingual, every test type, gold-comparing rubrics.
 
 This doc is the **mechanics** — the contract across the seam. For the prompt-engineering development loop (golds, assertion authoring, when to fix the spec vs the generator vs the assertions), see [test-driven-prompts.md](./test-driven-prompts.md). The data model is in [SCHEMA.md](../SCHEMA.md); the on-disk layout in [FILE-MODEL.md](../FILE-MODEL.md).
 
@@ -71,7 +70,7 @@ export FLOWSTORE_COMPILE_CMD="npm --prefix /path/to/flowstore -w @flowstore/core
 $FLOWSTORE_COMPILE_CMD "$PWD" --format prompt
 ```
 
-(When flowstore ships a published CLI this collapses to `flowstore-compile`.) Both fnol and awaaz use exactly this override.
+(When flowstore ships a published CLI this collapses to `flowstore-compile`.) fnol uses exactly this override.
 
 ### Flags
 
@@ -205,7 +204,7 @@ Driver (its `system_prompt` drives a simulated user):
 ```
 
 - **`vars`** — a `{name: value}` dict, coerced against the agent's variable declarations at run time. The runner writes it to a temp file and forwards it as `--vars-file`, so the values land as pre-context in the compiled prompt.
-- **`mocks`** — `{capability_id: behavior}`. Each behavior is the embedded mock-behavior shape (a sub-object, no `$schema`): `{ "kind": "static", "returns": {...} }` returns its object verbatim every call (`returns` keys mirror the capability's declared outputs); `{ "kind": "error", "error": "..." }` hands the LLM the error string so the agent has to recover. There is no standalone mock *file* and no `variant` — one persona is one world. (Specs with no capabilities, like awaaz, omit `mocks` entirely.)
+- **`mocks`** — `{capability_id: behavior}`. Each behavior is the embedded mock-behavior shape (a sub-object, no `$schema`): `{ "kind": "static", "returns": {...} }` returns its object verbatim every call (`returns` keys mirror the capability's declared outputs); `{ "kind": "error", "error": "..." }` hands the LLM the error string so the agent has to recover. There is no standalone mock *file* and no `variant` — one persona is one world. (Specs with no capabilities omit `mocks` entirely.)
 - **`system_prompt`** — when present, the runner runs it as an LLM-as-user that converses with the agent, up to `max_turns`. Empty/absent = world-only.
 - **`model`** — optional per-persona model pin for the simulated user.
 
@@ -352,15 +351,14 @@ The self-contained default target is the **compiled prompt**: a single LLM holds
 - `state_assertions` always report "needs a native runner" (and `final_variables` stays `{}`).
 - Retrieval capabilities (`retrieve_on_turn`) don't pre-fire; the agent answers from what's in the prompt.
 
-That's deliberate. The assertion *shapes* are demonstrated, and the same files run unchanged against a deployed flowstore **runner** — the graph runtime that tracks scope, fires actions, and executes retrieval — where `final_variables` populates and `state_assertions` evaluate normally. `capability_assertions` work on both. awaaz's runner exposes this explicitly via `--target prompt|runner|endpoint`.
+That's deliberate. The assertion *shapes* are demonstrated, and the same files run unchanged against a deployed flowstore **runner** — the graph runtime that tracks scope, fires actions, and executes retrieval — where `final_variables` populates and `state_assertions` evaluate normally. `capability_assertions` work on both. A runner can expose this explicitly via a `--target prompt|runner|endpoint` switch.
 
 ---
 
-## Reference runners
+## Reference runner
 
 | Repo | Driver | Notable |
 |---|---|---|
 | [flowstore-example-fnol](https://github.com/tap2k/flowstore-example-fnol) | Gemini (Python) | Capabilities + mocks, multilingual (en/es), every test type, gold-comparing rubrics, six vendored Python evaluators. The fullest worked harness. |
-| [awaaz-dpd31](https://github.com/tap2k/awaaz-dpd31) | Gemini (Python) | No capabilities (no mocks). Batch suite runner, three run targets, `derive_cases` / `diff_runs` / `make-baseline` tooling, ES-primary. |
 
-Both isolate the provider-specific surface to a small block so you can retarget another LLM, and both invoke this compiler via `FLOWSTORE_COMPILE_CMD`. Read either as a worked reference — not as the only shape.
+It isolates the provider-specific surface to a small block so you can retarget another LLM, and invokes this compiler via `FLOWSTORE_COMPILE_CMD`. Read it as a worked reference — not as the only shape.
