@@ -56,9 +56,9 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     "gemini-2.5-flash-native-audio":   { name: "Gemini 2.5 Flash Native Audio (voice)", endpoint: "google", voice: true, model_id: "gemini-2.5-flash-native-audio-preview-09-2025" },
 
     // OpenAI
-    "gpt-5.6-sol":              { name: "GPT-5.6 Sol", endpoint: "openai" },
-    "gpt-5.6-terra":            { name: "GPT-5.6 Terra", endpoint: "openai" },
     "gpt-5.6-luna":             { name: "GPT-5.6 Luna", endpoint: "openai" },
+    "gpt-5.6-terra":            { name: "GPT-5.6 Terra", endpoint: "openai" },
+    "gpt-5.6-sol":              { name: "GPT-5.6 Sol", endpoint: "openai" },
     "gpt-5.5":                  { name: "GPT-5.5", endpoint: "openai" },
     "gpt-5.4":                  { name: "GPT-5.4", endpoint: "openai" },
     "gpt-5.4-mini":             { name: "GPT-5.4 Mini", endpoint: "openai" },
