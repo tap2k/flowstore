@@ -78,6 +78,7 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     "qwen3.6-plus":             { name: "Qwen 3.6 Plus", endpoint: "openrouter", model_id: "qwen/qwen3.6-plus" },
     "qwen3.6-flash":            { name: "Qwen 3.6 Flash", endpoint: "openrouter", model_id: "qwen/qwen3.6-flash" },
     "mistral-large-2512":       { name: "Mistral Large 2512", endpoint: "openrouter", model_id: "mistralai/mistral-large-2512" },
+    "gemma-4-31b":              { name: "Gemma 4 31B", endpoint: "openrouter", model_id: "google/gemma-4-31b-it" },
     "llama-4-maverick":         { name: "Llama 4 Maverick", endpoint: "openrouter", model_id: "meta-llama/llama-4-maverick" },
     "llama-4-scout":            { name: "Llama 4 Scout", endpoint: "openrouter", model_id: "meta-llama/llama-4-scout" },
     "llama-3.3-70b":            { name: "Llama 3.3 70B", endpoint: "openrouter", model_id: "meta-llama/llama-3.3-70b-instruct" },
