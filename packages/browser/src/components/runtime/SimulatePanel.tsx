@@ -554,6 +554,8 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     if (busy || ended || !canSend) return;
     const text = input;
     setInput("");
+    // An empty send models the caller staying silent: the store substitutes
+    // NO_INPUT_MARKER so the model sees a no-input event, not a blank turn.
     await send(text);
     // A failed turn rolls itself back in the store and leaves status "error".
     // Put the text back so the user can fix and resend without retyping.
@@ -1065,7 +1067,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
               <button
                 onClick={onSend}
                 disabled={busy || !canSend}
-                title={input.trim() ? "Send" : "Send empty user message"}
+                title={input.trim() ? "Send" : "Send with no input (models the caller staying silent)"}
                 className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
               >
                 Send
@@ -1695,9 +1697,6 @@ function TurnView({
   const canFork = !!onFork && role === "user" && !isOpener;
 
   if (role === "user") {
-    // Empty input is sent verbatim — render a muted placeholder so the empty
-    // bubble doesn't look broken, while making clear the model saw nothing.
-    const isEmpty = text === "";
     return (
       <div className="space-y-1">
         <div className="group flex justify-end items-start gap-1.5">
@@ -1712,7 +1711,7 @@ function TurnView({
             </button>
           )}
           <div className="max-w-[85%] rounded-lg bg-zinc-900 px-3 py-2 text-sm text-white whitespace-pre-wrap">
-            {isEmpty ? <span className="italic text-zinc-400">(empty user message)</span> : shown}
+            {shown}
           </div>
         </div>
         {events.map((ev, i) => (

@@ -77,6 +77,13 @@ export const isPromptMode = (m: SimulateMode): boolean => m === "text" || m === 
 // Filtered from transcript display and captured cases.
 export const PROMPT_MODE_BEGIN = "[begin]";
 
+// Models a "no-input" event — the caller stayed silent. A real voice pipeline
+// never sends an empty utterance to the LLM; VAD/ASR emits a no-speech event and
+// the dialog layer injects a described signal instead. We do the same so the
+// agent's re-prompt / timeout handling actually fires, rather than the model
+// seeing a blank turn and returning nothing. Sent verbatim as the user turn.
+export const NO_INPUT_MARKER = "[user did not respond]";
+
 // Transcript events for the capability calls a prompt-mode turn made, so mocked
 // tool calls show in the timeline the same way runner-mode capability calls do.
 function capabilityEvents(
@@ -1137,10 +1144,12 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     // Voice is mic-driven full-duplex — there are no typed user turns to send.
     if (mode === "voice") return;
     if (status === "thinking" || status === "starting" || status === "ended") return;
-    // Empty user text is allowed — sent verbatim so designers can see how
-    // each model actually reacts to no input (GPT replies; Gemini returns no
-    // text). No rewriting, no magic markers.
-    const trimmed = userText.trim();
+    // A blank user turn is a non-prompt: the model has nothing to answer (Gemini
+    // returns nothing; GPT invents filler), which never happens in a real voice
+    // pipeline — VAD/ASR emits a no-input event, not an empty utterance. So an
+    // empty send is substituted with NO_INPUT_MARKER, a described no-input event
+    // the agent can react to (and can react wrongly to — that's what we're testing).
+    const trimmed = userText.trim() || NO_INPUT_MARKER;
     const userTurn: TranscriptTurn = {
       role: "user",
       text: trimmed,
