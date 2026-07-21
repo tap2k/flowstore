@@ -39,6 +39,7 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
   agents: {},
   models: {
     // Google
+    "gemini-3.6-flash":         { name: "Gemini 3.6 Flash", endpoint: "google" },
     "gemini-3.5-flash":         { name: "Gemini 3.5 Flash", endpoint: "google" },
     "gemini-3.1-pro-preview":   { name: "Gemini 3.1 Pro", endpoint: "google" },
     "gemini-3.1-flash-lite":    { name: "Gemini 3.1 Flash-Lite", endpoint: "google" },
