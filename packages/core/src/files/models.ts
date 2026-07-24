@@ -67,6 +67,7 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     "gpt-4o-mini":              { name: "GPT-4o Mini", endpoint: "openai" },
 
     // Anthropic (via OpenRouter — Anthropic blocks browser-direct CORS)
+    "claude-opus-5":            { name: "Claude Opus 5", endpoint: "openrouter", model_id: "anthropic/claude-opus-5" },
     "claude-opus-4.8":          { name: "Claude Opus 4.8", endpoint: "openrouter", model_id: "anthropic/claude-opus-4.8" },
     "claude-sonnet-5":          { name: "Claude Sonnet 5", endpoint: "openrouter", model_id: "anthropic/claude-sonnet-5" },
     "claude-haiku-4.5":         { name: "Claude Haiku 4.5", endpoint: "openrouter", model_id: "anthropic/claude-haiku-4.5" },
