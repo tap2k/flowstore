@@ -1,6 +1,206 @@
 @import "tailwindcss";
 @import "@xyflow/react/dist/style.css";
+@import "./fonts.css";
+@import "./tokens.css";
 
+/* `dark:` follows the data-theme attribute the theme store writes onto <html>,
+   not the OS media query — the store resolves "system" itself so a user override
+   and an OS preference take the same code path. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Design-system tokens exposed as Tailwind utilities.
+   `inline` matters: it compiles `bg-surface-panel` to `background-color:
+   var(--surface-panel)` rather than to a second variable captured on :root, so
+   the value re-resolves per element and light/dark switching just works. */
+/* These four are defined here rather than in tokens.css because their design-system
+   names collide exactly with a Tailwind namespace (--font-*, --ease-*): writing
+   `--font-sans: var(--font-sans)` would be self-referential.
+   `static` (not `inline`) because they are also read as raw var(--font-sans) /
+   var(--ease-standard) from tokens.css and from inline styles — Tailwind drops
+   unreferenced theme vars from the output, and `static` opts them out of that. */
+@theme static {
+  --font-sans: "Geist", "Geist Static", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@theme inline {
+  /* Neutral ramp. Prefer the aliases below — the ramp is for the rare case that
+     needs a specific step (a swatch, a minimap fill). */
+  --color-n-0: var(--n-0);
+  --color-n-1: var(--n-1);
+  --color-n-2: var(--n-2);
+  --color-n-3: var(--n-3);
+  --color-n-4: var(--n-4);
+  --color-n-5: var(--n-5);
+  --color-n-6: var(--n-6);
+  --color-n-7: var(--n-7);
+  --color-n-8: var(--n-8);
+  --color-n-9: var(--n-9);
+  --color-n-10: var(--n-10);
+  --color-n-11: var(--n-11);
+  --color-n-12: var(--n-12);
+
+  --color-surface-canvas: var(--surface-canvas);
+  --color-surface-panel: var(--surface-panel);
+  --color-surface-node: var(--surface-node);
+  --color-surface-node-header: var(--surface-node-header);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+  --color-surface-selected: var(--surface-selected);
+  --color-surface-scrim: var(--surface-scrim);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-text-disabled: var(--text-disabled);
+  --color-text-inverse: var(--text-inverse);
+  --color-text-on-emphasis: var(--text-on-emphasis);
+
+  --color-emphasis: var(--emphasis-bg);
+  --color-emphasis-hover: var(--emphasis-bg-hover);
+  --color-emphasis-fg: var(--emphasis-fg);
+
+  --color-select-ring: var(--select-ring);
+  --color-select-halo: var(--select-halo);
+  --color-focus-ring: var(--focus-ring);
+
+  --color-state-idle-fg: var(--state-idle-fg);
+  --color-state-idle-line: var(--state-idle-line);
+  --color-state-idle-bg: var(--state-idle-bg);
+  --color-state-running-fg: var(--state-running-fg);
+  --color-state-running-line: var(--state-running-line);
+  --color-state-running-bg: var(--state-running-bg);
+  --color-state-success-fg: var(--state-success-fg);
+  --color-state-success-line: var(--state-success-line);
+  --color-state-success-bg: var(--state-success-bg);
+  --color-state-error-fg: var(--state-error-fg);
+  --color-state-error-line: var(--state-error-line);
+  --color-state-error-bg: var(--state-error-bg);
+  --color-state-warning-fg: var(--state-warning-fg);
+  --color-state-warning-line: var(--state-warning-line);
+  --color-state-warning-bg: var(--state-warning-bg);
+  --color-state-disabled-fg: var(--state-disabled-fg);
+  --color-state-disabled-line: var(--state-disabled-line);
+  --color-state-disabled-bg: var(--state-disabled-bg);
+
+  --color-edge-default: var(--edge-default);
+  --color-edge-hover: var(--edge-hover);
+  --color-edge-selected: var(--edge-selected);
+  --color-edge-label-bg: var(--edge-label-bg);
+  --color-minimap-bg: var(--minimap-bg);
+  --color-minimap-node: var(--minimap-node);
+  --color-minimap-mask: var(--minimap-mask);
+
+  /* Font sizes carry their paired line-height. The .fs-* role classes in
+     tokens.css remain the preferred entry point — they also set weight and the
+     optical tracking, which only work as a set. */
+  --text-11: var(--fs-11);
+  --text-11--line-height: var(--lh-11);
+  --text-12: var(--fs-12);
+  --text-12--line-height: var(--lh-12);
+  --text-13: var(--fs-13);
+  --text-13--line-height: var(--lh-13);
+  --text-14: var(--fs-14);
+  --text-14--line-height: var(--lh-14);
+  --text-16: var(--fs-16);
+  --text-16--line-height: var(--lh-16);
+  --text-20: var(--fs-20);
+  --text-20--line-height: var(--lh-20);
+  --text-28: var(--fs-28);
+  --text-28--line-height: var(--lh-28);
+
+  --font-weight-book: var(--fw-book);
+  --font-weight-medium: var(--fw-medium);
+  --font-weight-semibold: var(--fw-semibold);
+  --font-weight-bold: var(--fw-bold);
+
+  --tracking-tightest: var(--tr-tightest);
+  --tracking-tighter: var(--tr-tighter);
+  --tracking-tight: var(--tr-tight);
+  --tracking-snug: var(--tr-snug);
+  --tracking-data: var(--tr-data);
+  --tracking-wide: var(--tr-wide);
+  --tracking-caps: var(--tr-caps);
+
+  --radius-1: var(--r-1);
+  --radius-2: var(--r-2);
+  --radius-3: var(--r-3);
+  --radius-4: var(--r-4);
+
+  --shadow-elev-1: var(--elev-1);
+  --shadow-elev-2: var(--elev-2);
+  --shadow-elev-3: var(--elev-3);
+  --shadow-elev-inner: var(--elev-inner);
+  --shadow-elev-node: var(--elev-node);
+  --shadow-elev-node-hover: var(--elev-node-hover);
+
+  --animate-fs-spin: fs-spin 900ms linear infinite;
+  --animate-fs-pulse: fs-pulse var(--dur-pulse) var(--ease-inout) infinite;
+  --animate-fs-fade-in: fs-fade-in var(--dur-2) var(--ease-out);
+  --animate-fs-pop-in: fs-pop-in var(--dur-2) var(--ease-out);
+}
+
+/* One typeface, everywhere. This is the single global visual change in the
+   foundation pass — the rest of the app keeps its current Tailwind styling
+   until the chrome retrofit. */
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "ss03" 1;
+}
+
+/* The opinionated surface treatment from the design system's base.css, scoped to
+   an opt-in root rather than applied to <body>. Existing screens still assume
+   their own Tailwind backgrounds and focus styles; anything built against the
+   design system opts in by wrapping in .fs-root. */
+.fs-root {
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+  font: var(--fw-book) var(--fs-13) / var(--lh-13) var(--font-sans);
+  letter-spacing: var(--tr-snug);
+}
+.fs-root a {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-decoration-color: var(--n-6);
+  text-underline-offset: 2px;
+}
+.fs-root a:hover {
+  text-decoration-color: var(--text-primary);
+}
+/* Nothing ever gets outline:none without a replacement ring. */
+.fs-root :focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+  border-radius: var(--r-2);
+}
+.fs-root ::selection {
+  background: var(--surface-active);
+}
+.fs-root ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.fs-root ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.fs-root ::-webkit-scrollbar-thumb {
+  background: var(--n-5);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: var(--r-full);
+}
+.fs-root ::-webkit-scrollbar-thumb:hover {
+  background: var(--n-7);
+  border: 3px solid transparent;
+  background-clip: content-box;
 }

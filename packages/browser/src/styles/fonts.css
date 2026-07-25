@@ -1,0 +1,50 @@
+/* Geist v1.7.2 by Vercel — SIL OFL 1.1 (see public/fonts/OFL.txt).
+   Self-hosted from public/fonts rather than a CDN: public/_headers sets
+   `font-src 'self'`, so a remote font file is blocked in production.
+
+   Only the Sans family ships. The design system is deliberately single-typeface
+   (Geist Mono and Geist Pixel are not used) — prose and machine text are
+   separated by weight, tracking and container instead. */
+@font-face {
+  font-family: "Geist";
+  src:
+    url("/fonts/Geist-Variable.woff2") format("woff2-variations"),
+    url("/fonts/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist";
+  src:
+    url("/fonts/Geist-Italic-Variable.woff2") format("woff2-variations"),
+    url("/fonts/Geist-Italic-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Static fallbacks for engines without variable-font support. The type scale
+   leans on 450 and 560, which only the variable face can hit exactly; these
+   round to the nearest static cut. */
+@font-face {
+  font-family: "Geist Static";
+  src: url("/fonts/Geist-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Static";
+  src: url("/fonts/Geist-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Static";
+  src: url("/fonts/Geist-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}

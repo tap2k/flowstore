@@ -1,0 +1,501 @@
+/* FLOWSTORE DESIGN TOKENS
+   Ported from the Claude Design handoff bundle (tokens/{color,typography,spacing,
+   shape,elevation,motion,canvas}.css), consolidated into one file.
+
+   Light values live on :root, dark overrides under [data-theme="dark"]. The theme
+   store (lib/store/theme.ts) always writes an explicit data-theme onto <html>, so
+   "system" is resolved in JS rather than by a media query here — that keeps one
+   code path and lets the user override the OS preference.
+
+   Components should read the ALIASES (--surface-panel, --text-secondary, ...), never
+   the raw --n-* ramp. The alias means the same job in both modes; the ramp does not. */
+
+/* ============================================================ COLOR */
+/* The neutral ramp is indexed by CONTRAST AGAINST ITS OWN MODE'S BASE, not by
+   lightness. --n-0 is always the recessed base; --n-12 is always max-contrast text.
+   That is what makes light and dark true parallels instead of an inversion. */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  --n-0: #ffffff;
+  --n-1: #fafafa;
+  --n-2: #f4f4f4;
+  --n-3: #ededed;
+  --n-4: #e4e4e4;
+  --n-5: #d8d8d8;
+  --n-6: #c6c6c6;
+  --n-7: #a8a8a8;
+  --n-8: #8a8a8a;
+  --n-9: #6b6b6b;
+  --n-10: #4a4a4a;
+  --n-11: #2c2c2c;
+  --n-12: #111111;
+
+  /* Surfaces. In light mode the canvas sits BELOW chrome: panels are white, the
+     graph plane is tinted. Dark mode inverts that relationship (see below). */
+  --surface-canvas: #f4f4f4;
+  --surface-panel: var(--n-0);
+  --surface-node: var(--n-0);
+  --surface-node-header: var(--n-1);
+  --surface-sunken: var(--n-2);
+  --surface-raised: var(--n-0);
+  --surface-hover: rgba(17, 17, 17, 0.045);
+  --surface-active: rgba(17, 17, 17, 0.08);
+  --surface-selected: rgba(17, 17, 17, 0.06);
+  --surface-scrim: rgba(17, 17, 17, 0.32);
+
+  /* Three border weights, no more. All 1px; only selection is 2px. */
+  --border-subtle: var(--n-4);
+  --border-default: var(--n-5);
+  --border-strong: var(--n-7);
+
+  --text-primary: var(--n-12); /* 18.9:1 */
+  --text-secondary: var(--n-10); /* 8.9:1 */
+  --text-tertiary: var(--n-9); /* 5.4:1 — lowest token allowed for text */
+  --text-disabled: var(--n-8); /* 3.5:1 — non-text only, never body copy */
+  --text-inverse: var(--n-0);
+  --text-on-emphasis: #ffffff;
+
+  --emphasis-bg: var(--n-12);
+  --emphasis-bg-hover: #000000;
+  --emphasis-fg: #ffffff;
+
+  /* Selection is deliberately ACHROMATIC. Color is reserved for machine-reported
+     state, so a selected node never competes for attention with a failing one. */
+  --select-ring: var(--n-12);
+  --select-halo: rgba(17, 17, 17, 0.12);
+  --focus-ring: var(--n-12);
+  --focus-ring-offset: var(--n-0);
+
+  /* Functional state: fg (text/icon), line (border/edge), bg (subtle fill).
+     Every *-fg clears 4.5:1 on its own mode's panel. Never the only signal —
+     state always ships color + icon silhouette + stroke treatment together. */
+  --state-idle-fg: var(--n-9);
+  --state-idle-line: var(--n-5);
+  --state-idle-bg: var(--n-2);
+  --state-running-fg: #1d4ed8; /* 6.3:1 */
+  --state-running-line: #3b82f6;
+  --state-running-bg: #eff4fe;
+  --state-success-fg: #146c36; /* 5.4:1 */
+  --state-success-line: #22a356;
+  --state-success-bg: #edf7f0;
+  --state-error-fg: #b42318; /* 5.6:1 */
+  --state-error-line: #e5484d;
+  --state-error-bg: #fdf0ef;
+  --state-warning-fg: #8a5300; /* 4.8:1 */
+  --state-warning-line: #de9a17;
+  --state-warning-bg: #fdf6e9;
+  --state-disabled-fg: var(--n-8);
+  --state-disabled-line: var(--n-4);
+  --state-disabled-bg: var(--n-1);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --n-0: #0a0a0a;
+  --n-1: #121212;
+  --n-2: #181818;
+  --n-3: #1f1f1f;
+  --n-4: #262626;
+  --n-5: #303030;
+  --n-6: #3d3d3d;
+  --n-7: #525252;
+  --n-8: #6e6e6e;
+  --n-9: #8e8e8e;
+  --n-10: #b0b0b0;
+  --n-11: #d4d4d4;
+  --n-12: #f2f2f2;
+
+  /* Dark inverts the STACKING relationship, not the values: the canvas is the
+     darkest plane and every layer above it lifts. Panels advance by fill, not
+     by shadow — which is why this model survives a mode where shadows vanish. */
+  --surface-canvas: var(--n-0);
+  --surface-panel: var(--n-1);
+  --surface-node: var(--n-2);
+  --surface-node-header: var(--n-3);
+  --surface-sunken: #0e0e0e; /* code wells recess BELOW the canvas in dark */
+  --surface-raised: var(--n-3);
+  --surface-hover: rgba(255, 255, 255, 0.055);
+  --surface-active: rgba(255, 255, 255, 0.09);
+  --surface-selected: rgba(255, 255, 255, 0.07);
+  --surface-scrim: rgba(0, 0, 0, 0.6);
+
+  --border-subtle: var(--n-4);
+  --border-default: var(--n-5);
+  --border-strong: var(--n-7);
+
+  --text-primary: var(--n-12); /* 17.7:1 */
+  --text-secondary: var(--n-10); /* 8.9:1 */
+  --text-tertiary: var(--n-9); /* 5.6:1 */
+  --text-disabled: var(--n-8); /* 3.4:1 — non-text only */
+  --text-inverse: var(--n-0);
+  --text-on-emphasis: #0a0a0a;
+
+  --emphasis-bg: var(--n-12);
+  --emphasis-bg-hover: #ffffff;
+  --emphasis-fg: #0a0a0a;
+
+  --select-ring: var(--n-12);
+  --select-halo: rgba(242, 242, 242, 0.16);
+  --focus-ring: var(--n-12);
+  --focus-ring-offset: var(--n-0);
+
+  /* Re-picked for a near-black plane, not lightened: hue held, chroma DROPPED so
+     saturated state never glares across a dense graph. */
+  --state-idle-fg: var(--n-9);
+  --state-idle-line: var(--n-6);
+  --state-idle-bg: var(--n-3);
+  --state-running-fg: #a8c7ff; /* 10.4:1 */
+  --state-running-line: #4c7df0;
+  --state-running-bg: #101828;
+  --state-success-fg: #7dd69b; /* 11.0:1 */
+  --state-success-line: #2e9e5b;
+  --state-success-bg: #0c1a12;
+  --state-error-fg: #ff9b96; /* 8.9:1 */
+  --state-error-line: #e5484d;
+  --state-error-bg: #1c100f;
+  --state-warning-fg: #f5c86b; /* 11.6:1 */
+  --state-warning-line: #c68a15;
+  --state-warning-bg: #1a1408;
+  --state-disabled-fg: var(--n-8);
+  --state-disabled-line: var(--n-4);
+  --state-disabled-bg: var(--n-1);
+}
+
+/* ============================================================ TYPOGRAPHY */
+/* Geist only, in every context including code and data. Three levers replace the
+   missing second typeface: WEIGHT, TRACKING, CONTAINER. Prose is tracked negative
+   at 450; data is tracked positive at 460-500 with tabular figures, in a shaded
+   container. See the .fs-* role classes at the bottom of this file. */
+/* --font-sans lives in the @theme block in globals.css (its name collides with a
+   Tailwind namespace); it is still read back as var(--font-sans) throughout. */
+:root {
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fs-16: 16px;
+  --fs-20: 20px;
+  --fs-28: 28px;
+  --lh-11: 14px;
+  --lh-12: 16px;
+  --lh-13: 18px;
+  --lh-14: 20px;
+  --lh-16: 22px;
+  --lh-20: 26px;
+  --lh-28: 34px;
+
+  --fw-light: 300;
+  --fw-regular: 400;
+  --fw-book: 450;
+  --fw-medium: 500;
+  --fw-semibold: 560;
+  --fw-bold: 640;
+
+  /* Optical compensation: Geist needs tightening above 14px, loosening below 12px. */
+  --tr-tightest: -0.025em;
+  --tr-tighter: -0.018em;
+  --tr-tight: -0.011em;
+  --tr-snug: -0.006em;
+  --tr-none: 0em;
+  --tr-data: 0.008em;
+  --tr-wide: 0.02em;
+  --tr-caps: 0.06em;
+
+  /* Geist ships true tabular figures and a slashed zero. Use wherever a digit can
+     change in place or align in a column; never in prose or headings. */
+  --num-tabular: tabular-nums slashed-zero;
+  --num-proportional: proportional-nums;
+
+  /* ========================================================== ICONS */
+  --icon-sm: 14px; /* dense rows, menu items, inline-in-text */
+  --icon-md: 16px; /* DEFAULT — toolbar, buttons, palette rows */
+  --icon-lg: 20px; /* floating canvas controls, empty states */
+
+  /* ========================================================== SPACING */
+  /* 4px base. The odd steps (2/6/10) exist because dense chrome genuinely needs
+     half-steps; never invent a value between them. */
+  --sp-0: 0px;
+  --sp-025: 2px;
+  --sp-05: 4px;
+  --sp-075: 6px;
+  --sp-1: 8px;
+  --sp-125: 10px;
+  --sp-15: 12px;
+  --sp-2: 16px;
+  --sp-25: 20px;
+  --sp-3: 24px;
+  --sp-4: 32px;
+  --sp-5: 40px;
+  --sp-6: 48px;
+  --sp-8: 64px;
+
+  --pad-panel: 16px;
+  --pad-panel-tight: 12px;
+  --gap-field: 12px;
+  --gap-stack: 8px;
+  --gap-inline: 6px;
+  --h-toolbar: 44px;
+  --h-control: 28px;
+  --h-control-lg: 32px;
+  --h-row: 32px;
+  --w-sidebar: 248px;
+  --w-inspector: 304px;
+  --w-rail: 44px;
+
+  --node-w: 232px;
+  --node-w-wide: 280px;
+  --node-pad-x: 10px;
+  --node-h-header: 32px;
+  --node-pad-body: 10px;
+  --node-gap-body: 6px;
+  --node-gap-x: 64px;
+  --node-gap-y: 48px;
+  --hit-min: 28px;
+  --hit-canvas: 36px;
+
+  /* ========================================================== SHAPE */
+  /* Radii step UP with surface size, so a 2px chip inside a 6px node reads as a
+     component rather than a shrunk card. */
+  --r-1: 2px; /* chips, swatches, inline code */
+  --r-2: 4px; /* inputs, buttons, menu items */
+  --r-3: 6px; /* nodes, cards, panels, code blocks */
+  --r-4: 8px; /* dialogs, popovers */
+  --r-full: 999px;
+  --bw-hairline: 1px;
+  --bw-emphasis: 1.5px;
+  --bw-select: 2px;
+  --handle-size: 9px;
+  --handle-hit: 20px;
+  --edge-w: 1.25px;
+  --edge-w-active: 1.75px;
+
+  /* ========================================================== MOTION */
+  /* Motion states facts, it never performs. No bounce, no overshoot, no spring.
+     Anything above 200ms must be conveying progress, not polish.
+     The --ease-* trio lives in globals.css's @theme for the same namespace
+     reason as --font-sans. */
+  --dur-1: 90ms; /* hover, press */
+  --dur-2: 140ms; /* menus, tooltips, tabs */
+  --dur-3: 200ms; /* panels, dialogs */
+  --dur-dash: 700ms; /* marching edge on a running node */
+  --dur-pulse: 1400ms; /* status dot on a running node */
+}
+
+/* ============================================================ ELEVATION */
+/* Depth is carried by BORDER + SURFACE STEP first; shadow is confirmation only.
+   In dark mode a shadow on near-black is invisible, so layers separate by fill
+   value plus --elev-inner's 1px top highlight instead. */
+:root,
+[data-theme="light"] {
+  --elev-0: none;
+  --elev-1: 0 1px 2px rgba(17, 17, 17, 0.06);
+  --elev-2: 0 4px 12px -2px rgba(17, 17, 17, 0.1), 0 1px 3px rgba(17, 17, 17, 0.06);
+  --elev-3: 0 16px 40px -8px rgba(17, 17, 17, 0.18), 0 2px 6px rgba(17, 17, 17, 0.08);
+  --elev-inner: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --elev-node: 0 1px 2px rgba(17, 17, 17, 0.07);
+  --elev-node-hover: 0 2px 6px -1px rgba(17, 17, 17, 0.12), 0 1px 2px rgba(17, 17, 17, 0.06);
+}
+[data-theme="dark"] {
+  --elev-0: none;
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --elev-2: 0 6px 16px -4px rgba(0, 0, 0, 0.7), 0 1px 3px rgba(0, 0, 0, 0.5);
+  --elev-3: 0 20px 48px -12px rgba(0, 0, 0, 0.85), 0 2px 8px rgba(0, 0, 0, 0.6);
+  --elev-inner: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  --elev-node: 0 1px 2px rgba(0, 0, 0, 0.6);
+  --elev-node-hover: 0 3px 10px -2px rgba(0, 0, 0, 0.75);
+}
+
+/* ============================================================ CANVAS */
+/* The graph plane and its chrome. Nothing here may exceed the contrast of an
+   idle node border. */
+:root,
+[data-theme="light"] {
+  --canvas-bg: #f4f4f4;
+  --canvas-dot: #d0d0d0; /* 1.25px dot, 16px pitch, ~1.3:1 vs bg */
+  --canvas-dot-major: #c2c2c2; /* every 5th dot at 80px, for coarse orientation */
+  --edge-default: #b4b4b4;
+  --edge-hover: #6b6b6b;
+  --edge-selected: #111111;
+  --edge-label-bg: #ffffff;
+  --minimap-bg: rgba(255, 255, 255, 0.86);
+  --minimap-node: #c6c6c6;
+  --minimap-mask: rgba(17, 17, 17, 0.06);
+}
+[data-theme="dark"] {
+  --canvas-bg: #0a0a0a;
+  --canvas-dot: #2b2b2b;
+  --canvas-dot-major: #3a3a3a;
+  --edge-default: #4a4a4a;
+  --edge-hover: #8e8e8e;
+  --edge-selected: #f2f2f2;
+  --edge-label-bg: #181818;
+  --minimap-bg: rgba(10, 10, 10, 0.86);
+  --minimap-node: #3d3d3d;
+  --minimap-mask: rgba(242, 242, 242, 0.06);
+}
+
+/* ============================================================ KEYFRAMES */
+@keyframes fs-dash {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+@keyframes fs-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes fs-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes fs-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes fs-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* prefers-reduced-motion collapses everything to ~0ms. No state information is
+   lost: the marching dash freezes as a static dash, the pulse resolves to solid. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ============================================================ TYPE ROLES */
+/* The .fs-* classes are the type system's public surface. Prefer them over
+   assembling size/weight/tracking by hand — the tracking values are optical
+   compensation, not decoration, and they only work as a set. */
+.fs-display {
+  font: var(--fw-bold) var(--fs-28) / var(--lh-28) var(--font-sans);
+  letter-spacing: var(--tr-tightest);
+}
+.fs-pageTitle {
+  font: var(--fw-semibold) var(--fs-20) / var(--lh-20) var(--font-sans);
+  letter-spacing: var(--tr-tighter);
+}
+.fs-sectionTitle {
+  font: var(--fw-medium) var(--fs-16) / var(--lh-16) var(--font-sans);
+  letter-spacing: var(--tr-tight);
+}
+.fs-panelHeader {
+  font: var(--fw-semibold) var(--fs-12) / var(--lh-12) var(--font-sans);
+  letter-spacing: var(--tr-caps);
+  text-transform: uppercase;
+}
+.fs-body {
+  font: var(--fw-book) var(--fs-14) / var(--lh-14) var(--font-sans);
+  letter-spacing: var(--tr-tight);
+}
+.fs-ui {
+  font: var(--fw-book) var(--fs-13) / var(--lh-13) var(--font-sans);
+  letter-spacing: var(--tr-snug);
+}
+.fs-control {
+  font: var(--fw-medium) var(--fs-13) / var(--lh-13) var(--font-sans);
+  letter-spacing: var(--tr-snug);
+}
+.fs-nodeTitle {
+  font: var(--fw-medium) var(--fs-13) / var(--lh-13) var(--font-sans);
+  letter-spacing: var(--tr-snug);
+}
+.fs-nodeBody {
+  font: var(--fw-book) var(--fs-12) / var(--lh-12) var(--font-sans);
+  letter-spacing: var(--tr-none);
+}
+.fs-caption {
+  font: var(--fw-book) var(--fs-12) / var(--lh-12) var(--font-sans);
+  letter-spacing: var(--tr-none);
+}
+.fs-micro {
+  font: var(--fw-medium) var(--fs-11) / var(--lh-11) var(--font-sans);
+  letter-spacing: var(--tr-wide);
+}
+.fs-label {
+  font: var(--fw-medium) var(--fs-12) / var(--lh-12) var(--font-sans);
+  letter-spacing: var(--tr-none);
+}
+
+/* Data / code roles. No typeface switch: the shift is +tracking, +weight, tabular
+   figures, ligatures off, and (for blocks and chips) a sunken container. */
+.fs-code {
+  font: var(--fw-book) var(--fs-13) / 20px var(--font-sans);
+  letter-spacing: var(--tr-data);
+  font-variant-numeric: var(--num-tabular);
+  /* Ligatures and contextual alternates off so `!=`, `=>` and `--` never fuse. */
+  font-variant-ligatures: none;
+  font-feature-settings: "calt" 0;
+  -webkit-font-smoothing: antialiased;
+  tab-size: 2;
+  white-space: pre;
+}
+.fs-data {
+  font: var(--fw-medium) var(--fs-12) / var(--lh-12) var(--font-sans);
+  letter-spacing: var(--tr-data);
+  font-variant-numeric: var(--num-tabular);
+  font-variant-ligatures: none;
+}
+.fs-metric {
+  font: var(--fw-semibold) var(--fs-16) / var(--lh-16) var(--font-sans);
+  letter-spacing: var(--tr-none);
+  font-variant-numeric: var(--num-tabular);
+}
+.fs-key {
+  font: var(--fw-book) var(--fs-12) / var(--lh-12) var(--font-sans);
+  letter-spacing: var(--tr-data);
+  color: var(--text-tertiary);
+}
+.tabular {
+  font-variant-numeric: var(--num-tabular);
+}
+
+/* ============================================================ PRIMITIVES */
+.fs-panel {
+  background: var(--surface-panel);
+  border: 1px solid var(--border-default);
+}
+.fs-sunken {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-3);
+}
+/* The canvas plane: a dot grid, never lines. Dots sit at ~1.3:1 against the
+   background — enough to read motion and snap, not enough to read as texture. */
+.fs-canvas {
+  background-color: var(--canvas-bg);
+  background-image:
+    radial-gradient(var(--canvas-dot) 1.25px, transparent 1.25px),
+    radial-gradient(var(--canvas-dot-major) 1.5px, transparent 1.5px);
+  background-size:
+    16px 16px,
+    80px 80px;
+  background-position:
+    0 0,
+    0 0;
+}
