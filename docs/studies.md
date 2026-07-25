@@ -1,0 +1,504 @@
+# Studies: the evaluation entry point
+
+Positioning and architecture decisions for the hosted study product. Converged 2026-07-25.
+
+## Thesis
+
+Evaluation is the front door; the spec is what they keep. We host cheap studies:
+you pick the prompt, models, and languages; we run the matrix and give you a
+report. The durable thing is the ledger — spec, golds, and study history,
+versioned. Studies are a verb over it. (Who holds the *runtime* system of
+record has its own arc — see "Two systems of record.")
+
+The wedge is real because model choice is black magic and LLMs can't introspect:
+nobody can predict which model handles their agent well, and asking the model
+doesn't work. The only path is empirical. Running the same system verbatim
+against N models is the fair comparison — and once golds and a spec exist, a
+new model release is a re-run: same suite, one more column. What's out there
+is kludgy and switch costs are low.
+
+## Entry point: model churn
+
+The IDE pitch ("author your agent as a spec") is a want. A need comes with a
+deadline or a budget line. Model churn is the one pain that's *scheduled*:
+
+- Deprecations have dates — migrate or break.
+- Price changes land in the CFO's inbox.
+- Every new release generates "should we be on this?" from the boss, forever.
+
+In each case the team must answer "will our agent survive on model X?" and
+today's state of the art is vibes and a few manual chats. Deprecation and
+price-change announcements are a marketing calendar: every one is a batch of
+prospects with the same deadline.
+
+Why this over other candidate needs: production incidents are acute but
+unschedulable, and reacting to them lands us in the crowded
+observability/eval-platform market. Launch gates are real but low-frequency with
+long sales cycles. Model churn recurs industry-wide on a known cadence, hits
+everyone running an agent, and nobody owns it as a category.
+
+**The product: the model-switch study.** "Find out if your agent works on
+[new/cheaper/replacement model] — before you're forced to find out in
+production."
+
+## The intake constraint
+
+The entry point cannot require a flowstore spec or a test suite. If the study's
+prerequisite is "first adopt our IDE and write golds," the want is back in front
+of the need. Customers bring what they have — their existing system prompt and
+real transcripts. The extraction prompts (AGENT-SPEC-PROMPT.txt; the
+gold-extraction prompt in the fnol example repo) convert that material into a
+spec and golds.
+
+**The spec is the residue of the study, not its entry fee.** They come for "can
+we switch to the cheaper model," they leave owning a spec with a regression
+suite, and the next model release is a one-click re-run. Accumulated study
+history — baselines per model release — is the moat. The runner is not: anyone
+can shell out to N APIs.
+
+## The whole surface is two verbs
+
+The customer-facing product is two upload actions: **upload new system** (the
+system prompt as deployed) and **upload new golds** (transcripts they bless).
+Because system + golds are the agent's identity, these two verbs cover every
+change a customer can make. Each upload is a versioned commit in our ledger —
+a mirror of their runtime truth, not its master (see "Two systems of record").
+Every study runs against a pinned (system, golds, bindings) triple (see Schema
+implications), so every report is reproducible.
+
+Studies are then event-driven — three deltas, three triggers:
+
+- **New system uploaded** (customer): regression study — did the change hold,
+  against pinned golds?
+- **New golds uploaded** (customer): a reset — re-bless the baseline, recompute
+  drift references.
+- **New model released** (world): the model-churn study — we add the column and
+  re-run. This is the trigger we own and market on.
+
+This is CI for agents: the upload is the push, the study is the build, the
+report is the build result. The entry product's whole surface is these two
+verbs and a report — in kit form, two files and a commit; hosted, two upload
+buttons and an inbox. No canvas, no editor, nothing to learn.
+
+## Two systems of record
+
+In act one the **system prompt remains the runtime system of record.** It is
+what runs in production; the customer changes their agent by editing it, in
+their own stack, and uploading the new version. Our copy is a mirror. The
+extracted spec is a *derived view* — the coordinate system for golds, results,
+and cost — and when prompt and spec disagree, the prompt wins.
+
+What we own from day one is the second system of record: the **ledger** — the
+versioned history of (prompt, spec, golds, results) and every study column
+ever run. The runtime truth is theirs; the memory is ours. The moat lives in
+the ledger.
+
+Two consequences:
+
+- **Extraction must reconcile, not re-parse.** Every system-prompt upload
+  re-derives the spec — and if a fresh extraction can shuffle the graph's node
+  identities, everything pinned to them shears off: gold attachments, drift
+  baselines, per-node cost history, longitudinal columns. So re-extraction is a
+  diff against the previous spec: preserve node identity wherever the
+  underlying content persists; add or retire nodes only where the prompt
+  actually changed. Golds anchor to *scenarios* (stable), with node attachment
+  as a derived, recomputable link.
+- **Adoption is a system-of-record handover, and should be named as one.** The
+  conversion the upsells drive toward — compiler A/B, per-node routing — is
+  precisely the moment the arrow flips: the spec becomes the master and the
+  system prompt becomes a build artifact. That names the real switching cost
+  (teams don't resist editors; they resist changing their source of truth), the
+  precondition (the A/B parity proof), and the forcing reason (routing is
+  inexpressible in a single prompt). Until a customer chooses the handover,
+  nothing in the product requires it.
+
+## The verbatim-prompt rule
+
+The study runs the customer's prompt **verbatim** against each model. That is
+the scientific control: the report's credibility rests on "this is what *your*
+system does on model X," not on our codegen's rendition of their agent. The
+extracted spec is used for structure only — the graph, scenario coverage, where
+golds attach.
+
+The compiler therefore sits out of act one. It returns as act two and as the
+upsell: the report can close with "your prompt, re-specified and recompiled,
+passes N more scenarios and holds across models — here's the A/B." Codegen as a
+finding, not a prerequisite.
+
+## The report is the product
+
+The buyer sees a standalone, forwardable artifact (HTML/PDF) — "a report of some
+kind" that someone can send to their boss. It has to be good enough to forward.
+
+**The graph (if any) supports the report.** In the study, the graph is not an
+authoring surface; it is the report's coordinate system — it exists so a failure
+has an address. "Model X fails 7 of 9 runs" is a number; "Model X loses the
+thread at the payment-confirmation step, in Spanish," pointed at a node on a map
+of their own agent, is a finding. Aggregate pass rates go in tables; the graph
+earns its place only where failures cluster on structure. When the agent is a
+shapeless blob or failures are diffuse (tone, formatting, language-wide
+degradation), the report degrades to scenario tables — no decorative diagram. A
+graph that localizes nothing signals padding in a document whose whole job is
+credibility.
+
+The customer never drew this graph. The report opens with a map of the agent
+they've been running blind: it proves the extraction understood them, it's the
+credibility beat before any results, and it introduces the spec without asking
+them to adopt anything.
+
+Visual skeleton: one large labeled reference graph up top, then small multiples
+(one mini-graph per model, nodes colored by pass rate) below. Report node shapes
+and naming should rhyme with the editor's, so a study customer who later opens
+the canvas recognizes the map — continuity of visual vocabulary is what makes
+"the spec is the residue" feel seamless.
+
+**Cost is a first-class finding, not a footnote.** Model churn is half driven
+by the bill. The runner meters tokens per scenario per model and the report
+projects them at the customer's volume. The entry report's headline is often
+one line — *the cheapest model that passes your suite* — where the pass rates
+give it teeth and the dollar figure makes it forwardable to the CFO.
+
+## Graph rendering: fit the medium
+
+Don't reuse the xyflow canvas. It's built for the editor's medium — interactive,
+pan/zoom, DOM-heavy, live React runtime. The report's medium is a document:
+emailed, printed, PDF-exported, skimmed on a phone.
+
+The report wants layout computed server-side at generation time (dagre or ELK —
+these flows are layered DAGs) emitted as plain static SVG. **Compute the layout
+once per spec and reuse identical coordinates in every small multiple** — that's
+what makes twelve mini-graphs scannable. There are no hand-arranged editor
+positions to inherit (the customer never drew the graph), so auto-layout is the
+native path, not a fallback.
+
+The reuse boundary sits one level down: share the graph *model* (nodes and edges
+derived from the spec, in core, medium-agnostic); each medium owns its
+presentation.
+
+## The report flows back into the editor
+
+The report is not a dead end — findings round-trip. The report data model gets
+two consumers: the static renderer (the forwardable document) and the editor,
+which loads the same artifact as an interactive view — pass-rate overlays on
+the canvas (the simulate panel's highlighting, repurposed), click a failing
+cell → the node, its failing transcripts, the gold it missed.
+
+Fixing respects the system of record. Before handover, the fix lands in the
+*prompt*: the extraction provenance anchors (node ↔ prompt span) let the
+editor navigate from a failure on the graph to the offending paragraph of the
+customer's own system prompt. After handover, the same gesture edits the spec
+directly. Either way, LLM-assisted authoring can propose the fix (failing
+transcript + missed gold + spec context → suggested edit), and the two verbs
+close the loop: red report → fix → upload new system → regression study →
+green column. This is the CI analogy completed — the report is the build
+result *and* the door back into the workshop.
+
+Strategically, the report viewer is the editor's trial run. Every fix cycle
+spent navigating prompt paragraphs via the graph demonstrates what editing the
+node directly would feel like; handover happens when editing the node beats
+editing the paragraph. Entry-product scope is unchanged — the kit ships the
+static report; the interactive viewer is the first hosted/editor surface a
+customer touches, not a prerequisite.
+
+## Reuse inventory
+
+Rule: reuse where the study needs the same computation the IDE needed; build
+fresh where the study's need is operational; never let "we already built it" put
+something in the critical path.
+
+Fits:
+
+- Extraction prompts (messy source in, spec out) — the core of intake.
+- Test-file shapes, golds, assertions — grading.
+- Model adapters behind the simulate panel — the roster and API plumbing.
+- The graph model in core — the report renders it its own way (above).
+
+Doesn't fit; don't force it:
+
+- The compiler in act one (verbatim-prompt rule).
+- The browser app as the vehicle — the report is a standalone artifact, not a
+  screen in the SPA.
+- The simulate panel — interactive, browser-side, BYO-key. The runner is batch,
+  server-side, our keys, retries, cost metering. Lift the message-shaping code
+  if it transplants cleanly; otherwise write it fresh.
+- File-model / git decomposition — meaningless to someone who uploaded a blob;
+  stays an IDE concern.
+
+Honest inventory: roughly one-third reuse (extraction, grading shapes, graph
+model), two-thirds new build (intake path, hosted runner, report generator). If
+it had come out "90% reuse, just add a landing page," that would have been
+sunk-cost bias talking.
+
+## Same repo
+
+The study product lives in this monorepo as new packages (`@flowstore/studies`,
+`@flowstore/report`, a runner package) beside core.
+
+Repo boundaries belong on stable contracts. The most unstable interface in the
+plan is spec↔study: extraction emits the spec, golds attach to spec nodes,
+results overlay the graph, the report's coordinate system is the spec's
+structure. A repo boundary there means versioning the fastest-moving schema
+across repos while it churns most. The stable contract is the model APIs —
+that's where a boundary can safely sit.
+
+One repo also settles identity: evaluation is something flowstore *does*, not a
+second company. A separate repo would quietly make the study product the durable
+thing and the spec an input format. The ledger — spec, golds, history — is the
+durable thing, and the machinery that reads and writes it lives with it.
+
+Consequences, accepted with eyes open:
+
+- **The runner and report generator are Apache-2.0 and public.** Accepted: the
+  moat is the ledger, the calendar, graders, and hosting convenience — none of
+  which fork with the code — and openness serves the spec becoming a standard.
+  Customer data (study inputs, transcripts, results) never enters the repo; it
+  lives in the hosted service's storage.
+- **Repo gravity** is the "overuse existing infra" risk wearing a different
+  coat. Discipline moves to package boundaries, enforced mechanically: study
+  packages may depend on core, never on browser.
+- The only thing that ever warrants a separate private repo is the thin ops
+  wrapper (auth, billing, queue, deploy config), and only when it exists.
+- Satellite repos (per the fnol precedent) are for *content* — examples,
+  eventually customer studies — never machinery.
+
+The one-way door in all of this is the licensing consequence; everything else is
+reversible with a `git mv`.
+
+## Second level: the drift panel
+
+Not in the entry product. Like the compiler, this is a second level added after
+the conformance study earns trust.
+
+The migration question has two parts: "does it still work?" — conformance to
+spec, which is everything above — and "is it still *your agent*?" The second is
+a behavior question, and pass rates get it wrong. The known failure mode:
+migrations to a strictly more capable model that users revolt against on
+character grounds, and vendors shipping tone regressions their own cards wave
+off. A pass-rate-only report can be right on every number and wrong on the
+migration decision.
+
+The panel measures **drift, not quality** — no universal standard for good
+character, no score, no "model X has better tone." Only "model X moves your
+agent this far from its reference point; here are paired transcripts."
+
+**The golds are the ground truth for drift.** At the initial point the golds
+are curated from the customer's real transcripts — the incumbent's enacted
+behavior, blessed by the customer — so drift-from-golds and
+drift-from-incumbent coincide at study one. But the reference is the blessed
+artifact, not the live model. Each gold then carries two readings: the
+conformance reading (did the candidate reach the right outcome) and the drift
+reading (does the residual — tone, register, what it reaches for — still match
+the exemplar). One artifact, both axes; no separate behavior baseline to
+maintain.
+
+**Resets are explicit and versioned.** When a character change is intended —
+the customer likes the new model's register — they re-bless: capture new golds,
+commit. Changing the agent means changing the system and/or the golds; those
+two artifacts *are* the agent's identity, with the spec as its structured
+shadow until the system-of-record handover. So intended change is a commit;
+unintended change is a finding — a conformance failure against the spec, or
+drift against the golds. This is why the reference is pinned rather than
+floating: a baseline of "whatever the incumbent does today" resets itself
+silently at every migration and lets character erode by ratchet. Pinned golds
+make character spend a recorded decision.
+
+This also upgrades the report's "diffuse failures" case: tone, register, and
+language-wide character shifts — the failures that don't localize to a graph
+node — stop being the degraded fallback and become the drift panel's subject.
+
+Vocabulary discipline: studies *evaluate* against the spec; the panel *measures
+drift* from the customer's own baseline. A spec is a machine for pinning
+conduct down until it has a right answer and can be evaluated; the drift panel
+covers the residual the spec can't pin. Don't market the panel as "behavior
+evaluation" — grading character against a rubric is exactly the posture it
+exists to avoid.
+
+Natural premium tier.
+
+## Second level: per-node model routing
+
+Model choice doesn't have to be whole-agent. Certain skills/nodes might use
+different models. Failures localize to nodes — that's the graph's job — and so
+do costs: tokens are metered per turn, and turns belong to nodes. Act one's
+data therefore already contains the routing finding: "model X fails only at the
+payment-confirmation step — run that step on the strong model and everything
+else on the cheap one; same pass rate, N% cheaper." Not "which model" but
+"which model *where*," with a cost delta attached.
+
+Two caveats keep it honest. A mixed assignment needs its own verification run —
+conversations cross node boundaries, so per-node results don't simply compose.
+And the drift panel applies doubly: a model switch mid-conversation is a
+character seam, and voice consistency across the split is exactly what the
+panel should check.
+
+The recommendation is computable from the entry study; *executing* it is not.
+It requires a runtime that switches models at node boundaries — which means
+adopting the spec and runtime. That makes routing the deepest upsell in the
+product: a dollar figure attached to adoption. The routing plan serializes as
+`model_role` annotations on flows plus a role→model binding in the execution
+layer (see Schema implications), so it is recorded, versioned, and
+re-evaluated on the next model release like everything else.
+
+## Grading and the "cheap" promise
+
+Human grading is an ops business — recruiting, calibration, throughput — and
+it's what makes studies *not* cheap. Golds + assertions (auto-graded) are the
+core cheap product; the test-file shapes already support it. Human grading is a
+layer: the customer supplies their own graders through a grading UI, or pays a
+premium tier. You can specify the questions and the gold standards either way.
+
+## Schema implications
+
+All additive (a `$schema` version bump per SCHEMA.md's change policy). The
+existing testing surface — personas, cases, golds, rubrics, per-case
+`language` — needs essentially nothing; it was built for this.
+
+- **Models per node: a role, not a model id.** Optional `model_role` on Flow
+  (`"strong"`, `"cheap"`, any named role); the execution layer's existing
+  `models/endpoints.json` `roles` map resolves role → concrete model per
+  deployment. The spec records the shape of the routing plan — what the study
+  discovers and what must version with the spec — while "execution separate
+  from spec" holds: no model ids in the spec. This is SCHEMA.md's "per-flow
+  model dispatch" open question resolved by the study product: the study makes
+  the runtime costs visible that the question deferred on, the unit of
+  dispatch is per-flow (the graph coordinate; per-widget prior art), and the
+  schema field can precede the runtime's multi-provider plumbing because
+  studies only record and evaluate assignments.
+- **Token costs: a results-artifact change, not a spec change.** Cost is an
+  observation about a run, not a behavior of the agent. It lives in the run
+  record (below); per-turn `active flow id` is what makes per-node cost
+  attribution — and the routing finding — computable. A cost/turn budget
+  assertion on test cases is deferred until a customer asserts on cost rather
+  than reports it.
+- **Tokens are measurements; prices are rates. Store them separately.** Run
+  records store native token usage (input/output/cached breakdown) — immutable
+  facts. Pricing lives in a separate versioned, dated rate table: queried live
+  where plumbing allows (OpenRouter's models API returns pricing),
+  hand-maintained otherwise, customer-supplied for self-hosted entries (else
+  tokens-only reporting). Dollar figures are computed at report time as tokens
+  × rate. Consequence: **a vendor price change is a study needing zero new
+  runs** — recompute over the existing ledger, and "usage grew" separates
+  cleanly from "vendor repriced." Comparability rule: raw token counts don't
+  compare across vendors (tokenizers differ); cross-model comparison leads
+  with dollars per conversation and projected cost at volume, while raw counts
+  compare only within a model across runs (did the prompt edit grow the bill;
+  is the new release chattier on the same suite).
+- **System prompt as first class: two changes.** (a) Promote verbatim to a
+  declared mode — today a `system_prompt` without `{{generated}}` is a warned
+  "full override"; under prompt-primacy that's the entry product's normal
+  state. The spec records whether the prompt is imported-master or
+  compiled-from-spec; the system-of-record handover becomes a one-field flip.
+  (b) **Extraction provenance anchors** — each flow anchored to the span /
+  content-hash of the prompt region it came from, so re-extraction reconciles
+  against anchors instead of re-guessing node identity. Ledger metadata, not
+  behavior: a sidecar mapping file in the file model, not fields on Flow.
+- **The study artifact family (the biggest addition).** New `$schema` URIs
+  beside the testing artifacts: study manifest, run record (per-turn tokens,
+  latency, model, active flow id, events, verdicts), report data model. A
+  manifest column is a **role→model binding**, not a bare model — whole-agent
+  studies are the degenerate case where every role maps to one model — so
+  entry studies and routing studies share one artifact shape and their columns
+  stay comparable. The pinned triple is (system, golds, bindings). The ledger and report consume stable
+  artifacts, not ad-hoc JSON. Golds gain blessing metadata (blessed-at;
+  source: real transcript vs. authored) so resets are first-class.
+
+## Vehicle: kit first, company second, open source throughout
+
+Three candidate vehicles — a company, open source, a raw set of things someone
+can point Claude Code at — and the answer is all three, in order.
+
+**The kit ships first.** A study driver plus the report generator, as
+agent-runnable artifacts in this repo: point Claude Code at your system prompt
+and transcripts, get the report. The repo is already most of the way there (CLI
+compile, testing-from-scripts, extraction prompts, the fnol harness). The whole
+product survives translation into kit form: the two verbs become two files and
+a commit — the customer's git *is* their ledger — and both systems of record
+stay in their repo. The kit also dissolves an intake friction the hosted form
+fights: system prompts and transcripts are confidential, and "nothing leaves
+your machine" removes the barrier for exactly the customers with money. Zero
+switch cost to try, and it tests demand before the operational two-thirds gets
+built: if nobody runs the free kit during a deprecation window, the hosted
+business wasn't there either.
+
+**The company forms around what a local kit cannot do.** Of the three study
+triggers, a kit covers the two customer verbs (their commits) but cannot know
+about a model release. The irreducible hosted kernel: **the calendar** — we
+watch releases, deprecations, and price changes, and re-run your suite the day
+they land. That's the subscription. Around it, the other host-only goods:
+human graders as a managed panel, cross-fleet baselines (your drift vs. the
+field — only aggregate position enables it), SLAs and procurement for teams
+that won't run agents on their own data. The company is the managed calendar
+plus what requires aggregation — not a gatekeeper in front of the machinery.
+
+**Open source is the substrate, not a vehicle.** Machinery public, ops shell
+private — the split the repo decision already made.
+
+Accepted risk: kit-first gives the entry product away, and kit-generated
+reports vary with the customer's setup. Taken knowingly — the kit user is the
+design partner, the model-release ping is the conversion, and the kit is
+distribution.
+
+## ICP and adoption surface
+
+**ICP: agencies and integrators running portfolios of client agents in
+production** — support, intake, collections, booking; especially multilingual
+and voice. Model churn hits them once per client per release, so the need
+recurs at portfolio frequency. The report is a billable client deliverable
+they can resell, making every agency a channel into many agents and many
+ledgers. Secondary: the in-house owner of one production agent where the LLM
+bill is material. Explicitly not the ICP: conversational-AI platform vendors —
+the build-it-themselves crowd, and eventual competitors.
+
+**Adoption surface: repo plus a gorgeous report — no app UI at entry.** Claude
+Code is the kit's interface; for this ICP that's the distribution channel, not
+a compromise. A bare harness invites "I could have built this myself"; the
+report is what can't be built in an afternoon, so design investment goes into
+the report artifact, not an intake webapp. Published sample reports are the
+marketing ("we ran N public agent prompts against the new model the day it
+dropped"). The DIY objection gets a strategic answer, not a defensive one:
+a team that forks the kit has adopted the spec format, accumulates a ledger in
+our file model, and still can't watch the calendar — which is the
+subscription.
+
+**Naming:** flowstore stays as the substrate/format/repo name (the ledger
+makes "store" more apt, not less). The entry product gets its own
+market-facing name — chosen when the kit is near-shippable, against the
+concrete report masthead. Criteria: evokes the study/report/calendar, survives
+being said to a CFO, never needs the word "flow" to explain.
+
+## Build order
+
+intake → extraction → runner → report (tables + graph overlays) → editor.
+Everything before "report" is the product the buyer sees. The inspectors,
+editing, and the rest of the IDE surface sit behind the report in priority.
+In kit form the near-term deliverable is the study driver + report generator —
+almost entirely the reuse third.
+
+## Open items (de-risk in this order)
+
+The plan above is strategy; these are the execution gaps, riskiest first.
+
+1. **Extraction quality on arbitrary prompt blobs.** The entire intake bet
+   rests on the extraction prompts producing a credible spec + graph from
+   prompts we didn't author. Unproven beyond our own examples. De-risk first:
+   run extraction on a handful of real third-party agent prompts and judge the
+   maps before building anything else.
+2. **Define kit v0 and the first report.** Scope: study driver (agent-runnable),
+   report generator, pricing table. Dogfood milestone: run the full study on
+   the fnol example across the current model roster and publish that report —
+   it is simultaneously the v0 acceptance test, the design target for the
+   report, and the first marketing artifact.
+3. **Design partners.** Two or three agencies matching the ICP, recruited
+   before the kit is polished; their agents are the second and third reports.
+4. **Reconciliation design.** Named in "Two systems of record," not yet
+   designed. Needed before any customer uploads a *second* system prompt — not
+   before the first report.
+5. **Drift metric.** The golds-as-ground-truth design says what drift is
+   measured against; how distance is computed is undesigned. Second level; can
+   wait, but flag it before selling the panel.
+6. **Success/kill criterion for the kit.** Pick the next major deprecation
+   window; if nobody runs the free kit during it, the hosted business isn't
+   there either — revisit the entry point before building the company.
+7. **Repo front door.** The README still leads with the Behavioral IDE. With
+   ~0 installed users there is nothing to migrate and no positioning debt —
+   repoint the front door when the kit ships, not before.
