@@ -69,15 +69,15 @@ export function GoldsPanel() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-1.5">
-        <div className="text-[11px] text-zinc-500">
+      <div className="flex items-center justify-between border-b border-border-default px-3 py-1.5">
+        <div className="text-[11px] text-text-tertiary">
           {golds.length} {golds.length === 1 ? "gold" : "golds"}
         </div>
         <button
           type="button"
           onClick={startNew}
           title="Create a new gold (rename + fill it inline). You can also capture from the Simulate tab."
-          className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50"
+          className="rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[11px] text-text-secondary hover:bg-surface-hover"
         >
           + New
         </button>
@@ -85,12 +85,12 @@ export function GoldsPanel() {
 
       <div className="flex-1 overflow-auto">
         {golds.length === 0 ? (
-          <div className="px-3 py-6 text-center text-[11px] text-zinc-500">
+          <div className="px-3 py-6 text-center text-[11px] text-text-tertiary">
             No golds yet. Click <span className="font-medium">+ New</span> or
             capture a transcript from the Simulate tab.
           </div>
         ) : (
-          <ul className="divide-y divide-zinc-200">
+          <ul className="divide-y divide-border-default">
             {golds.map((g) => (
               <GoldRow
                 key={g.id}
@@ -263,34 +263,34 @@ function GoldRow({ gold, expanded, declared, mockableCaps, tagSuggestions, onTog
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-zinc-50"
+        className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-surface-hover"
       >
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[12px] font-medium text-zinc-900">
+          <div className="truncate text-[12px] font-medium text-text-primary">
             {gold.name || gold.id}
           </div>
-          <div className="truncate font-mono text-[10px] text-zinc-500">{gold.id}</div>
+          <div className="truncate font-mono text-[10px] text-text-tertiary">{gold.id}</div>
           <TagChips tags={gold.tags} />
         </div>
-        <span className="ml-2 text-zinc-400">{expanded ? "▾" : "▸"}</span>
+        <span className="ml-2 text-text-tertiary">{expanded ? "▾" : "▸"}</span>
       </button>
 
       {expanded && (
-        <div className="space-y-2 border-t border-zinc-100 bg-zinc-50/50 px-3 py-2">
+        <div className="space-y-2 border-t border-border-subtle bg-surface-sunken/50 px-3 py-2">
           <div>
-            <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+            <label className="block text-[10px] uppercase tracking-wide text-text-tertiary">
               name
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px]"
+              className="w-full rounded border border-border-default bg-surface-panel px-2 py-1 text-[11px]"
             />
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+            <label className="block text-[10px] uppercase tracking-wide text-text-tertiary">
               notes
             </label>
             <textarea
@@ -298,7 +298,7 @@ function GoldRow({ gold, expanded, declared, mockableCaps, tagSuggestions, onTog
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               placeholder="One-line description of what happens."
-              className="w-full resize-y rounded border border-zinc-300 bg-white p-1.5 text-[11px] leading-snug"
+              className="w-full resize-y rounded border border-border-default bg-surface-panel p-1.5 text-[11px] leading-snug"
             />
           </div>
 
@@ -311,7 +311,7 @@ function GoldRow({ gold, expanded, declared, mockableCaps, tagSuggestions, onTog
 
           {declared.length > 0 && (
             <div>
-              <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+              <label className="block text-[10px] uppercase tracking-wide text-text-tertiary">
                 vars
               </label>
               <VarsEditor
@@ -324,7 +324,7 @@ function GoldRow({ gold, expanded, declared, mockableCaps, tagSuggestions, onTog
 
           {mockableCaps.length > 0 && (
             <div>
-              <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+              <label className="block text-[10px] uppercase tracking-wide text-text-tertiary">
                 mocks
               </label>
               <MocksEditor
@@ -346,7 +346,7 @@ function GoldRow({ gold, expanded, declared, mockableCaps, tagSuggestions, onTog
 
           <div>
             <div className="flex items-baseline justify-between">
-              <label className="text-[10px] uppercase tracking-wide text-zinc-500">
+              <label className="text-[10px] uppercase tracking-wide text-text-tertiary">
                 turns
               </label>
               {turns.length > 0 && (
@@ -354,7 +354,7 @@ function GoldRow({ gold, expanded, declared, mockableCaps, tagSuggestions, onTog
                   type="button"
                   onClick={flipFirstSpeaker}
                   title="Flip every turn's role so the sequence still alternates but with the opposite speaker first."
-                  className="text-[10px] text-zinc-500 hover:text-zinc-900 underline-offset-2 hover:underline"
+                  className="text-[10px] text-text-tertiary hover:text-text-primary underline-offset-2 hover:underline"
                 >
                   starts with: {firstRole}
                 </button>
@@ -362,25 +362,25 @@ function GoldRow({ gold, expanded, declared, mockableCaps, tagSuggestions, onTog
             </div>
             <div className="space-y-1">
               {turns.length === 0 && (
-                <div className="text-[11px] text-zinc-500 italic">
+                <div className="text-[11px] text-text-tertiary italic">
                   No turns. Click + add turn to start.
                 </div>
               )}
               {turns.map((t, i) => (
                 <div key={i} className="flex items-start gap-1">
-                  <span className="mt-1 w-10 shrink-0 text-right font-mono text-[10px] text-zinc-500">
+                  <span className="mt-1 w-10 shrink-0 text-right font-mono text-[10px] text-text-tertiary">
                     {t.role}
                   </span>
                   <textarea
                     value={t.text}
                     onChange={(e) => updateTurnText(i, e.target.value)}
                     rows={1}
-                    className="flex-1 resize-y rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px]"
+                    className="flex-1 resize-y rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[11px]"
                   />
                   <button
                     type="button"
                     onClick={() => removeTurn(i)}
-                    className="mt-0.5 rounded border border-zinc-200 bg-white px-1 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-50"
+                    className="mt-0.5 rounded border border-border-default bg-surface-panel px-1 py-0.5 text-[10px] text-text-tertiary hover:bg-surface-hover"
                   >
                     ✕
                   </button>
@@ -389,7 +389,7 @@ function GoldRow({ gold, expanded, declared, mockableCaps, tagSuggestions, onTog
               <button
                 type="button"
                 onClick={addTurn}
-                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
+                className="rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover"
               >
                 + add turn
               </button>
@@ -400,7 +400,7 @@ function GoldRow({ gold, expanded, declared, mockableCaps, tagSuggestions, onTog
             <button
               type="button"
               onClick={onDelete}
-              className="rounded border border-red-300 bg-white px-2 py-1 text-[11px] text-red-700 hover:bg-red-50"
+              className="rounded border border-state-error-line bg-surface-panel px-2 py-1 text-[11px] text-state-error-fg hover:bg-state-error-bg"
             >
               Delete
             </button>
@@ -414,7 +414,7 @@ function GoldRow({ gold, expanded, declared, mockableCaps, tagSuggestions, onTog
                     ? "This gold has no user turns — add some before creating a test case from it."
                     : "Create a scripted test case pre-filled with this gold's user turns, then open it in the Tests tab."
                 }
-                className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+                className="rounded border border-border-default bg-surface-panel px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
               >
                 Create Test
               </button>
@@ -427,7 +427,7 @@ function GoldRow({ gold, expanded, declared, mockableCaps, tagSuggestions, onTog
                     ? "This gold has no user turns to replay — add some, or capture one from a Simulate run."
                     : "Load this gold into the Simulate tab; press ▶ Run there to replay its user turns and compare against the gold."
                 }
-                className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+                className="rounded border border-border-default bg-surface-panel px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
               >
                 Open in Sim ▶
               </button>
@@ -435,7 +435,7 @@ function GoldRow({ gold, expanded, declared, mockableCaps, tagSuggestions, onTog
                 type="button"
                 onClick={onCopy}
                 title="Duplicate this gold as a new one."
-                className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
+                className="rounded border border-border-default bg-surface-panel px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover"
               >
                 Copy
               </button>
@@ -444,7 +444,7 @@ function GoldRow({ gold, expanded, declared, mockableCaps, tagSuggestions, onTog
                 onClick={handleSave}
                 disabled={!dirty}
                 title={dirty ? "Save changes" : "No unsaved edits"}
-                className="rounded-md bg-zinc-900 px-3 py-1 text-[11px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+                className="rounded-md bg-emphasis px-3 py-1 fs-micro text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-40"
               >
                 Save
               </button>

@@ -136,8 +136,8 @@ export function PersonasPanel() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-1.5">
-        <div className="text-[11px] text-zinc-500">
+      <div className="flex items-center justify-between border-b border-border-default px-3 py-1.5">
+        <div className="text-[11px] text-text-tertiary">
           {personas.length} {personas.length === 1 ? "persona" : "personas"}
         </div>
         <div className="flex items-center gap-1">
@@ -150,7 +150,7 @@ export function PersonasPanel() {
                 ? "Create a new persona — generates system prompt, vars, and mocks from a name + notes prompt."
                 : "Create a placeholder persona — fill prompt + world inline."
             }
-            className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+            className="rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[11px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
           >
             + New
           </button>
@@ -158,15 +158,15 @@ export function PersonasPanel() {
       </div>
 
       {generating && (
-        <div className="space-y-2 border-b border-zinc-200 bg-white px-3 py-2 text-[11px]">
-          <div className="font-medium text-zinc-900">Generate persona</div>
+        <div className="space-y-2 border-b border-border-default bg-surface-panel px-3 py-2 text-[11px]">
+          <div className="font-medium text-text-primary">Generate persona</div>
           {generating.error && (
-            <div className="rounded border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-700">
+            <div className="rounded border border-state-error-line bg-state-error-bg px-2 py-1 text-[11px] text-state-error-fg">
               {generating.error}
             </div>
           )}
           <div>
-            <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+            <label className="block text-[10px] uppercase tracking-wide text-text-tertiary">
               name
             </label>
             <input
@@ -177,11 +177,11 @@ export function PersonasPanel() {
                 setGenerating({ ...generating, name: e.target.value })
               }
               placeholder="e.g. Polite first-time caller"
-              className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px]"
+              className="w-full rounded border border-border-default bg-surface-panel px-2 py-1 text-[11px]"
             />
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+            <label className="block text-[10px] uppercase tracking-wide text-text-tertiary">
               notes
             </label>
             <textarea
@@ -191,7 +191,7 @@ export function PersonasPanel() {
               }
               placeholder="Who is this user, why are they calling, what's their style?"
               rows={3}
-              className="w-full resize-y rounded border border-zinc-300 bg-white p-1.5 text-[11px] leading-snug"
+              className="w-full resize-y rounded border border-border-default bg-surface-panel p-1.5 text-[11px] leading-snug"
             />
           </div>
           <div className="flex justify-end gap-1">
@@ -199,7 +199,7 @@ export function PersonasPanel() {
               type="button"
               onClick={() => setGenerating(null)}
               disabled={generating.busy}
-              className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+              className="rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
             >
               Cancel
             </button>
@@ -210,7 +210,7 @@ export function PersonasPanel() {
                 generating.busy ||
                 (generating.name.trim() === "" && generating.notes.trim() === "")
               }
-              className="rounded-md bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+              className="rounded-md bg-emphasis px-2 py-0.5 text-[10px] font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-40"
             >
               {generating.busy ? "Generating…" : "Generate"}
             </button>
@@ -220,12 +220,12 @@ export function PersonasPanel() {
 
       <div className="flex-1 overflow-auto">
         {personas.length === 0 ? (
-          <div className="px-3 py-6 text-center text-[11px] text-zinc-500">
+          <div className="px-3 py-6 text-center text-[11px] text-text-tertiary">
             No saved personas yet. Click <span className="font-medium">+ New</span> to add one,
             or save the current Simulate-tab persona via the PersonaForm.
           </div>
         ) : (
-          <ul className="divide-y divide-zinc-200">
+          <ul className="divide-y divide-border-default">
             {personas.map((p) => (
               <PersonaRow
                 key={p.id}
@@ -379,29 +379,29 @@ function PersonaRow({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-zinc-50"
+        className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-surface-hover"
       >
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[12px] font-medium text-zinc-900">
+          <div className="truncate text-[12px] font-medium text-text-primary">
             {persona.name || persona.id}
           </div>
-          <div className="truncate font-mono text-[10px] text-zinc-500">
+          <div className="truncate font-mono text-[10px] text-text-tertiary">
             {persona.id} | {varsCount} vars · {mocksCount} mocks
           </div>
           <TagChips tags={persona.tags} />
         </div>
-        <span className="ml-2 text-zinc-400">{expanded ? "▾" : "▸"}</span>
+        <span className="ml-2 text-text-tertiary">{expanded ? "▾" : "▸"}</span>
       </button>
 
       {expanded && (
-        <div className="space-y-3 border-t border-zinc-100 bg-zinc-50/50 px-3 py-2 text-[11px]">
+        <div className="space-y-3 border-t border-border-subtle bg-surface-sunken/50 px-3 py-2 text-[11px]">
           {regenError && (
-            <div className="rounded border border-red-200 bg-red-50 px-2 py-1 text-red-700">
+            <div className="rounded border border-state-error-line bg-state-error-bg px-2 py-1 text-state-error-fg">
               {regenError}
             </div>
           )}
           <div>
-            <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+            <label className="block text-[10px] uppercase tracking-wide text-text-tertiary">
               name
             </label>
             <input
@@ -409,12 +409,12 @@ function PersonaRow({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Human-readable label"
-              className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              className="w-full rounded border border-border-default bg-surface-panel px-2 py-1 text-[11px] text-text-primary focus:outline-none focus:ring-1 focus:ring-focus-ring"
             />
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+            <label className="block text-[10px] uppercase tracking-wide text-text-tertiary">
               notes
             </label>
             <input
@@ -422,7 +422,7 @@ function PersonaRow({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="What does this persona test?"
-              className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              className="w-full rounded border border-border-default bg-surface-panel px-2 py-1 text-[11px] text-text-primary focus:outline-none focus:ring-1 focus:ring-focus-ring"
             />
           </div>
 
@@ -434,7 +434,7 @@ function PersonaRow({
           />
 
           <div>
-            <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+            <label className="block text-[10px] uppercase tracking-wide text-text-tertiary">
               system_prompt
             </label>
             <textarea
@@ -442,11 +442,11 @@ function PersonaRow({
               onChange={(e) => setSystemPrompt(e.target.value)}
               rows={10}
               placeholder="System prompt for the persona playing the user."
-              className="w-full resize-y rounded border border-zinc-300 bg-white p-2 font-mono text-[11px] leading-snug text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              className="w-full resize-y rounded border border-border-default bg-surface-panel p-2 font-mono text-[11px] leading-snug text-text-primary focus:outline-none focus:ring-1 focus:ring-focus-ring"
             />
           </div>
 
-          <div className="text-[10px] uppercase tracking-wide text-zinc-500">
+          <div className="text-[10px] uppercase tracking-wide text-text-tertiary">
             fixture
           </div>
 
@@ -484,7 +484,7 @@ function PersonaRow({
               type="button"
               onClick={onDelete}
               title="Delete this persona"
-              className="rounded border border-red-300 bg-white px-2 py-1 text-[11px] text-red-700 hover:bg-red-50"
+              className="rounded border border-state-error-line bg-surface-panel px-2 py-1 text-[11px] text-state-error-fg hover:bg-state-error-bg"
             >
               Delete
             </button>
@@ -495,7 +495,7 @@ function PersonaRow({
                   onClick={handleRegenerate}
                   disabled={regenerating}
                   title="Regenerate system_prompt + vars + mocks from this row's name + notes (replaces them; save to persist)."
-                  className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+                  className="rounded border border-border-default bg-surface-panel px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
                 >
                   {regenerating ? "Regenerating…" : "✨ Regenerate"}
                 </button>
@@ -504,7 +504,7 @@ function PersonaRow({
                 type="button"
                 onClick={onUseInSimulate}
                 title="Load this persona's prompt + world (vars + mocks) into the Simulate tab buffer."
-                className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
+                className="rounded border border-border-default bg-surface-panel px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover"
               >
                 Simulate ▶
               </button>
@@ -512,7 +512,7 @@ function PersonaRow({
                 type="button"
                 onClick={onCopy}
                 title="Duplicate this persona as a new one — handy for variant authoring (tweak one mock)."
-                className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
+                className="rounded border border-border-default bg-surface-panel px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover"
               >
                 Copy
               </button>
@@ -527,7 +527,7 @@ function PersonaRow({
                       ? "Save changes"
                       : "No unsaved edits"
                 }
-                className="rounded-md bg-zinc-900 px-3 py-1 text-[11px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+                className="rounded-md bg-emphasis px-3 py-1 text-[11px] font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-40"
               >
                 Save
               </button>

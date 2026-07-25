@@ -652,13 +652,13 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   })();
 
   return (
-    <aside className="flex flex-col h-full w-[380px] border-l border-zinc-200 bg-white">
-      <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2">
+    <aside className="flex flex-col h-full w-[380px] border-l border-border-default bg-surface-panel">
+      <div className="flex items-center justify-between border-b border-border-default px-4 py-2">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-zinc-900 truncate">
+          <div className="text-sm font-semibold text-text-primary truncate">
             Run
           </div>
-          <div className="text-[11px] text-zinc-500 truncate">
+          <div className="text-[11px] text-text-tertiary truncate">
             {mode === "voice" && hasSession
               ? `${subtitle}${voicePhase && voicePhase !== "idle" ? ` · ${voicePhase}` : ""}`
               : isPromptMode(mode) && lastUsage
@@ -674,14 +674,14 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
               <button
                 onClick={onDownload}
                 title="Download the full trace (spec snapshot, transcript, events, variables) as JSON."
-                className="rounded px-2 py-1 text-[11px] text-zinc-600 hover:bg-zinc-100"
+                className="rounded px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover"
               >
                 download
               </button>
               <button
                 onClick={onReset}
                 title="End the current session and start fresh against the same spec — even if the agent didn't end it."
-                className="rounded px-2 py-1 text-[11px] text-zinc-600 hover:bg-zinc-100"
+                className="rounded px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover"
               >
                 clear
               </button>
@@ -689,14 +689,14 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           )}
           <button
             onClick={onClose}
-            className="rounded px-2 py-1 text-[11px] text-zinc-600 hover:bg-zinc-100"
+            className="rounded px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover"
           >
             close
           </button>
         </div>
       </div>
 
-      <div className="flex border-b border-zinc-200 text-[11px]">
+      <div className="flex border-b border-border-default text-[11px]">
         <TabButton active={openSimulateTab === "simulate"} onClick={() => setOpenSimulateTab("simulate")}>
           Simulate
         </TabButton>
@@ -745,7 +745,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           onUnload={() => setActiveGoldId(null)}
         />
       )}
-      <div className="flex items-center gap-2 border-b border-zinc-200 px-4 py-1.5 text-[11px]">
+      <div className="flex items-center gap-2 border-b border-border-default px-4 py-1.5 text-[11px]">
         <select
           value={mode === "external" ? `external:${selectedAgentId}` : mode}
           onChange={(e) => {
@@ -760,7 +760,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           }}
           disabled={hasSession}
           title="Simulation mode. Text and Voice run browser-direct (prompt mode); Runner drives the Python runtime; External drives a configured agent endpoint. Locked once a session is running."
-          className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+          className="rounded border border-border-default bg-surface-panel px-1.5 py-0.5 text-[11px] text-text-secondary hover:bg-surface-hover disabled:opacity-50"
         >
           <option value="text">Text</option>
           <option value="voice">Voice</option>
@@ -775,7 +775,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             onChange={setSimulateVoiceModel}
             disabled={hasSession}
             title="Gemini Live model for voice mode (voice is Gemini-only)."
-            className="truncate rounded border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-900 hover:border-zinc-200 disabled:opacity-60 cursor-pointer disabled:cursor-default"
+            className="truncate rounded border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-text-tertiary hover:text-text-primary hover:border-border-default disabled:opacity-60 cursor-pointer disabled:cursor-default"
             voiceOnly
           />
         ) : mode !== "external" ? (
@@ -788,20 +788,20 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
                 ? "Model id sent to the runner — the runner may override it."
                 : "Model the agent uses in prompt mode"
             }
-            className="truncate rounded border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-900 hover:border-zinc-200 disabled:opacity-60 cursor-pointer disabled:cursor-default"
+            className="truncate rounded border border-transparent bg-transparent px-1 py-0.5 text-[11px] text-text-tertiary hover:text-text-primary hover:border-border-default disabled:opacity-60 cursor-pointer disabled:cursor-default"
             showUnconfigured={mode === "runner"}
           />
         ) : null}
         {mode === "text" && (
           <label
             title="Animate the canvas during simulation — one small LLM call per agent turn (default model) lights the current flow, transitions, and off-spec jumps. Turn off to save a call per turn (rate-limited keys, persona batch runs)."
-            className="flex items-center gap-1 text-[11px] text-zinc-700 cursor-pointer select-none"
+            className="flex items-center gap-1 text-[11px] text-text-secondary cursor-pointer select-none"
           >
             <input
               type="checkbox"
               checked={simulateAttribution}
               onChange={(e) => setSimulateAttribution(e.target.checked)}
-              className="h-3 w-3 accent-zinc-700"
+              className="h-3 w-3 accent-emphasis"
             />
             animate
           </label>
@@ -817,7 +817,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             onChange={(e) => setLanguage(e.target.value || undefined)}
             disabled={hasSession}
             title="auto: multilingual prompt — the caller can switch languages mid-conversation. Pin a language to scope to one. Locked once a session is running."
-            className="ml-auto rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+            className="ml-auto rounded border border-border-default bg-surface-panel px-1.5 py-0.5 text-[11px] text-text-secondary hover:bg-surface-hover disabled:opacity-50"
           >
             <option value="">auto</option>
             {availableLanguages.map((code) => (
@@ -830,7 +830,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       </div>
 
       {hasSession && isPromptMode(mode) && specChanged && (
-        <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+        <div className="border-b border-state-warning-line bg-state-warning-bg px-3 py-2 text-[11px] text-state-warning-fg">
           Spec changed since session start. Reset to re-render the system prompt.
         </div>
       )}
@@ -913,10 +913,10 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
                     key={`v-${ri}`}
                     className={`ml-6 text-[10px] ${
                       pending
-                        ? "text-zinc-400"
+                        ? "text-text-tertiary"
                         : ok
-                          ? "text-emerald-700"
-                          : "text-red-700"
+                          ? "text-state-success-fg"
+                          : "text-state-error-fg"
                     }`}
                   >
                     {pending ? "…" : ok ? "✓" : "✗"}{" "}
@@ -929,7 +929,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
                         ¬contains "{row.assertion.must_not_contain.join(`", "`)}"
                       </span>
                     )}
-                    {v?.reason && <span className="text-zinc-500"> — {v.reason}</span>}
+                    {v?.reason && <span className="text-text-tertiary"> — {v.reason}</span>}
                   </div>
                 );
               })}
@@ -937,7 +937,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           );
         })}
         {busy && hasSession && (
-          <div className="text-xs text-zinc-500 italic">thinking…</div>
+          <div className="text-xs text-text-tertiary italic">thinking…</div>
         )}
         {activeCase && hasSession && transcript.length > 0 && (
           <TranscriptAssertionsCard testCase={activeCase} verdicts={verdicts} />
@@ -965,7 +965,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           />
         )}
         {evaluating && !guardrailVerdict && (
-          <div className="text-xs text-zinc-500 italic">evaluating guardrails…</div>
+          <div className="text-xs text-text-tertiary italic">evaluating guardrails…</div>
         )}
         {guardrailVerdict && <GuardrailEvalCard verdict={guardrailVerdict} />}
         {hasSession && transcript.length > 0 && !busy && !isRunning && (
@@ -974,7 +974,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
               type="button"
               onClick={onCaptureCase}
               title="Capture this transcript as a new test case."
-              className="rounded border border-zinc-300 bg-white px-2 py-1 text-[10px] text-zinc-700 hover:bg-zinc-50"
+              className="rounded border border-border-default bg-surface-panel px-2 py-1 text-[10px] text-text-secondary hover:bg-surface-hover"
             >
               + capture as case
             </button>
@@ -982,7 +982,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
               type="button"
               onClick={onCaptureGold}
               title="Save this transcript verbatim as a gold (reference conversation)."
-              className="rounded border border-zinc-300 bg-white px-2 py-1 text-[10px] text-zinc-700 hover:bg-zinc-50"
+              className="rounded border border-border-default bg-surface-panel px-2 py-1 text-[10px] text-text-secondary hover:bg-surface-hover"
             >
               + capture as gold
             </button>
@@ -991,13 +991,13 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       </div>
 
       {error && status === "error" && (
-        <div className="flex items-start justify-between gap-2 border-t border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-800">
+        <div className="flex items-start justify-between gap-2 border-t border-state-error-line bg-state-error-bg px-3 py-2 text-[11px] text-state-error-fg">
           <span>{error}</span>
           {hasSession && (
             <button
               onClick={onReset}
               title="End this session and start fresh against the same spec."
-              className="shrink-0 rounded border border-red-300 bg-white px-2 py-0.5 text-red-700 hover:bg-red-100"
+              className="shrink-0 rounded border border-state-error-line bg-surface-panel px-2 py-0.5 text-state-error-fg hover:bg-state-error-bg"
             >
               Clear
             </button>
@@ -1006,11 +1006,11 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       )}
 
       {translateError && (
-        <div className="flex items-start justify-between gap-2 border-t border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+        <div className="flex items-start justify-between gap-2 border-t border-state-warning-line bg-state-warning-bg px-3 py-2 text-[11px] text-state-warning-fg">
           <span>Translate failed: {translateError}</span>
           <button
             onClick={() => setTranslateError(null)}
-            className="rounded px-1 text-amber-800 hover:bg-amber-100"
+            className="rounded px-1 text-state-warning-fg hover:bg-state-warning-bg"
             title="Dismiss"
           >
             ✕
@@ -1029,7 +1029,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       )}
 
       {hasSession && !ended && mode !== "voice" && (
-        <div className="border-t border-zinc-200 p-2">
+        <div className="border-t border-border-default p-2">
           <textarea
             ref={inputRef}
             value={input}
@@ -1038,7 +1038,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             placeholder="Type as the user… (⌘↵ to send)"
             disabled={busy || !canSend}
             rows={3}
-            className="w-full resize-none rounded border border-zinc-300 p-2 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
+            className="w-full resize-none rounded border border-border-default p-2 text-sm focus:outline-none focus:ring-1 focus:ring-focus-ring disabled:bg-state-disabled-bg"
           />
           <div className="mt-1 flex items-center justify-between">
             {translateVisible ? (
@@ -1046,7 +1046,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
                 onClick={onTranslate}
                 disabled={translating}
                 title="Translate agent and user messages to English using Gemini. Press again to refresh after new turns; press once more to show originals."
-                className="rounded px-2 py-1 text-[11px] text-zinc-600 hover:bg-zinc-100 disabled:opacity-40"
+                className="rounded px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
               >
                 🌐 {translateLabel}
               </button>
@@ -1059,7 +1059,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
                   onClick={() => void evaluate()}
                   disabled={evaluating || busy || isRunning}
                   title="Holistically judge the transcript so far for hallucinations and against the agent's guardrails."
-                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
+                  className="rounded-md border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover disabled:opacity-40"
                 >
                   {evaluating ? "Evaluating…" : "Evaluate"}
                 </button>
@@ -1068,7 +1068,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
                 onClick={onSend}
                 disabled={busy || !canSend}
                 title={input.trim() ? "Send" : "Send with no input (models the caller staying silent)"}
-                className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+                className="rounded-md bg-emphasis px-3 py-1.5 text-xs font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-40"
               >
                 Send
               </button>
@@ -1078,7 +1078,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       )}
 
       {ended && (
-        <div className="border-t border-zinc-200 px-3 py-2 flex items-center justify-between gap-2 text-[11px] text-zinc-600">
+        <div className="border-t border-border-default px-3 py-2 flex items-center justify-between gap-2 text-[11px] text-text-secondary">
           <span>Session ended.</span>
           <div className="flex items-center gap-2">
             {translateVisible && (
@@ -1086,7 +1086,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
                 onClick={onTranslate}
                 disabled={translating}
                 title="Translate agent and user messages to English using Gemini."
-                className="rounded px-2 py-1 text-zinc-600 hover:bg-zinc-100 disabled:opacity-40"
+                className="rounded px-2 py-1 text-text-secondary hover:bg-surface-hover disabled:opacity-40"
               >
                 🌐 {translateLabel}
               </button>
@@ -1096,14 +1096,14 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
                 onClick={() => void evaluate()}
                 disabled={evaluating}
                 title="Holistically judge the transcript for hallucinations and against the agent's guardrails."
-                className="rounded border border-zinc-300 px-2 py-1 text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
+                className="rounded border border-border-default px-2 py-1 text-text-secondary hover:bg-surface-hover disabled:opacity-40"
               >
                 {evaluating ? "Evaluating…" : "Evaluate"}
               </button>
             )}
             <button
               onClick={onReset}
-              className="rounded bg-zinc-900 px-2 py-1 text-white hover:bg-zinc-700"
+              className="rounded bg-emphasis px-2 py-1 text-emphasis-fg hover:bg-emphasis-hover"
             >
               Clear
             </button>
@@ -1141,13 +1141,13 @@ function ActiveCaseStrip({
     (testCase.state_assertions?.length ?? 0);
   const rubricCount = testCase.evaluators?.length ?? 0;
   return (
-    <div className="border-b border-zinc-200 bg-amber-50/60 px-3 py-1.5 text-[11px]">
+    <div className="border-b border-border-default bg-state-warning-bg/60 px-3 py-1.5 text-[11px]">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="truncate text-[11px] font-medium text-zinc-900">
+          <div className="truncate text-[11px] font-medium text-text-primary">
             Active case: {testCase.name || testCase.id}
           </div>
-          <div className="truncate text-[10px] text-zinc-600">
+          <div className="truncate text-[10px] text-text-secondary">
             {testCase.persona_id
               ? `persona · ${testCase.persona_id}`
               : `scripted · ${testCase.user_turns?.length ?? 0} turns`}{" "}
@@ -1175,7 +1175,7 @@ function ActiveCaseStrip({
               type="button"
               onClick={onStop}
               aria-label="Stop case"
-              className="rounded border border-red-300 bg-red-50 px-2 py-1 text-[12px] font-medium text-red-700 hover:bg-red-100"
+              className="rounded border border-state-error-line bg-state-error-bg px-2 py-1 text-[12px] font-medium text-state-error-fg hover:bg-state-error-bg"
               title="Stop. Any in-flight LLM call still completes; the loop halts on the next turn."
             >
               ■
@@ -1186,7 +1186,7 @@ function ActiveCaseStrip({
               onClick={onRun}
               disabled={busy}
               aria-label={hasSession ? "Re-run case" : "Run case"}
-              className="rounded bg-zinc-900 px-2 py-1 text-[12px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+              className="rounded bg-emphasis px-2 py-1 text-[12px] font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-40"
               title={
                 hasSession
                   ? "Re-run case against the current spec."
@@ -1201,7 +1201,7 @@ function ActiveCaseStrip({
             onClick={onUnload}
             disabled={isRunning}
             aria-label="Unload case"
-            className="rounded border border-zinc-300 bg-white px-2 py-1 text-[12px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+            className="rounded border border-border-default bg-surface-panel px-2 py-1 text-[12px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
             title="Unload the active case binding (variables/persona/mocks stay loaded)."
           >
             ×
@@ -1232,13 +1232,13 @@ function ActiveGoldStrip({
   const userTurns = gold.turns.filter((t) => t.role === "user").length;
   const agentTurns = gold.turns.filter((t) => t.role === "agent").length;
   return (
-    <div className="border-b border-zinc-200 bg-sky-50/60 px-3 py-1.5 text-[11px]">
+    <div className="border-b border-border-default bg-state-running-bg/60 px-3 py-1.5 text-[11px]">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="truncate text-[11px] font-medium text-zinc-900">
+          <div className="truncate text-[11px] font-medium text-text-primary">
             Running gold: {gold.name || gold.id}
           </div>
-          <div className="truncate text-[10px] text-zinc-600">
+          <div className="truncate text-[10px] text-text-secondary">
             replay · {userTurns} user turn{userTurns === 1 ? "" : "s"} · compare vs{" "}
             {agentTurns} gold agent turn{agentTurns === 1 ? "" : "s"}
           </div>
@@ -1249,7 +1249,7 @@ function ActiveGoldStrip({
               type="button"
               onClick={onStop}
               aria-label="Stop gold run"
-              className="rounded border border-red-300 bg-red-50 px-2 py-1 text-[12px] font-medium text-red-700 hover:bg-red-100"
+              className="rounded border border-state-error-line bg-state-error-bg px-2 py-1 text-[12px] font-medium text-state-error-fg hover:bg-state-error-bg"
               title="Stop. Any in-flight LLM call still completes; the loop halts on the next turn."
             >
               ■
@@ -1260,7 +1260,7 @@ function ActiveGoldStrip({
               onClick={onRun}
               disabled={busy || userTurns === 0}
               aria-label={hasSession ? "Re-run gold" : "Run gold"}
-              className="rounded bg-zinc-900 px-2 py-1 text-[12px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+              className="rounded bg-emphasis px-2 py-1 text-[12px] font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-40"
               title={
                 hasSession
                   ? "Re-replay this gold's user turns against the current spec."
@@ -1275,7 +1275,7 @@ function ActiveGoldStrip({
             onClick={onUnload}
             disabled={isRunning}
             aria-label="Unload gold"
-            className="rounded border border-zinc-300 bg-white px-2 py-1 text-[12px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+            className="rounded border border-border-default bg-surface-panel px-2 py-1 text-[12px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
             title="Unload the active gold binding."
           >
             ×
@@ -1302,7 +1302,7 @@ function GoldTurnRef({
 }) {
   if (goldText === undefined) {
     return (
-      <div className="ml-6 text-[10px] text-zinc-400">
+      <div className="ml-6 text-[10px] text-text-tertiary">
         <span className="font-mono">·</span> past gold — no reference turn
       </div>
     );
@@ -1311,22 +1311,22 @@ function GoldTurnRef({
   let dot: React.ReactNode;
   let note: React.ReactNode = null;
   if (verdict === "pending") {
-    dot = <span className="font-mono text-zinc-400">·</span>;
-    note = <span className="italic text-zinc-400">judging…</span>;
+    dot = <span className="font-mono text-text-tertiary">·</span>;
+    note = <span className="italic text-text-tertiary">judging…</span>;
   } else if (verdict?.equivalent) {
-    dot = <span className="font-mono text-emerald-500">✓</span>;
-    note = <span className="text-zinc-500">{verdict.note}</span>;
+    dot = <span className="font-mono text-state-success-fg">✓</span>;
+    note = <span className="text-text-tertiary">{verdict.note}</span>;
   } else if (verdict) {
-    dot = <span className="font-mono text-red-500">✗</span>;
-    note = <span className="text-red-400">{verdict.note}</span>;
+    dot = <span className="font-mono text-state-error-line">✗</span>;
+    note = <span className="text-state-error-fg">{verdict.note}</span>;
   } else {
-    dot = <span className="font-mono text-zinc-400">·</span>;
+    dot = <span className="font-mono text-text-tertiary">·</span>;
   }
 
   return (
     <div className="ml-6 text-[10px] leading-snug">
       {dot}{" "}
-      <span className="whitespace-pre-wrap text-zinc-500">{displayText ?? goldText}</span>
+      <span className="whitespace-pre-wrap text-text-tertiary">{displayText ?? goldText}</span>
       {note && <div className="mt-0.5 ml-3">{note}</div>}
     </div>
   );
@@ -1346,7 +1346,7 @@ function GoldTailNote({
   const missing = goldAgentCount - liveAgentCount;
   if (missing <= 0) return null;
   return (
-    <div className="ml-6 text-[10px] text-amber-600">
+    <div className="ml-6 text-[10px] text-state-warning-fg">
       gold expected {missing} more agent turn{missing === 1 ? "" : "s"} (agent ended early)
     </div>
   );
@@ -1371,10 +1371,10 @@ function TranscriptAssertionsCard({
   const status = failed > 0 ? "FAIL" : pending > 0 ? "RUNNING" : "PASS";
   const color =
     status === "FAIL"
-      ? "border-red-200 bg-red-50 text-red-900"
+      ? "border-state-error-line bg-state-error-bg text-state-error-fg"
       : status === "PASS"
-        ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-        : "border-amber-200 bg-amber-50 text-amber-900";
+        ? "border-state-success-line bg-state-success-bg text-state-success-fg"
+        : "border-state-warning-line bg-state-warning-bg text-state-warning-fg";
   return (
     <div className={`rounded border ${color} p-2 text-[11px] space-y-1`}>
       <div className="font-medium">
@@ -1389,7 +1389,7 @@ function TranscriptAssertionsCard({
           <div key={`tr-${i}`} className="text-[10px]">
             {pendingTurn ? "…" : ok ? "✓" : "✗"} {ta.kind}
             {ta.pattern && <> "{ta.pattern}"</>}
-            {v?.reason && <span className="text-zinc-600"> — {v.reason}</span>}
+            {v?.reason && <span className="text-text-secondary"> — {v.reason}</span>}
           </div>
         );
       })}
@@ -1425,8 +1425,8 @@ function RubricsCard({
     return v !== undefined && v !== "pending" && v.score !== null;
   }).length;
   return (
-    <div className="rounded border border-zinc-200 bg-white p-2 text-[11px] space-y-1">
-      <div className="font-medium text-zinc-900">
+    <div className="rounded border border-border-default bg-surface-panel p-2 text-[11px] space-y-1">
+      <div className="font-medium text-text-primary">
         rubrics · {scored}/{evaluatorIds.length} scored
       </div>
       {evaluatorIds.map((id) => {
@@ -1447,23 +1447,23 @@ function RubricsCard({
               </span>
             )}
             {!pending && !unrun && (
-              <span className="text-zinc-600"> — {v.notes}</span>
+              <span className="text-text-secondary"> — {v.notes}</span>
             )}
           </div>
         );
       })}
-      <div className="flex items-center gap-2 pt-1 text-[10px] text-zinc-600">
+      <div className="flex items-center gap-2 pt-1 text-[10px] text-text-secondary">
         <span>judge:</span>
         <ModelPicker
           value={judgeModel}
           onChange={onJudgeModelChange}
-          className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
+          className="rounded border border-border-default bg-surface-panel px-1.5 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover"
         />
         <button
           type="button"
           onClick={onJudgeRubrics}
           disabled={judging || !canJudge}
-          className="ml-auto rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+          className="ml-auto rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
           title={
             !canJudge
               ? "Wait for the conversation to finish — rubrics judge the final transcript."
@@ -1486,10 +1486,10 @@ function RubricsCard({
 function GuardrailEvalCard({ verdict }: { verdict: GuardrailVerdict }) {
   const skipped = verdict.status === "skipped";
   const color = skipped
-    ? "border-zinc-200 bg-white text-zinc-900"
+    ? "border-border-default bg-surface-panel text-text-primary"
     : verdict.verdict === "fail"
-      ? "border-red-200 bg-red-50 text-red-900"
-      : "border-emerald-200 bg-emerald-50 text-emerald-900";
+      ? "border-state-error-line bg-state-error-bg text-state-error-fg"
+      : "border-state-success-line bg-state-success-bg text-state-success-fg";
   const headIcon = skipped ? "○" : verdict.verdict === "fail" ? "✗" : "✓";
   const metIcon = (met: string) => (met === "no" ? "✗" : met === "yes" ? "✓" : "·");
   return (
@@ -1498,29 +1498,29 @@ function GuardrailEvalCard({ verdict }: { verdict: GuardrailVerdict }) {
         {headIcon} evaluation
         {!skipped && <span className="font-mono"> · {verdict.verdict}</span>}
         {!skipped && verdict.failure_mode !== "none" && (
-          <span className="font-mono text-[10px] text-zinc-500">
+          <span className="font-mono text-[10px] text-text-tertiary">
             {" · "}
             {verdict.failure_mode}
           </span>
         )}
       </div>
-      <div className="text-[10px] text-zinc-600">{verdict.summary}</div>
+      <div className="text-[10px] text-text-secondary">{verdict.summary}</div>
       {!skipped && (
         <>
           {verdict.hallucinations.map((h, i) => (
             <div key={`h-${i}`} className="text-[10px]">
-              <span className="text-red-700">
+              <span className="text-state-error-fg">
                 ✗ hallucination{h.turn >= 0 ? ` (turn ${h.turn})` : ""}: {h.claim}
               </span>
-              {h.reason && <span className="text-zinc-500"> — {h.reason}</span>}
+              {h.reason && <span className="text-text-tertiary"> — {h.reason}</span>}
             </div>
           ))}
           {verdict.guardrails.map((g, i) => (
             <div key={`g-${i}`} className="text-[10px]">
-              <span className={g.met === "no" ? "text-red-700" : "text-zinc-600"}>
+              <span className={g.met === "no" ? "text-state-error-fg" : "text-text-secondary"}>
                 {metIcon(g.met)} {g.statement}
               </span>
-              {g.reason && <span className="text-zinc-500"> — {g.reason}</span>}
+              {g.reason && <span className="text-text-tertiary"> — {g.reason}</span>}
             </div>
           ))}
         </>
@@ -1544,8 +1544,8 @@ function TabButton({
       onClick={onClick}
       className={`flex-1 px-3 py-1.5 text-center ${
         active
-          ? "border-b-2 border-zinc-900 font-medium text-zinc-900"
-          : "border-b-2 border-transparent text-zinc-500 hover:text-zinc-900"
+          ? "border-b-2 border-emphasis font-medium text-text-primary"
+          : "border-b-2 border-transparent text-text-tertiary hover:text-text-primary"
       }`}
     >
       {children}
@@ -1580,15 +1580,15 @@ function VoiceFooter({
           ? "muted"
           : "listening…";
   const dotColor = connecting
-    ? "bg-zinc-300"
+    ? "bg-border-default"
     : phase === "speaking"
-      ? "bg-emerald-500"
+      ? "bg-state-success-line"
       : micMuted
-        ? "bg-zinc-300"
-        : "bg-sky-500 animate-pulse";
+        ? "bg-border-default"
+        : "bg-state-running-line animate-pulse";
   return (
-    <div className="flex items-center justify-between gap-2 border-t border-zinc-200 p-2.5">
-      <div className="flex items-center gap-2 text-[11px] text-zinc-600">
+    <div className="flex items-center justify-between gap-2 border-t border-border-default p-2.5">
+      <div className="flex items-center gap-2 text-[11px] text-text-secondary">
         <span className={`inline-block h-2 w-2 rounded-full ${dotColor}`} />
         {label}
       </div>
@@ -1599,8 +1599,8 @@ function VoiceFooter({
           disabled={connecting}
           className={`rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-40 ${
             micMuted
-              ? "border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
-              : "border-zinc-300 text-zinc-700 hover:bg-zinc-100"
+              ? "border-state-error-line bg-state-error-bg text-state-error-fg hover:bg-state-error-bg"
+              : "border-border-default text-text-secondary hover:bg-surface-hover"
           }`}
           title={micMuted ? "Unmute the mic" : "Mute the mic"}
         >
@@ -1609,7 +1609,7 @@ function VoiceFooter({
         <button
           type="button"
           onClick={onEnd}
-          className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
+          className="rounded-md bg-emphasis px-3 py-1.5 text-xs font-medium text-emphasis-fg hover:bg-emphasis-hover"
           title="End the voice session."
         >
           End
@@ -1638,22 +1638,22 @@ function EmptyState({
 }) {
   if (!specLoaded) {
     return (
-      <div className="text-xs text-zinc-500">
+      <div className="text-xs text-text-tertiary">
         Load a spec to start simulating.
       </div>
     );
   }
   return (
-    <div className="text-xs text-zinc-500 space-y-4">
+    <div className="text-xs text-text-tertiary space-y-4">
       {isPromptMode(mode) && !apiKey && (
         <p>
-          <button onClick={onOpenSettings} className="underline hover:text-zinc-900">
+          <button onClick={onOpenSettings} className="underline hover:text-text-primary">
             Requires a {providerLabel} API key in Settings.
           </button>
         </p>
       )}
       {validationErrors && validationErrors.length > 0 && (
-        <div className="rounded border border-red-200 bg-red-50 p-2 text-red-800">
+        <div className="rounded border border-state-error-line bg-state-error-bg p-2 text-state-error-fg">
           <div className="font-medium mb-1">Spec has validation errors:</div>
           <ul className="list-disc pl-4 space-y-0.5 font-mono text-[10px]">
             {validationErrors.map((e, i) => (
@@ -1665,7 +1665,7 @@ function EmptyState({
       <button
         onClick={onStart}
         disabled={isPromptMode(mode) && !apiKey}
-        className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
+        className="rounded-md bg-emphasis px-3 py-1.5 text-xs font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:cursor-not-allowed disabled:opacity-40"
       >
         {mode === "voice" ? "Start voice session" : "Start session"}
         {mode === "runner" && !apiKey && (
@@ -1705,12 +1705,12 @@ function TurnView({
               type="button"
               onClick={() => onFork!(index, text)}
               title="Fork: rewind to this turn and try a different message"
-              className="mt-1 rounded px-1.5 py-0.5 text-[10px] text-zinc-400 opacity-0 transition-opacity hover:bg-zinc-100 hover:text-zinc-900 group-hover:opacity-100 focus:opacity-100"
+              className="mt-1 rounded px-1.5 py-0.5 text-[10px] text-text-tertiary opacity-0 transition-opacity hover:bg-surface-hover hover:text-text-primary group-hover:opacity-100 focus:opacity-100"
             >
               ↺ fork
             </button>
           )}
-          <div className="max-w-[85%] rounded-lg bg-zinc-900 px-3 py-2 text-sm text-white whitespace-pre-wrap">
+          <div className="max-w-[85%] rounded-lg bg-emphasis px-3 py-2 text-sm text-emphasis-fg whitespace-pre-wrap">
             {shown}
           </div>
         </div>
@@ -1738,11 +1738,11 @@ function TurnView({
       {preEvents.map((ev, i) => (
         <EventLine key={`pre-${i}`} ev={ev} spec={spec} />
       ))}
-      <div className="rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-900 whitespace-pre-wrap">
-        {text ? shown : <span className="italic text-zinc-400">(no text returned)</span>}
+      <div className="rounded-lg bg-surface-sunken px-3 py-2 text-sm text-text-primary whitespace-pre-wrap">
+        {text ? shown : <span className="italic text-text-tertiary">(no text returned)</span>}
       </div>
       {turn.latencyMs !== undefined && (
-        <div className="text-[10px] text-zinc-400">{formatLatency(turn.latencyMs)}</div>
+        <div className="text-[10px] text-text-tertiary">{formatLatency(turn.latencyMs)}</div>
       )}
       {postEvents.map((ev, i) => (
         <EventLine key={`post-${i}`} ev={ev} spec={spec} />
@@ -1799,9 +1799,9 @@ function EventLine({ ev, spec }: { ev: RuntimeEvent; spec: Spec | null }) {
   const target = selectionForEvent(ev, spec);
 
   return (
-    <details className="px-1 text-[10px] font-mono text-zinc-400 hover:text-zinc-600">
+    <details className="px-1 text-[10px] font-mono text-text-tertiary hover:text-text-primary">
       <summary className="cursor-pointer list-none">
-        <span className="text-zinc-300">→ </span>
+        <span className="text-text-disabled">→ </span>
         {target ? (
           <button
             type="button"
@@ -1811,7 +1811,7 @@ function EventLine({ ev, spec }: { ev: RuntimeEvent; spec: Spec | null }) {
               e.stopPropagation();
               setSelection(target);
             }}
-            className="text-zinc-500 underline decoration-dotted underline-offset-2 hover:text-zinc-900"
+            className="text-text-tertiary underline decoration-dotted underline-offset-2 hover:text-text-primary"
             title="Select on canvas"
           >
             {line}
@@ -1820,7 +1820,7 @@ function EventLine({ ev, spec }: { ev: RuntimeEvent; spec: Spec | null }) {
           line
         )}
       </summary>
-      <pre className="mt-1 overflow-auto whitespace-pre-wrap rounded bg-zinc-50 p-2 text-[10px] text-zinc-500">
+      <pre className="mt-1 overflow-auto whitespace-pre-wrap rounded bg-surface-sunken p-2 text-[10px] text-text-tertiary">
         {JSON.stringify(ev, null, 2)}
       </pre>
     </details>

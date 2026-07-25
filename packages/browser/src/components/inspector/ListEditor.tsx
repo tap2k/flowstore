@@ -30,7 +30,7 @@ export function ListEditor<T>({
   return (
     <div className="space-y-2">
       {items.length === 0 && (
-        <div className="text-xs text-zinc-400 italic">{emptyLabel}</div>
+        <div className="fs-caption text-text-tertiary italic">{emptyLabel}</div>
       )}
       {items.map((item, i) => (
         <Fragment key={i}>{renderItem(item, (n) => update(i, n), () => remove(i))}</Fragment>
@@ -38,7 +38,7 @@ export function ListEditor<T>({
       <button
         type="button"
         onClick={add}
-        className="text-xs text-zinc-600 hover:text-zinc-900 underline"
+        className="fs-caption text-text-secondary hover:text-text-primary underline"
       >
         + {addLabel}
       </button>

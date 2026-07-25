@@ -102,7 +102,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
               href="https://aistudio.google.com/app/apikey"
               target="_blank"
               rel="noreferrer"
-              className="underline hover:text-zinc-900"
+              className="underline hover:text-text-primary"
             >
               aistudio.google.com
             </a>
@@ -122,7 +122,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
               href="https://platform.openai.com/api-keys"
               target="_blank"
               rel="noreferrer"
-              className="underline hover:text-zinc-900"
+              className="underline hover:text-text-primary"
             >
               platform.openai.com/api-keys
             </a>
@@ -143,7 +143,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
               href="https://openrouter.ai/keys"
               target="_blank"
               rel="noreferrer"
-              className="underline hover:text-zinc-900"
+              className="underline hover:text-text-primary"
             >
               openrouter.ai/keys
             </a>
@@ -153,23 +153,23 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
       />
 
       <div className="space-y-2">
-        <label className="text-xs font-medium text-zinc-700">Default model</label>
+        <label className="fs-label text-text-secondary">Default model</label>
         <ModelPicker
           value={defaultModel}
           onChange={setGenerateModel}
           showUnconfigured
           structuredOnly
           keyOverrides={{ google: google.trim(), openai: openai.trim() }}
-          className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+          className="w-full rounded border border-border-default px-2 py-1.5 fs-body focus:outline-none focus:ring-1 focus:ring-focus-ring"
         />
-        <p className="text-[11px] text-zinc-500">
+        <p className="text-[11px] text-text-tertiary">
           Used wherever no explicit model is picked — generating personas,
           variables and mocks, and translating transcripts. Pick a structured-output model (Gemini or GPT). 
         </p>
       </div>
 
       <div className="space-y-2">
-        <label className="text-xs font-medium text-zinc-700">GitHub PAT</label>
+        <label className="fs-label text-text-secondary">GitHub PAT</label>
         <div className="flex gap-2">
           <input
             type={patReveal ? "text" : "password"}
@@ -179,32 +179,32 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
               setGhStatus({ kind: "idle" });
             }}
             placeholder="ghp_… or github_pat_…"
-            className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            className="flex-1 rounded border border-border-default px-2 py-1.5 fs-body font-mono focus:outline-none focus:ring-1 focus:ring-focus-ring"
           />
           <button
             onClick={() => setPatReveal((r) => !r)}
-            className="rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100"
+            className="rounded-md border border-border-default px-2 py-1 fs-caption text-text-secondary hover:bg-surface-hover"
           >
             {patReveal ? "hide" : "show"}
           </button>
           <button
             onClick={testGithub}
             disabled={ghStatus.kind === "testing" || !pat.trim()}
-            className="rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
+            className="rounded-md border border-border-default px-2 py-1 fs-caption text-text-secondary hover:bg-surface-hover disabled:opacity-40"
           >
             {ghStatus.kind === "testing" ? "testing…" : "test"}
           </button>
         </div>
         {ghStatus.kind === "ok" && (
-          <p className="text-[11px] text-emerald-700">
+          <p className="text-[11px] text-state-success-fg">
             Connected as <span className="font-mono">{ghStatus.login}</span>
             {ghStatus.name ? ` (${ghStatus.name})` : ""}.
           </p>
         )}
         {ghStatus.kind === "err" && (
-          <p className="text-[11px] text-red-700">{ghStatus.message}</p>
+          <p className="text-[11px] text-state-error-fg">{ghStatus.message}</p>
         )}
-        <p className="text-[11px] text-zinc-500">
+        <p className="text-[11px] text-text-tertiary">
           Fine-grained PAT. Set <span className="font-medium">Repository access</span> to
           {" "}<span className="font-medium">All repositories</span> (needed to create new
           projects), and grant these <span className="font-medium">Permissions</span>:
@@ -215,7 +215,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
             href="https://github.com/settings/personal-access-tokens/new"
             target="_blank"
             rel="noreferrer"
-            className="underline hover:text-zinc-900"
+            className="underline hover:text-text-primary"
           >
             github.com/settings/personal-access-tokens
           </a>
@@ -228,17 +228,17 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           it ships; the runner-gated editors key off runnerUrl and follow. */}
       {(import.meta.env.VITE_DEV === "1" || storedRunnerUrl !== "") && (
         <div className="space-y-2">
-          <label className="text-xs font-medium text-zinc-700">Runner URL</label>
+          <label className="fs-label text-text-secondary">Runner URL</label>
           <div className="flex gap-2">
             <input
               type="text"
               value={runnerUrl}
               onChange={(e) => setRunnerUrlInput(e.target.value)}
               placeholder={DEFAULT_RUNNER_URL}
-              className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              className="flex-1 rounded border border-border-default px-2 py-1.5 fs-body font-mono focus:outline-none focus:ring-1 focus:ring-focus-ring"
             />
           </div>
-          <p className="text-[11px] text-zinc-500">
+          <p className="text-[11px] text-text-tertiary">
             Endpoint for the Python runner backing Simulate&apos;s runner mode.
           </p>
         </div>
@@ -248,14 +248,14 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         <div className="flex items-center gap-2">
           <button
             onClick={() => (clearArmed ? clearAll() : setClearArmed(true))}
-            className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+            className="rounded-md border border-state-error-line px-3 py-1.5 fs-label text-state-error-fg hover:bg-state-error-bg"
           >
             {clearArmed ? "Confirm clear" : "Clear"}
           </button>
           {clearArmed && (
             <button
               onClick={() => setClearArmed(false)}
-              className="text-xs text-zinc-500 hover:text-zinc-900"
+              className="fs-caption text-text-tertiary hover:text-text-primary"
             >
               cancel
             </button>
@@ -263,7 +263,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         </div>
         <button
           onClick={save}
-          className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
+          className="rounded-md bg-emphasis px-3 py-1.5 fs-label text-emphasis-fg hover:bg-emphasis-hover"
         >
           Save
         </button>
@@ -284,23 +284,23 @@ function ApiKeyRow({ label, placeholder, value, onChange, help }: ApiKeyRowProps
   const [reveal, setReveal] = useState(false);
   return (
     <div className="space-y-2">
-      <label className="text-xs font-medium text-zinc-700">{label}</label>
+      <label className="fs-label text-text-secondary">{label}</label>
       <div className="flex gap-2">
         <input
           type={reveal ? "text" : "password"}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400"
+          className="flex-1 rounded border border-border-default px-2 py-1.5 fs-body font-mono focus:outline-none focus:ring-1 focus:ring-focus-ring"
         />
         <button
           onClick={() => setReveal((r) => !r)}
-          className="rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100"
+          className="rounded-md border border-border-default px-2 py-1 fs-caption text-text-secondary hover:bg-surface-hover"
         >
           {reveal ? "hide" : "show"}
         </button>
       </div>
-      <p className="text-[11px] text-zinc-500">{help}</p>
+      <p className="text-[11px] text-text-tertiary">{help}</p>
     </div>
   );
 }

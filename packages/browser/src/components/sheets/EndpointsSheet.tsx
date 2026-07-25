@@ -28,7 +28,7 @@ export function EndpointsSheet({ onClose }: { onClose: () => void }) {
           title="Inference"
           action={
             <button
-              className="text-xs text-zinc-500 hover:text-zinc-900"
+              className="fs-caption text-text-tertiary hover:text-text-primary"
               onClick={() => {
                 setModelEntry(genId("model"), { name: "", endpoint: "openai-compatible", base_url: "" });
               }}
@@ -38,7 +38,7 @@ export function EndpointsSheet({ onClose }: { onClose: () => void }) {
           }
         >
           {Object.keys(models).length === 0 ? (
-            <p className="text-xs text-zinc-400 italic">
+            <p className="fs-caption text-text-tertiary italic">
               No project inference endpoints. Add one to target a custom or self-hosted server.
             </p>
           ) : (
@@ -59,12 +59,12 @@ export function EndpointsSheet({ onClose }: { onClose: () => void }) {
           title="Capabilities"
           action={
             capabilities.length === 0 ? undefined : (
-              <span className="text-[10px] text-zinc-400">toggle live/mock per capability</span>
+              <span className="text-[10px] text-text-tertiary">toggle live/mock per capability</span>
             )
           }
         >
           {capabilities.length === 0 ? (
-            <p className="text-xs text-zinc-400 italic">
+            <p className="fs-caption text-text-tertiary italic">
               No capabilities defined in this spec. Add capabilities first.
             </p>
           ) : (
@@ -132,7 +132,7 @@ function InferenceRow({
   }
 
   return (
-    <div className="rounded border border-zinc-200 bg-zinc-50 p-3 space-y-2">
+    <div className="rounded border border-border-default bg-surface-sunken p-3 space-y-2">
       <div className="flex items-center gap-2">
         <input
           className={`${inputClass} flex-1`}
@@ -141,7 +141,7 @@ function InferenceRow({
           placeholder="Endpoint name"
           autoFocus={!entry.name}
         />
-        <button onClick={onRemove} className="text-xs text-zinc-400 hover:text-red-600 shrink-0">
+        <button onClick={onRemove} className="fs-caption text-text-tertiary hover:text-state-error-fg shrink-0">
           ×
         </button>
       </div>
@@ -194,11 +194,11 @@ function CapabilityRow({
   const isLive = endpoint !== null;
 
   return (
-    <div className={`rounded border px-3 py-2 space-y-2 ${stale ? "border-amber-200 bg-amber-50" : "border-zinc-200 bg-zinc-50"}`}>
+    <div className={`rounded border px-3 py-2 space-y-2 ${stale ? "border-state-warning-line bg-state-warning-bg" : "border-border-default bg-surface-sunken"}`}>
       <div className="flex items-center gap-2">
-        <span className="font-mono text-xs font-medium text-zinc-900 flex-1">{name}</span>
-        {stale && <span className="text-[10px] text-amber-700">not in spec</span>}
-        <label className="flex items-center gap-1.5 text-xs text-zinc-600 cursor-pointer">
+        <span className="font-mono fs-label text-text-primary flex-1">{name}</span>
+        {stale && <span className="text-[10px] text-state-warning-fg">not in spec</span>}
+        <label className="flex items-center gap-1.5 fs-caption text-text-secondary cursor-pointer">
           <input
             type="checkbox"
             checked={isLive}
@@ -209,7 +209,7 @@ function CapabilityRow({
           live
         </label>
         {stale && (
-          <button onClick={() => onChange(null)} className="text-xs text-zinc-400 hover:text-red-600">
+          <button onClick={() => onChange(null)} className="fs-caption text-text-tertiary hover:text-state-error-fg">
             ×
           </button>
         )}
@@ -266,9 +266,9 @@ function HeadersEditor({
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-zinc-500">headers (not saved to disk)</span>
+        <span className="text-[10px] text-text-tertiary">headers (not saved to disk)</span>
         <button
-          className="text-[10px] text-zinc-400 hover:text-zinc-700"
+          className="text-[10px] text-text-tertiary hover:text-text-primary"
           onClick={() => onChange({ ...headers, "": "" })}
         >
           + add
@@ -294,7 +294,7 @@ function HeadersEditor({
             placeholder="Bearer ..."
           />
           <button
-            className="text-xs text-zinc-400 hover:text-red-600 shrink-0"
+            className="fs-caption text-text-tertiary hover:text-state-error-fg shrink-0"
             onClick={() => {
               const next = Object.fromEntries(entries.filter((_, j) => j !== i));
               onChange(next);

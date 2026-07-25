@@ -15,7 +15,7 @@ export function TagChips({ tags }: { tags: string[] | undefined }) {
             key={t}
             title={t}
             className={`rounded px-1.5 py-0.5 text-[9px] font-medium ${
-              isFlow ? "bg-indigo-100 text-indigo-700" : "bg-zinc-100 text-zinc-600"
+              isFlow ? "bg-state-running-bg text-state-running-fg" : "bg-surface-sunken text-text-secondary"
             }`}
           >
             {isFlow ? t.slice("flow:".length) : t}
@@ -48,7 +48,7 @@ export function TagsField({
   }
   return (
     <div>
-      <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+      <label className="block text-[10px] uppercase tracking-wide text-text-tertiary">
         tags
       </label>
       {tags.length > 0 && (
@@ -59,7 +59,7 @@ export function TagsField({
               <span
                 key={t}
                 className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                  isFlow ? "bg-indigo-100 text-indigo-700" : "bg-zinc-100 text-zinc-600"
+                  isFlow ? "bg-state-running-bg text-state-running-fg" : "bg-surface-sunken text-text-secondary"
                 }`}
               >
                 {isFlow ? t.slice("flow:".length) : t}
@@ -67,7 +67,7 @@ export function TagsField({
                   type="button"
                   onClick={() => onChange(tags.filter((x) => x !== t))}
                   title="remove tag"
-                  className="leading-none text-zinc-400 hover:text-red-600"
+                  className="leading-none text-text-tertiary hover:text-state-error-fg"
                 >
                   ×
                 </button>
@@ -89,7 +89,7 @@ export function TagsField({
         }}
         onBlur={() => add(draft)}
         placeholder="add tag — e.g. happy-path, negotiation, flow:…"
-        className="mt-1 w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+        className="mt-1 w-full rounded border border-border-default bg-surface-panel px-2 py-1 text-[11px] text-text-primary focus:outline-none focus:ring-1 focus:ring-focus-ring"
       />
       <datalist id={listId}>
         {draft.trim() !== "" && suggestions.map((s) => <option key={s} value={s} />)}

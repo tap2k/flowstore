@@ -105,15 +105,15 @@ function CaseList({
 }) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-1.5">
-        <div className="text-[11px] text-zinc-500">
+      <div className="flex items-center justify-between border-b border-border-default px-3 py-1.5">
+        <div className="text-[11px] text-text-tertiary">
           {cases.length} {cases.length === 1 ? "case" : "cases"}
         </div>
         <button
           type="button"
           onClick={onNew}
           title="Create a new test case (rename + fill it in the editor). You can also capture from the Simulate tab."
-          className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50"
+          className="rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[11px] text-text-secondary hover:bg-surface-hover"
         >
           + New
         </button>
@@ -121,30 +121,30 @@ function CaseList({
 
       <div className="flex-1 overflow-auto">
         {cases.length === 0 ? (
-          <div className="px-3 py-6 text-center text-[11px] text-zinc-500">
+          <div className="px-3 py-6 text-center text-[11px] text-text-tertiary">
             No test cases yet. Click{" "}
             <span className="font-medium">+ New</span> above, or capture a
             transcript from the Simulate tab.
           </div>
         ) : (
-          <ul className="divide-y divide-zinc-200">
+          <ul className="divide-y divide-border-default">
             {cases.map((c) => (
               <li key={c.id}>
                 <button
                   type="button"
                   onClick={() => onSelect(c.id)}
-                  className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-zinc-50"
+                  className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-surface-hover"
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[12px] font-medium text-zinc-900">
+                    <div className="truncate text-[12px] font-medium text-text-primary">
                       {c.name || c.id}
                     </div>
-                    <div className="truncate font-mono text-[10px] text-zinc-500">
+                    <div className="truncate font-mono text-[10px] text-text-tertiary">
                       {c.id} | {actorOf(c)}
                     </div>
                     <TagChips tags={c.tags} />
                   </div>
-                  <span className="ml-2 text-zinc-400">▸</span>
+                  <span className="ml-2 text-text-tertiary">▸</span>
                 </button>
               </li>
             ))}
@@ -384,15 +384,15 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between gap-2 border-b border-zinc-200 px-3 py-1.5">
-        <div className="text-[11px] text-zinc-500">
+      <div className="flex items-center justify-between gap-2 border-b border-border-default px-3 py-1.5">
+        <div className="text-[11px] text-text-tertiary">
           {casesCount} {casesCount === 1 ? "case" : "cases"}
         </div>
         <button
           type="button"
           onClick={onNew}
           title="Create a new test case (rename + fill it in the editor). You can also capture from the Simulate tab."
-          className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50"
+          className="rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[11px] text-text-secondary hover:bg-surface-hover"
         >
           + New
         </button>
@@ -402,22 +402,22 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
         type="button"
         onClick={onBack}
         title="Click to collapse back to the case list."
-        className="flex w-full items-center justify-between gap-2 border-b border-zinc-200 px-3 py-2 text-left hover:bg-zinc-50"
+        className="flex w-full items-center justify-between gap-2 border-b border-border-default px-3 py-2 text-left hover:bg-surface-hover"
       >
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[12px] font-medium text-zinc-900">
+          <div className="truncate text-[12px] font-medium text-text-primary">
             {testCase.name || testCase.id}
           </div>
-          <div className="truncate font-mono text-[10px] text-zinc-500">
+          <div className="truncate font-mono text-[10px] text-text-tertiary">
             {testCase.id} | {actorOf(testCase)}
           </div>
         </div>
-        <span className="ml-2 text-zinc-400">▾</span>
+        <span className="ml-2 text-text-tertiary">▾</span>
       </button>
 
       <div className="flex-1 overflow-auto px-3 py-3 space-y-5 text-[11px]">
         <div>
-          <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+          <label className="block text-[10px] uppercase tracking-wide text-text-tertiary">
             name
           </label>
           <input
@@ -425,12 +425,12 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Human-readable label"
-            className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            className="w-full rounded border border-border-default bg-surface-panel px-2 py-1 text-[11px] text-text-primary focus:outline-none focus:ring-1 focus:ring-focus-ring"
           />
         </div>
 
         <div>
-          <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+          <label className="block text-[10px] uppercase tracking-wide text-text-tertiary">
             notes
           </label>
           <textarea
@@ -438,7 +438,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
             onChange={(e) => setNotes(e.target.value)}
             placeholder="What does this case test?"
             rows={2}
-            className="w-full resize-y rounded border border-zinc-300 bg-white p-1.5 text-[11px] leading-snug text-zinc-800"
+            className="w-full resize-y rounded border border-border-default bg-surface-panel p-1.5 text-[11px] leading-snug text-text-primary"
           />
         </div>
 
@@ -447,13 +447,13 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
         <div className="flex gap-2">
           {showLanguage && (
             <div className="w-24 shrink-0">
-              <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+              <label className="block text-[10px] uppercase tracking-wide text-text-tertiary">
                 language
               </label>
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value)}
-                className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700"
+                className="w-full rounded border border-border-default bg-surface-panel px-2 py-1 text-[11px] text-text-secondary"
                 title="Language code to scope this case's scripts/FAQ. Overrides the Simulate-tab language picker on Open in Sim."
               >
                 <option value="">— all —</option>
@@ -468,7 +468,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
         </div>
 
         <div>
-          <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+          <label className="block text-[10px] uppercase tracking-wide text-text-tertiary">
             actor
           </label>
           <div className="mt-1 flex gap-3">
@@ -492,7 +492,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
 
           {actor === "persona" &&
             (personas.length === 0 ? (
-              <div className="mt-2 text-[11px] text-zinc-500 italic">
+              <div className="mt-2 text-[11px] text-text-tertiary italic">
                 No saved personas. Create one in the Personas tab, or use an inline prompt.
               </div>
             ) : (
@@ -500,7 +500,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
                 value={personaId}
                 onChange={(e) => setPersonaId(e.target.value)}
                 title="Reusable actor. Its system_prompt drives the simulated user; its vars + mocks are inherited, with this case's fixture overriding per key."
-                className="mt-2 w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-800"
+                className="mt-2 w-full rounded border border-border-default bg-surface-panel px-2 py-1 text-[11px] text-text-primary"
               >
                 <option value="">— pick a persona —</option>
                 {personas.map((p) => (
@@ -517,7 +517,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
               onChange={(e) => setInlinePrompt(e.target.value)}
               rows={6}
               placeholder="One-off system prompt for the simulated user (no reusable persona file)."
-              className="mt-2 w-full resize-y rounded border border-zinc-300 bg-white p-2 font-mono text-[11px] leading-snug text-zinc-800"
+              className="mt-2 w-full resize-y rounded border border-border-default bg-surface-panel p-2 font-mono text-[11px] leading-snug text-text-primary"
             />
           )}
         </div>
@@ -580,12 +580,12 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
           />
         </Section>
 
-        <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-200">
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-border-default">
           <button
             type="button"
             onClick={handleDelete}
             title="Delete this case."
-            className="rounded border border-red-300 bg-white px-2 py-1 text-[11px] text-red-700 hover:bg-red-50"
+            className="rounded border border-state-error-line bg-surface-panel px-2 py-1 text-[11px] text-state-error-fg hover:bg-state-error-bg"
           >
             Delete
           </button>
@@ -594,7 +594,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
               type="button"
               onClick={handleOpenInSimulate}
               title="Load this case's persona/mocks into the Simulate tab and switch to it."
-              className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
+              className="rounded border border-border-default bg-surface-panel px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover"
             >
               Open in Sim ▶
             </button>
@@ -602,7 +602,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
               type="button"
               onClick={handleCopy}
               title="Duplicate this case — handy for variant authoring (same persona, different assertions)."
-              className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700 hover:bg-zinc-50"
+              className="rounded border border-border-default bg-surface-panel px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover"
             >
               Copy
             </button>
@@ -611,7 +611,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
               onClick={handleSave}
               disabled={!dirty}
               title={dirty ? "Save changes to this case." : "No unsaved edits."}
-              className="rounded-md bg-zinc-900 px-3 py-1 text-[11px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+              className="rounded-md bg-emphasis px-3 py-1 text-[11px] font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-40"
             >
               Save
             </button>
@@ -625,7 +625,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wide text-zinc-500">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-text-tertiary">{label}</div>
       <div className="space-y-3">{children}</div>
     </div>
   );
@@ -651,28 +651,28 @@ function PersonaFixtureView({
   const mockEntries = Object.entries(mocks);
   if (varEntries.length === 0 && mockEntries.length === 0) return null;
   return (
-    <div className="rounded border border-zinc-200 bg-zinc-50">
+    <div className="rounded border border-border-default bg-surface-sunken">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between px-2 py-1.5 text-left hover:bg-zinc-100"
+        className="flex w-full items-center justify-between px-2 py-1.5 text-left hover:bg-surface-hover"
         title="Inherited from the bound persona; read-only here. Edit it on the persona. The case fixture above merges over these."
       >
-        <span className="text-[10px] uppercase tracking-wide text-zinc-500">
+        <span className="text-[10px] uppercase tracking-wide text-text-tertiary">
           from persona · {varEntries.length} vars · {mockEntries.length} mocks
         </span>
-        <span className="text-zinc-400">{open ? "▾" : "▸"}</span>
+        <span className="text-text-tertiary">{open ? "▾" : "▸"}</span>
       </button>
       {open && (
-        <div className="space-y-1.5 border-t border-zinc-100 px-2 py-2 font-mono text-[10px] text-zinc-700">
+        <div className="space-y-1.5 border-t border-border-subtle px-2 py-2 font-mono text-[10px] text-text-secondary">
           {varEntries.map(([k, v]) => (
             <div key={k} className="truncate">
-              <span className="text-zinc-500">{k}</span> = {JSON.stringify(v)}
+              <span className="text-text-tertiary">{k}</span> = {JSON.stringify(v)}
             </div>
           ))}
           {mockEntries.map(([id, b]) => (
             <div key={id} className="truncate">
-              <span className="text-zinc-500">{nameOf(id)}</span>{" "}
+              <span className="text-text-tertiary">{nameOf(id)}</span>{" "}
               {b.kind === "error" ? `→ error: ${b.error}` : `→ ${JSON.stringify(b.returns)}`}
             </div>
           ))}
@@ -711,28 +711,28 @@ function UserTurnsList({
   return (
     <div className="mt-2 space-y-1.5">
       {turns.length === 0 && (
-        <div className="text-[11px] text-zinc-500 italic">
+        <div className="text-[11px] text-text-tertiary italic">
           No user turns. Click + add to script one.
         </div>
       )}
       {turns.map((t, i) => (
         <div key={i} className="flex items-start gap-1.5">
-          <span className="mt-1.5 w-4 text-right text-[10px] text-zinc-400">{i + 1}</span>
+          <span className="mt-1.5 w-4 text-right text-[10px] text-text-tertiary">{i + 1}</span>
           <div className="flex-1">
             <textarea
               value={turnText(t)}
               onChange={(e) => update(i, e.target.value)}
               rows={1}
-              className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-800 resize-y"
+              className="w-full rounded border border-border-default bg-surface-panel px-2 py-1 text-[11px] text-text-primary resize-y"
             />
             {typeof t !== "string" && t.barge_in && (
-              <span className="text-[10px] text-amber-700">⊣ barge-in</span>
+              <span className="text-[10px] text-state-warning-fg">⊣ barge-in</span>
             )}
           </div>
           <button
             type="button"
             onClick={() => remove(i)}
-            className="mt-1 rounded border border-zinc-200 bg-white px-1 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-50"
+            className="mt-1 rounded border border-border-default bg-surface-panel px-1 py-0.5 text-[10px] text-text-tertiary hover:bg-surface-hover"
             title="Remove turn"
           >
             ✕
@@ -742,7 +742,7 @@ function UserTurnsList({
       <button
         type="button"
         onClick={add}
-        className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
+        className="rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover"
       >
         + add turn
       </button>
@@ -818,13 +818,13 @@ function PerTurnAssertionList({
     <SubSection label="per-turn">
       {rows.map((r, i) => (
         <div key={i} className="flex items-center gap-1">
-          <span className="text-[10px] text-zinc-500">t</span>
+          <span className="text-[10px] text-text-tertiary">t</span>
           <input
             type="number"
             min={1}
             value={r.turn}
             onChange={(e) => update(i, { turn: parseInt(e.target.value, 10) || 1 })}
-            className="w-10 rounded border border-zinc-300 px-1 py-0.5 text-[11px]"
+            className="w-10 rounded border border-border-default px-1 py-0.5 text-[11px]"
             title="Agent turn index (1 = first agent turn)."
           />
           <select
@@ -832,7 +832,7 @@ function PerTurnAssertionList({
             onChange={(e) =>
               update(i, { op: e.target.value as PerTurnRow["op"] })
             }
-            className="rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] text-zinc-700"
+            className="rounded border border-border-default bg-surface-panel px-1 py-0.5 text-[11px] text-text-secondary"
           >
             <option value="contains">contains</option>
             <option value="doesnt_contain">doesn't contain</option>
@@ -842,12 +842,12 @@ function PerTurnAssertionList({
             value={r.text}
             onChange={(e) => update(i, { text: e.target.value })}
             placeholder="substring"
-            className="flex-1 min-w-0 rounded border border-zinc-300 px-2 py-0.5 text-[11px]"
+            className="flex-1 min-w-0 rounded border border-border-default px-2 py-0.5 text-[11px]"
           />
           <button
             type="button"
             onClick={() => remove(i)}
-            className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-50"
+            className="rounded border border-border-default bg-surface-panel px-1.5 py-0.5 text-[10px] text-text-tertiary hover:bg-surface-hover"
           >
             ✕
           </button>
@@ -856,7 +856,7 @@ function PerTurnAssertionList({
       <button
         type="button"
         onClick={add}
-        className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
+        className="rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover"
       >
         + add
       </button>
@@ -891,7 +891,7 @@ function TranscriptAssertionList({
             onChange={(e) =>
               update(i, { kind: e.target.value as TranscriptAssn["kind"] })
             }
-            className="rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px]"
+            className="rounded border border-border-default bg-surface-panel px-1 py-0.5 text-[11px]"
           >
             <option value="substring">substring</option>
             <option value="regex">regex</option>
@@ -904,7 +904,7 @@ function TranscriptAssertionList({
               placeholder={a.kind === "regex" ? "regex (case-insensitive)" : "pattern"}
               value={a.pattern ?? ""}
               onChange={(e) => update(i, { pattern: e.target.value })}
-              className="flex-1 min-w-0 rounded border border-zinc-300 px-2 py-0.5 text-[11px]"
+              className="flex-1 min-w-0 rounded border border-border-default px-2 py-0.5 text-[11px]"
             />
           )}
           {(a.kind === "substring" || a.kind === "regex") && (
@@ -912,7 +912,7 @@ function TranscriptAssertionList({
               value={a.must_appear === false ? "false" : "true"}
               onChange={(e) => update(i, { must_appear: e.target.value === "true" })}
               title="Whether the pattern should appear at least once in the agent's combined transcript."
-              className="rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] text-zinc-700"
+              className="rounded border border-border-default bg-surface-panel px-1 py-0.5 text-[11px] text-text-secondary"
             >
               <option value="true">should appear</option>
               <option value="false">should not</option>
@@ -932,7 +932,7 @@ function TranscriptAssertionList({
                   })
                 }
                 title="Minimum occurrences"
-                className="w-12 rounded border border-zinc-300 px-1 py-0.5 text-[11px]"
+                className="w-12 rounded border border-border-default px-1 py-0.5 text-[11px]"
               />
               <input
                 type="number"
@@ -946,7 +946,7 @@ function TranscriptAssertionList({
                   })
                 }
                 title="Maximum occurrences"
-                className="w-12 rounded border border-zinc-300 px-1 py-0.5 text-[11px]"
+                className="w-12 rounded border border-border-default px-1 py-0.5 text-[11px]"
               />
             </>
           )}
@@ -963,13 +963,13 @@ function TranscriptAssertionList({
                 })
               }
               title="Fail if the agent produces more than this many turns."
-              className="flex-1 min-w-0 rounded border border-zinc-300 px-2 py-0.5 text-[11px]"
+              className="flex-1 min-w-0 rounded border border-border-default px-2 py-0.5 text-[11px]"
             />
           )}
           <button
             type="button"
             onClick={() => remove(i)}
-            className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-50"
+            className="rounded border border-border-default bg-surface-panel px-1.5 py-0.5 text-[10px] text-text-tertiary hover:bg-surface-hover"
           >
             ✕
           </button>
@@ -978,7 +978,7 @@ function TranscriptAssertionList({
       <button
         type="button"
         onClick={add}
-        className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
+        className="rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover"
       >
         + add
       </button>
@@ -1023,14 +1023,14 @@ function StateAssertionList({
       {assertions.map((a, i) => {
         const op = operatorOf(a);
         return (
-          <div key={i} className="rounded border border-zinc-200 bg-white p-2 space-y-1">
+          <div key={i} className="rounded border border-border-default bg-surface-panel p-2 space-y-1">
             <div className="flex items-center gap-1">
               <input
                 type="text"
                 placeholder="variable name"
                 value={a.variable}
                 onChange={(e) => update(i, { ...a, variable: e.target.value })}
-                className="flex-1 rounded border border-zinc-300 px-2 py-1 text-[11px] font-mono"
+                className="flex-1 rounded border border-border-default px-2 py-1 text-[11px] font-mono"
               />
               <select
                 value={op}
@@ -1055,7 +1055,7 @@ function StateAssertionList({
                         ? "Strict equality (Python ==) against the operand."
                         : "Regex match against str(value)."
                 }
-                className="rounded border border-zinc-300 bg-white px-1 py-1 text-[11px] text-zinc-700"
+                className="rounded border border-border-default bg-surface-panel px-1 py-1 text-[11px] text-text-secondary"
               >
                 <option value="must_be_set">must be set</option>
                 <option value="must_be_unset">must be unset</option>
@@ -1065,7 +1065,7 @@ function StateAssertionList({
               <button
                 type="button"
                 onClick={() => remove(i)}
-                className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-50"
+                className="rounded border border-border-default bg-surface-panel px-1.5 py-0.5 text-[10px] text-text-tertiary hover:bg-surface-hover"
               >
                 ✕
               </button>
@@ -1090,7 +1090,7 @@ function StateAssertionList({
                     update(i, { variable: a.variable, matches: e.target.value });
                   }
                 }}
-                className="w-full rounded border border-zinc-300 px-2 py-1 text-[11px]"
+                className="w-full rounded border border-border-default px-2 py-1 text-[11px]"
               />
             )}
           </div>
@@ -1099,7 +1099,7 @@ function StateAssertionList({
       <button
         type="button"
         onClick={add}
-        className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
+        className="rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover"
       >
         + add
       </button>
@@ -1138,7 +1138,7 @@ function CapabilityAssertionList({
           <select
             value={a.capability}
             onChange={(e) => update(i, { capability: e.target.value })}
-            className="flex-1 min-w-0 rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] font-mono text-zinc-700"
+            className="flex-1 min-w-0 rounded border border-border-default bg-surface-panel px-1 py-0.5 text-[11px] font-mono text-text-secondary"
           >
             {capabilities.map((c) => (
               <option key={c.id} value={c.id}>
@@ -1154,7 +1154,7 @@ function CapabilityAssertionList({
             value={a.invoked === false ? "false" : "true"}
             onChange={(e) => update(i, { invoked: e.target.value === "true" })}
             title="Whether the capability should be invoked at least once during the run."
-            className="rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] text-zinc-700"
+            className="rounded border border-border-default bg-surface-panel px-1 py-0.5 text-[11px] text-text-secondary"
           >
             <option value="true">invoked</option>
             <option value="false">not invoked</option>
@@ -1162,7 +1162,7 @@ function CapabilityAssertionList({
           <button
             type="button"
             onClick={() => remove(i)}
-            className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-50"
+            className="rounded border border-border-default bg-surface-panel px-1.5 py-0.5 text-[10px] text-text-tertiary hover:bg-surface-hover"
           >
             ✕
           </button>
@@ -1172,7 +1172,7 @@ function CapabilityAssertionList({
         type="button"
         onClick={add}
         disabled={capabilities.length === 0}
-        className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+        className="rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
       >
         + add
       </button>
@@ -1236,7 +1236,7 @@ function EvaluatorsList({
             ? null
             : BUILTIN_EVALUATORS[v] ?? "Python evaluator (hand-authored)";
           return (
-            <div key={i} className="rounded border border-zinc-200 bg-white">
+            <div key={i} className="rounded border border-border-default bg-surface-panel">
               <div className="flex items-center gap-1 px-2 py-0.5">
                 <button
                   type="button"
@@ -1251,26 +1251,26 @@ function EvaluatorsList({
                 >
                   <div className="flex items-center gap-1">
                     {rubric && (
-                      <span className="text-zinc-400 text-[10px]">
+                      <span className="text-text-tertiary text-[10px]">
                         {isExpanded ? "▾" : "▸"}
                       </span>
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="truncate text-[11px] text-zinc-800">{primary}</span>
+                        <span className="truncate text-[11px] text-text-primary">{primary}</span>
                         {!rubric && (
-                          <span className="shrink-0 rounded bg-zinc-100 px-1 text-[9px] uppercase tracking-wide text-zinc-500">
+                          <span className="shrink-0 rounded bg-surface-sunken px-1 text-[9px] uppercase tracking-wide text-text-tertiary">
                             built-in
                           </span>
                         )}
                       </div>
                       {rubric?.name && rubric.name !== v && (
-                        <div className="truncate font-mono text-[10px] text-zinc-500">
+                        <div className="truncate font-mono text-[10px] text-text-tertiary">
                           {v}
                         </div>
                       )}
                       {builtinDesc && (
-                        <div className="truncate text-[10px] text-zinc-500">{builtinDesc}</div>
+                        <div className="truncate text-[10px] text-text-tertiary">{builtinDesc}</div>
                       )}
                     </div>
                   </div>
@@ -1278,7 +1278,7 @@ function EvaluatorsList({
                 <button
                   type="button"
                   onClick={() => remove(i)}
-                  className="rounded border border-zinc-200 bg-white px-1 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-50"
+                  className="rounded border border-border-default bg-surface-panel px-1 py-0.5 text-[10px] text-text-tertiary hover:bg-surface-hover"
                 >
                   ✕
                 </button>
@@ -1312,7 +1312,7 @@ function EvaluatorsList({
               addRubric(v);
             }}
             disabled={available.length === 0}
-            className="flex-1 min-w-0 rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 disabled:opacity-40"
+            className="flex-1 min-w-0 rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[10px] text-text-secondary disabled:opacity-40"
           >
             <option value="">
               {available.length === 0
@@ -1334,7 +1334,7 @@ function EvaluatorsList({
             type="button"
             onClick={addNewRubric}
             title="Create a new rubric and bind it. The inline editor opens — set criteria + prompt template right here."
-            className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 whitespace-nowrap"
+            className="rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover whitespace-nowrap"
           >
             + new
           </button>
@@ -1418,20 +1418,20 @@ function RubricInlineEditor({
   }
 
   return (
-    <div className="space-y-1.5 border-t border-zinc-100 bg-zinc-50/60 p-2">
+    <div className="space-y-1.5 border-t border-border-subtle bg-surface-sunken/60 p-2">
       <div>
-        <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+        <label className="block text-[10px] uppercase tracking-wide text-text-tertiary">
           name
         </label>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px]"
+          className="w-full rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[11px]"
         />
       </div>
       <div>
-        <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+        <label className="block text-[10px] uppercase tracking-wide text-text-tertiary">
           criteria
         </label>
         <textarea
@@ -1439,11 +1439,11 @@ function RubricInlineEditor({
           onChange={(e) => setCriteria(e.target.value)}
           rows={2}
           placeholder="What the judge should check for."
-          className="w-full resize-y rounded border border-zinc-300 bg-white p-1.5 text-[11px] leading-snug"
+          className="w-full resize-y rounded border border-border-default bg-surface-panel p-1.5 text-[11px] leading-snug"
         />
       </div>
       <div>
-        <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+        <label className="block text-[10px] uppercase tracking-wide text-text-tertiary">
           scale
         </label>
         <div className="flex items-center gap-1.5">
@@ -1452,23 +1452,23 @@ function RubricInlineEditor({
             value={scaleMin}
             onChange={(e) => setScaleMin(e.target.value)}
             aria-label="scale minimum"
-            className="w-16 rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px]"
+            className="w-16 rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[11px]"
           />
-          <span className="text-[11px] text-zinc-400">to</span>
+          <span className="text-[11px] text-text-tertiary">to</span>
           <input
             type="number"
             value={scaleMax}
             onChange={(e) => setScaleMax(e.target.value)}
             aria-label="scale maximum"
-            className="w-16 rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px]"
+            className="w-16 rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[11px]"
           />
           {!scaleValid && (
-            <span className="text-[10px] text-red-600">min must be &lt; max</span>
+            <span className="text-[10px] text-state-error-fg">min must be &lt; max</span>
           )}
         </div>
       </div>
       <div>
-        <label className="block text-[10px] uppercase tracking-wide text-zinc-500">
+        <label className="block text-[10px] uppercase tracking-wide text-text-tertiary">
           prompt_template
         </label>
         <textarea
@@ -1476,14 +1476,14 @@ function RubricInlineEditor({
           onChange={(e) => setPromptTemplate(e.target.value)}
           rows={5}
           placeholder="LLM-judge prompt. Placeholders: {{transcript}}, {{criteria}}, {{scale.min}}, {{scale.max}}."
-          className="w-full resize-y rounded border border-zinc-300 bg-white p-1.5 font-mono text-[10px] leading-snug"
+          className="w-full resize-y rounded border border-border-default bg-surface-panel p-1.5 font-mono text-[10px] leading-snug"
         />
       </div>
       <div className="flex items-center justify-between gap-1">
         <button
           type="button"
           onClick={handleDelete}
-          className="rounded border border-red-300 bg-white px-2 py-0.5 text-[10px] text-red-700 hover:bg-red-50"
+          className="rounded border border-state-error-line bg-surface-panel px-2 py-0.5 text-[10px] text-state-error-fg hover:bg-state-error-bg"
         >
           Delete rubric
         </button>
@@ -1491,7 +1491,7 @@ function RubricInlineEditor({
           type="button"
           onClick={handleSave}
           disabled={!dirty || !scaleValid}
-          className="rounded-md bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+          className="rounded-md bg-emphasis px-2 py-0.5 text-[10px] font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-40"
         >
           Save rubric
         </button>
@@ -1511,7 +1511,7 @@ function SubSection({
 }) {
   return (
     <div className="space-y-1">
-      <div className={`text-[10px] ${labelClassName ?? "text-zinc-500"}`}>{label}</div>
+      <div className={`text-[10px] ${labelClassName ?? "text-text-tertiary"}`}>{label}</div>
       <div className="space-y-1">{children}</div>
     </div>
   );

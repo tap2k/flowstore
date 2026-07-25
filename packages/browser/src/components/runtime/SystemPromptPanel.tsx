@@ -170,15 +170,15 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
   }
 
   return (
-    <aside className="flex flex-col h-full w-[380px] border-l border-zinc-200 bg-white">
-      <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2">
-        <div className="text-sm font-semibold text-zinc-900">System prompt</div>
+    <aside className="flex flex-col h-full w-[380px] border-l border-border-default bg-surface-panel">
+      <div className="flex items-center justify-between border-b border-border-default px-4 py-2">
+        <div className="text-sm font-semibold text-text-primary">System prompt</div>
         <div className="flex items-center gap-1">
           <button
             onClick={() => copy(false)}
             title="Copy the prompt with {{variable}} placeholders (flowstore's convention)."
             className={`rounded px-2 py-1 text-[11px] ${
-              copied === "double" ? "text-emerald-600" : "text-zinc-600 hover:bg-zinc-100"
+              copied === "double" ? "text-state-success-fg" : "text-text-secondary hover:bg-surface-hover"
             }`}
           >
             {copied === "double" ? "copied ✓" : "copy"}
@@ -187,22 +187,22 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
             onClick={() => copy(true)}
             title="Copy with {{variable}} down-converted to single-brace {variable}, for runtimes with single-brace interpolation. Note: literal single braces in the prompt become ambiguous on those runtimes."
             className={`rounded px-2 py-1 text-[11px] ${
-              copied === "single" ? "text-emerald-600" : "text-zinc-600 hover:bg-zinc-100"
+              copied === "single" ? "text-state-success-fg" : "text-text-secondary hover:bg-surface-hover"
             }`}
           >
             {copied === "single" ? "copied ✓" : "copy (single-bracket)"}
           </button>
           <button
             onClick={onClose}
-            className="rounded px-2 py-1 text-[11px] text-zinc-600 hover:bg-zinc-100"
+            className="rounded px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover"
           >
             close
           </button>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 border-b border-zinc-200 px-4 py-1.5 text-[11px]">
-        <div className="flex overflow-hidden rounded border border-zinc-200">
+      <div className="flex items-center gap-2 border-b border-border-default px-4 py-1.5 text-[11px]">
+        <div className="flex overflow-hidden rounded border border-border-default">
           <ToggleButton active={mode === "view"} onClick={() => setMode("view")}>
             View
           </ToggleButton>
@@ -220,7 +220,7 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
                 ? "Revert to change language"
                 : "auto: every declared language (what an unpinned session sends). Pin a code to render scripts and FAQ in one language."
             }
-            className="ml-auto rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+            className="ml-auto rounded border border-border-default bg-surface-panel px-1.5 py-0.5 text-[11px] text-text-secondary hover:bg-surface-hover disabled:opacity-50"
           >
             <option value="">auto</option>
             {availableLanguages.map((code) => (
@@ -244,7 +244,7 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
       )}
 
       {(specChangedSinceEdit || edited) && (
-        <div className="flex items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+        <div className="flex items-center justify-between gap-2 border-b border-state-warning-line bg-state-warning-bg px-3 py-2 text-[11px] text-state-warning-fg">
           <span>
             {specChangedSinceEdit
               ? "Spec changed since edit"
@@ -252,7 +252,7 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
           </span>
           <button
             onClick={revert}
-            className="rounded border border-amber-300 bg-white px-2 py-0.5 text-amber-800 hover:bg-amber-100"
+            className="rounded border border-state-warning-line bg-surface-panel px-2 py-0.5 text-state-warning-fg hover:bg-state-warning-bg"
           >
             {specChangedSinceEdit ? "Revert to recompile" : "Revert"}
           </button>
@@ -298,7 +298,11 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
                     {label}
                   </div>
                 )}
-                <pre className="whitespace-pre-wrap break-words font-mono text-[10px] leading-snug text-zinc-800">
+                <pre
+                  className={`whitespace-pre-wrap break-words font-mono text-[10px] leading-snug ${
+                    style.body ?? "text-text-primary"
+                  }`}
+                >
                   {body}
                 </pre>
               </div>
@@ -311,7 +315,7 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
             value={editorValue}
             onChange={(e) => setPromptOverride(e.target.value)}
             spellCheck={false}
-            className="block h-full w-full resize-none whitespace-pre-wrap rounded border border-zinc-200 bg-white p-2 font-mono text-[10px] leading-snug text-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            className="block h-full w-full resize-none whitespace-pre-wrap rounded border border-border-default bg-surface-panel p-2 font-mono text-[10px] leading-snug text-text-secondary focus:outline-none focus:ring-1 focus:ring-focus-ring"
           />
         </div>
       )}
@@ -338,15 +342,15 @@ function ProblemsSection({
 }) {
   const { errors, warnings } = diagnosticCounts(diagnostics);
   return (
-    <div className="border-b border-zinc-200 text-[11px]">
+    <div className="border-b border-border-default text-[11px]">
       <button
         onClick={onToggle}
-        className="flex w-full items-center gap-2 px-4 py-1.5 hover:bg-zinc-50"
+        className="flex w-full items-center gap-2 px-4 py-1.5 hover:bg-surface-hover"
       >
-        <span className="font-semibold text-zinc-900">Problems</span>
+        <span className="font-semibold text-text-primary">Problems</span>
         {errors > 0 && <Count tone="error" n={errors} />}
         {warnings > 0 && <Count tone="warning" n={warnings} />}
-        <span className="ml-auto text-zinc-400" aria-hidden>
+        <span className="ml-auto text-text-tertiary" aria-hidden>
           {open ? "▾" : "▸"}
         </span>
       </button>
@@ -361,18 +365,18 @@ function ProblemsSection({
                   onClick={() => onJump(d)}
                   title={jumpable ? "Jump to source" : undefined}
                   className={`flex w-full items-start gap-2 rounded px-2 py-1 text-left ${
-                    jumpable ? "cursor-pointer hover:bg-zinc-100" : "cursor-default"
+                    jumpable ? "cursor-pointer hover:bg-surface-hover" : "cursor-default"
                   }`}
                 >
                   <span
-                    className={`mt-px ${d.severity === "error" ? "text-red-500" : "text-amber-500"}`}
+                    className={`mt-px ${d.severity === "error" ? "text-state-error-line" : "text-state-warning-fg"}`}
                     aria-label={d.severity}
                   >
                     {d.severity === "error" ? "●" : "▲"}
                   </span>
                   <span className="flex-1">
-                    <span className="text-zinc-800">{d.message}</span>
-                    <span className="ml-1 whitespace-nowrap text-zinc-400">· {anchorLabel(d.at, spec)}</span>
+                    <span className="text-text-primary">{d.message}</span>
+                    <span className="ml-1 whitespace-nowrap text-text-tertiary">· {anchorLabel(d.at, spec)}</span>
                   </span>
                 </button>
               </li>
@@ -385,7 +389,7 @@ function ProblemsSection({
 }
 
 function Count({ tone, n }: { tone: "error" | "warning"; n: number }) {
-  const cls = tone === "error" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700";
+  const cls = tone === "error" ? "bg-state-error-bg text-state-error-fg" : "bg-state-warning-bg text-state-warning-fg";
   const noun = tone === "error" ? "error" : "warning";
   return (
     <span className={`rounded px-1.5 py-0.5 ${cls}`}>
@@ -409,11 +413,11 @@ function ToggleButton({
     <button
       onClick={onClick}
       className={`flex items-center gap-1 px-2 py-0.5 text-[11px] ${
-        active ? "bg-zinc-900 text-white" : "bg-white text-zinc-600 hover:bg-zinc-50"
+        active ? "bg-emphasis text-emphasis-fg" : "bg-surface-panel text-text-secondary hover:bg-surface-hover"
       }`}
     >
       {children}
-      {dot && <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />}
+      {dot && <span className="inline-block h-1.5 w-1.5 rounded-full bg-state-warning-line" aria-hidden />}
     </button>
   );
 }

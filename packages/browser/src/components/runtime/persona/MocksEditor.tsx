@@ -27,19 +27,19 @@ export function MocksEditor({ caps, behaviors, disabled, keyOf, onChange }: Prop
   if (caps.length === 0) return null;
   const setCount = caps.filter((c) => behaviors[keyOf(c)] !== undefined).length;
   return (
-    <div className="rounded border border-zinc-200 bg-white">
+    <div className="rounded border border-border-default bg-surface-panel">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between px-2 py-1.5 text-left hover:bg-zinc-50"
+        className="flex w-full items-center justify-between px-2 py-1.5 text-left hover:bg-surface-hover"
       >
-        <span className="text-[10px] uppercase tracking-wide text-zinc-500">
+        <span className="text-[10px] uppercase tracking-wide text-text-tertiary">
           mocks ({setCount}/{caps.length} set)
         </span>
-        <span className="text-zinc-400">{open ? "▾" : "▸"}</span>
+        <span className="text-text-tertiary">{open ? "▾" : "▸"}</span>
       </button>
       {open && (
-        <div className="space-y-1.5 border-t border-zinc-100 px-2 py-2">
+        <div className="space-y-1.5 border-t border-border-subtle px-2 py-2">
           {caps.map((cap) => {
             const k = keyOf(cap);
             return (
@@ -84,17 +84,17 @@ function CapMockRow({ cap, behavior, disabled, onChange }: CapMockRowProps) {
           : `${filledHere}/${cap.outputs.length}`;
 
   return (
-    <div className="rounded border border-zinc-200 bg-white">
+    <div className="rounded border border-border-default bg-surface-panel">
       <div className="flex items-center gap-1 px-2 py-1.5">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="flex min-w-0 flex-1 flex-col items-start text-left hover:bg-zinc-50 -mx-2 -my-1.5 px-2 py-1.5"
+          className="flex min-w-0 flex-1 flex-col items-start text-left hover:bg-surface-hover -mx-2 -my-1.5 px-2 py-1.5"
         >
-          <span className="truncate font-mono text-[11px] text-zinc-800 max-w-full">
+          <span className="truncate font-mono text-[11px] text-text-primary max-w-full">
             {cap.capabilityName}
           </span>
-          <span className="font-mono text-[10px] text-zinc-500">{subtitle}</span>
+          <span className="font-mono text-[10px] text-text-tertiary">{subtitle}</span>
         </button>
         <select
           value={kind}
@@ -113,7 +113,7 @@ function CapMockRow({ cap, behavior, disabled, onChange }: CapMockRowProps) {
             setOpen(true);
           }}
           disabled={!!disabled}
-          className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] text-zinc-600"
+          className="rounded border border-border-default bg-surface-panel px-1.5 py-0.5 text-[10px] text-text-secondary"
         >
           <option value="none">— none —</option>
           <option value="static">static</option>
@@ -122,14 +122,14 @@ function CapMockRow({ cap, behavior, disabled, onChange }: CapMockRowProps) {
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="text-zinc-400 hover:text-zinc-900"
+          className="text-text-tertiary hover:text-text-primary"
           title={open ? "Collapse" : "Expand"}
         >
           {open ? "▾" : "▸"}
         </button>
       </div>
       {open && behavior && (
-        <div className="space-y-1.5 border-t border-zinc-100 px-2 py-2">
+        <div className="space-y-1.5 border-t border-border-subtle px-2 py-2">
           {behavior.kind === "error" ? (
             <input
               type="text"
@@ -137,10 +137,10 @@ function CapMockRow({ cap, behavior, disabled, onChange }: CapMockRowProps) {
               onChange={(e) => onChange({ kind: "error", error: e.target.value })}
               disabled={!!disabled}
               placeholder="Error message the LLM sees as the tool result"
-              className="w-full rounded border border-red-300 bg-red-50 px-2 py-1 text-[11px] text-red-900 focus:outline-none focus:ring-1 focus:ring-red-400"
+              className="w-full rounded border border-state-error-line bg-state-error-bg px-2 py-1 text-[11px] text-state-error-fg focus:outline-none focus:ring-1 focus:ring-state-error-line"
             />
           ) : cap.outputs.length === 0 ? (
-            <div className="text-[10px] text-zinc-500 italic">
+            <div className="text-[10px] text-text-tertiary italic">
               Capability has no declared outputs (side-effect only); returns = {`{}`}.
             </div>
           ) : (
@@ -153,9 +153,9 @@ function CapMockRow({ cap, behavior, disabled, onChange }: CapMockRowProps) {
                   : {};
               return (
                 <div key={out.name} className="space-y-0.5">
-                  <label className="block text-[11px] font-mono text-zinc-700">
+                  <label className="block text-[11px] font-mono text-text-secondary">
                     {out.name}
-                    {!out.decl && <span className="ml-1 text-zinc-400">· undeclared</span>}
+                    {!out.decl && <span className="ml-1 text-text-tertiary">· undeclared</span>}
                   </label>
                   <TypedValueInput
                     decl={out.decl}

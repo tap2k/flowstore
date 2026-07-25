@@ -94,7 +94,7 @@ export function KnowledgeSheet({ onClose }: { onClose: () => void }) {
               />
               <button
                 onClick={remove}
-                className="text-xs text-zinc-400 hover:text-red-600 mt-1"
+                className="fs-caption text-text-tertiary hover:text-state-error-fg mt-1"
               >
                 ×
               </button>
@@ -136,7 +136,7 @@ function TablesView({
   return (
     <div className="space-y-3">
       {tables.length === 0 && (
-        <p className="text-xs text-zinc-400 italic">No tables.</p>
+        <p className="fs-caption text-text-tertiary italic">No tables.</p>
       )}
       {tables.map((t, i) => (
         <TableEditor
@@ -149,7 +149,7 @@ function TablesView({
       <button
         type="button"
         onClick={addTable}
-        className="text-xs text-zinc-600 hover:text-zinc-900 underline"
+        className="fs-caption text-text-secondary hover:text-text-primary underline"
       >
         + add table
       </button>
@@ -167,7 +167,7 @@ function TableEditor({
   onRemove: () => void;
 }) {
   return (
-    <div className="rounded border border-zinc-200 p-3 space-y-2">
+    <div className="rounded border border-border-default p-3 space-y-2">
       <div className="flex items-center gap-2">
         <input
           className={inputClass}
@@ -175,7 +175,7 @@ function TableEditor({
           onChange={(e) => onChange({ ...table, name: e.target.value })}
           placeholder="table name"
         />
-        <span className="text-[10px] text-zinc-400 font-mono whitespace-nowrap">{table.id}</span>
+        <span className="text-[10px] text-text-tertiary font-mono whitespace-nowrap">{table.id}</span>
         <CsvButtons
           filename={`${(table.name || "table").replace(/[^a-z0-9-_]+/gi, "-")}-rows.csv`}
           disableExport={table.structure.length === 0 && table.rows.length === 0}
@@ -187,7 +187,7 @@ function TableEditor({
         />
         <button
           onClick={onRemove}
-          className="text-xs text-zinc-400 hover:text-red-600"
+          className="fs-caption text-text-tertiary hover:text-state-error-fg"
           title="remove table"
         >
           ×
@@ -235,7 +235,7 @@ function TableEditor({
               />
               <button
                 onClick={remove}
-                className="text-xs text-zinc-400 hover:text-red-600"
+                className="fs-caption text-text-tertiary hover:text-state-error-fg"
               >
                 ×
               </button>
@@ -253,8 +253,8 @@ function TableEditor({
           placeholder="(optional)"
         />
       </Field>
-      <details className="text-xs">
-        <summary className="cursor-pointer text-zinc-600 hover:text-zinc-900">
+      <details className="fs-caption">
+        <summary className="cursor-pointer text-text-secondary hover:text-text-primary">
           Edit rows as JSON ({table.rows.length})
         </summary>
         <textarea
@@ -294,7 +294,7 @@ function CsvButtons({
       <button
         type="button"
         onClick={trigger}
-        className="text-xs text-zinc-500 hover:text-zinc-900"
+        className="fs-caption text-text-tertiary hover:text-text-primary"
         title="Import from CSV (replaces current entries)"
       >
         import
@@ -303,7 +303,7 @@ function CsvButtons({
         type="button"
         onClick={() => downloadCsv(filename, onExport())}
         disabled={disableExport}
-        className="text-xs text-zinc-500 hover:text-zinc-900 disabled:text-zinc-300 disabled:hover:text-zinc-300"
+        className="fs-caption text-text-tertiary hover:text-text-primary disabled:text-text-disabled disabled:hover:text-text-disabled"
         title="Download as CSV"
       >
         export

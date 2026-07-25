@@ -24,7 +24,7 @@ export function BusinessGoalsSheet({ onClose }: { onClose: () => void }) {
         newItem={() => ({ id: genId("goal"), name: "", expression: "", method: "llm" })}
         addLabel="add goal"
         renderItem={(g, update, remove) => (
-          <div className="space-y-1.5 border border-zinc-200 rounded-md p-2">
+          <div className="space-y-1.5 border border-border-default rounded-md p-2">
             <div className="flex items-start gap-2">
               <input
                 className={inputClass}
@@ -34,14 +34,14 @@ export function BusinessGoalsSheet({ onClose }: { onClose: () => void }) {
               />
               <button
                 onClick={remove}
-                className="text-xs text-zinc-400 hover:text-red-600 mt-1"
+                className="fs-caption text-text-tertiary hover:text-state-error-fg mt-1"
               >
                 ×
               </button>
             </div>
             <div className="flex items-start gap-2">
               <select
-                className="rounded border border-zinc-300 px-2 py-1 text-xs bg-white"
+                className="rounded border border-border-default px-2 py-1 fs-caption bg-surface-panel"
                 value={g.method}
                 onChange={(e) => update({ ...g, method: e.target.value as Method })}
               >
@@ -50,7 +50,7 @@ export function BusinessGoalsSheet({ onClose }: { onClose: () => void }) {
                 ))}
               </select>
               <textarea
-                className="flex-1 rounded border border-zinc-300 px-2 py-1 text-xs font-mono resize-y min-h-[40px] focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                className="flex-1 rounded border border-border-default px-2 py-1 fs-caption font-mono resize-y min-h-[40px] focus:outline-none focus:ring-1 focus:ring-focus-ring"
                 value={g.expression}
                 onChange={(e) => update({ ...g, expression: e.target.value })}
                 placeholder={

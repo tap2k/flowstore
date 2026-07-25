@@ -28,30 +28,30 @@ export function VarsEditor({ declared, values, disabled, onChange }: Props) {
   ).length;
   if (declared.length === 0) return null;
   return (
-    <div className="rounded border border-zinc-200 bg-white">
+    <div className="rounded border border-border-default bg-surface-panel">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between px-2 py-1.5 text-left hover:bg-zinc-50"
+        className="flex w-full items-center justify-between px-2 py-1.5 text-left hover:bg-surface-hover"
         title="Filled vars marked 'provided' ship to the agent at session start (set in the variables sheet); the rest are character sheet — the agent only learns them from the conversation or a mock return."
       >
-        <span className="text-[10px] uppercase tracking-wide text-zinc-500">
+        <span className="text-[10px] uppercase tracking-wide text-text-tertiary">
           vars ({filledCount}/{declared.length} filled · {providedCount} provided)
         </span>
-        <span className="text-zinc-400">{open ? "▾" : "▸"}</span>
+        <span className="text-text-tertiary">{open ? "▾" : "▸"}</span>
       </button>
       {open && (
-        <div className="space-y-1 border-t border-zinc-100 px-2 py-2">
+        <div className="space-y-1 border-t border-border-subtle px-2 py-2">
           {declared.map((d) => (
             <div key={d.name} className="space-y-0.5">
-              <label className="block text-[11px] font-mono text-zinc-700">
+              <label className="block text-[11px] font-mono text-text-secondary">
                 {d.name}
                 {d.scope === "flow" && (
-                  <span className="ml-1 text-zinc-400">· flow {d.flowId}</span>
+                  <span className="ml-1 text-text-tertiary">· flow {d.flowId}</span>
                 )}
                 {d.scope === "agent" && d.decl.provided && (
                   <span
-                    className="ml-1 rounded bg-emerald-50 px-1 text-[9px] font-sans text-emerald-700"
+                    className="ml-1 rounded bg-state-success-bg px-1 text-[9px] font-sans text-state-success-fg"
                     title="provided: the deployment hands this value to the session at start (dialer payload, caller ID) — a run ships it to the agent."
                   >
                     provided at start

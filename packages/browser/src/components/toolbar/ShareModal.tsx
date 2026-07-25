@@ -160,10 +160,10 @@ export function ShareModal({ onClose }: ShareModalProps) {
 
   return (
     <Shell onClose={onClose}>
-      <h2 className="text-lg font-semibold text-zinc-900">
+      <h2 className="text-lg font-semibold text-text-primary">
         Share{" "}
         {location ? (
-          <span className="font-mono text-sm text-zinc-600">{location.repo}</span>
+          <span className="font-mono text-sm text-text-secondary">{location.repo}</span>
         ) : (
           "project"
         )}
@@ -178,12 +178,12 @@ export function ShareModal({ onClose }: ShareModalProps) {
             setError(null);
           }}
           placeholder="GitHub username"
-          className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+          className="flex-1 rounded border border-border-default px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-focus-ring"
         />
         <select
           value={newRole}
           onChange={(e) => setNewRole(e.target.value as CollaboratorRole)}
-          className="rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+          className="rounded border border-border-default px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-focus-ring"
         >
           <option value="write">Read &amp; write</option>
           <option value="read">Read</option>
@@ -191,14 +191,14 @@ export function ShareModal({ onClose }: ShareModalProps) {
         <button
           onClick={() => void add()}
           disabled={!newUser.trim() || adding}
-          className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+          className="rounded-md bg-emphasis px-3 py-1.5 text-xs font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-50"
         >
           {adding ? "Adding…" : "Add"}
         </button>
       </div>
 
       {error && (
-        <p className="mt-2 text-[11px] text-red-700">{error}</p>
+        <p className="mt-2 text-[11px] text-state-error-fg">{error}</p>
       )}
 
       {/* One unified people list — accepted collaborators and pending
@@ -206,29 +206,29 @@ export function ShareModal({ onClose }: ShareModalProps) {
           than a separate section header. */}
       <div className="mt-5">
         {loading ? (
-          <p className="text-[11px] text-zinc-500">Loading…</p>
+          <p className="text-[11px] text-text-tertiary">Loading…</p>
         ) : !hasAnyone ? (
-          <p className="text-[11px] text-zinc-500">No collaborators yet.</p>
+          <p className="text-[11px] text-text-tertiary">No collaborators yet.</p>
         ) : (
-          <ul className="divide-y divide-zinc-100">
+          <ul className="divide-y divide-border-subtle">
             {/* Fixed-width role and action columns so values align
                 vertically across rows regardless of label length. */}
             {collaborators.map((c) => (
               <li key={c.login} className="flex items-center py-1.5 text-sm">
-                <span className="flex-1 truncate text-zinc-800">
+                <span className="flex-1 truncate text-text-primary">
                   @{c.login}
                   {c.login === selfLogin && (
-                    <span className="ml-1 text-[11px] text-zinc-500">(you)</span>
+                    <span className="ml-1 text-[11px] text-text-tertiary">(you)</span>
                   )}
                 </span>
-                <span className="ml-3 w-28 text-right text-[11px] text-zinc-500">
+                <span className="ml-3 w-28 text-right text-[11px] text-text-tertiary">
                   {labelForPermission(c.permission)}
                 </span>
                 <span className="ml-3 w-14 text-right">
                   {c.login !== selfLogin && (
                     <button
                       onClick={() => void remove(c.login)}
-                      className="text-[11px] text-red-600 hover:text-red-700"
+                      className="text-[11px] text-state-error-fg hover:text-state-error-fg"
                     >
                       remove
                     </button>
@@ -241,17 +241,17 @@ export function ShareModal({ onClose }: ShareModalProps) {
                 key={`inv-${inv.id}`}
                 className="flex items-center py-1.5 text-sm"
               >
-                <span className="flex-1 truncate text-zinc-800">
+                <span className="flex-1 truncate text-text-primary">
                   @{inv.invitee}
-                  <span className="ml-1 text-[11px] text-amber-700">· invite pending</span>
+                  <span className="ml-1 text-[11px] text-state-warning-fg">· invite pending</span>
                 </span>
-                <span className="ml-3 w-28 text-right text-[11px] text-zinc-500">
+                <span className="ml-3 w-28 text-right text-[11px] text-text-tertiary">
                   {labelForPermission(inv.permission)}
                 </span>
                 <span className="ml-3 w-14 text-right">
                   <button
                     onClick={() => void cancel(inv.id, inv.invitee)}
-                    className="text-[11px] text-zinc-500 hover:text-red-700"
+                    className="text-[11px] text-text-tertiary hover:text-state-error-fg"
                   >
                     cancel
                   </button>
@@ -262,14 +262,14 @@ export function ShareModal({ onClose }: ShareModalProps) {
         )}
       </div>
 
-      <p className="mt-5 text-[11px] text-zinc-400">
+      <p className="mt-5 text-[11px] text-text-tertiary">
         People need a GitHub account to be added.
       </p>
 
       <div className="mt-3 flex justify-end">
         <button
           onClick={onClose}
-          className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+          className="rounded-md border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover"
         >
           Done
         </button>
@@ -303,11 +303,11 @@ function labelForPermission(p: string): string {
 function Shell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-surface-scrim flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-lg shadow-lg w-full max-w-md p-5"
+        className="bg-surface-panel rounded-lg shadow-lg w-full max-w-md p-5"
         onClick={(e) => e.stopPropagation()}
       >
         {children}

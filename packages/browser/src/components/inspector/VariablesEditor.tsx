@@ -5,7 +5,7 @@ import { useSettingsStore } from "@/lib/store/settings";
 const VARIABLE_TYPES: VariableType[] = ["string", "number", "boolean", "enum"];
 
 const inputClass =
-  "w-full rounded border border-zinc-300 px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400";
+  "w-full rounded border border-border-default px-2 py-1 fs-caption bg-surface-panel focus:outline-none focus:ring-1 focus:ring-focus-ring";
 
 interface Row {
   name: string;
@@ -79,12 +79,12 @@ export function VariablesEditor({ variables, onChange, scope }: VariablesEditorP
   return (
     <div className="space-y-2">
       {rows.length === 0 && (
-        <div className="text-xs text-zinc-400 italic">
+        <div className="fs-caption text-text-tertiary italic">
           Variables are created by reference. Declare here to attach a type.
         </div>
       )}
       {rows.map((row, i) => (
-        <div key={i} className="rounded border border-zinc-200 p-2 space-y-1.5">
+        <div key={i} className="rounded border border-border-default p-2 space-y-1.5">
           <div className="flex gap-2">
             <input
               className={inputClass}
@@ -114,7 +114,7 @@ export function VariablesEditor({ variables, onChange, scope }: VariablesEditorP
             </select>
             <button
               onClick={() => commit(rows.filter((_, j) => j !== i))}
-              className="text-xs text-zinc-400 hover:text-red-600"
+              className="fs-caption text-text-tertiary hover:text-state-error-fg"
               title="remove"
             >
               ×
@@ -142,7 +142,7 @@ export function VariablesEditor({ variables, onChange, scope }: VariablesEditorP
             <div className="flex items-center gap-2">
               {scope === "agent" && (
                 <label
-                  className="flex shrink-0 items-center gap-1 text-xs text-zinc-600"
+                  className="flex shrink-0 items-center gap-1 fs-caption text-text-secondary"
                   title="provided: the deployment hands this value to the session at start (dialer payload, screen-pop, caller ID). Only provided vars from a persona/case fixture ship to the agent at session start; everything else must be earned through conversation or capability returns. Distinct from visible_when: provided = known at start; visible_when = known but withheld until the gate clears."
                 >
                   <input
@@ -189,7 +189,7 @@ export function VariablesEditor({ variables, onChange, scope }: VariablesEditorP
             },
           ])
         }
-        className="text-xs text-zinc-600 hover:text-zinc-900 underline"
+        className="fs-caption text-text-secondary hover:text-text-primary underline"
       >
         + add variable
       </button>

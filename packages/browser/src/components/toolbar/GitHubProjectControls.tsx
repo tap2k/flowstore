@@ -30,9 +30,9 @@ function buildCommitMessage(comment: string | undefined, summary: string): strin
 }
 
 const iconButtonClass =
-  "rounded-md border border-zinc-200 p-1.5 text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 disabled:hover:bg-transparent";
+  "rounded-md border border-border-default p-1.5 text-text-secondary hover:bg-surface-hover disabled:opacity-50 disabled:hover:bg-transparent";
 const menuItemClass =
-  "block w-full text-left px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100";
+  "block w-full text-left px-3 py-1.5 fs-caption text-text-secondary hover:bg-surface-hover";
 
 function SaveIcon() {
   return (
@@ -326,9 +326,9 @@ export function GitHubProjectControls({
           {refreshing ? <Spinner /> : <RefreshIcon />}
         </button>
         {error && (
-          <div className="absolute top-full right-6 mt-2 z-30 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-800 shadow-md">
+          <div className="absolute top-full right-6 mt-2 z-30 rounded-md border border-state-error-line bg-state-error-bg px-3 py-1.5 fs-caption text-state-error-fg shadow-md">
             {error}
-            <button onClick={() => setError(null)} className="ml-2 text-red-600 hover:text-red-900">
+            <button onClick={() => setError(null)} className="ml-2 text-state-error-fg hover:text-state-error-fg">
               dismiss
             </button>
           </div>
@@ -354,7 +354,7 @@ export function GitHubProjectControls({
           {saving ? <Spinner /> : <SaveIcon />}
         </button>
         {saveMenuOpen && (
-          <div className="absolute right-0 top-full mt-1 z-20 min-w-[14rem] rounded-md border border-zinc-200 bg-white shadow-md py-1">
+          <div className="absolute right-0 top-full mt-1 z-20 min-w-[14rem] rounded-md border border-border-default bg-surface-panel shadow-md py-1">
             <button
               onClick={() => {
                 setSaveMenuOpen(false);
@@ -373,7 +373,7 @@ export function GitHubProjectControls({
             >
               Save to a new branch…
             </button>
-            <div className="my-1 border-t border-zinc-100" />
+            <div className="my-1 border-t border-border-subtle" />
             <button
               onClick={() => {
                 setSaveMenuOpen(false);
@@ -407,16 +407,16 @@ export function GitHubProjectControls({
       )}
 
       {error && (
-        <div className="absolute top-full right-6 mt-2 z-30 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-800 shadow-md">
+        <div className="absolute top-full right-6 mt-2 z-30 rounded-md border border-state-error-line bg-state-error-bg px-3 py-1.5 text-xs text-state-error-fg shadow-md">
           {error}
-          <button onClick={() => setError(null)} className="ml-2 text-red-600 hover:text-red-900">
+          <button onClick={() => setError(null)} className="ml-2 text-state-error-fg hover:text-state-error-fg">
             dismiss
           </button>
         </div>
       )}
 
       {protectedBlocked && (
-        <div className="absolute top-full right-6 mt-2 z-30 w-72 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-md">
+        <div className="absolute top-full right-6 mt-2 z-30 w-72 rounded-md border border-state-warning-line bg-state-warning-bg px-3 py-2 text-xs text-state-warning-fg shadow-md">
           <p className="mb-2">
             <span className="font-mono">{location.ref}</span> is a protected branch — direct
             saves are blocked. Save your work elsewhere:
@@ -427,7 +427,7 @@ export function GitHubProjectControls({
                 setProtectedBlocked(false);
                 setNewBranchOpen(true);
               }}
-              className="w-full rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
+              className="w-full rounded-md bg-emphasis px-3 py-1.5 text-xs font-medium text-emphasis-fg hover:bg-emphasis-hover"
             >
               Save to a new branch…
             </button>
@@ -436,13 +436,13 @@ export function GitHubProjectControls({
                 setProtectedBlocked(false);
                 onSaveToGitHub();
               }}
-              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+              className="w-full rounded-md border border-border-default bg-surface-panel px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover"
             >
               Save a copy to a new repo…
             </button>
             <button
               onClick={() => setProtectedBlocked(false)}
-              className="w-full px-3 py-1 text-xs text-amber-700 hover:text-amber-900"
+              className="w-full px-3 py-1 text-xs text-state-warning-fg hover:text-state-warning-fg"
             >
               dismiss
             </button>
@@ -519,17 +519,17 @@ function ConflictModal({
 }: ConflictModalProps) {
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-surface-scrim flex items-center justify-center p-4"
       onClick={onCancel}
     >
       <div
-        className="bg-white rounded-lg shadow-lg w-full max-w-md p-5"
+        className="bg-surface-panel rounded-lg shadow-lg w-full max-w-md p-5"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-zinc-900 mb-2">
+        <h2 className="text-lg font-semibold text-text-primary mb-2">
           Someone else saved changes
         </h2>
-        <p className="text-sm text-zinc-700 mb-4">
+        <p className="fs-body text-text-secondary mb-4">
           Another collaborator saved to this project while you were editing.
           Save yours as a separate <strong>draft</strong> — nothing gets lost,
           and the two versions can be combined later.
@@ -537,25 +537,25 @@ function ConflictModal({
         <div className="space-y-2">
           <button
             onClick={onSaveAsDraft}
-            className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+            className="w-full rounded-md bg-emphasis px-3 py-2 fs-control text-emphasis-fg hover:bg-emphasis-hover"
           >
             Save as a new draft
           </button>
           <button
             onClick={onGetLatest}
-            className="w-full rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+            className="w-full rounded-md border border-border-default px-3 py-1.5 fs-label text-text-secondary hover:bg-surface-hover"
           >
             Get latest &amp; discard my edits
           </button>
           <button
             onClick={onOverwrite}
-            className="w-full rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-800 hover:bg-red-100"
+            className="w-full rounded-md border border-state-error-line bg-state-error-bg px-3 py-1.5 fs-label text-state-error-fg hover:bg-state-error-bg"
           >
             Overwrite their changes
           </button>
           <button
             onClick={onCancel}
-            className="w-full px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-900"
+            className="w-full px-3 py-1.5 fs-caption text-text-tertiary hover:text-text-primary"
           >
             Cancel
           </button>
@@ -586,15 +586,15 @@ function NewBranchModal({ baseBranch, saving, onCancel, onSubmit }: NewBranchMod
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-surface-scrim flex items-center justify-center p-4"
       onClick={onCancel}
     >
       <div
-        className="bg-white rounded-lg shadow-lg w-full max-w-md p-5"
+        className="bg-surface-panel rounded-lg shadow-lg w-full max-w-md p-5"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-zinc-900 mb-2">Save to a new branch</h2>
-        <p className="text-xs text-zinc-600 mb-3">
+        <h2 className="text-lg font-semibold text-text-primary mb-2">Save to a new branch</h2>
+        <p className="text-xs text-text-secondary mb-3">
           Forks off <span className="font-mono">{baseBranch}</span> at its current HEAD,
           writes your edits to the new branch, and switches the editor to it.
         </p>
@@ -604,24 +604,24 @@ function NewBranchModal({ baseBranch, saving, onCancel, onSubmit }: NewBranchMod
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="my draft"
-          className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+          className="w-full rounded border border-border-default px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-focus-ring"
         />
         {name.trim() && (
-          <p className="mt-1 text-[11px] text-zinc-500">
+          <p className="mt-1 text-[11px] text-text-tertiary">
             Saved as <span className="font-mono">{slug}</span>
           </p>
         )}
         <div className="flex justify-end gap-2 pt-3">
           <button
             onClick={onCancel}
-            className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+            className="rounded-md border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover"
           >
             Cancel
           </button>
           <button
             onClick={() => name.trim() && onSubmit(slug)}
             disabled={!name.trim() || saving}
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+            className="rounded-md bg-emphasis px-3 py-1.5 text-xs font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save to branch"}
           </button>
@@ -648,17 +648,17 @@ function SaveCommentModal({ branch, saving, onCancel, onSubmit }: SaveCommentMod
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-surface-scrim flex items-center justify-center p-4"
       onClick={onCancel}
     >
       <div
-        className="bg-white rounded-lg shadow-lg w-full max-w-md p-5"
+        className="bg-surface-panel rounded-lg shadow-lg w-full max-w-md p-5"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-zinc-900 mb-2">
+        <h2 className="text-lg font-semibold text-text-primary mb-2">
           Save to <span className="font-mono">{branch}</span>
         </h2>
-        <p className="text-xs text-zinc-600 mb-3">
+        <p className="fs-caption text-text-secondary mb-3">
           Add an optional comment to describe this change.
         </p>
         <textarea
@@ -673,19 +673,19 @@ function SaveCommentModal({ branch, saving, onCancel, onSubmit }: SaveCommentMod
             }
           }}
           placeholder="Comment (optional)"
-          className="w-full resize-none rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+          className="w-full resize-none rounded border border-border-default px-2 py-1.5 fs-body focus:outline-none focus:ring-1 focus:ring-focus-ring"
         />
         <div className="flex justify-end gap-2 pt-3">
           <button
             onClick={onCancel}
-            className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+            className="rounded-md border border-border-default px-3 py-1.5 fs-label text-text-secondary hover:bg-surface-hover"
           >
             Cancel
           </button>
           <button
             onClick={() => onSubmit(comment)}
             disabled={saving}
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+            className="rounded-md bg-emphasis px-3 py-1.5 fs-label text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save"}
           </button>

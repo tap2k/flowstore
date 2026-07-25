@@ -14,9 +14,9 @@ import { LoadInSimButton } from "./LoadInSimButton";
 
 const FLOW_TYPES: FlowType[] = ["happy", "sad", "off", "utility", "interrupt"];
 
-const labelClass = "block text-xs font-medium text-zinc-600 mb-1";
+const labelClass = "block fs-label text-text-secondary mb-1";
 const inputClass =
-  "w-full rounded border border-zinc-300 px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400";
+  "w-full rounded border border-border-default px-2 py-1 fs-caption bg-surface-panel focus:outline-none focus:ring-1 focus:ring-focus-ring";
 const textareaClass = `${inputClass} font-mono resize-y min-h-[80px]`;
 
 export function FlowInspector() {
@@ -64,13 +64,13 @@ export function FlowInspector() {
   }
 
   return (
-    <aside className="w-[380px] shrink-0 border-l border-zinc-200 bg-white overflow-y-auto">
-      <div className="sticky top-0 bg-white border-b border-zinc-200 px-4 py-3 flex items-center gap-2">
-        <span className="text-[10px] uppercase tracking-wide text-zinc-500">Flow</span>
-        <span className="text-xs text-zinc-400 font-mono truncate">{flow.id}</span>
+    <aside className="w-[380px] shrink-0 border-l border-border-default bg-surface-panel overflow-y-auto">
+      <div className="sticky top-0 bg-surface-panel border-b border-border-default px-4 py-3 flex items-center gap-2">
+        <span className="text-[10px] uppercase tracking-wide text-text-tertiary">Flow</span>
+        <span className="fs-caption text-text-tertiary font-mono truncate">{flow.id}</span>
         <button
           onClick={() => setSelection(null)}
-          className="ml-auto text-xs text-zinc-500 hover:text-zinc-900"
+          className="ml-auto fs-caption text-text-tertiary hover:text-text-primary"
         >
           close
         </button>
@@ -120,7 +120,7 @@ export function FlowInspector() {
 
         <Field label="Exit paths">
           {(flow.exit_paths ?? []).length === 0 ? (
-            <div className="text-xs text-zinc-400 italic">
+            <div className="fs-caption text-text-tertiary italic">
               (none — drag from this node on the canvas to add one)
             </div>
           ) : (
@@ -132,21 +132,21 @@ export function FlowInspector() {
                   onClick={() =>
                     setSelection({ kind: "edge", flowId, exitPathId: xp.id })
                   }
-                  className="block w-full text-left rounded border border-zinc-200 px-2 py-1.5 text-xs hover:bg-zinc-50 hover:border-zinc-300"
+                  className="block w-full text-left rounded border border-border-default px-2 py-1.5 fs-caption hover:bg-surface-hover hover:border-border-strong"
                 >
                   <div className="flex items-center gap-1.5">
                     {xp.condition && (
-                      <span className="shrink-0 rounded bg-zinc-100 px-1 py-0.5 text-[9px] font-medium uppercase tracking-wide text-zinc-500">
+                      <span className="shrink-0 rounded bg-surface-sunken px-1 py-0.5 text-[9px] font-medium uppercase tracking-wide text-text-tertiary">
                         {xp.condition.method}
                       </span>
                     )}
-                    <span className="min-w-0 flex-1 truncate text-zinc-700">
+                    <span className="min-w-0 flex-1 truncate text-text-secondary">
                       {xp.max_turns != null
                         ? `after ${xp.max_turns} turn${xp.max_turns === 1 ? "" : "s"}`
                         : xp.condition?.expression || "unconditional"}
                     </span>
                   </div>
-                  <div className="mt-0.5 text-zinc-500">→ {destLabel(xp.goto)}</div>
+                  <div className="mt-0.5 text-text-tertiary">→ {destLabel(xp.goto)}</div>
                 </button>
               ))}
             </div>
@@ -180,7 +180,7 @@ export function FlowInspector() {
                   />
                   <button
                     onClick={remove}
-                    className="text-xs text-zinc-400 hover:text-red-600 mt-1"
+                    className="fs-caption text-text-tertiary hover:text-state-error-fg mt-1"
                     title="remove"
                   >
                     ×
@@ -218,17 +218,17 @@ export function FlowInspector() {
             <Field label="Retrieve on turn">
               <div className="space-y-2">
                 {selectedCaps.length === 0 && (
-                  <div className="text-xs text-zinc-400 italic">(none)</div>
+                  <div className="fs-caption text-text-tertiary italic">(none)</div>
                 )}
                 {selectedCaps.map((cap) => (
                   <div
                     key={cap.id}
-                    className="flex items-start gap-2 rounded border border-zinc-200 px-2 py-1.5 text-xs"
+                    className="flex items-start gap-2 rounded border border-border-default px-2 py-1.5 fs-caption"
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="font-mono text-zinc-900 truncate">{cap.name}</div>
+                      <div className="font-mono text-text-primary truncate">{cap.name}</div>
                       {cap.description && (
-                        <div className="text-zinc-500 mt-0.5">{cap.description}</div>
+                        <div className="text-text-tertiary mt-0.5">{cap.description}</div>
                       )}
                     </div>
                     <button
@@ -239,7 +239,7 @@ export function FlowInspector() {
                           retrieve_on_turn: next.length ? next : undefined,
                         });
                       }}
-                      className="text-zinc-400 hover:text-red-600 leading-none"
+                      className="text-text-tertiary hover:text-state-error-fg leading-none"
                       title="remove"
                     >
                       ×
@@ -275,7 +275,7 @@ export function FlowInspector() {
                     <button
                       type="button"
                       onClick={() => setRetrievalPickerOpen(true)}
-                      className="text-xs text-zinc-600 hover:text-zinc-900 underline"
+                      className="fs-caption text-text-secondary hover:text-text-primary underline"
                     >
                       + Add retrieval
                     </button>
@@ -298,19 +298,19 @@ export function FlowInspector() {
             <Field label="Tools (available in this flow)">
               <div className="space-y-2">
                 {selectedCaps.length === 0 && (
-                  <div className="text-xs text-zinc-400 italic">
+                  <div className="fs-caption text-text-tertiary italic">
                     (none listed — all capabilities available)
                   </div>
                 )}
                 {selectedCaps.map((cap) => (
                   <div
                     key={cap.id}
-                    className="flex items-start gap-2 rounded border border-zinc-200 px-2 py-1.5 text-xs"
+                    className="flex items-start gap-2 rounded border border-border-default px-2 py-1.5 fs-caption"
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="font-mono text-zinc-900 truncate">{cap.name}</div>
+                      <div className="font-mono text-text-primary truncate">{cap.name}</div>
                       {cap.description && (
-                        <div className="text-zinc-500 mt-0.5">{cap.description}</div>
+                        <div className="text-text-tertiary mt-0.5">{cap.description}</div>
                       )}
                     </div>
                     <button
@@ -319,7 +319,7 @@ export function FlowInspector() {
                         const next = selectedIds.filter((id) => id !== cap.id);
                         patch({ tools: next.length ? next : undefined });
                       }}
-                      className="text-zinc-400 hover:text-red-600 leading-none"
+                      className="text-text-tertiary hover:text-state-error-fg leading-none"
                       title="remove"
                     >
                       ×
@@ -353,7 +353,7 @@ export function FlowInspector() {
                     <button
                       type="button"
                       onClick={() => setToolsPickerOpen(true)}
-                      className="text-xs text-zinc-600 hover:text-zinc-900 underline"
+                      className="fs-caption text-text-secondary hover:text-text-primary underline"
                     >
                       + Add tool
                     </button>
@@ -385,10 +385,10 @@ export function FlowInspector() {
 
         <CommentsSection anchor={{ kind: "flow", id: flow.id }} />
 
-        <div className="pt-2 border-t border-zinc-200 space-y-2">
+        <div className="pt-2 border-t border-border-default space-y-2">
           <button
             onClick={() => setScriptsOpen(true)}
-            className="w-full rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+            className="w-full rounded-md border border-border-default px-3 py-1.5 fs-label text-text-secondary hover:bg-surface-hover"
           >
             Open scripts sheet
           </button>
@@ -397,7 +397,7 @@ export function FlowInspector() {
             onClick={() => {
               if (window.confirm(`Delete flow "${flow!.name}"?`)) removeFlow(flow!.id);
             }}
-            className="w-full rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+            className="w-full rounded-md border border-state-error-line px-3 py-1.5 fs-label text-state-error-fg hover:bg-state-error-bg"
           >
             Delete flow
           </button>

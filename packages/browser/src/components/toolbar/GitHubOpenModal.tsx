@@ -279,7 +279,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
       <Shell title="Open GitHub project" onClose={onClose}>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-zinc-700">Public repo URL</label>
+            <label className="fs-label text-text-secondary">Public repo URL</label>
             <div className="mt-1 flex gap-2">
               <input
                 type="text"
@@ -287,36 +287,36 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
                 onChange={(e) => { setUrlInput(e.target.value); setUrlError(null); }}
                 onKeyDown={(e) => { if (e.key === "Enter") openFromUrl(); }}
                 placeholder="https://github.com/owner/repo"
-                className="flex-1 rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                className="flex-1 rounded border border-border-default px-2 py-1.5 fs-body focus:outline-none focus:ring-1 focus:ring-focus-ring"
               />
               <button
                 onClick={openFromUrl}
                 disabled={!urlInput.trim() || urlOpening}
-                className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+                className="rounded-md bg-emphasis px-3 py-1.5 fs-label text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-50"
               >
                 {urlOpening ? "Opening…" : "Open"}
               </button>
             </div>
             {urlError && (
-              <div className="mt-1.5 rounded border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
+              <div className="mt-1.5 rounded border border-state-error-line bg-state-error-bg px-2 py-1.5 fs-caption text-state-error-fg">
                 {urlError}
               </div>
             )}
           </div>
-          <div className="border-t border-zinc-100 pt-3 text-xs text-zinc-500">
+          <div className="border-t border-border-subtle pt-3 fs-caption text-text-tertiary">
             To open private repos or your own projects, add a GitHub PAT in Settings.
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-3">
           <button
             onClick={onClose}
-            className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+            className="rounded-md border border-border-default px-3 py-1.5 fs-label text-text-secondary hover:bg-surface-hover"
           >
             Cancel
           </button>
           <button
             onClick={onOpenSettings}
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+            className="rounded-md border border-border-default px-3 py-1.5 fs-label text-text-secondary hover:bg-surface-hover"
           >
             Open Settings
           </button>
@@ -329,9 +329,9 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
     <Shell title="Open GitHub project" onClose={onClose}>
       <div className="space-y-3">
         <div>
-          <label className="text-xs font-medium text-zinc-700">Repository</label>
+          <label className="fs-label text-text-secondary">Repository</label>
           {loadingRepos ? (
-            <div className="mt-1 text-xs text-zinc-500">Loading…</div>
+            <div className="mt-1 fs-caption text-text-tertiary">Loading…</div>
           ) : (
             <select
               value={selectedRepoIdx}
@@ -340,7 +340,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
                 setInitOffer(null);
                 setError(null);
               }}
-              className="mt-1 w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              className="mt-1 w-full rounded border border-border-default px-2 py-1.5 fs-body focus:outline-none focus:ring-1 focus:ring-focus-ring"
             >
               <option value={-1}>— select —</option>
               {/* Strict filter to repos tagged `flowstore`. To bring an
@@ -358,9 +358,9 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
           )}
         </div>
         <div>
-          <label className="text-xs font-medium text-zinc-700">Branch</label>
+          <label className="fs-label text-text-secondary">Branch</label>
           {loadingBranches ? (
-            <div className="mt-1 text-xs text-zinc-500">Loading…</div>
+            <div className="mt-1 fs-caption text-text-tertiary">Loading…</div>
           ) : (
             <select
               value={selectedBranch}
@@ -370,7 +370,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
                 setError(null);
               }}
               disabled={!branches || branches.length === 0}
-              className="mt-1 w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:opacity-50"
+              className="mt-1 w-full rounded border border-border-default px-2 py-1.5 fs-body focus:outline-none focus:ring-1 focus:ring-focus-ring disabled:opacity-50"
             >
               {(branches ?? []).map((b) => (
                 <option key={b.name} value={b.name}>
@@ -381,12 +381,12 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
           )}
         </div>
         {error && (
-          <div className="rounded border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
+          <div className="rounded border border-state-error-line bg-state-error-bg px-2 py-1.5 fs-caption text-state-error-fg">
             {error}
           </div>
         )}
         {initOffer && (
-          <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 space-y-1">
+          <div className="rounded border border-state-warning-line bg-state-warning-bg px-2 py-1.5 fs-caption text-state-warning-fg space-y-1">
             <div>
               <span className="font-mono">{initOffer.repo.full_name}@{initOffer.branch}</span>{" "}
               has no flowstore project{initOffer.commitSha === null ? " (and no commits yet)" : ""}.
@@ -398,8 +398,8 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
           </div>
         )}
 
-        <div className="relative border-t border-zinc-100 pt-3">
-          <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-white px-2 text-xs text-zinc-400">
+        <div className="relative border-t border-border-subtle pt-3">
+          <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-surface-panel px-2 fs-caption text-text-tertiary">
             or paste a URL
           </span>
           <input
@@ -408,10 +408,10 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
             onChange={(e) => { setUrlInput(e.target.value); setUrlError(null); }}
             onKeyDown={(e) => { if (e.key === "Enter") openFromUrl(); }}
             placeholder="https://github.com/owner/repo"
-            className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            className="w-full rounded border border-border-default px-2 py-1.5 fs-body focus:outline-none focus:ring-1 focus:ring-focus-ring"
           />
           {urlError && (
-            <div className="mt-1.5 rounded border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
+            <div className="mt-1.5 rounded border border-state-error-line bg-state-error-bg px-2 py-1.5 fs-caption text-state-error-fg">
               {urlError}
             </div>
           )}
@@ -420,14 +420,14 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
       <div className="flex justify-end gap-2 pt-3">
         <button
           onClick={onClose}
-          className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+          className="rounded-md border border-border-default px-3 py-1.5 fs-label text-text-secondary hover:bg-surface-hover"
         >
           Cancel
         </button>
         {initOffer ? (
           <button
             onClick={initializeProject}
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
+            className="rounded-md bg-emphasis px-3 py-1.5 fs-label text-emphasis-fg hover:bg-emphasis-hover"
           >
             Initialize project
           </button>
@@ -435,7 +435,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
           <button
             onClick={openFromUrl}
             disabled={urlOpening}
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+            className="rounded-md bg-emphasis px-3 py-1.5 fs-label text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-50"
           >
             {urlOpening ? "Opening…" : "Open"}
           </button>
@@ -443,7 +443,7 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
           <button
             onClick={openProject}
             disabled={selectedRepoIdx < 0 || !selectedBranch || openingProject}
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+            className="rounded-md bg-emphasis px-3 py-1.5 fs-label text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-50"
           >
             {openingProject ? "Opening…" : "Open"}
           </button>
@@ -464,14 +464,14 @@ function Shell({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-surface-scrim flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-lg shadow-lg w-full max-w-md p-5"
+        className="bg-surface-panel rounded-lg shadow-lg w-full max-w-md p-5"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-zinc-900 mb-3">{title}</h2>
+        <h2 className="text-lg font-semibold text-text-primary mb-3">{title}</h2>
         {children}
       </div>
     </div>

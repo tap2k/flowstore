@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
+import { X } from "@phosphor-icons/react";
+import { IconButton } from "@/components/ui";
 
 interface SheetShellProps {
   title: string;
@@ -14,6 +16,12 @@ interface SheetShellProps {
 
 const DEFAULT_BODY_CLASS = "flex-1 overflow-auto px-5 py-4 space-y-6";
 
+/**
+ * Level-3 modal shell shared by every spec sheet. Built on the design system's
+ * surfaces and elevation rather than the Dialog atom: sheets are editors with
+ * their own scroll region, header actions and footer, where Dialog is sized for
+ * a decision.
+ */
 export function SheetShell({
   title,
   inlineMeta,
@@ -25,34 +33,45 @@ export function SheetShell({
   bodyClass = DEFAULT_BODY_CLASS,
   children,
 }: SheetShellProps) {
+  // Escape closes, matching Dialog. On the document rather than the sheet so it
+  // fires before anything inside has taken focus.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex animate-fs-fade-in items-center justify-center bg-surface-scrim p-4"
       onClick={onClose}
     >
       <div
-        className={`bg-white rounded-lg shadow-lg w-full ${maxWidth} max-h-[85vh] flex flex-col`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className={`flex max-h-[85vh] w-full animate-fs-pop-in flex-col rounded-4 border border-border-default bg-surface-raised shadow-elev-3 ${maxWidth}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-3">
+        <div className="flex items-center justify-between border-b border-border-subtle px-5 py-3">
           <div className="min-w-0">
             <div className="flex items-baseline gap-2">
-              <h2 className="text-lg font-semibold text-zinc-900">{title}</h2>
-              {inlineMeta && (
-                <span className="text-xs text-zinc-400 font-mono">{inlineMeta}</span>
-              )}
+              <h2 className="fs-pageTitle m-0 text-text-primary">{title}</h2>
+              {inlineMeta && <span className="fs-data text-text-tertiary">{inlineMeta}</span>}
             </div>
-            {subtitle && <p className="text-xs text-zinc-500 mt-0.5 truncate">{subtitle}</p>}
+            {subtitle && (
+              <p className="fs-caption m-0 mt-0.5 truncate text-text-secondary">{subtitle}</p>
+            )}
           </div>
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex shrink-0 items-center gap-2">
             {headerActions}
-            <button onClick={onClose} className="text-xs text-zinc-500 hover:text-zinc-900">
-              close
-            </button>
+            <IconButton icon={X} label="Close" size="sm" onClick={onClose} />
           </div>
         </div>
         <div className={bodyClass}>{children}</div>
-        {footer && <div className="border-t border-zinc-200 px-5 py-3">{footer}</div>}
+        {footer && <div className="border-t border-border-subtle px-5 py-3">{footer}</div>}
       </div>
     </div>
   );

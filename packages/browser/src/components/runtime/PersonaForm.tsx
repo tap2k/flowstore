@@ -299,22 +299,22 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
   }
 
   return (
-    <div className="border-b border-zinc-200 bg-zinc-50/50">
-      <div className="flex items-center justify-between px-4 py-2 text-[11px] text-zinc-600">
+    <div className="border-b border-border-default bg-surface-sunken/50">
+      <div className="flex items-center justify-between px-4 py-2 text-[11px] text-text-secondary">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="flex flex-1 items-center text-left hover:text-zinc-900"
+          className="flex flex-1 items-center text-left hover:text-text-primary"
         >
-          <span className="mr-1 text-zinc-400">{open ? "▾" : "▸"}</span>
+          <span className="mr-1 text-text-tertiary">{open ? "▾" : "▸"}</span>
           Persona
-          <span className="ml-1 text-zinc-400">
+          <span className="ml-1 text-text-tertiary">
             {configured ? "configured" : "empty"}
           </span>
         </button>
         {!hideRunControls && (
           <div className="flex items-center gap-1">
-            <span className="text-[10px] text-zinc-500">Turns:</span>
+            <span className="text-[10px] text-text-tertiary">Turns:</span>
             <input
               type="number"
               min={1}
@@ -323,7 +323,7 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
               onChange={(e) => setPersonaTurnLimit(parseInt(e.target.value, 10))}
               disabled={disabled || autoRun || routeSynthesizing}
               title="Hard cap on user turns. Stops the loop if the agent gets stuck."
-              className="w-10 rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
+              className="w-10 rounded border border-border-default bg-surface-panel px-1 py-0.5 text-[11px] text-text-primary focus:outline-none focus:ring-1 focus:ring-focus-ring disabled:bg-state-disabled-bg"
             />
             <button
               type="button"
@@ -349,18 +349,18 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
               }
               className={
                 autoRun
-                  ? "rounded border border-red-300 bg-red-50 px-2 py-0.5 text-[11px] text-red-700 hover:bg-red-100 disabled:opacity-40"
-                  : "rounded border border-zinc-300 bg-white px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+                  ? "rounded border border-state-error-line bg-state-error-bg px-2 py-0.5 text-[11px] text-state-error-fg hover:bg-state-error-bg disabled:opacity-40"
+                  : "rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[11px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
               }
             >
               {autoRun ? "■" : conversationEnded ? "↻" : "▶"}
             </button>
             {mode === "voice" ? null : autoRun ? (
-              <span className="text-[10px] text-zinc-400">· {personaTurnsLeft} left</span>
+              <span className="text-[10px] text-text-tertiary">· {personaTurnsLeft} left</span>
             ) : conversationEnded ? (
-              <span className="text-[10px] text-emerald-600">· done</span>
+              <span className="text-[10px] text-state-success-fg">· done</span>
             ) : pausedMidRun ? (
-              <span className="text-[10px] text-amber-600">· paused</span>
+              <span className="text-[10px] text-state-warning-fg">· paused</span>
             ) : null}
           </div>
         )}
@@ -369,16 +369,16 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
       {open && (
         <div className="space-y-2 px-4 pb-3">
           {genError && (
-            <div className="rounded border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-700">
+            <div className="rounded border border-state-error-line bg-state-error-bg px-2 py-1 text-[11px] text-state-error-fg">
               {genError}
             </div>
           )}
-          <div className="flex items-center gap-1 text-[10px] text-zinc-600">
+          <div className="flex items-center gap-1 text-[10px] text-text-secondary">
             <select
               value={loadedPersonaId ?? ""}
               onChange={(e) => onLoadPersona(e.target.value)}
               disabled={disabled || busy || personas.length === 0}
-              className="max-w-[8rem] truncate rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+              className="max-w-[8rem] truncate rounded border border-border-default bg-surface-panel px-1.5 py-0.5 text-[11px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
             >
               <option value="">
                 {personas.length === 0 ? "no saved personas" : "load saved…"}
@@ -395,7 +395,7 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
                 onClick={onSavePersona}
                 disabled={disabled || busy}
                 title={`Update tests/personas/${loadedPersona.id}.persona.json with the current buffer.`}
-                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+                className="rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
               >
                 save
               </button>
@@ -406,7 +406,7 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
                 onClick={onStartSaveAs}
                 disabled={disabled || busy || !configured}
                 title="Save current buffer (prompt + vars + mocks) as a new persona file."
-                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+                className="rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
               >
                 save as…
               </button>
@@ -422,13 +422,13 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
                     else if (e.key === "Escape") onCancelSaveAs();
                   }}
                   placeholder="name"
-                  className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] font-mono text-zinc-800"
+                  className="rounded border border-border-default bg-surface-panel px-1.5 py-0.5 text-[11px] font-mono text-text-primary"
                   style={{ width: "8rem" }}
                 />
                 <button
                   type="button"
                   onClick={onCancelSaveAs}
-                  className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50"
+                  className="rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover"
                 >
                   cancel
                 </button>
@@ -436,7 +436,7 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
                   type="button"
                   onClick={onConfirmSaveAs}
                   disabled={savingAsName.trim() === ""}
-                  className="rounded-md bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+                  className="rounded-md bg-emphasis px-2 py-0.5 text-[10px] font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-40"
                 >
                   save
                 </button>
@@ -448,7 +448,7 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
                 onClick={onGenerate}
                 disabled={disabled || busy}
                 title="Draft a full persona (prompt + vars + mocks), seeded by the prompt text below — or grounded against the agent's purpose + business goals when it's empty. Uses the configured Generate model."
-                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+                className="rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
               >
                 {generating ? "Generating…" : "✨ Generate"}
               </button>
@@ -459,7 +459,7 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
                 onClick={onDeletePersona}
                 disabled={disabled || busy}
                 title={`Delete tests/personas/${loadedPersona.id}.persona.json.`}
-                className="rounded border border-red-300 bg-white px-2 py-0.5 text-[10px] text-red-700 hover:bg-red-50 disabled:opacity-40"
+                className="rounded border border-state-error-line bg-surface-panel px-2 py-0.5 text-[10px] text-state-error-fg hover:bg-state-error-bg disabled:opacity-40"
               >
                 delete
               </button>
@@ -470,14 +470,14 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
                 onClick={onClear}
                 disabled={disabled || busy}
                 title="Clear the persona prompt + world from the buffer."
-                className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+                className="rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
               >
                 clear
               </button>
             )}
           </div>
           {routeTarget && (
-            <div className="mb-1.5 rounded border border-sky-200 bg-sky-50 px-2 py-1.5 text-[10px] leading-snug text-sky-800">
+            <div className="mb-1.5 rounded border border-state-running-line bg-state-running-bg px-2 py-1.5 text-[10px] leading-snug text-state-running-fg">
               {routeSynthesizing ? (
                 <span>
                   Synthesizing a persona to reach{" "}
@@ -490,13 +490,13 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
                 </>
               )}
               {routeTarget.underivable.length > 0 && (
-                <div className="mt-1 text-sky-700">
+                <div className="mt-1 text-state-running-fg">
                   Couldn't auto-set these gates — set the vars below by hand:{" "}
                   <span className="font-mono">{routeTarget.underivable.join(", ")}</span>
                 </div>
               )}
               {routeTarget.notProvided.length > 0 && (
-                <div className="mt-1 text-amber-700">
+                <div className="mt-1 text-state-warning-fg">
                   Seeded but won't reach the agent until marked “provided” in Variables:{" "}
                   <span className="font-mono">{routeTarget.notProvided.join(", ")}</span>
                 </div>
@@ -513,7 +513,7 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
                 ? "Synthesizing the persona prompt…"
                 : "System prompt for the persona playing the user.\n\nE.g.: You are a customer who ordered a laptop 3 days ago. The screen arrived cracked (order #12345). You are terse and impatient. Reply as the user would; emit [DONE] when satisfied."
             }
-            className="w-full resize-y rounded border border-zinc-300 bg-white p-2 font-mono text-[11px] leading-snug text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
+            className="w-full resize-y rounded border border-border-default bg-surface-panel p-2 font-mono text-[11px] leading-snug text-text-primary focus:outline-none focus:ring-1 focus:ring-focus-ring disabled:bg-state-disabled-bg"
           />
 
           <VarsEditor
@@ -536,11 +536,11 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
               regression harness's _persona.py. Both apply only in text/prompt
               mode (Live voice handles real ASR + interruptions itself). The
               selects self-label, so no row label. */}
-          <div className="flex flex-wrap items-center gap-2 text-[10px] text-zinc-500">
+          <div className="flex flex-wrap items-center gap-2 text-[10px] text-text-tertiary">
             <ModelPicker
               value={model}
               onChange={setSimulatePersonaModel}
-              className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              className="rounded border border-border-default bg-surface-panel px-1.5 py-0.5 text-[11px] text-text-secondary hover:bg-surface-hover focus:outline-none focus:ring-1 focus:ring-focus-ring"
             />
             {voiceAgent && (
               <>
@@ -550,7 +550,7 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
                     setTrait("asr", e.target.value === "off" ? undefined : e.target.value)
                   }
                   title="ASR shaping (persona trait): an unintelligible caller — garble this persona's turns like raw transcription (lowercase, no punctuation, fillers/false-starts) before they reach the agent. Saved on the persona; the seeded harness reads it too. Live effect is Text-mode only."
-                  className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                  className="rounded border border-border-default bg-surface-panel px-1.5 py-0.5 text-[11px] text-text-secondary hover:bg-surface-hover focus:outline-none focus:ring-1 focus:ring-focus-ring"
                 >
                   <option value="off">asr: off</option>
                   <option value="clean">asr: clean</option>
@@ -563,7 +563,7 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
                     setTrait("barge_in", Number(e.target.value) || undefined)
                   }
                   title="Barge-in (persona trait): an impatient caller — how often they cut the agent off mid-reply (trims the prior agent turn before the persona responds). Saved on the persona; the seeded harness reads it too. Live effect is Text-mode only."
-                  className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                  className="rounded border border-border-default bg-surface-panel px-1.5 py-0.5 text-[11px] text-text-secondary hover:bg-surface-hover focus:outline-none focus:ring-1 focus:ring-focus-ring"
                 >
                   <option value="0">barge: off</option>
                   <option value="0.3">barge: low</option>

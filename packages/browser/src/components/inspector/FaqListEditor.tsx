@@ -29,7 +29,7 @@ export function FaqListEditor({
       addLabel={addLabel}
       emptyLabel={emptyLabel}
       renderItem={(entry, update, remove) => (
-        <div className="rounded border border-zinc-200 p-2 space-y-1.5">
+        <div className="rounded border border-border-default p-2 space-y-1.5">
           <div className="flex items-center gap-2">
             <input
               className={inputClass}
@@ -39,7 +39,7 @@ export function FaqListEditor({
             />
             <button
               onClick={remove}
-              className="text-xs text-zinc-400 hover:text-red-600"
+              className="fs-caption text-text-tertiary hover:text-state-error-fg"
               title="remove"
             >
               ×

@@ -49,7 +49,7 @@ export function SaveToNewRepoModal({ onClose, onOpenSettings }: SaveToNewRepoMod
   if (!pat) {
     return (
       <Shell onClose={onClose}>
-        <p className="text-sm text-zinc-700">
+        <p className="fs-body text-text-secondary">
           Connect GitHub to save this project. Add a token in Settings.
         </p>
         <div className="flex justify-end gap-2 pt-3">
@@ -109,8 +109,8 @@ export function SaveToNewRepoModal({ onClose, onOpenSettings }: SaveToNewRepoMod
 
   return (
     <Shell onClose={onClose}>
-      <h2 className="text-lg font-semibold text-zinc-900 mb-2">Save to GitHub</h2>
-      <label className="text-xs font-medium text-zinc-700">Project name</label>
+      <h2 className="text-lg font-semibold text-text-primary mb-2">Save to GitHub</h2>
+      <label className="fs-label text-text-secondary">Project name</label>
       <input
         autoFocus
         type="text"
@@ -120,10 +120,10 @@ export function SaveToNewRepoModal({ onClose, onOpenSettings }: SaveToNewRepoMod
           setError(null);
         }}
         placeholder="Acme Onboarding Bot"
-        className="mt-1 w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+        className="mt-1 w-full rounded border border-border-default px-2 py-1.5 fs-body focus:outline-none focus:ring-1 focus:ring-focus-ring"
       />
 
-      <div className="mt-3 flex gap-4 text-sm text-zinc-700">
+      <div className="mt-3 flex gap-4 fs-body text-text-secondary">
         <label className="flex items-center gap-1.5">
           <input
             type="radio"
@@ -142,13 +142,13 @@ export function SaveToNewRepoModal({ onClose, onOpenSettings }: SaveToNewRepoMod
         </label>
       </div>
 
-      <p className="mt-3 text-[11px] text-zinc-500">
+      <p className="mt-3 text-[11px] text-text-tertiary">
         Creates <span className="font-mono">{login ? `${login}/` : ""}{slug}</span>, commits
         the current agent, and opens it.
       </p>
 
       {error && (
-        <p className="mt-2 text-[11px] text-red-700">{error}</p>
+        <p className="mt-2 text-[11px] text-state-error-fg">{error}</p>
       )}
 
       <div className="flex justify-end gap-2 pt-3">
@@ -168,18 +168,18 @@ export function SaveToNewRepoModal({ onClose, onOpenSettings }: SaveToNewRepoMod
 }
 
 const primaryBtn =
-  "rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700";
+  "rounded-md bg-emphasis px-3 py-1.5 fs-label text-emphasis-fg hover:bg-emphasis-hover";
 const secondaryBtn =
-  "rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100";
+  "rounded-md border border-border-default px-3 py-1.5 fs-label text-text-secondary hover:bg-surface-hover";
 
 function Shell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-surface-scrim flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-lg shadow-lg w-full max-w-md p-5"
+        className="bg-surface-panel rounded-lg shadow-lg w-full max-w-md p-5"
         onClick={(e) => e.stopPropagation()}
       >
         {children}

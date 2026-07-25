@@ -9,13 +9,13 @@ interface Props {
 }
 
 const baseInput =
-  "w-full rounded border bg-white px-2 py-1 text-xs text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50";
+  "w-full rounded border bg-surface-panel px-2 py-1 fs-caption text-text-primary focus:outline-none focus:ring-1 focus:ring-focus-ring disabled:bg-state-disabled-bg";
 
 // When `decl` is undefined the value is treated as a free string.
 export function TypedValueInput({ decl, value, disabled, onChange }: Props) {
   const type = decl?.type ?? "string";
   const filled = value !== undefined && value !== null && value !== "";
-  const className = `${baseInput} ${filled ? "border-zinc-300" : "border-dashed border-zinc-300"}`;
+  const className = `${baseInput} ${filled ? "border-border-default" : "border-dashed border-border-default"}`;
 
   const coerce = (raw: string | boolean): unknown => {
     if (decl) return coerceValue(decl, raw);

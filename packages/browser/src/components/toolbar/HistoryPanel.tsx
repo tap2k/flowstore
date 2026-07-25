@@ -85,21 +85,21 @@ export function HistoryPanel({ open, onClose }: { open: boolean; onClose: () => 
 
   return (
     <>
-    <aside className="flex flex-col h-full w-[380px] shrink-0 border-l border-zinc-200 bg-white">
-      <div className="flex items-start justify-between border-b border-zinc-200 px-4 py-3">
+    <aside className="flex flex-col h-full w-[380px] shrink-0 border-l border-border-default bg-surface-panel">
+      <div className="flex items-start justify-between border-b border-border-default px-4 py-3">
         <div>
-          <p className="text-sm font-semibold text-zinc-900">Revision history</p>
-          <p className="font-mono text-[11px] text-zinc-500">{branch}</p>
+          <p className="text-sm font-semibold text-text-primary">Revision history</p>
+          <p className="font-mono text-[11px] text-text-tertiary">{branch}</p>
         </div>
         <div className="mt-0.5 flex items-center gap-3">
           <button
             onClick={() => void load({ cancelled: false })}
             disabled={state.phase === "loading"}
-            className="text-xs text-zinc-500 hover:text-zinc-900 disabled:opacity-40"
+            className="fs-caption text-text-tertiary hover:text-text-primary disabled:opacity-40"
           >
             refresh
           </button>
-          <button onClick={onClose} className="text-xs text-zinc-500 hover:text-zinc-900">
+          <button onClick={onClose} className="fs-caption text-text-tertiary hover:text-text-primary">
             close
           </button>
         </div>
@@ -107,33 +107,33 @@ export function HistoryPanel({ open, onClose }: { open: boolean; onClose: () => 
 
       <div className="flex-1 overflow-auto px-2 py-1">
         {state.phase === "loading" && (
-          <p className="px-2 py-4 text-sm text-zinc-500">Loading history…</p>
+          <p className="px-2 py-4 fs-body text-text-tertiary">Loading history…</p>
         )}
 
         {state.phase === "error" && (
-          <p className="px-2 py-4 text-sm text-red-600">{state.message}</p>
+          <p className="px-2 py-4 fs-body text-state-error-fg">{state.message}</p>
         )}
 
         {state.phase === "empty" && (
-          <p className="px-2 py-4 text-sm text-zinc-600">No commits on this branch yet.</p>
+          <p className="px-2 py-4 fs-body text-text-secondary">No commits on this branch yet.</p>
         )}
 
         {isDirty && (
           <button
             onClick={() => setShowChanges(true)}
-            className="w-full text-left px-2 py-2.5 rounded-md hover:bg-zinc-50 border-b border-zinc-100 mb-1"
+            className="w-full text-left px-2 py-2.5 rounded-md hover:bg-surface-hover border-b border-border-subtle mb-1"
           >
             <div className="flex items-baseline gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0 self-center" />
-              <span className="flex-1 text-sm text-zinc-900">Working copy</span>
-              <span className="text-[11px] text-zinc-400 shrink-0">unsaved</span>
+              <span className="h-1.5 w-1.5 rounded-full bg-state-warning-line shrink-0 self-center" />
+              <span className="flex-1 fs-body text-text-primary">Working copy</span>
+              <span className="text-[11px] text-text-tertiary shrink-0">unsaved</span>
             </div>
-            <div className="mt-0.5 ml-3.5 text-[11px] text-zinc-400">Changes since last save</div>
+            <div className="mt-0.5 ml-3.5 text-[11px] text-text-tertiary">Changes since last save</div>
           </button>
         )}
 
         {state.phase === "ready" && (
-          <ul className="divide-y divide-zinc-100">
+          <ul className="divide-y divide-border-subtle">
             {state.rows.map((row) => {
               const isCurrent = !!currentSha && row.sha === currentSha;
               const isRestoring = restoring === row.sha;
@@ -148,22 +148,22 @@ export function HistoryPanel({ open, onClose }: { open: boolean; onClose: () => 
                         ? "cursor-default"
                         : restoring
                           ? "opacity-50 cursor-not-allowed"
-                          : "hover:bg-zinc-50",
+                          : "hover:bg-surface-hover",
                     ].join(" ")}
                   >
                     <div className="flex items-baseline gap-2">
-                      <span className="font-mono text-[11px] text-zinc-400 shrink-0">
+                      <span className="font-mono text-[11px] text-text-tertiary shrink-0">
                         {row.shortSha}
                       </span>
-                      <span className="flex-1 text-sm text-zinc-900 truncate">{row.message}</span>
+                      <span className="flex-1 fs-body text-text-primary truncate">{row.message}</span>
                       {isCurrent && (
-                        <span className="text-[11px] text-zinc-400 shrink-0">current</span>
+                        <span className="text-[11px] text-text-tertiary shrink-0">current</span>
                       )}
                       {isRestoring && (
-                        <span className="text-[11px] text-zinc-400 shrink-0">restoring…</span>
+                        <span className="text-[11px] text-text-tertiary shrink-0">restoring…</span>
                       )}
                     </div>
-                    <div className="mt-0.5 flex gap-2 text-[11px] text-zinc-400">
+                    <div className="mt-0.5 flex gap-2 text-[11px] text-text-tertiary">
                       <span>{row.author}</span>
                       <span>·</span>
                       <span>{formatRelative(row.date)}</span>
@@ -177,12 +177,12 @@ export function HistoryPanel({ open, onClose }: { open: boolean; onClose: () => 
       </div>
 
       {location && (
-        <div className="border-t border-zinc-100 px-4 py-2.5">
+        <div className="border-t border-border-subtle px-4 py-2.5">
           <a
             href={`https://github.com/${location.owner}/${location.repo}/commits/${location.ref}`}
             target="_blank"
             rel="noreferrer"
-            className="text-xs text-zinc-400 hover:text-zinc-700"
+            className="fs-caption text-text-tertiary hover:text-text-primary"
           >
             View on GitHub ↗
           </a>

@@ -283,45 +283,45 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
 
   return (
     <aside
-      className={`relative flex flex-col h-full w-[380px] border-l bg-white ${
-        dragOver ? "border-zinc-700" : "border-zinc-200"
+      className={`relative flex flex-col h-full w-[380px] border-l bg-surface-panel ${
+        dragOver ? "border-border-strong" : "border-border-default"
       }`}
       onDragOver={(e) => { e.preventDefault(); if (!working) setDragOver(true); }}
       onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
       onDrop={onDrop}
     >
       {dragOver && (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-zinc-50/90 border-2 border-dashed border-zinc-400 text-xs font-medium text-zinc-600">
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-surface-panel/90 border-2 border-dashed border-border-strong fs-label text-text-secondary">
           Drop files to attach
         </div>
       )}
-      <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2">
+      <div className="flex items-center justify-between border-b border-border-default px-4 py-2">
         <div>
-          <div className="text-sm font-semibold text-zinc-900">Assistant</div>
+          <div className="text-sm font-semibold text-text-primary">Assistant</div>
           <ModelPicker
             value={model}
             onChange={setChatModel}
-            className="text-[11px] text-zinc-500 bg-transparent border-none p-0 -ml-0.5 focus:outline-none focus:ring-0 cursor-pointer hover:text-zinc-900"
+            className="text-[11px] text-text-tertiary bg-transparent border-none p-0 -ml-0.5 focus:outline-none focus:ring-0 cursor-pointer hover:text-text-primary"
           />
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={clearChat}
             disabled={messages.length === 0}
-            className="rounded px-2 py-1 text-[11px] text-zinc-600 hover:bg-zinc-100 disabled:opacity-40"
+            className="rounded px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
           >
             clear
           </button>
           <button
             onClick={onClose}
-            className="rounded px-2 py-1 text-[11px] text-zinc-600 hover:bg-zinc-100"
+            className="rounded px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover"
           >
             close
           </button>
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-auto p-3 space-y-3 text-sm">
+      <div ref={scrollRef} className="flex-1 overflow-auto p-3 space-y-3 fs-body">
         {messages.length === 0 && !busy && (
           <EmptyHint hasKey={!!apiKey} endpoint={dispatch.endpoint} onOpenSettings={onOpenSettings} />
         )}
@@ -329,26 +329,26 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
           <MessageView key={i} m={m} />
         ))}
         {busy && (
-          <div className="text-xs text-zinc-500 italic">thinking…</div>
+          <div className="fs-caption text-text-tertiary italic">thinking…</div>
         )}
         {parsing && (
-          <div className="text-xs text-zinc-500 italic">building spec from source…</div>
+          <div className="fs-caption text-text-tertiary italic">building spec from source…</div>
         )}
       </div>
 
       {error && (
-        <div className="border-t border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-800">
+        <div className="border-t border-state-error-line bg-state-error-bg px-3 py-2 text-[11px] text-state-error-fg">
           {error}
         </div>
       )}
 
-      <div className="border-t border-zinc-200 p-2">
+      <div className="border-t border-border-default p-2">
         {attachments.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1">
             {attachments.map((a) => (
               <span
                 key={a.name}
-                className="inline-flex max-w-full items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-700"
+                className="inline-flex max-w-full items-center gap-1 rounded-full border border-border-default bg-surface-sunken px-2 py-0.5 text-[11px] text-text-secondary"
                 title={a.name}
               >
                 <PaperclipIcon />
@@ -356,7 +356,7 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
                 <button
                   onClick={() => removeAttachment(a.name)}
                   disabled={working}
-                  className="text-zinc-400 hover:text-zinc-700 disabled:opacity-40"
+                  className="text-text-tertiary hover:text-text-primary disabled:opacity-40"
                   aria-label={`Remove ${a.name}`}
                 >
                   ×
@@ -372,7 +372,7 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
           placeholder={apiKey ? "Describe a change… (⌘↵ to send)" : "Add your API key in Settings to start."}
           disabled={working || !apiKey}
           rows={3}
-          className="w-full resize-none rounded border border-zinc-300 p-2 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
+          className="w-full resize-none rounded border border-border-default p-2 fs-body focus:outline-none focus:ring-1 focus:ring-focus-ring disabled:bg-state-disabled-bg"
         />
         <input
           ref={fileInputRef}
@@ -388,7 +388,7 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
             disabled={working || !apiKey}
             title="Attach source files"
             aria-label="Attach files"
-            className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-40"
+            className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-text-tertiary hover:bg-surface-hover hover:text-text-primary disabled:opacity-40"
           >
             <PaperclipIcon />
             Attach
@@ -403,7 +403,7 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
                     ? "Build a fresh spec from the attached source material"
                     : "Build a fresh spec from your description"
                 }
-                className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
+                className="rounded-md border border-border-default px-3 py-1.5 fs-label text-text-secondary hover:bg-surface-hover disabled:opacity-40"
               >
                 Build from source
               </button>
@@ -411,7 +411,7 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
             <button
               onClick={send}
               disabled={working || !input.trim() || !apiKey}
-              className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+              className="rounded-md bg-emphasis px-3 py-1.5 fs-label text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-40"
             >
               Send
             </button>
@@ -451,11 +451,11 @@ function EmptyHint({
 }) {
   if (!hasKey) {
     return (
-      <div className="text-xs text-zinc-500">
+      <div className="fs-caption text-text-tertiary">
         Set up Assistant by adding a {providerLabel(endpoint)} API key in{" "}
         <button
           onClick={onOpenSettings}
-          className="underline hover:text-zinc-900"
+          className="underline hover:text-text-primary"
         >
           Settings
         </button>
@@ -464,7 +464,7 @@ function EmptyHint({
     );
   }
   return (
-    <div className="text-xs text-zinc-500 space-y-2">
+    <div className="fs-caption text-text-tertiary space-y-2">
       <p>Ask me to create or edit the spec on the canvas. Try:</p>
       <ul className="list-disc pl-4 space-y-0.5">
         <li>&ldquo;Create a coffee-ordering agent with greet, order, and confirm flows.&rdquo;</li>
@@ -485,7 +485,7 @@ function MessageView({ m }: { m: ChatMessage }) {
   if (m.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-lg bg-zinc-900 px-3 py-2 text-sm text-white whitespace-pre-wrap">
+        <div className="max-w-[85%] rounded-lg bg-emphasis px-3 py-2 fs-body text-emphasis-fg whitespace-pre-wrap">
           {stripSpec(m.content)}
         </div>
       </div>
@@ -495,18 +495,18 @@ function MessageView({ m }: { m: ChatMessage }) {
     return (
       <div className="space-y-1">
         {m.content && (
-          <div className="rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-900 whitespace-pre-wrap">
+          <div className="rounded-lg bg-surface-sunken px-3 py-2 fs-body text-text-primary whitespace-pre-wrap">
             {m.content}
           </div>
         )}
         {m.toolCalls?.map((c) => (
           <div
             key={c.id}
-            className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-[11px] font-mono text-zinc-700"
+            className="rounded-md border border-border-default bg-surface-sunken px-2 py-1 text-[11px] font-mono text-text-secondary"
           >
-            <span className="text-zinc-500">→ </span>
+            <span className="text-text-tertiary">→ </span>
             <span className="font-semibold">{c.name}</span>
-            <span className="text-zinc-500">
+            <span className="text-text-tertiary">
               ({summarizeArgs(c.arguments)})
             </span>
           </div>
@@ -526,8 +526,8 @@ function MessageView({ m }: { m: ChatMessage }) {
     <div
       className={`ml-3 rounded-md border px-2 py-1 text-[11px] font-mono ${
         failed
-          ? "border-red-200 bg-red-50 text-red-700"
-          : "border-zinc-200 bg-white text-zinc-500"
+          ? "border-state-error-line bg-state-error-bg text-state-error-fg"
+          : "border-border-default bg-surface-panel text-text-tertiary"
       }`}
     >
       {failed ? `error: ${parsed.error ?? "unknown"}` : "ok"}

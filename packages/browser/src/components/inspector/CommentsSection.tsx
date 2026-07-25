@@ -54,16 +54,16 @@ export function CommentsSection({ anchor }: CommentsSectionProps) {
   const visible = showResolved ? all : unresolved;
 
   return (
-    <div className="space-y-2 border-t border-zinc-200 pt-4">
+    <div className="space-y-2 border-t border-border-default pt-4">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-zinc-600">
-          Comments {unresolved.length > 0 && <span className="text-zinc-400">({unresolved.length})</span>}
+        <span className="fs-label text-text-secondary">
+          Comments {unresolved.length > 0 && <span className="text-text-tertiary">({unresolved.length})</span>}
         </span>
         {resolved.length > 0 && (
           <button
             type="button"
             onClick={() => setShowResolved((s) => !s)}
-            className="text-[10px] text-zinc-500 hover:text-zinc-900 underline"
+            className="text-[10px] text-text-tertiary hover:text-text-primary underline"
           >
             {showResolved ? "hide resolved" : `show resolved (${resolved.length})`}
           </button>
@@ -71,7 +71,7 @@ export function CommentsSection({ anchor }: CommentsSectionProps) {
       </div>
 
       {visible.length === 0 && (
-        <p className="text-[11px] text-zinc-400 italic">No comments yet.</p>
+        <p className="text-[11px] text-text-tertiary italic">No comments yet.</p>
       )}
 
       {visible.length > 0 && (
@@ -89,15 +89,15 @@ export function CommentsSection({ anchor }: CommentsSectionProps) {
           placeholder="Add a comment…"
           rows={2}
           disabled={posting}
-          className="w-full resize-y rounded border border-zinc-300 p-2 text-xs focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:bg-zinc-50"
+          className="w-full resize-y rounded border border-border-default p-2 fs-caption focus:outline-none focus:ring-1 focus:ring-focus-ring disabled:bg-state-disabled-bg"
         />
-        {error && <p className="text-[11px] text-red-700">{error}</p>}
+        {error && <p className="text-[11px] text-state-error-fg">{error}</p>}
         <div className="flex justify-end">
           <button
             type="button"
             onClick={onPost}
             disabled={!draft.trim() || posting}
-            className="rounded-md bg-zinc-900 px-2 py-1 text-[11px] font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+            className="rounded-md bg-emphasis px-2 py-1 fs-micro text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-40"
           >
             {posting ? "Posting…" : "Post"}
           </button>
@@ -119,23 +119,23 @@ function CommentItem({
   return (
     <li
       className={
-        "group rounded border px-2 py-1.5 text-xs " +
+        "group rounded border px-2 py-1.5 fs-caption " +
         (comment.resolved
-          ? "border-zinc-200 bg-zinc-50 text-zinc-500"
-          : "border-zinc-200 bg-white text-zinc-800")
+          ? "border-border-default bg-surface-sunken text-text-tertiary"
+          : "border-border-default bg-surface-panel text-text-primary")
       }
     >
       <div className="flex items-center justify-between gap-2">
-        <div className="truncate text-[10px] text-zinc-500">
+        <div className="truncate text-[10px] text-text-tertiary">
           <span className="font-mono">{comment.author}</span>
           <span className="mx-1">·</span>
           <span>{tsLabel}</span>
-          {comment.resolved && <span className="ml-1 text-emerald-700">✓ resolved</span>}
+          {comment.resolved && <span className="ml-1 text-state-success-fg">✓ resolved</span>}
         </div>
         <button
           type="button"
           onClick={() => onToggleResolve(comment.id, comment.resolved)}
-          className="text-[10px] text-zinc-400 opacity-0 hover:text-zinc-900 group-hover:opacity-100 focus:opacity-100"
+          className="text-[10px] text-text-tertiary opacity-0 hover:text-text-primary group-hover:opacity-100 focus:opacity-100"
           title={comment.resolved ? "Reopen this comment" : "Mark as resolved"}
         >
           {comment.resolved ? "reopen" : "resolve"}

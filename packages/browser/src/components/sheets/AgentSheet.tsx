@@ -63,7 +63,7 @@ export function AgentSheet({ onClose }: { onClose: () => void }) {
         />
       </Field>
       <div className="flex items-center gap-4">
-        <label className="flex items-center gap-2 text-xs text-zinc-700">
+        <label className="flex items-center gap-2 fs-caption text-text-secondary">
           <input
             type="checkbox"
             checked={agent.chatbot_initiates ?? false}
@@ -71,10 +71,10 @@ export function AgentSheet({ onClose }: { onClose: () => void }) {
           />
           The agent sends the first message
         </label>
-        <label className="flex items-center gap-1.5 text-xs text-zinc-700">
+        <label className="flex items-center gap-1.5 fs-caption text-text-secondary">
           Modality
           <select
-            className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            className="rounded border border-border-default bg-surface-panel px-1.5 py-0.5 text-[11px] text-text-primary focus:outline-none focus:ring-1 focus:ring-focus-ring"
             value={agent.meta.modality}
             onChange={(e) =>
               patch({ meta: { ...agent.meta, modality: e.target.value as Modality } })
@@ -98,13 +98,13 @@ export function AgentSheet({ onClose }: { onClose: () => void }) {
           onChange={(e) => patch({ system_prompt: e.target.value || undefined })}
           placeholder={"{{generated}}"}
         />
-        <p className="text-[11px] text-zinc-500 mt-1 leading-snug">
+        <p className="text-[11px] text-text-tertiary mt-1 leading-snug">
           Free text wrapped around the compiled prompt.{" "}
-          <code className="bg-zinc-100 px-1 py-0.5 rounded text-[10px]">{"{{generated}}"}</code>{" "}
+          <code className="bg-surface-sunken px-1 py-0.5 rounded text-[10px]">{"{{generated}}"}</code>{" "}
           expands to the spec-derived sections.{" "}
-          <code className="bg-zinc-100 px-1 py-0.5 rounded text-[10px]">{"{{variable}}"}</code>{" "}
+          <code className="bg-surface-sunken px-1 py-0.5 rounded text-[10px]">{"{{variable}}"}</code>{" "}
           references work as elsewhere. Omitting{" "}
-          <code className="bg-zinc-100 px-1 py-0.5 rounded text-[10px]">{"{{generated}}"}</code>{" "}
+          <code className="bg-surface-sunken px-1 py-0.5 rounded text-[10px]">{"{{generated}}"}</code>{" "}
           fully overrides codegen.
         </p>
       </Field>

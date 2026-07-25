@@ -25,7 +25,7 @@ export function LoadInSimButton({ target }: { target: RouteTarget }) {
           ? "Generate a persona that steers a simulation to here, then review and play"
           : "Add an LLM key in Settings to simulate"
       }
-      className="w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-900 shadow-sm hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+      className="w-full rounded-md border border-border-default bg-surface-panel px-3 py-1.5 fs-label text-text-primary shadow-sm hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
     >
       {synthesizing ? "Synthesizing…" : "Simulate to here ▶"}
     </button>

@@ -8,9 +8,9 @@ import { LoadInSimButton } from "./LoadInSimButton";
 
 const METHODS: Method[] = ["llm", "calculation", "direct"];
 
-const labelClass = "block text-xs font-medium text-zinc-600 mb-1";
+const labelClass = "block fs-label text-text-secondary mb-1";
 const inputClass =
-  "w-full rounded border border-zinc-300 px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400";
+  "w-full rounded border border-border-default px-2 py-1 fs-caption bg-surface-panel focus:outline-none focus:ring-1 focus:ring-focus-ring";
 
 interface AssignRow {
   variable: string;
@@ -80,21 +80,21 @@ export function EdgeInspector() {
   const assignRows = rowsFromAssigns(exitPath.assigns);
 
   return (
-    <aside className="w-[380px] shrink-0 border-l border-zinc-200 bg-white overflow-y-auto">
-      <div className="sticky top-0 bg-white border-b border-zinc-200 px-4 py-3 flex items-center gap-2">
-        <span className="text-[10px] uppercase tracking-wide text-zinc-500">Exit path</span>
-        <span className="text-xs text-zinc-400 font-mono truncate">{exitPath.id}</span>
+    <aside className="w-[380px] shrink-0 border-l border-border-default bg-surface-panel overflow-y-auto">
+      <div className="sticky top-0 bg-surface-panel border-b border-border-default px-4 py-3 flex items-center gap-2">
+        <span className="text-[10px] uppercase tracking-wide text-text-tertiary">Exit path</span>
+        <span className="fs-caption text-text-tertiary font-mono truncate">{exitPath.id}</span>
         <button
           onClick={() => setSelection(null)}
-          className="ml-auto text-xs text-zinc-500 hover:text-zinc-900"
+          className="ml-auto fs-caption text-text-tertiary hover:text-text-primary"
         >
           close
         </button>
       </div>
 
       <div className="p-4 space-y-4">
-        <div className="text-[11px] text-zinc-500">
-          From <span className="font-medium text-zinc-700">{flow.name}</span>
+        <div className="text-[11px] text-text-tertiary">
+          From <span className="font-medium text-text-secondary">{flow.name}</span>
         </div>
 
         <Field label="Condition">
@@ -121,7 +121,7 @@ export function EdgeInspector() {
             <option value={GOTO_RETURN}>Return to caller (RETURN)</option>
           </select>
           {isReturnGoto(exitPath.goto) && (
-            <p className="mt-1 text-[11px] text-zinc-500 italic">
+            <p className="mt-1 text-[11px] text-text-tertiary italic">
               Resumes whichever flow called this one.
             </p>
           )}
@@ -145,7 +145,7 @@ export function EdgeInspector() {
             addLabel="add assignment"
             emptyLabel="(no assignments)"
             renderItem={(row, update, remove) => (
-              <div className="rounded border border-zinc-200 p-2 space-y-1.5">
+              <div className="rounded border border-border-default p-2 space-y-1.5">
                 <div className="flex items-center gap-2">
                   <input
                     className={inputClass}
@@ -155,7 +155,7 @@ export function EdgeInspector() {
                   />
                   <button
                     onClick={remove}
-                    className="text-xs text-zinc-400 hover:text-red-600"
+                    className="fs-caption text-text-tertiary hover:text-state-error-fg"
                     title="remove"
                   >
                     ×
@@ -210,7 +210,7 @@ export function EdgeInspector() {
                 </select>
                 <button
                   onClick={remove}
-                  className="text-xs text-zinc-400 hover:text-red-600"
+                  className="fs-caption text-text-tertiary hover:text-state-error-fg"
                   title="remove"
                 >
                   ×
@@ -219,20 +219,20 @@ export function EdgeInspector() {
             )}
           />
           {capabilities.length === 0 && (
-            <p className="mt-1 text-[10px] text-zinc-400">
+            <p className="mt-1 text-[10px] text-text-tertiary">
               No capabilities defined yet — add them in the agent sidebar.
             </p>
           )}
         </Field>
         )}
 
-        <div className="pt-2 border-t border-zinc-200 space-y-2">
+        <div className="pt-2 border-t border-border-default space-y-2">
           <LoadInSimButton target={{ kind: "exit", flowId: flow.id, exitPathId: exitPath.id }} />
           <button
             onClick={() => {
               if (window.confirm("Delete this exit path?")) removeExitPath(flow!.id, exitPath!.id);
             }}
-            className="w-full rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+            className="w-full rounded-md border border-state-error-line px-3 py-1.5 fs-label text-state-error-fg hover:bg-state-error-bg"
           >
             Delete exit path
           </button>

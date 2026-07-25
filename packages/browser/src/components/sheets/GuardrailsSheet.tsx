@@ -31,7 +31,7 @@ export function GuardrailsSheet({ onClose }: { onClose: () => void }) {
             />
             <button
               onClick={remove}
-              className="text-xs text-zinc-400 hover:text-red-600 mt-1"
+              className="fs-caption text-text-tertiary hover:text-state-error-fg mt-1"
             >
               ×
             </button>

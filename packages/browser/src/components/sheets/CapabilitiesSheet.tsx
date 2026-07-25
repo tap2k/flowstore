@@ -34,7 +34,7 @@ export function CapabilitiesSheet({ onClose }: { onClose: () => void }) {
         })}
         addLabel="add capability"
         renderItem={(c, update, remove) => (
-          <div className="rounded border border-zinc-200 p-3 space-y-2">
+          <div className="rounded border border-border-default p-3 space-y-2">
             <div className="flex items-start gap-2">
               <input
                 className={inputClass}
@@ -52,7 +52,7 @@ export function CapabilitiesSheet({ onClose }: { onClose: () => void }) {
               </select>
               <button
                 onClick={remove}
-                className="text-xs text-zinc-400 hover:text-red-600"
+                className="fs-caption text-text-tertiary hover:text-state-error-fg"
               >
                 ×
               </button>
@@ -65,7 +65,7 @@ export function CapabilitiesSheet({ onClose }: { onClose: () => void }) {
             />
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <span className="block text-[10px] text-zinc-500 mb-1">inputs</span>
+                <span className="block text-[10px] text-text-tertiary mb-1">inputs</span>
                 <StringListEditor
                   items={c.inputs ?? []}
                   onChange={(inputs) =>
@@ -75,7 +75,7 @@ export function CapabilitiesSheet({ onClose }: { onClose: () => void }) {
                 />
               </div>
               <div>
-                <span className="block text-[10px] text-zinc-500 mb-1">outputs</span>
+                <span className="block text-[10px] text-text-tertiary mb-1">outputs</span>
                 <StringListEditor
                   items={c.outputs ?? []}
                   onChange={(outputs) =>
@@ -88,7 +88,7 @@ export function CapabilitiesSheet({ onClose }: { onClose: () => void }) {
             {c.kind === "function" && (
               <div className="space-y-1.5 pt-1">
                 <div className="flex flex-wrap items-center gap-4">
-                  <label className="flex items-center gap-1.5 text-[11px] text-zinc-600">
+                  <label className="flex items-center gap-1.5 text-[11px] text-text-secondary">
                     <input
                       type="checkbox"
                       checked={c.ends_conversation ?? false}
@@ -99,7 +99,7 @@ export function CapabilitiesSheet({ onClose }: { onClose: () => void }) {
                     Ends the conversation
                   </label>
                   {(runnerFeatures || c.non_blocking) && (
-                    <label className="flex items-center gap-1.5 text-[11px] text-zinc-600">
+                    <label className="flex items-center gap-1.5 text-[11px] text-text-secondary">
                       <input
                         type="checkbox"
                         checked={c.non_blocking ?? false}

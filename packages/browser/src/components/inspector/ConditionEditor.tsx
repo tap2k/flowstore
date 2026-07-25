@@ -25,7 +25,7 @@ export function ConditionEditor({ condition, onChange, placeholder, required }: 
   return (
     <div className="space-y-1.5">
       <select
-        className="rounded border border-zinc-300 px-2 py-1 text-xs bg-white"
+        className="rounded border border-border-default px-2 py-1 fs-caption bg-surface-panel"
         value={method}
         onChange={(e) => update({ method: e.target.value as Method })}
       >
@@ -36,7 +36,7 @@ export function ConditionEditor({ condition, onChange, placeholder, required }: 
         ))}
       </select>
       <textarea
-        className="w-full rounded border border-zinc-300 px-2 py-1 text-xs font-mono resize-y min-h-[50px] focus:outline-none focus:ring-1 focus:ring-zinc-400"
+        className="w-full rounded border border-border-default px-2 py-1 fs-caption font-mono resize-y min-h-[50px] focus:outline-none focus:ring-1 focus:ring-focus-ring"
         value={expression}
         onChange={(e) => update({ expression: e.target.value })}
         placeholder={placeholder ?? (method === "llm" ? "Plain-language description" : "Expression")}

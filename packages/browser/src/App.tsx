@@ -1,4 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  ClockCounterClockwise,
+  Play,
+  Sparkle,
+  TextAlignLeft,
+} from "@phosphor-icons/react";
 import { Canvas } from "@/components/canvas/Canvas";
 import { FlowInspector } from "@/components/inspector/FlowInspector";
 import { EdgeInspector } from "@/components/inspector/EdgeInspector";
@@ -11,6 +17,7 @@ import { SaveToNewRepoModal } from "@/components/toolbar/SaveToNewRepoModal";
 import { ShareModal } from "@/components/toolbar/ShareModal";
 import { SpecChangesModal } from "@/components/toolbar/SpecChangesModal";
 import { HistoryPanel } from "@/components/toolbar/HistoryPanel";
+import { Badge, Button, IconButton, ThemeToggle } from "@/components/ui";
 import { useSpecStore } from "@/lib/store/spec";
 import { useUiStore } from "@/lib/store/ui";
 import { useSettingsStore } from "@/lib/store/settings";
@@ -117,15 +124,13 @@ export function App() {
 
   return (
     <>
-      <div className="flex flex-col h-screen bg-zinc-50">
-        <header className="flex items-center gap-4 border-b border-zinc-200 bg-white px-6 py-3">
+      <div className="fs-root flex flex-col h-screen bg-surface-canvas">
+        <header className="flex items-center gap-4 border-b border-border-default bg-surface-panel px-6 py-3">
           {/* Project identity stays top-left; the flowstore wordmark lives on
               the canvas bottom-left (see BrandMark in Canvas). */}
           {spec ? (
             <div className="flex min-w-0 flex-col">
-              <h1 className="truncate text-lg font-semibold leading-tight text-zinc-900">
-                {spec.agent.name}
-              </h1>
+              <h1 className="fs-sectionTitle truncate text-text-primary">{spec.agent.name}</h1>
               {githubLocation ? (
                 <div className="flex items-center gap-1 leading-tight">
                   <a
@@ -133,16 +138,16 @@ export function App() {
                     target="_blank"
                     rel="noreferrer"
                     title={`${githubLocation.owner}/${githubLocation.repo}@${githubLocation.ref}`}
-                    className="truncate font-mono text-[11px] text-zinc-500 hover:text-zinc-900 hover:underline"
+                    className="fs-data truncate text-text-tertiary no-underline hover:text-text-primary"
                   >
                     {githubLocation.owner}/{githubLocation.repo}@{githubLocation.ref}
                   </a>
                   {!githubCanWrite && (
-                    <span className="shrink-0 text-[11px] text-zinc-400">· read-only</span>
+                    <span className="fs-micro shrink-0 text-text-tertiary">· read-only</span>
                   )}
                 </div>
               ) : (
-                <div className="text-[11px] leading-tight text-zinc-500">Working locally</div>
+                <div className="fs-micro text-text-tertiary">Working locally</div>
               )}
             </div>
           ) : null}
@@ -153,60 +158,59 @@ export function App() {
               onSaveToGitHub={() => setSaveRepoOpen(true)}
               onShare={() => setShareOpen(true)}
             />
+            {/* Sits after the project actions and before nothing — a preference,
+                not a document action, so it gets the far edge of the bar. */}
+            <ThemeToggle />
           </div>
         </header>
         <main className="flex flex-1 min-h-0">
           <div className="relative flex-1 min-w-0">
             <Canvas />
             <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+              {/* These float over the canvas but are app actions, not canvas
+                  controls — design-system buttons, not the canvas control set. */}
               {spec && !promptOpen && (
-                <button
+                <Button
+                  icon={TextAlignLeft}
                   onClick={() => setPromptOpen(true)}
                   title="Prompt — inspect the compiled system prompt"
-                  className="flex items-center gap-1.5 rounded-full bg-white border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
+                  className="shadow-elev-1"
                 >
-                  <PromptIcon />
                   Prompt
-                  {diagErrors > 0 && (
-                    <span className="ml-0.5 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-red-700">
+                  {diagErrors > 0 ? (
+                    <Badge tone="error" className="ml-0.5">
                       {diagErrors}
-                    </span>
-                  )}
-                  {diagErrors === 0 && diagWarnings > 0 && (
-                    <span className="ml-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-amber-700">
+                    </Badge>
+                  ) : diagWarnings > 0 ? (
+                    <Badge tone="warning" className="ml-0.5">
                       {diagWarnings}
-                    </span>
-                  )}
-                </button>
+                    </Badge>
+                  ) : null}
+                </Button>
               )}
               {spec && (hasLlmKey || runnerUrl) && !simulateOpen && (
-                <button
-                  onClick={() => setSimulateOpen(true)}
-                  className="flex items-center gap-1.5 rounded-full bg-white border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
-                >
-                  <SimulateIcon />
+                <Button icon={Play} onClick={() => setSimulateOpen(true)} className="shadow-elev-1">
                   Run
-                </button>
+                </Button>
               )}
               {import.meta.env.VITE_DEV === "1" && githubLocation && !historyOpen && (
-                <button
+                <Button
+                  icon={ClockCounterClockwise}
                   onClick={() => setHistoryOpen(true)}
                   title="Revision history"
-                  className="flex items-center gap-1.5 rounded-full bg-white border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
+                  className="shadow-elev-1"
                 >
-                  <HistoryIcon />
                   History
-                </button>
+                </Button>
               )}
               {hasLlmKey && !chatOpen && (
-                <button
+                <IconButton
+                  icon={Sparkle}
+                  label="Assistant — describe a spec change in natural language"
+                  size="lg"
                   onClick={() => setChatOpen(true)}
-                  title="Assistant — describe a spec change in natural language"
-                  aria-label="Assistant"
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-white shadow-md hover:bg-zinc-700"
-                >
-                  <SparklesIcon />
-                </button>
+                  className="border-transparent bg-emphasis text-emphasis-fg shadow-elev-2 hover:border-transparent hover:bg-emphasis-hover"
+                />
               )}
             </div>
           </div>
@@ -269,12 +273,7 @@ function SaveStatePill() {
   if (isDirty) {
     // Only offer the diff when there's a GitHub project to compare against;
     // otherwise the pill is just a status indicator.
-    const pillBody = (
-      <>
-        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-        Unsaved changes
-      </>
-    );
+    const badge = <Badge status="warning">Unsaved changes</Badge>;
     return (
       <>
         {hasProject ? (
@@ -282,25 +281,19 @@ function SaveStatePill() {
             type="button"
             onClick={() => setShowChanges(true)}
             title="Compare with the saved version on GitHub"
-            className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200 hover:bg-amber-100"
+            className="cursor-pointer border-none bg-transparent p-0"
           >
-            {pillBody}
+            {badge}
           </button>
         ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200">
-            {pillBody}
-          </span>
+          badge
         )}
         {showChanges && <SpecChangesModal onClose={() => setShowChanges(false)} />}
       </>
     );
   }
   if (lastSavedAt) {
-    return (
-      <span className="text-[11px] text-zinc-500">
-        Saved · {timeAgo(lastSavedAt)}
-      </span>
-    );
+    return <span className="fs-caption text-text-tertiary">Saved · {timeAgo(lastSavedAt)}</span>;
   }
   return null;
 }
@@ -314,41 +307,4 @@ function timeAgo(t: number): string {
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ago`;
   return new Date(t).toLocaleDateString();
-}
-
-function SparklesIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z" />
-      <path d="M19 14l.75 2.25L22 17l-2.25.75L19 20l-.75-2.25L16 17l2.25-.75z" />
-      <path d="M5 14l.5 1.5L7 16l-1.5.5L5 18l-.5-1.5L3 16l1.5-.5z" />
-    </svg>
-  );
-}
-
-function PromptIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <line x1="4" y1="6" x2="20" y2="6" />
-      <line x1="4" y1="12" x2="14" y2="12" />
-      <line x1="4" y1="18" x2="18" y2="18" />
-    </svg>
-  );
-}
-
-function SimulateIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <polygon points="5 3 19 12 5 21 5 3" />
-    </svg>
-  );
-}
-
-function HistoryIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
-    </svg>
-  );
 }

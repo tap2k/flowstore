@@ -1,9 +1,17 @@
 import type { ReactNode } from "react";
+import { Plus, X } from "@phosphor-icons/react";
+import { Button, IconButton } from "@/components/ui";
 
+// Shared class strings for the many raw <input>/<textarea>/<select> elements
+// across the inspector and the sheets. They resolve to the same tokens the
+// Input atom uses — recessed sunken fill, 1px border, focus halo — so a field
+// styled by hand and one built from the atom read identically.
 export const inputClass =
-  "w-full rounded border border-zinc-300 px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400";
+  "w-full rounded-2 border border-border-default bg-surface-sunken px-2 py-1 fs-ui text-text-primary " +
+  "placeholder:text-text-tertiary hover:border-border-strong focus:outline-none " +
+  "focus:border-n-11 focus:shadow-[0_0_0_2px_var(--select-halo)]";
 
-export const labelClass = "block text-xs font-medium text-zinc-600 mb-1";
+export const labelClass = "fs-label block text-text-secondary mb-1";
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -25,10 +33,10 @@ export function Section({
 }) {
   return (
     <section className="space-y-3">
-      <div className="flex items-baseline justify-between border-b border-zinc-100 pb-1">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          {title}
-        </h3>
+      {/* Structural header: uppercase, tertiary, over a hairline. Grouping is a
+          divider and a header in this system, never a card. */}
+      <div className="flex items-baseline justify-between border-b border-border-subtle pb-1">
+        <h3 className="fs-panelHeader text-text-tertiary">{title}</h3>
         {action && <div className="flex items-center gap-3">{action}</div>}
       </div>
       <div className="space-y-3">{children}</div>
@@ -48,27 +56,24 @@ export function StringListEditor({
   return (
     <div className="space-y-1">
       {items.map((s, i) => (
-        <div key={i} className="flex gap-2">
+        <div key={i} className="flex items-center gap-1">
           <input
             className={inputClass}
             value={s}
             onChange={(e) => onChange(items.map((x, j) => (j === i ? e.target.value : x)))}
             placeholder={placeholder}
           />
-          <button
+          <IconButton
+            icon={X}
+            label="Remove"
+            size="sm"
             onClick={() => onChange(items.filter((_, j) => j !== i))}
-            className="text-xs text-zinc-400 hover:text-red-600"
-          >
-            ×
-          </button>
+          />
         </div>
       ))}
-      <button
-        onClick={() => onChange([...items, ""])}
-        className="text-xs text-zinc-600 hover:text-zinc-900 underline"
-      >
-        + add
-      </button>
+      <Button variant="ghost" size="sm" icon={Plus} onClick={() => onChange([...items, ""])}>
+        Add
+      </Button>
     </div>
   );
 }

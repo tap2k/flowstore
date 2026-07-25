@@ -90,30 +90,30 @@ export function SpecChangesModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-surface-scrim flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-lg shadow-lg w-full max-w-lg p-5"
+        className="bg-surface-panel rounded-lg shadow-lg w-full max-w-lg p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-lg font-semibold text-zinc-900">Changes since last save</h2>
-          <button onClick={onClose} className="text-xs text-zinc-500 hover:text-zinc-900">
+          <h2 className="text-lg font-semibold text-text-primary">Changes since last save</h2>
+          <button onClick={onClose} className="fs-caption text-text-tertiary hover:text-text-primary">
             close
           </button>
         </div>
 
         {state.phase === "loading" && (
-          <p className="text-sm text-zinc-500">Comparing with GitHub…</p>
+          <p className="fs-body text-text-tertiary">Comparing with GitHub…</p>
         )}
 
         {state.phase === "error" && (
-          <p className="text-sm text-red-600">{state.message}</p>
+          <p className="fs-body text-state-error-fg">{state.message}</p>
         )}
 
         {state.phase === "no-base" && (
-          <p className="text-sm text-zinc-600">
+          <p className="fs-body text-text-secondary">
             No spec has been saved to <span className="font-medium">{branchLabel}</span> yet —
             your entire working copy is new. Save to create the first version.
           </p>
@@ -122,12 +122,12 @@ export function SpecChangesModal({ onClose }: { onClose: () => void }) {
         {state.phase === "ready" && (
           <>
             {state.remoteAdvanced && (
-              <p className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-[11px] text-amber-800 ring-1 ring-amber-200">
+              <p className="mb-3 rounded-md bg-state-warning-bg px-3 py-2 text-[11px] text-state-warning-fg ring-1 ring-state-warning-line">
                 The branch on GitHub has new commits since you opened it — some changes
                 below may be a collaborator's. Saving will diff against this tip.
               </p>
             )}
-            <pre className="max-h-[60vh] overflow-auto rounded-md bg-zinc-50 p-3 text-[12px] leading-relaxed text-zinc-800 ring-1 ring-zinc-200 whitespace-pre-wrap">
+            <pre className="max-h-[60vh] overflow-auto rounded-md bg-surface-sunken p-3 text-[12px] leading-relaxed text-text-primary ring-1 ring-border-default whitespace-pre-wrap">
               {state.text}
             </pre>
           </>

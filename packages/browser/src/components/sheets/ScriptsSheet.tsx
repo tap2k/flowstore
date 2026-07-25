@@ -154,18 +154,18 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
         onChange={(e) => setNewLang(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && addLanguage()}
         placeholder="+ add language (e.g. ES)"
-        className="rounded border border-zinc-200 px-2 py-1 text-xs w-48 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400"
+        className="rounded border border-border-default px-2 py-1 text-xs w-48 placeholder:text-text-tertiary focus:outline-none focus:border-border-strong"
       />
       <button
         onClick={csvImport.trigger}
-        className="text-xs text-zinc-500 hover:text-zinc-900"
+        className="text-xs text-text-tertiary hover:text-text-primary"
         title="Import scripts from a CSV file"
       >
         import
       </button>
       <button
         onClick={exportCsv}
-        className="text-xs text-zinc-500 hover:text-zinc-900"
+        className="text-xs text-text-tertiary hover:text-text-primary"
         title="Download this flow's scripts as a CSV"
       >
         export
@@ -185,7 +185,7 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
       footer={
         <button
           onClick={addRow}
-          className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+          className="rounded-md border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover"
         >
           + Add row
         </button>
@@ -198,18 +198,18 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
                 <col key={lang} />
               ))}
             </colgroup>
-            <thead className="sticky top-0 z-10 bg-zinc-50">
+            <thead className="sticky top-0 z-10 bg-surface-sunken">
               <tr>
-                <th className="border-b border-r border-zinc-200" />
+                <th className="border-b border-r border-border-default" />
                 {languages.map((lang) => (
                   <th
                     key={lang}
-                    className="group/lang relative border-b border-r border-zinc-200 last:border-r-0 px-2 py-2 text-left text-xs font-semibold text-zinc-700"
+                    className="group/lang relative border-b border-r border-border-default last:border-r-0 px-2 py-2 text-left text-xs font-semibold text-text-secondary"
                   >
                     {lang}
                     <button
                       onClick={() => removeLanguage(lang)}
-                      className="absolute top-1 right-1 opacity-0 group-hover/lang:opacity-100 text-zinc-400 hover:text-red-600 text-sm leading-none px-1"
+                      className="absolute top-1 right-1 opacity-0 group-hover/lang:opacity-100 text-text-tertiary hover:text-state-error-fg text-sm leading-none px-1"
                       title={`remove ${lang}`}
                     >
                       ×
@@ -223,7 +223,7 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
                 <tr>
                   <td
                     colSpan={colCount}
-                    className="text-center text-zinc-400 italic py-8 border-b border-zinc-200"
+                    className="text-center text-text-tertiary italic py-8 border-b border-border-default"
                   >
                     No script lines. Click &ldquo;+ Add row&rdquo; below.
                   </td>
@@ -232,12 +232,12 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
               {lines.map((line) => (
                 <tr key={line.id} className="group/row">
                   <td
-                    className="border-b border-r border-zinc-200 align-top relative"
+                    className="border-b border-r border-border-default align-top relative"
                     title={line.id}
                   >
                     <button
                       onClick={() => removeRow(line.id)}
-                      className="absolute inset-0 opacity-0 group-hover/row:opacity-100 flex items-center justify-center text-zinc-400 hover:text-red-600"
+                      className="absolute inset-0 opacity-0 group-hover/row:opacity-100 flex items-center justify-center text-text-tertiary hover:text-state-error-fg"
                       title="remove row"
                     >
                       ×
@@ -249,10 +249,10 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
                     return (
                       <td
                         key={lang}
-                        className="border-b border-r border-zinc-200 last:border-r-0 p-0 align-top"
+                        className="border-b border-r border-border-default last:border-r-0 p-0 align-top"
                       >
                         <textarea
-                          className="block w-full bg-transparent px-2 py-1.5 text-xs resize-none focus:outline-none focus:bg-blue-50/40 [field-sizing:content]"
+                          className="block w-full bg-transparent px-2 py-1.5 text-xs resize-none focus:outline-none focus:bg-state-running-bg/40 [field-sizing:content]"
                           value={cellValue}
                           onChange={(e) => editCell(line.id, lang, e.target.value)}
                           rows={1}
@@ -261,10 +261,10 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
                         {variations.map((v, i) => (
                           <div
                             key={i}
-                            className="group/var relative border-t border-dashed border-zinc-200"
+                            className="group/var relative border-t border-dashed border-border-default"
                           >
                             <textarea
-                              className="block w-full bg-transparent px-2 py-1 pr-6 text-[11px] text-zinc-600 italic resize-none focus:outline-none focus:bg-blue-50/40 focus:not-italic focus:text-zinc-900 [field-sizing:content]"
+                              className="block w-full bg-transparent px-2 py-1 pr-6 text-[11px] text-text-secondary italic resize-none focus:outline-none focus:bg-state-running-bg/40 focus:not-italic focus:text-text-primary [field-sizing:content]"
                               value={v}
                               onChange={(e) =>
                                 editVariation(line.id, lang, i, e.target.value)
@@ -274,7 +274,7 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
                             />
                             <button
                               onClick={() => removeVariation(line.id, lang, i)}
-                              className="absolute top-0.5 right-0.5 opacity-0 group-hover/var:opacity-100 text-zinc-400 hover:text-red-600 text-sm leading-none p-1"
+                              className="absolute top-0.5 right-0.5 opacity-0 group-hover/var:opacity-100 text-text-tertiary hover:text-state-error-fg text-sm leading-none p-1"
                               title="remove variation"
                             >
                               ×
@@ -283,7 +283,7 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
                         ))}
                         <button
                           onClick={() => addVariation(line.id, lang)}
-                          className="block w-full px-2 py-1 text-left text-[10px] text-zinc-300 hover:text-zinc-700 hover:bg-zinc-50 border-t border-dashed border-zinc-100"
+                          className="block w-full px-2 py-1 text-left text-[10px] text-text-disabled hover:text-text-primary hover:bg-surface-hover border-t border-dashed border-border-subtle"
                         >
                           + alt
                         </button>
