@@ -264,10 +264,34 @@ Consequences, accepted with eyes open:
 The one-way door in all of this is the licensing consequence; everything else is
 reversible with a `git mv`.
 
-## Second level: the drift panel
+## The report catalog
 
-Not in the entry product. Like the compiler, this is a second level added after
-the conformance study earns trust.
+The drift report, the routing report, and the compiler A/B are not separate
+products — they are different kinds of reports at different frequencies,
+produced by the same machine from the same ledger. Each has its own trigger,
+cadence, and price:
+
+- **Migration report** (the entry product): will your agent survive on model
+  X, and what will it cost? Trigger: a release, deprecation, or forced
+  migration. Free in kit form.
+- **Repricing report**: your projected bill, recomputed. Trigger: a vendor
+  price change. Zero new runs — the tokens are already in the ledger.
+- **Regression report**: did your change hold? Trigger: upload new system.
+- **Drift report** (premium): is it still your agent? Below.
+- **Routing report** (premium): which model where — the cost-optimization
+  report. Below.
+- **Respec A/B** (premium): your prompt recompiled from spec, at parity or
+  better — the handover report.
+
+Human grading is a premium layer on any of these (see Grading). Premiums
+attach to the specialized reports; the subscription attaches to the calendar —
+hosted testing, where we watch model events and run the reports for you. The
+free tier is the kit running the migration report locally.
+
+## The drift report
+
+Not in the entry product — a premium report added after the migration report
+earns trust.
 
 The migration question has two parts: "does it still work?" — conformance to
 spec, which is everything above — and "is it still *your agent*?" The second is
@@ -277,7 +301,7 @@ character grounds, and vendors shipping tone regressions their own cards wave
 off. A pass-rate-only report can be right on every number and wrong on the
 migration decision.
 
-The panel measures **drift, not quality** — no universal standard for good
+It measures **drift, not quality** — no universal standard for good
 character, no score, no "model X has better tone." Only "model X moves your
 agent this far from its reference point; here are paired transcripts."
 
@@ -304,40 +328,14 @@ make character spend a recorded decision.
 
 This also upgrades the report's "diffuse failures" case: tone, register, and
 language-wide character shifts — the failures that don't localize to a graph
-node — stop being the degraded fallback and become the drift panel's subject.
+node — stop being the degraded fallback and become the drift report's subject.
 
-Vocabulary discipline: studies *evaluate* against the spec; the panel *measures
-drift* from the customer's own baseline. A spec is a machine for pinning
-conduct down until it has a right answer and can be evaluated; the drift panel
-covers the residual the spec can't pin. Don't market the panel as "behavior
-evaluation" — grading character against a rubric is exactly the posture it
-exists to avoid.
-
-Natural premium tier.
-
-## Second level: per-node model routing
-
-Model choice doesn't have to be whole-agent. Certain skills/nodes might use
-different models. Failures localize to nodes — that's the graph's job — and so
-do costs: tokens are metered per turn, and turns belong to nodes. Act one's
-data therefore already contains the routing finding: "model X fails only at the
-payment-confirmation step — run that step on the strong model and everything
-else on the cheap one; same pass rate, N% cheaper." Not "which model" but
-"which model *where*," with a cost delta attached.
-
-Two caveats keep it honest. A mixed assignment needs its own verification run —
-conversations cross node boundaries, so per-node results don't simply compose.
-And the drift panel applies doubly: a model switch mid-conversation is a
-character seam, and voice consistency across the split is exactly what the
-panel should check.
-
-The recommendation is computable from the entry study; *executing* it is not.
-It requires a runtime that switches models at node boundaries — which means
-adopting the spec and runtime. That makes routing the deepest upsell in the
-product: a dollar figure attached to adoption. The routing plan serializes as
-`model_role` annotations on flows plus a role→model binding in the execution
-layer (see Schema implications), so it is recorded, versioned, and
-re-evaluated on the next model release like everything else.
+Vocabulary discipline: studies *evaluate* against the spec; the drift report
+*measures drift* from the customer's own baseline. A spec is a machine for
+pinning conduct down until it has a right answer and can be evaluated; the
+drift report covers the residual the spec can't pin. Don't market it as
+"behavior evaluation" — grading character against a rubric is exactly the
+posture it exists to avoid.
 
 ## Grading and the "cheap" promise
 
@@ -347,11 +345,41 @@ core cheap product; the test-file shapes already support it. Human grading is a
 layer: the customer supplies their own graders through a grading UI, or pays a
 premium tier. You can specify the questions and the gold standards either way.
 
+## Per-node model routing and token/cost estimation
+
+Model choice doesn't have to be whole-agent — and cost, more than failure, is
+what drives the split. Most turns in a conversation are cheap work —
+greetings, slot-filling, confirmations — and a whole-agent model choice pays
+strong-model rates for every one of them. Tokens are metered per turn, and
+turns belong to nodes, so the ledger knows exactly where the money goes;
+failures localize to nodes the same way — that's the graph's job. Act one's
+data therefore already contains the routing finding: "the
+payment-confirmation step is the only place the cheap model fails — and 70%
+of your spend is on turns it handles fine. Run strong there, cheap everywhere
+else; same pass rate, N% cheaper." Not "which model" but "which model
+*where*," with a dollar delta attached.
+
+Two caveats keep it honest. A mixed assignment needs its own verification run —
+conversations cross node boundaries, so per-node results don't simply compose.
+And the drift report applies doubly: a model switch mid-conversation is a
+character seam, and voice consistency across the split is exactly what it
+should check.
+
+The recommendation is computable from the entry study; *executing* it is not.
+It requires a runtime that switches models at node boundaries — which means
+adopting the spec and runtime. That makes routing the deepest upsell in the
+product: a dollar figure attached to adoption. The routing plan serializes as
+`model_role` annotations on flows plus a role→model binding in the execution
+layer, so it is recorded, versioned, and re-evaluated on the next model
+release like everything else. That field — and everything else the report
+catalog needs from the artifacts — is collected next.
+
 ## Schema implications
 
-All additive (a `$schema` version bump per SCHEMA.md's change policy). The
-existing testing surface — personas, cases, golds, rubrics, per-case
-`language` — needs essentially nothing; it was built for this.
+What the report catalog needs from the spec and artifacts — all additive (a
+`$schema` version bump per SCHEMA.md's change policy). The existing testing
+surface — personas, cases, golds, rubrics, per-case `language` — needs
+essentially nothing; it was built for this.
 
 - **Models per node: a role, not a model id.** Optional `model_role` on Flow
   (`"strong"`, `"cheap"`, any named role); the execution layer's existing
@@ -494,8 +522,8 @@ The plan above is strategy; these are the execution gaps, riskiest first.
    designed. Needed before any customer uploads a *second* system prompt — not
    before the first report.
 5. **Drift metric.** The golds-as-ground-truth design says what drift is
-   measured against; how distance is computed is undesigned. Second level; can
-   wait, but flag it before selling the panel.
+   measured against; how distance is computed is undesigned. Premium report;
+   can wait, but flag it before selling it.
 6. **Success/kill criterion for the kit.** Pick the next major deprecation
    window; if nobody runs the free kit during it, the hosted business isn't
    there either — revisit the entry point before building the company.
