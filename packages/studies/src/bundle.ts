@@ -53,8 +53,13 @@ export function buildStudyBundle(args: {
     $schema: "flowstore://spec/agent/v0",
     id: "imported-agent",
     name: "Imported agent (compare study)",
+    // identity/purpose are file metadata here — with a full-override prompt
+    // they never enter the compiled output. Required by the strict schema so
+    // the bundle loads in the editor (the graduation contract).
     meta: {
-      name: "Imported agent",
+      identity: "Imported agent",
+      purpose:
+        "Agent imported from a pasted system prompt for a compare study; the override prompt below is the system under test.",
       modality: "text",
       languages: [...new Set(scenarios.map((s) => s.language))],
     },

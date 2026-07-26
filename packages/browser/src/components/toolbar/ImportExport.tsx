@@ -213,17 +213,37 @@ export function ImportExportToolbar({
     setExportOpen(false);
   }
 
-  async function exportZip() {
-    if (!spec) return;
-    const name = sanitizeFilename(spec.agent.id || "spec");
-    const fileMap = {
+  function projectFileMap(): FileMap {
+    if (!spec) return {};
+    return {
       ...decomposeSpec(spec),
       ...decomposeTestingArtifacts(useTestsStore.getState().toTestingArtifacts()),
       ...decomposeModelsConfig(useModelsStore.getState().config),
-      // Comments too — a ZIP is the complete project archive (and import reads
-      // them back), unlike GitHub which writes comment files on authoring.
+      // Comments too — a ZIP/bundle is the complete project archive (and
+      // import reads them back), unlike GitHub which writes comment files on
+      // authoring.
       ...decomposeComments(useCommentsStore.getState().comments),
     };
+  }
+
+  // Single-file bundle: the FileMap itself as JSON. Interchange only — it is
+  // generated from and expanded back to the file model, never a second
+  // canonical form. Same shape compare exports and uploads.
+  function exportBundle() {
+    if (!spec) return;
+    const name = sanitizeFilename(spec.agent.id || "spec");
+    downloadBlob(
+      `${name}.flowstore.json`,
+      JSON.stringify(projectFileMap(), null, 2),
+      "application/json",
+    );
+    setExportOpen(false);
+  }
+
+  async function exportZip() {
+    if (!spec) return;
+    const name = sanitizeFilename(spec.agent.id || "spec");
+    const fileMap = projectFileMap();
     const blob = await makeZip(fileMap);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -382,6 +402,9 @@ export function ImportExportToolbar({
               <button onClick={exportSpecJson} className={menuItemClass}>
                 Export JSON <span className="text-zinc-400">(spec only)</span>
               </button>
+              <button onClick={exportBundle} className={menuItemClass}>
+                Export bundle <span className="text-zinc-400">(.flowstore.json)</span>
+              </button>
               <button onClick={exportZip} className={menuItemClass}>
                 Export ZIP
               </button>
@@ -456,6 +479,15 @@ interface ImportModalProps {
   onCommit: (parsed: unknown, opts?: LoadSpecOptions) => string[] | null;
 }
 
+// A serialized FileMap bundle (.flowstore.json): a plain object mapping paths
+// to file contents, with agent.json at the root. Distinguishable from a bare
+// spec (whose values are objects, not strings).
+function isBundleFileMap(data: unknown): data is FileMap {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
+  const obj = data as Record<string, unknown>;
+  return "agent.json" in obj && Object.values(obj).every((v) => typeof v === "string");
+}
+
 function ImportModal({ onClose, onCommit }: ImportModalProps) {
   const [text, setText] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
@@ -463,6 +495,12 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
   const folderInputRef = useRef<HTMLInputElement>(null);
 
   function handleParsed(data: unknown, opts?: LoadSpecOptions) {
+    // A single-file bundle routes through the project loader like a ZIP or
+    // folder would — it IS the file model, serialized.
+    if (isBundleFileMap(data)) {
+      loadFileMap(data, "No flowstore project found in the bundle.");
+      return;
+    }
     setErrors([]);
     const result = onCommit(data, opts);
     if (result) setErrors(result);
@@ -598,7 +636,7 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
             <span className="text-sm font-medium text-zinc-700">
               Drop a file or folder here
             </span>
-            <span className="text-[11px] text-zinc-500">.json, .yaml, .yml, .zip — or a decomposed project folder</span>
+            <span className="text-[11px] text-zinc-500">.json, .yaml, .yml, .zip, .flowstore.json bundle — or a decomposed project folder</span>
             <div className="flex gap-2 pt-1">
               <label className="cursor-pointer rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100">
                 Choose file…

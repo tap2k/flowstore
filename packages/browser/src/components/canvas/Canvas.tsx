@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -26,6 +26,11 @@ import { useSimulateStore } from "@/lib/store/simulate";
 import { useAssistantChangesStore } from "@/lib/store/assistantChanges";
 import { validateGraph, groupIssuesByFlow, groupIssuesByEdge } from "@flowstore/core/validation/graphRules";
 import { worstSeverity } from "@/lib/diagnostics";
+import { GENERATED_PLACEHOLDER } from "@flowstore/core/codegen/promptGenerator";
+import { loadProject } from "@flowstore/core/files";
+import { loadSpec } from "@/lib/store/loadSpec";
+import { parseSourceToSpec } from "@/lib/chat/specParse";
+import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 
 const ACTIVE_EDGE_STROKE = "#0284c7"; // sky-600 — the live transition
 const TRAVERSED_EDGE_STROKE = "#bae6fd"; // sky-200 — a faded already-taken edge
@@ -219,8 +224,30 @@ export function Canvas() {
 }
 
 function EmptyCanvas() {
+  const [error, setError] = useState<string | null>(null);
+
+  // Zero-state rescue, same design as compare's: a bundled example fetched
+  // same-origin (local, instant, no accounts). GitHub serves power users; the
+  // blank screen serves strangers.
+  async function loadExample() {
+    setError(null);
+    try {
+      const files = (await (
+        await fetch("/examples/coffee.flowstore.json")
+      ).json()) as Record<string, string>;
+      const { spec, comments, testingArtifacts, modelsConfig, errors } = loadProject(files);
+      if (!spec) {
+        setError(errors[0]?.message ?? "Example failed to load.");
+        return;
+      }
+      loadSpec(spec, { testingArtifacts, comments, modelsConfig });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Example failed to load.");
+    }
+  }
+
   return (
-    <div className="w-full h-full">
+    <div className="relative w-full h-full">
       <ReactFlow
         nodes={[]}
         edges={[]}
@@ -237,6 +264,91 @@ function EmptyCanvas() {
           <BrandMark />
         </Panel>
       </ReactFlow>
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <div className="pointer-events-auto flex flex-col items-center gap-3 text-center">
+          <div className="text-sm text-zinc-500">
+            Add a flow with +, import a project, or start from the example.
+          </div>
+          <button
+            onClick={() => void loadExample()}
+            className="rounded-full border border-zinc-300 bg-white px-4 py-1.5 text-xs font-medium hover:bg-zinc-50"
+          >
+            load example (coffee agent)
+          </button>
+          {error && <div className="text-xs text-red-600">{error}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// The extraction-at-graduation affordance: an imported project (full-override
+// prompt, zero flows) lands on an empty canvas — this offers to mint the
+// graph from the prompt. The imported text stays agent.system_prompt verbatim
+// (the override still compiles to itself — the graph is a projection for
+// review, never the system under test).
+function GenerateFlowsOverlay({ spec }: { spec: Spec }) {
+  const setSpec = useSpecStore((s) => s.setSpec);
+  const model = useSettingsStore((s) => s.chatModel);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function generate() {
+    const d = resolveDispatch(model);
+    if (!d.provider || !d.apiKey.trim()) {
+      setError("Generating flows needs an API key for the assistant model (settings).");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await parseSourceToSpec(
+        d.provider,
+        d.apiKey,
+        d.wireModel,
+        [{ name: "system-prompt.txt", content: spec.agent.system_prompt ?? "" }],
+        "This is the production system prompt of an existing conversational agent, imported verbatim. Extract its behavioral spec — flows, guardrails, capabilities, variables — from the prompt text.",
+        { baseUrl: d.baseUrl },
+      );
+      if (!res.ok) {
+        setError(res.errors?.length ? `${res.error}: ${res.errors[0]}` : res.error);
+        return;
+      }
+      // setSpec (not loadSpec): tests/golds/comments imported with the study
+      // must survive extraction. Identity and the verbatim override prompt are
+      // preserved — extraction structures the project, it never rewrites the
+      // system under test.
+      setSpec({
+        ...res.spec,
+        agent: {
+          ...res.spec.agent,
+          id: spec.agent.id,
+          system_prompt: spec.agent.system_prompt,
+        },
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Extraction failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+      <div className="pointer-events-auto flex max-w-md flex-col items-center gap-3 text-center">
+        <div className="text-sm text-zinc-500">
+          This project has an imported prompt and no flows yet. Generate the flow graph from
+          the prompt — the prompt itself keeps running verbatim.
+        </div>
+        <button
+          onClick={() => void generate()}
+          disabled={busy}
+          className="rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+        >
+          {busy ? "generating flows…" : "generate flows"}
+        </button>
+        {error && <div className="text-xs text-red-600">{error}</div>}
+      </div>
     </div>
   );
 }
@@ -404,8 +516,15 @@ function CanvasInner({ spec }: { spec: Spec }) {
     };
   }, [nodes, specId]);
 
+  // Imported project (full-override prompt, zero flows): offer extraction.
+  const importedFlowless =
+    spec.flows.length === 0 &&
+    !!spec.agent.system_prompt &&
+    !spec.agent.system_prompt.includes(GENERATED_PLACEHOLDER);
+
   return (
-    <div className="w-full h-full">
+    <div className="relative w-full h-full">
+      {importedFlowless && <GenerateFlowsOverlay spec={spec} />}
       <ReactFlow
         nodes={nodes}
         edges={edges}

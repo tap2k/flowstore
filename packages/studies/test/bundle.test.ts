@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { loadProject } from "@flowstore/core/files";
 import { validateFile } from "@flowstore/core/validation/ajv";
 import { GoldSchema } from "@flowstore/core/schema/files/gold";
 import { TestCaseSchema } from "@flowstore/core/schema/files/testCase";
@@ -150,6 +151,15 @@ describe("buildStudyBundle", () => {
     expect(parsed.id).toBe("gold-orig");
     expect(parsed.blessed_at).toBe("2026-07-01T00:00:00Z");
     expect(parsed.source_pointer).toBe("call-recording-2026-06-30");
+  });
+
+  it("loads as a project in the editor's loader — the graduation contract", () => {
+    const { spec, testingArtifacts, errors } = loadProject(files);
+    expect(errors, JSON.stringify(errors)).toEqual([]);
+    expect(spec?.agent.system_prompt).toBe("You are Asha, a clinic assistant.");
+    expect(spec?.flows).toEqual([]); // flowless imported project — accepted
+    expect(testingArtifacts?.testCases).toHaveLength(2);
+    expect(testingArtifacts?.golds).toHaveLength(1);
   });
 
   it("omits the gold section entirely when no golds were captured", () => {
