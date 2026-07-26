@@ -1,5 +1,6 @@
 import type { CellState, Study } from "./types";
 import { cellKey } from "./types";
+import { SPEECH_WPM, estimateVoiceCost } from "./voiceCost";
 
 // Self-contained HTML report — the forwardable artifact. Audience: the
 // agency's client/buyer, not the person who ran the study. Contents: summary
@@ -21,6 +22,8 @@ export function buildReportHtml(
   opts: { latencyNote?: string; footer?: string } = {},
 ): string {
   const { models, scenarios, cells } = study;
+  const rates = study.voiceRates ?? {};
+  const withVoice = rates.asrPerMin !== undefined || rates.ttsPerMChars !== undefined;
   const latencyNote =
     opts.latencyNote ??
     "Latency measured client-side at run time; production latency depends on deployment.";
@@ -48,7 +51,17 @@ export function buildReportHtml(
         ? costs.reduce((a, b) => a + b, 0) / modelCells.length
         : undefined;
     const divergent = scenarios.filter((s) => cells[cellKey(s.id, mi)]?.divergent).length;
-    return { model: m, mi, avgLatency, tokensIn, tokensOut, costPerConv, divergent, n: modelCells.length };
+    // Estimated cascade voice cost per conversation, averaged over done cells.
+    const voiceEstimates = withVoice
+      ? modelCells
+          .map((c) => estimateVoiceCost(c.turns, c.usage?.cost, rates))
+          .filter((e): e is NonNullable<typeof e> => e !== null)
+      : [];
+    const voicePerConv =
+      voiceEstimates.length > 0
+        ? voiceEstimates.reduce((a, e) => a + e.total, 0) / voiceEstimates.length
+        : undefined;
+    return { model: m, mi, avgLatency, tokensIn, tokensOut, costPerConv, voicePerConv, divergent, n: modelCells.length };
   });
 
   const summaryRows = perModel
@@ -61,6 +74,7 @@ export function buildReportHtml(
         <td>${r.avgLatency !== undefined ? r.avgLatency.toFixed(1) + "s" : "—"}</td>
         <td>${r.tokensIn.toLocaleString()} / ${r.tokensOut.toLocaleString()}</td>
         <td>${r.costPerConv !== undefined ? fmtMoney(r.costPerConv) : "n/a*"}</td>
+        ${withVoice ? `<td>${r.voicePerConv !== undefined ? "≈" + fmtMoney(r.voicePerConv) : "n/a*"}</td>` : ""}
       </tr>`;
     })
     .join("\n");
@@ -113,9 +127,13 @@ export function buildReportHtml(
 <h1>${esc(study.title)}</h1>
 <div class="meta">${date} · ${models.length} models · ${scenarios.length} scenarios · prompt run verbatim (${study.prompt.length.toLocaleString()} chars)</div>
 <h2>Summary</h2>
-<table><thead><tr><th>Model</th><th>Completed</th><th>Divergence vs current</th><th>Avg latency/reply</th><th>Tokens in/out</th><th>Cost/conversation</th></tr></thead>
+<table><thead><tr><th>Model</th><th>Completed</th><th>Divergence vs current</th><th>Avg latency/reply</th><th>Tokens in/out</th><th>Cost/conversation</th>${withVoice ? "<th>Est. voice cost/conv</th>" : ""}</tr></thead>
 <tbody>${summaryRows}</tbody></table>
-<div class="note">*Measured dollar cost is reported by OpenRouter-routed models; direct-provider runs show tokens only. ${latencyNote} Divergence is a lexical signal marking where to read — it is not a pass/fail verdict; read the transcripts.</div>
+<div class="note">*Measured dollar cost is reported by OpenRouter-routed models; direct-provider runs show tokens only. ${latencyNote} Divergence is a lexical signal marking where to read — it is not a pass/fail verdict; read the transcripts.${
+    withVoice
+      ? ` Voice estimate (≈): measured LLM cost${rates.ttsPerMChars !== undefined ? ` + TTS at $${rates.ttsPerMChars}/1M characters over the agent's transcript characters` : ""}${rates.asrPerMin !== undefined ? ` + ASR at $${rates.asrPerMin}/min over caller speech time` : ""}; speech time is modeled at ~${SPEECH_WPM} wpm. ASR billed on session duration (rather than caller speech) runs higher.`
+      : ""
+  }</div>
 <h2>Example transcripts</h2>
 ${scenarioSections}
 <footer>${footer}</footer>

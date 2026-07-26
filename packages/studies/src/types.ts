@@ -45,6 +45,8 @@ export const IDLE_CELL: CellState = { status: "idle", turns: [], totalMs: 0 };
 export const cellKey = (scenarioId: string, column: number): string =>
   `${scenarioId}::${column}`;
 
+import type { VoiceRates } from "./voiceCost";
+
 // The incumbent is always column 0 of `models` — derivable, not stored.
 export type Study = {
   title: string;
@@ -52,4 +54,7 @@ export type Study = {
   models: string[];
   scenarios: Scenario[];
   cells: Record<string, CellState>;
+  // User-supplied cascade rates (display assumption, not an artifact); when
+  // present the report adds the estimated voice-cost column.
+  voiceRates?: VoiceRates;
 };

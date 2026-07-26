@@ -10,9 +10,10 @@ import {
   buildStudyBundle,
   cellKey,
   detectPlaceholders,
+  estimateVoiceCost,
   runMatrix,
 } from "@flowstore/studies";
-import type { CapturedGold, CellState, Scenario } from "@flowstore/studies";
+import type { CapturedGold, CellState, Scenario, VoiceRates } from "@flowstore/studies";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
 import { DEFAULT_MODEL_ID, resolveDispatch, useSettingsStore } from "@/lib/store/settings";
@@ -54,6 +55,11 @@ export function ComparePage() {
   // never rewritten — the fill is a session-compile bag applied at send time,
   // exactly the promptGenerator override semantics.
   const [vars, setVars] = useState<Record<string, string>>(initial.vars);
+  // Cascade voice rates (the user's ASR/TTS vendor pricing). Kept as raw
+  // input strings; parsed once into VoiceRates below. Stack-level facts —
+  // clear-study leaves them alone.
+  const [asrPerMin, setAsrPerMin] = useState(initial.asrPerMin);
+  const [ttsPerMChars, setTtsPerMChars] = useState(initial.ttsPerMChars);
   const [suggesting, setSuggesting] = useState(false);
   const [suggestError, setSuggestError] = useState<string | null>(null);
   // Per-column translate, mirroring the editor's SimulatePanel: manual
@@ -68,11 +74,21 @@ export function ComparePage() {
 
   useEffect(() => {
     const t = setTimeout(
-      () => saveStudy({ prompt, scenarios, models, cells, golds, vars }),
+      () => saveStudy({ prompt, scenarios, models, cells, golds, vars, asrPerMin, ttsPerMChars }),
       300,
     );
     return () => clearTimeout(t);
-  }, [prompt, scenarios, models, cells, golds, vars]);
+  }, [prompt, scenarios, models, cells, golds, vars, asrPerMin, ttsPerMChars]);
+
+  // Parsed rates; a blank or non-numeric field contributes nothing, and with
+  // both blank the voice estimate disappears everywhere.
+  const voiceRates = useMemo<VoiceRates>(() => {
+    const num = (s: string) => {
+      const n = Number(s);
+      return s.trim() && Number.isFinite(n) && n > 0 ? n : undefined;
+    };
+    return { asrPerMin: num(asrPerMin), ttsPerMChars: num(ttsPerMChars) };
+  }, [asrPerMin, ttsPerMChars]);
 
   const placeholders = useMemo(() => detectPlaceholders(prompt), [prompt]);
   // Only currently-detected, non-empty values participate — stale entries for
@@ -326,6 +342,7 @@ export function ComparePage() {
     cells,
     golds,
     vars: activeVars,
+    voiceRates,
   };
   const BROWSER_REPORT_OPTS = {
     latencyNote: "Latency measured from the browser; production latency depends on deployment.",
@@ -343,6 +360,31 @@ export function ComparePage() {
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <label
+            className="flex items-center gap-1 text-[10px] text-zinc-500"
+            title="Your speech-to-text rate, dollars per minute of caller audio — prices the ASR line of the voice estimate (caller speech time modeled at ~150 wpm)"
+          >
+            asr $/min
+            <input
+              value={asrPerMin}
+              onChange={(e) => setAsrPerMin(e.target.value)}
+              placeholder="0.008"
+              className="w-16 rounded border border-zinc-300 px-1.5 py-1 text-[11px]"
+            />
+          </label>
+          <label
+            className="flex items-center gap-1 text-[10px] text-zinc-500"
+            title="Your text-to-speech rate, dollars per million characters — priced over the agent's actual transcript characters"
+          >
+            tts $/1M chars
+            <input
+              value={ttsPerMChars}
+              onChange={(e) => setTtsPerMChars(e.target.value)}
+              placeholder="8.00"
+              className="w-16 rounded border border-zinc-300 px-1.5 py-1 text-[11px]"
+            />
+          </label>
+          <span className="h-5 w-px bg-zinc-200" />
           <button
             onClick={() => setSetupOpen((v) => !v)}
             className="rounded-full border border-zinc-300 bg-white px-4 py-1.5 text-xs font-medium hover:bg-zinc-50"
@@ -702,7 +744,7 @@ export function ComparePage() {
                         🌐 {translateLabel}
                       </button>
                     )}
-                    <ColumnStats cell={c} />
+                    <ColumnStats cell={c} rates={voiceRates} />
                     {/* capture-gold disabled for now (Tapan 2026-07-26) — uncomment
                         to restore; import-side golds and bundle round-trip are
                         unaffected.
@@ -820,13 +862,29 @@ function ScenarioChip({ cells }: { cells: (CellState | undefined)[] }) {
   );
 }
 
-function ColumnStats({ cell }: { cell?: CellState }) {
+function ColumnStats({ cell, rates }: { cell?: CellState; rates: VoiceRates }) {
   if (!cell?.usage) return null;
   const u = cell.usage;
+  // ≈ marks the modeled figure; measured LLM $ stays unprefixed beside it.
+  const voice = estimateVoiceCost(cell.turns, u.cost, rates);
+  const fmt = (n: number) => `$${n.toFixed(n >= 0.01 ? 3 : 4)}`;
+  const voiceTitle = voice
+    ? [
+        voice.llmCost !== undefined ? `LLM ${fmt(voice.llmCost)} (measured)` : "LLM n/a",
+        voice.ttsCost !== undefined ? `TTS ${fmt(voice.ttsCost)}` : null,
+        voice.asrCost !== undefined ? `ASR ${fmt(voice.asrCost)} (est)` : null,
+        `~${voice.speechMinutes.toFixed(1)} min speech at 150 wpm`,
+      ]
+        .filter(Boolean)
+        .join(" + ")
+    : undefined;
   return (
     <span className="whitespace-nowrap text-[10px] text-zinc-500">
       {`${u.inputTokens.toLocaleString()}/${u.outputTokens.toLocaleString()}`}
       {u.cost !== undefined && ` · $${u.cost.toFixed(4)}`}
+      {voice && (
+        <span title={voiceTitle}>{` · ≈${fmt(voice.total)} voice`}</span>
+      )}
       {cell.totalMs > 0 && ` · ${(cell.totalMs / 1000).toFixed(1)}s`}
     </span>
   );

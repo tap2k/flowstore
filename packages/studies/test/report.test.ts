@@ -63,6 +63,14 @@ describe("buildReportHtml", () => {
     expect(custom).not.toContain("compare.flowstore.org");
   });
 
+  it("adds the estimated voice column only when rates are supplied, ≈-prefixed", () => {
+    expect(html).not.toContain("Est. voice cost/conv");
+    const voiced = buildReportHtml({ ...study, voiceRates: { asrPerMin: 0.01, ttsPerMChars: 8 } });
+    expect(voiced).toContain("Est. voice cost/conv");
+    expect(voiced).toContain("≈$");
+    expect(voiced).toContain("150 wpm");
+  });
+
   it("shows n/a for cost when a model has token counts but no dollar figure", () => {
     const noCost: Study = {
       ...study,
