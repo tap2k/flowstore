@@ -52,7 +52,6 @@ Flags: `--format prompt|spec` (required), `--language <code>` (defaults to the f
 - [FILE-MODEL.md](./FILE-MODEL.md) — how a flowstore project decomposes into files on disk.
 - [docs/testing-from-scripts.md](./docs/testing-from-scripts.md) — the bring-your-own-runner testing path: the compile contract, test-file shapes, and what a runner must do.
 - [docs/test-driven-prompts.md](./docs/test-driven-prompts.md) — the methodology: authoring agent prompts test-first (golds, assertions, A/B, when to fix the spec vs the generator).
-- [docs/studies.md](./docs/studies.md) — positioning and architecture for the hosted study product: the model-churn entry point, the report, reuse boundaries.
 - [AGENTS.md](./AGENTS.md) — architecture, tech stack, design principles.
 - [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) — LLM prompt that parses source material into spec JSON.
 
