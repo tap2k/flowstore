@@ -27,7 +27,6 @@ export function ComparePage() {
   // One gold per scenario id; value records which column it was captured from.
   const [golds, setGolds] = useState<Record<string, CapturedGold & { column: number }>>({});
 
-
   const patchCell = (key: string, patch: Partial<CellState>) =>
     setCells((prev) => ({ ...prev, [key]: { ...(prev[key] ?? IDLE_CELL), ...patch } }));
 

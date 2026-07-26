@@ -13,7 +13,11 @@ export default defineConfig({
   test: {
     // Pure-logic tests only for now (node env). React component tests need a
     // jsdom project — added later.
-    include: ["packages/core/**/*.test.ts", "packages/browser/**/*.test.ts"],
+    include: [
+      "packages/core/**/*.test.ts",
+      "packages/browser/**/*.test.ts",
+      "packages/studies/**/*.test.ts",
+    ],
     environment: "node",
   },
 });
