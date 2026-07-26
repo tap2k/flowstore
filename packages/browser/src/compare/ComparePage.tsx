@@ -259,7 +259,7 @@ export function ComparePage() {
 
             <div className="flex max-h-48 flex-col gap-2 overflow-y-auto rounded border border-zinc-300 bg-white p-2">
             {scenarios.map((s, i) => (
-              <div key={s.id} className="rounded border border-zinc-200 p-2">
+              <div key={s.id}>
                 <div className="mb-1 flex items-center gap-2">
                   <input
                     value={s.name}
