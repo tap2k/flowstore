@@ -133,7 +133,7 @@ export function ComparePage() {
             disabled={running || !prompt.trim() || scenarios.length === 0 || models.length === 0}
             className="rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
           >
-            {running ? "running…" : "run"}
+            {running ? "running…" : "run all"}
           </button>
           <span className="h-5 w-px bg-zinc-200" />
           {hasResults && !running && (
@@ -354,7 +354,7 @@ export function ComparePage() {
               const c = cells[cellKey(selected, i)];
               return (
                 <div key={i} className="flex min-w-[280px] flex-1 flex-col">
-                  <div className="flex items-center gap-1.5 border-b border-zinc-200 bg-white px-3 py-1.5">
+                  <div className="flex h-10 items-center gap-1.5 border-b border-zinc-200 bg-white px-3">
                     {i === 0 && <span className="shrink-0 text-[10px] text-zinc-400">current</span>}
                     <ModelPicker
                       value={m}
@@ -379,6 +379,16 @@ export function ComparePage() {
                       </span>
                     )}
                     <ColumnStats cell={c} />
+                    {i === models.length - 1 && models.length < 6 && (
+                      <button
+                        onClick={() => setModels((prev) => [...prev, DEFAULT_MODEL_ID])}
+                        disabled={running}
+                        className="ml-1 shrink-0 rounded-md border border-zinc-200 px-1.5 py-0.5 text-[11px] text-zinc-500 hover:bg-zinc-100"
+                        title="Add model column"
+                      >
+                        +
+                      </button>
+                    )}
                   </div>
                   <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
                     {(c?.turns ?? []).map((t, k) => (
@@ -398,19 +408,6 @@ export function ComparePage() {
                 </div>
               );
             })}
-          {selected && models.length < 6 && (
-            <div className="flex w-10 shrink-0 items-start justify-center bg-white pt-1.5">
-              <button
-                onClick={() => setModels((prev) => [...prev, DEFAULT_MODEL_ID])}
-                disabled={running}
-                className={iconButtonClass}
-                title="Add model column"
-                aria-label="Add model column"
-              >
-                +
-              </button>
-            </div>
-          )}
         </section>
       </main>
       )}
