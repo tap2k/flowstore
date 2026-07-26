@@ -33,6 +33,10 @@ export type ChatUsage = {
   inputTokens: number;
   outputTokens: number;
   cachedInputTokens?: number;
+  // Dollar cost of the call as reported by the provider. Only OpenRouter
+  // returns this (and only when the request opts in via usage.include);
+  // absent everywhere else — price locally from a rate table if needed.
+  cost?: number;
 };
 
 export type ChatResponse = {

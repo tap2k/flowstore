@@ -31,6 +31,9 @@ type OpenAIRequestBody = {
     function: { name: string; description: string; parameters: Record<string, unknown> };
   }>;
   tool_choice?: "auto" | "none" | "required";
+  // OpenRouter extension: opt in to usage accounting (returns usage.cost in
+  // dollars). Never sent to api.openai.com, which doesn't know the field.
+  usage?: { include: boolean };
 };
 
 type OpenAIResponseBody = {
@@ -46,6 +49,7 @@ type OpenAIResponseBody = {
     prompt_tokens?: number;
     completion_tokens?: number;
     prompt_tokens_details?: { cached_tokens?: number };
+    cost?: number;
   };
   error?: { message?: string; type?: string };
 };
@@ -70,6 +74,8 @@ export async function callOpenAI(
   };
 
   const url = opts.baseUrl ?? DEFAULT_ENDPOINT;
+  // OpenRouter reports per-call dollar cost, but only when asked.
+  if (url.includes("openrouter.ai")) body.usage = { include: true };
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -113,6 +119,7 @@ export async function callOpenAI(
           inputTokens: json.usage.prompt_tokens ?? 0,
           outputTokens: json.usage.completion_tokens ?? 0,
           cachedInputTokens: json.usage.prompt_tokens_details?.cached_tokens,
+          ...(json.usage.cost !== undefined ? { cost: json.usage.cost } : {}),
         }
       : undefined,
   };
