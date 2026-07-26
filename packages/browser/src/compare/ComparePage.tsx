@@ -257,7 +257,7 @@ export function ComparePage() {
             </button>
             </div>
 
-            <div className="flex max-h-48 flex-col gap-2 overflow-y-auto rounded border border-zinc-300 bg-white p-2">
+            <div className="flex h-48 flex-col gap-2 overflow-y-auto rounded border border-zinc-300 bg-white p-2">
             {scenarios.map((s, i) => (
               <div key={s.id}>
                 <div className="mb-1 flex items-center gap-2">
