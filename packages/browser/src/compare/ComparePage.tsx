@@ -229,8 +229,8 @@ export function ComparePage() {
               className="h-48 w-full resize-y rounded border border-zinc-300 p-2 font-mono text-[11px]"
             />
           </div>
-          <div className="flex max-h-60 flex-col gap-2 overflow-y-auto">
-            <div className="flex items-center justify-between">
+          <div className="flex min-w-0 flex-col">
+            <div className="mb-1 flex items-center justify-between">
               <label className="text-[11px] font-medium text-zinc-500">
                 scenarios (one user turn per line)
               </label>
@@ -257,6 +257,7 @@ export function ComparePage() {
             </button>
             </div>
 
+            <div className="flex max-h-48 flex-col gap-2 overflow-y-auto rounded border border-zinc-300 bg-white p-2">
             {scenarios.map((s, i) => (
               <div key={s.id} className="rounded border border-zinc-200 p-2">
                 <div className="mb-1 flex items-center gap-2">
@@ -287,7 +288,7 @@ export function ComparePage() {
                 />
               </div>
             ))}
-
+            </div>
           </div>
         </div>
       )}
