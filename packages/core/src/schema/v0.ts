@@ -319,20 +319,15 @@ export const AgentSchema = Type.Object(
     // multilingual reasoning natively). Only user-facing utterances — script
     // text, FAQ answers, capability pending_message — are LocalizedString.
     system_prompt: Type.Optional(Type.String()),
-    // Which artifact is the authoritative record for this agent. Absent =
-    // "spec" (the default: flows/guardrails are the truth, system_prompt is a
-    // template or deliberate override). "prompt": system_prompt is the
-    // verbatim master (imported from an existing deployment) and the spec —
-    // including flows minted later by extraction — is a derived view that
-    // reconciliation may rewrite. The two states are indistinguishable by
-    // shape once flows and a full prompt coexist (post-extraction), and the
-    // tooling behaves oppositely in each (reconciliation direction, fix
-    // navigation, what re-extraction may overwrite) — hence declared, not
-    // inferred. Runtimes ignore it (same class as `notes`); the recorded flip
-    // of this field is the system-of-record handover.
-    source_of_truth: Type.Optional(
-      Type.Union([Type.Literal("prompt"), Type.Literal("spec")])
-    ),
+    // Note: an IMPORTED deployment prompt is never stored here — it lives as
+    // a source document beside the spec (sources/prompt.txt), immutable, the
+    // customer's verbatim artifact. This field is spec-owned authoring
+    // (template around {{generated}}, or a deliberate override). "Which
+    // artifact is authoritative" is deliberately NOT a spec property — it
+    // decomposes into an execution concern (which artifact the deployment
+    // runs: sources/ vs dist/ — execution config, like model choice) and a
+    // sync concern (what's been reconciled: the provenance-anchors sidecar's
+    // last-ingested source hash). Documents and pointers, not a flag.
     variables: Type.Optional(Type.Record(Type.String(), VariableDeclSchema)),
     guardrails: Type.Optional(Type.Array(GuardrailSchema)),
     business_goals: Type.Optional(Type.Array(BusinessGoalSchema)),

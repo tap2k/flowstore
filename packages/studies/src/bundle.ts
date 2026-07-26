@@ -4,8 +4,7 @@ import { cellKey } from "./types";
 // Study export in file-model shape from the first save: a serialized FileMap
 // ({path: content}) of a mini flowstore project — scenarios as scripted test
 // cases, transcripts as run results (existing schemas), the pasted prompt as
-// agent.json's system_prompt (full text, no {{generated}} — which is itself
-// the imported/prompt-is-master signal). One JSON bundle today
+// an immutable source document (sources/prompt.txt). One JSON bundle today
 // (trivially zippable later); the export IS the graduation artifact — the
 // harness runs it, the editor opens it.
 //
@@ -27,15 +26,16 @@ export function buildStudyBundle(args: {
   const j = (v: unknown) => JSON.stringify(v, null, 2) + "\n";
 
   files["flowstore.json"] = j({ $schema: "flowstore://spec/project/v0" });
+  // The imported prompt is a SOURCE DOCUMENT beside the spec — the customer's
+  // verbatim artifact, immutable, never agent.system_prompt (which stays
+  // spec-owned authoring). Results point at it via prompt_source; provenance
+  // anchors from extraction (at graduation) point into it.
+  files["sources/prompt.txt"] = prompt;
   files["agent.json"] = j({
     $schema: "flowstore://spec/agent/v0",
     id: "imported-agent",
     name: "Imported agent (compare study)",
     meta: { name: "Imported agent", modality: "text", languages: uniqueLanguages(scenarios) },
-    system_prompt: prompt,
-    // The imported prompt is the authoritative record; any spec content
-    // (including flows extraction mints later) is a derived view.
-    source_of_truth: "prompt",
     // Stub: no flows exist pre-extraction. See "flowless project" note above.
     entry_flow_id: "",
   });
@@ -64,7 +64,7 @@ export function buildStudyBundle(args: {
         test_case_id: s.id,
         timestamp: stamp,
         model: m,
-        prompt_source: "imported-verbatim",
+        prompt_source: "sources/prompt.txt",
         language: s.language,
         usage: {
           text_in: c.usage?.inputTokens,
