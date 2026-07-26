@@ -175,6 +175,23 @@ and naming should rhyme with the editor's, so a study customer who later opens
 the canvas recognizes the map — continuity of visual vocabulary is what makes
 "the spec is the residue" feel seamless.
 
+**The eye test: side-by-side transcripts.** Aggregates earn trust; the
+side-by-side creates conviction. Each highlighted scenario renders the same
+conversation across model columns, color-coded — and the coding is free,
+because the judge-in-handcuffs machinery already emits string-verified spans:
+green on gold-matched and assertion-satisfying spans, red on violation spans,
+turn bands keyed to flow node (tying transcripts to the graph's coordinate
+system). "The identity check was skipped, right here, in this column" is a
+highlighted sentence, not a cell value — the reader is the judge; we arrange
+the evidence. This is the drift report's "here are paired transcripts"
+generalized to the whole catalog, and the research side's deepest rule — read
+the transcripts — productized. Curation is mechanical so it can't be accused
+of cherry-picking: rank scenarios by cross-model divergence and show the most
+divergent few. Alignment favors replay: scripted/replayed cases align
+turn-by-turn; persona-driven runs align by node, approximately. (Browser
+tool, post-v0: side-by-side *streaming during the run* — several models
+answering the same caller live — is likely the product's best demo moment.)
+
 **What a language column means.** The language axis is the language of the
 *user side*, never the prompt: the customer's prompt runs verbatim while
 scenarios and personas are translated, and the study grades comprehension,
