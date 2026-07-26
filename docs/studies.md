@@ -179,6 +179,17 @@ are conformance-graded only until golds are blessed in that language (drift
 starts in the baseline language), and a language failure is itself the act-two
 upsell — the fix is localized scripts, the spec's multilingual machinery.
 
+Language is a **matrix axis within a study, not a study boundary**. Scenario
+identity is language-invariant — "the refund scenario, rendered in Spanish"
+is the same test as its English rendering, or the columns aren't comparable —
+and the spec's `LocalizedString`/translation machinery already models exactly
+this (renderings versioned; translator round-trip applies to scenarios). And
+a study is an event fired by a delta: a model release must add one column to
+one report, not spawn N sibling studies that fragment the migration decision.
+The pinned tuple is therefore (system, golds, **matrix**), matrix = bindings
+× languages; the longitudinal time series lives per cell; language scoping is
+a run-time toggle.
+
 **Cost is a first-class finding, not a footnote.** Model churn is half driven
 by the bill. The runner meters tokens per scenario per model and the report
 projects them at the customer's volume. The entry report's headline is often
@@ -426,7 +437,17 @@ essentially nothing; it was built for this.
   the runtime costs visible that the question deferred on, the unit of
   dispatch is per-flow (the graph coordinate; per-widget prior art), and the
   schema field can precede the runtime's multi-provider plumbing because
-  studies only record and evaluate assignments.
+  studies only record and evaluate assignments. Three artifacts stay
+  separate: the spec's *intent* (roles — abstract, portable, the only layer
+  humans hand-write, usually one default), the **binding** (role → exact
+  pinned wire `model_id` + pricing-snapshot ref, in the study manifest and
+  execution config — a study column is one), and the *recommendation* (the
+  routing report's output, itself a binding). Roles scale with distinct
+  capability requirements, not node count (~2–3 for a 40-node tree), and the
+  indirection degrades gracefully to per-node pinning: a role with one member
+  *is* a per-node pin — no second mechanism. That per-node assignment is hard
+  to hand-specify is the thesis, not a flaw: the routing report computes
+  bindings empirically; humans commit them.
 - **Token costs: a results-artifact change, not a spec change.** Cost is an
   observation about a run, not a behavior of the agent. It lives in the run
   record (below); per-turn `active flow id` is what makes per-node cost
@@ -447,10 +468,14 @@ essentially nothing; it was built for this.
   compare only within a model across runs (did the prompt edit grow the bill;
   is the new release chattier on the same suite).
 - **System prompt as first class: two changes.** (a) Promote verbatim to a
-  declared mode — today a `system_prompt` without `{{generated}}` is a warned
-  "full override"; under prompt-primacy that's the entry product's normal
-  state. The spec records whether the prompt is imported-master or
-  compiled-from-spec; the system-of-record handover becomes a one-field flip.
+  declared mode — a provenance flag, not behavior: `system_prompt.source:
+  "authored" | "imported"`. Today a `system_prompt` without `{{generated}}`
+  is a warned "full override"; under prompt-primacy that's the entry
+  product's normal state. *Authored* = spec is master, prompt is build
+  artifact; *imported* = prompt is verbatim master, spec is derived shadow.
+  Governs tooling (codegen never regenerates an imported prompt; the runner
+  knows the control; the viewer navigates fixes to prompt spans); the
+  system-of-record handover becomes a recorded one-field flip.
   (b) **Extraction provenance anchors** — each flow anchored to the span /
   content-hash of the prompt region it came from, so re-extraction reconciles
   against anchors instead of re-guessing node identity. Ledger metadata, not
