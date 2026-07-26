@@ -20,7 +20,7 @@ export function buildReportHtml(
   study: Study,
   opts: { latencyNote?: string; footer?: string } = {},
 ): string {
-  const { models, scenarios, cells, monthlyConversations } = study;
+  const { models, scenarios, cells } = study;
   const latencyNote =
     opts.latencyNote ??
     "Latency measured client-side at run time; production latency depends on deployment.";
@@ -61,7 +61,6 @@ export function buildReportHtml(
         <td>${r.avgLatency !== undefined ? r.avgLatency.toFixed(1) + "s" : "—"}</td>
         <td>${r.tokensIn.toLocaleString()} / ${r.tokensOut.toLocaleString()}</td>
         <td>${r.costPerConv !== undefined ? fmtMoney(r.costPerConv) : "n/a*"}</td>
-        <td>${r.costPerConv !== undefined ? fmtMoney(r.costPerConv * monthlyConversations) : "n/a*"}</td>
       </tr>`;
     })
     .join("\n");
@@ -112,9 +111,9 @@ export function buildReportHtml(
   @media print{.cols{overflow:visible}}
 </style></head><body><div class="page">
 <h1>${esc(study.title)}</h1>
-<div class="meta">${date} · ${models.length} models · ${scenarios.length} scenarios · prompt run verbatim (${study.prompt.length.toLocaleString()} chars) · projections at ${monthlyConversations.toLocaleString()} conversations/month</div>
+<div class="meta">${date} · ${models.length} models · ${scenarios.length} scenarios · prompt run verbatim (${study.prompt.length.toLocaleString()} chars)</div>
 <h2>Summary</h2>
-<table><thead><tr><th>Model</th><th>Completed</th><th>Divergence vs current</th><th>Avg latency/reply</th><th>Tokens in/out</th><th>Cost/conversation</th><th>Est. monthly</th></tr></thead>
+<table><thead><tr><th>Model</th><th>Completed</th><th>Divergence vs current</th><th>Avg latency/reply</th><th>Tokens in/out</th><th>Cost/conversation</th></tr></thead>
 <tbody>${summaryRows}</tbody></table>
 <div class="note">*Measured dollar cost is reported by OpenRouter-routed models; direct-provider runs show tokens only. ${latencyNote} Divergence is a lexical signal marking where to read — it is not a pass/fail verdict; read the transcripts.</div>
 <h2>Example transcripts</h2>

@@ -25,7 +25,6 @@ const study: Study = {
     [cellKey("s1", 0)]: cell(),
     [cellKey("s1", 1)]: cell({ divergent: true }),
   },
-  monthlyConversations: 30000,
 };
 
 describe("buildReportHtml", () => {
@@ -39,11 +38,9 @@ describe("buildReportHtml", () => {
     expect(html).toContain("Hello &amp; welcome");
   });
 
-  it("projects measured per-conversation cost at the stated monthly volume", () => {
-    // one done cell at $0.01 → $0.01/conversation, $300.00 at 30k conv/mo
+  it("reports measured per-conversation cost (no volume projection — readers do that math)", () => {
     expect(html).toContain("$0.01");
-    expect(html).toContain("$300.00");
-    expect(html).toContain("30,000 conversations/month");
+    expect(html).not.toContain("conversations/month");
   });
 
   it("marks the incumbent row and flags divergent columns", () => {

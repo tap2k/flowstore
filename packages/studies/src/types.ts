@@ -52,5 +52,4 @@ export type Study = {
   models: string[];
   scenarios: Scenario[];
   cells: Record<string, CellState>;
-  monthlyConversations: number;
 };

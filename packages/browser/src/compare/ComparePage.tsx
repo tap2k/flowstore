@@ -36,7 +36,6 @@ export function ComparePage() {
   );
   const [cells, setCells] = useState<Record<string, CellState>>(initial.cells);
   const [selected, setSelected] = useState<string | null>(initial.scenarios[0]?.id ?? null);
-  const [monthly, setMonthly] = useState(initial.monthly);
   const [running, setRunning] = useState(false);
   // Scenario id of an in-flight single-row run (the sidebar ▶); mutually
   // exclusive with a full run.
@@ -69,11 +68,11 @@ export function ComparePage() {
 
   useEffect(() => {
     const t = setTimeout(
-      () => saveStudy({ prompt, scenarios, models, cells, monthly, golds, vars }),
+      () => saveStudy({ prompt, scenarios, models, cells, golds, vars }),
       300,
     );
     return () => clearTimeout(t);
-  }, [prompt, scenarios, models, cells, monthly, golds, vars]);
+  }, [prompt, scenarios, models, cells, golds, vars]);
 
   const placeholders = useMemo(() => detectPlaceholders(prompt), [prompt]);
   // Only currently-detected, non-empty values participate — stale entries for
@@ -104,7 +103,6 @@ export function ComparePage() {
 
   async function run() {
     setRunning(true);
-    setSetupOpen(false);
     setCells({});
     // Fresh transcripts: drop the old translation cache and toggles.
     setTranslations({});
@@ -326,7 +324,6 @@ export function ComparePage() {
     models,
     scenarios,
     cells,
-    monthlyConversations: monthly,
     golds,
     vars: activeVars,
   };
@@ -360,17 +357,6 @@ export function ComparePage() {
             {running ? `running ${settledCells}/${totalCells}…` : "run all"}
           </button>
           <span className="h-5 w-px bg-zinc-200" />
-          {hasResults && !running && (
-            <label className="flex items-center gap-1 text-[10px] text-zinc-500">
-              conv/mo
-              <input
-                type="number"
-                value={monthly}
-                onChange={(e) => setMonthly(Number(e.target.value) || 0)}
-                className="w-20 rounded border border-zinc-300 px-1.5 py-1 text-[11px]"
-              />
-            </label>
-          )}
           <button
             onClick={() => setGithubOpenOpen(true)}
             disabled={busy}
@@ -717,6 +703,9 @@ export function ComparePage() {
                       </button>
                     )}
                     <ColumnStats cell={c} />
+                    {/* capture-gold disabled for now (Tapan 2026-07-26) — uncomment
+                        to restore; import-side golds and bundle round-trip are
+                        unaffected.
                     {c?.status === "done" && selected && (
                       golds[selected]?.column === i ? (
                         <span className="shrink-0 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700" title="This transcript is the blessed gold for this scenario">
@@ -745,6 +734,7 @@ export function ComparePage() {
                         </button>
                       )
                     )}
+                    */}
                     {i === models.length - 1 && models.length < 6 && (
                       <button
                         onClick={() => setModels((prev) => [...prev, DEFAULT_MODEL_ID])}

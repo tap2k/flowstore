@@ -11,7 +11,6 @@ export type PersistedStudy = {
   scenarios: Scenario[];
   models: string[];
   cells: Record<string, CellState>;
-  monthly: number;
   golds: Record<string, CapturedGold & { column?: number }>;
   // Placeholder-fill values for the prompt's {{vars}} (fixture bag — the
   // prompt text itself is never rewritten).
@@ -23,7 +22,6 @@ export const EMPTY_STUDY: PersistedStudy = {
   scenarios: [],
   models: [],
   cells: {},
-  monthly: 30000,
   golds: {},
   vars: {},
 };
@@ -47,7 +45,6 @@ const storage = createScopedJsonStorage<PersistedStudy>({
       scenarios: raw.scenarios as Scenario[],
       models: (raw.models as string[]).filter((m) => typeof m === "string"),
       cells,
-      monthly: typeof raw.monthly === "number" ? raw.monthly : 30000,
       golds: isPlainObject(raw.golds) ? (raw.golds as PersistedStudy["golds"]) : {},
       vars: isPlainObject(raw.vars)
         ? Object.fromEntries(
