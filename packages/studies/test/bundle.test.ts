@@ -109,6 +109,28 @@ describe("buildStudyBundle", () => {
     expect(parsed.language).toBe("EN");
   });
 
+  it("placeholder-fill vars ship as provided declarations + case fixtures, prompt untouched", () => {
+    const withVars = buildStudyBundle({
+      prompt: "You are Asha at {{clinic_name}}.",
+      models,
+      scenarios,
+      cells,
+      vars: { clinic_name: "Sunrise Clinic", empty_one: "  " },
+    });
+    const agent = JSON.parse(withVars["agent.json"]);
+    // The prompt stays byte-verbatim — fill is a session bag, never a rewrite.
+    expect(agent.system_prompt).toBe("You are Asha at {{clinic_name}}.");
+    expect(agent.variables).toEqual({ clinic_name: { type: "string", provided: true } });
+    for (const s of scenarios) {
+      const c = JSON.parse(withVars[`tests/cases/${s.id}.test.json`]);
+      expect(c.vars).toEqual({ clinic_name: "Sunrise Clinic" });
+      expect(validateFile(TestCaseSchema, c).valid).toBe(true);
+    }
+    // No vars → no declarations, no fixtures.
+    const bare = JSON.parse(files["agent.json"]);
+    expect(bare.variables).toBeUndefined();
+  });
+
   it("re-exporting an imported gold preserves its identity and blessing (no re-bless)", () => {
     const roundTrip = buildStudyBundle({
       prompt: "p",

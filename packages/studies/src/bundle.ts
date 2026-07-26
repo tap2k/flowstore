@@ -32,8 +32,17 @@ export function buildStudyBundle(args: {
   scenarios: Scenario[];
   cells: Record<string, CellState>;
   golds?: Record<string, CapturedGold>;
+  // Placeholder-fill values for the prompt's {{vars}}. The prompt stays
+  // byte-verbatim; these ship as the session-start bag — declared
+  // `provided` on the agent, valued on every case (the fixture overlay) —
+  // so the harness reproduces the same compile-time fill.
+  vars?: Record<string, string>;
 }): Record<string, string> {
   const { prompt, models, scenarios, cells, golds } = args;
+  const vars = Object.fromEntries(
+    Object.entries(args.vars ?? {}).filter(([, v]) => v.trim().length > 0),
+  );
+  const hasVars = Object.keys(vars).length > 0;
   const stamp = new Date().toISOString();
   const runDir = `tests/runs/${stamp.slice(0, 19).replace(/[:T]/g, "-")}-compare`;
   const files: Record<string, string> = {};
@@ -52,6 +61,15 @@ export function buildStudyBundle(args: {
     // Full override (no {{generated}}): compiles to itself verbatim — see
     // SCHEMA.md § system_prompt.
     system_prompt: prompt,
+    // Placeholder-fill vars: declared provided so the case fixtures below
+    // ship them at session start (the only gate fixture vars pass through).
+    ...(hasVars
+      ? {
+          variables: Object.fromEntries(
+            Object.keys(vars).map((n) => [n, { type: "string", provided: true }]),
+          ),
+        }
+      : {}),
     // Stub: no flows exist pre-extraction (flowless-project acceptance is a
     // pending loader/validator decision).
     entry_flow_id: "",
@@ -65,6 +83,7 @@ export function buildStudyBundle(args: {
       user_turns: s.turns,
       language: s.language,
       scenario_id: s.scenarioId,
+      ...(hasVars ? { vars } : {}),
       tags: ["src:compare"],
     });
   }

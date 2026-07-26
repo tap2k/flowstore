@@ -1,7 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
 import { genId } from "@flowstore/core/ids";
-import { IDLE_CELL, buildReportHtml, buildStudyBundle, cellKey, runMatrix } from "@flowstore/studies";
+import { sendPromptTurn } from "@flowstore/core/runtime/promptClient";
+import { substituteVars } from "@flowstore/core/codegen/promptGenerator";
+import {
+  IDLE_CELL,
+  buildReportHtml,
+  buildStudyBundle,
+  cellKey,
+  detectPlaceholders,
+  runMatrix,
+} from "@flowstore/studies";
 import type { CapturedGold, CellState, Scenario } from "@flowstore/studies";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
@@ -35,11 +44,36 @@ export function ComparePage() {
   const [golds, setGolds] = useState<Record<string, CapturedGold & { column?: number }>>(
     initial.golds,
   );
+  // Placeholder-fill: values for the prompt's {{vars}}. The pasted prompt is
+  // never rewritten — the fill is a session-compile bag applied at send time,
+  // exactly the promptGenerator override semantics.
+  const [vars, setVars] = useState<Record<string, string>>(initial.vars);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => saveStudy({ prompt, scenarios, models, cells, monthly, golds }), 300);
+    const t = setTimeout(
+      () => saveStudy({ prompt, scenarios, models, cells, monthly, golds, vars }),
+      300,
+    );
     return () => clearTimeout(t);
-  }, [prompt, scenarios, models, cells, monthly, golds]);
+  }, [prompt, scenarios, models, cells, monthly, golds, vars]);
+
+  const placeholders = useMemo(() => detectPlaceholders(prompt), [prompt]);
+  // Only currently-detected, non-empty values participate — stale entries for
+  // placeholders no longer in the prompt neither fill nor export.
+  const activeVars = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const n of placeholders) {
+      const v = vars[n];
+      if (v?.trim()) out[n] = v;
+    }
+    return out;
+  }, [placeholders, vars]);
+  const filledPrompt = useMemo(
+    () => (Object.keys(activeVars).length > 0 ? substituteVars(prompt, activeVars) : prompt),
+    [prompt, activeVars],
+  );
 
   const patchCell = (key: string, patch: Partial<CellState>) =>
     setCells((prev) => ({ ...prev, [key]: { ...(prev[key] ?? IDLE_CELL), ...patch } }));
@@ -51,7 +85,7 @@ export function ComparePage() {
     // The engine owns the matrix policy (parallelism, divergence); this page
     // only supplies credentials and mirrors patches into React state.
     await runMatrix({
-      systemPrompt: prompt,
+      systemPrompt: filledPrompt,
       scenarios,
       models,
       resolveDispatch: (model) => {
@@ -63,6 +97,48 @@ export function ComparePage() {
       onCell: patchCell,
     });
     setRunning(false);
+  }
+
+  // Machine-assist on the TEST side only: the LLM proposes fill values, the
+  // user edits them before any run touches a model. Plain chat + lenient JSON
+  // parse so it works on OpenRouter-routed models too (structured-output
+  // dispatch is Google/OpenAI-direct only).
+  async function suggestVars() {
+    const names = placeholders.filter((n) => !(vars[n] ?? "").trim());
+    if (names.length === 0) return;
+    const d = resolveDispatch(models[0]);
+    if (!d.provider || !d.apiKey.trim()) {
+      setSuggestError("Suggesting values needs an API key for your current model (settings).");
+      return;
+    }
+    setSuggesting(true);
+    setSuggestError(null);
+    try {
+      const res = await sendPromptTurn({
+        systemPrompt:
+          "You suggest plausible sample values for template variables in a conversational agent's system prompt, so the prompt can be test-run. Reply with ONLY a JSON object mapping every listed variable name to a short sample string value. No commentary, no code fences.",
+        history: [],
+        userText: `Variables: ${names.join(", ")}\n\nSystem prompt:\n${prompt.slice(0, 8000)}`,
+        apiKey: d.apiKey,
+        model: d.wireModel,
+        provider: d.provider,
+        baseUrl: d.baseUrl,
+      });
+      const parsed = extractJsonObject(res.text);
+      if (!parsed) throw new Error("The model's reply wasn't parseable JSON — try again.");
+      setVars((prev) => {
+        const next = { ...prev };
+        for (const n of names) {
+          const v = parsed[n];
+          if (typeof v === "string" || typeof v === "number") next[n] = String(v);
+        }
+        return next;
+      });
+    } catch (e) {
+      setSuggestError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSuggesting(false);
+    }
   }
 
   // The dead-start rescue: a bundled example file (same .flowstore.json the
@@ -141,9 +217,22 @@ export function ComparePage() {
       };
     }
 
+    // Fill values ride the cases' fixture vars (every case carries the same
+    // study-global bag on export) — first non-empty value per key wins.
+    const importedVars: Record<string, string> = {};
+    for (const c of cases) {
+      if (!c.vars || typeof c.vars !== "object" || Array.isArray(c.vars)) continue;
+      for (const [k, v] of Object.entries(c.vars as Record<string, unknown>)) {
+        if (importedVars[k] === undefined && (typeof v === "string" || typeof v === "number")) {
+          importedVars[k] = String(v);
+        }
+      }
+    }
+
     setPrompt(agent.system_prompt ?? "");
     setScenarios(nextScenarios);
     setGolds(nextGolds);
+    setVars(importedVars);
     setCells({});
     setSelected(nextScenarios[0]?.id ?? null);
     setSetupOpen(true);
@@ -166,6 +255,7 @@ export function ComparePage() {
     cells,
     monthlyConversations: monthly,
     golds,
+    vars: activeVars,
   };
   const BROWSER_REPORT_OPTS = {
     latencyNote: "Latency measured from the browser; production latency depends on deployment.",
@@ -261,6 +351,7 @@ export function ComparePage() {
               setModels([DEFAULT_MODEL_ID, DEFAULT_MODEL_ID]);
               setCells({});
               setGolds({});
+              setVars({});
               setSelected(null);
               setSetupOpen(true);
             }}
@@ -296,6 +387,41 @@ export function ComparePage() {
               onChange={(e) => setPrompt(e.target.value)}
               className="h-48 w-full resize-y rounded border border-zinc-300 p-2 font-mono text-[11px]"
             />
+            {placeholders.length > 0 && (
+              <div className="mt-2">
+                <div className="mb-1 flex h-6 items-center justify-between">
+                  <span className="text-[11px] font-medium text-zinc-500">
+                    placeholders (filled at send time — the prompt text stays verbatim)
+                  </span>
+                  <button
+                    onClick={() => void suggestVars()}
+                    disabled={suggesting || placeholders.every((n) => (vars[n] ?? "").trim())}
+                    className="rounded-full border border-zinc-300 px-2.5 py-0.5 text-[11px] hover:bg-zinc-50 disabled:opacity-40"
+                  >
+                    {suggesting ? "suggesting…" : "suggest values"}
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {placeholders.map((name) => (
+                    <label
+                      key={name}
+                      className="flex items-center gap-1.5 rounded border border-zinc-200 py-0.5 pl-1.5 pr-0.5 text-[11px]"
+                    >
+                      <span className="font-mono text-zinc-500">{`{{${name}}}`}</span>
+                      <input
+                        value={vars[name] ?? ""}
+                        onChange={(e) => setVars((p) => ({ ...p, [name]: e.target.value }))}
+                        placeholder="value"
+                        className="w-32 rounded border border-zinc-200 px-1.5 py-0.5 text-[11px]"
+                      />
+                    </label>
+                  ))}
+                </div>
+                {suggestError && (
+                  <div className="mt-1 text-[10px] text-red-600">{suggestError}</div>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex min-w-0 flex-col">
             <div className="mb-1 flex h-6 items-center justify-between">
@@ -570,6 +696,20 @@ function TurnBubble({ turn }: { turn: TranscriptTurn }) {
       )}
     </div>
   );
+}
+
+// Lenient JSON-object extraction for suggestion replies: models sometimes
+// wrap the object in prose or code fences despite instructions.
+function extractJsonObject(text: string): Record<string, unknown> | null {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  try {
+    const v = JSON.parse(text.slice(start, end + 1));
+    return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
 }
 
 // Icon buttons mirror the editor toolbar (ImportExport.tsx) — same classes,
