@@ -878,12 +878,16 @@ function ColumnStats({ cell, rates }: { cell?: CellState; rates: VoiceRates }) {
         .filter(Boolean)
         .join(" + ")
     : undefined;
+  // Rates filled = voice mode: the voice total replaces the LLM-only figure
+  // (one indicator per fact — the LLM component lives in the tooltip). No
+  // rates = text mode, measured LLM $ as before.
   return (
     <span className="whitespace-nowrap text-[10px] text-zinc-500">
       {`${u.inputTokens.toLocaleString()}/${u.outputTokens.toLocaleString()}`}
-      {u.cost !== undefined && ` · $${u.cost.toFixed(4)}`}
-      {voice && (
+      {voice ? (
         <span title={voiceTitle}>{` · ≈${fmt(voice.total)} voice`}</span>
+      ) : (
+        u.cost !== undefined && ` · $${u.cost.toFixed(4)}`
       )}
       {cell.totalMs > 0 && ` · ${(cell.totalMs / 1000).toFixed(1)}s`}
     </span>
