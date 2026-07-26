@@ -298,7 +298,7 @@ export function ComparePage() {
             runs locally in your browser
           </div>
         </div>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => setSetupOpen((v) => !v)}
             className="rounded-full border border-zinc-300 bg-white px-4 py-1.5 text-xs font-medium hover:bg-zinc-50"
@@ -342,6 +342,7 @@ export function ComparePage() {
           >
             <GithubSaveIcon />
           </button>
+          <span className="h-5 w-px bg-zinc-200" />
           <label className={iconButtonClass + " cursor-pointer"} title="Upload study (.flowstore.json)" aria-label="Upload study">
             <ImportIcon />
             <input
