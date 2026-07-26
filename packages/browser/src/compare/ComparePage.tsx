@@ -89,6 +89,10 @@ export function ComparePage() {
   }
 
   const hasResults = Object.keys(cells).length > 0;
+  const totalCells = scenarios.length * models.length;
+  const settledCells = Object.values(cells).filter(
+    (c) => c.status === "done" || c.status === "error",
+  ).length;
   const study = {
     title: "Model comparison study",
     prompt,
@@ -125,7 +129,7 @@ export function ComparePage() {
             disabled={running || !prompt.trim() || scenarios.length === 0 || models.length === 0}
             className="rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
           >
-            {running ? "running…" : "run all"}
+            {running ? `running ${settledCells}/${totalCells}…` : "run all"}
           </button>
           <span className="h-5 w-px bg-zinc-200" />
           {hasResults && !running && (
