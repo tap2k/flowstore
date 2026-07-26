@@ -3,6 +3,7 @@ import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
 import { genId } from "@flowstore/core/ids";
 import { sendPromptTurn } from "@flowstore/core/runtime/promptClient";
 import { substituteVars } from "@flowstore/core/codegen/promptGenerator";
+import { translateBatchToEnglish } from "@flowstore/core/runtime/translate";
 import {
   IDLE_CELL,
   buildReportHtml,
@@ -14,7 +15,7 @@ import {
 import type { CapturedGold, CellState, Scenario } from "@flowstore/studies";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
-import { DEFAULT_MODEL_ID, resolveDispatch } from "@/lib/store/settings";
+import { DEFAULT_MODEL_ID, resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { downloadBlob } from "@/lib/download";
 import { loadStudy, saveStudy } from "./studyStorage";
 import { GitHubStudyOpenModal, GitHubStudySaveModal } from "./GitHubStudyModals";
@@ -56,6 +57,15 @@ export function ComparePage() {
   const [vars, setVars] = useState<Record<string, string>>(initial.vars);
   const [suggesting, setSuggesting] = useState(false);
   const [suggestError, setSuggestError] = useState<string | null>(null);
+  // Per-column translate, mirroring the editor's SimulatePanel: manual
+  // trigger, one batched Gemini call over uncached turns (cached by turn ts),
+  // toggle swaps the bubble text to English. Google-key-gated like the editor.
+  const googleApiKey = useSettingsStore((s) => s.googleApiKey);
+  const defaultModel = useSettingsStore((s) => s.defaultModel);
+  const [translations, setTranslations] = useState<Record<string, Map<number, string>>>({});
+  const [showTranslated, setShowTranslated] = useState<Record<string, boolean>>({});
+  const [translating, setTranslating] = useState<string | null>(null);
+  const [translateErrors, setTranslateErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const t = setTimeout(
@@ -96,6 +106,10 @@ export function ComparePage() {
     setRunning(true);
     setSetupOpen(false);
     setCells({});
+    // Fresh transcripts: drop the old translation cache and toggles.
+    setTranslations({});
+    setShowTranslated({});
+    setTranslateErrors({});
     // The engine owns the matrix policy (parallelism, divergence); this page
     // only supplies credentials and mirrors patches into React state.
     await runMatrix({
@@ -122,6 +136,39 @@ export function ComparePage() {
       onCell: patchCell,
     });
     setRowRunning(null);
+  }
+
+  // Translate one column's conversation (or toggle back to originals when
+  // everything is already cached). Same semantics as the editor's onTranslate.
+  async function translateColumn(key: string, turns: TranscriptTurn[]) {
+    if (translating) return;
+    const cache = translations[key];
+    const uncached = turns.filter((t) => t.text && !cache?.has(t.ts));
+    if (uncached.length === 0 && showTranslated[key]) {
+      setShowTranslated((p) => ({ ...p, [key]: false }));
+      return;
+    }
+    setTranslating(key);
+    setTranslateErrors((p) => ({ ...p, [key]: "" }));
+    try {
+      if (uncached.length > 0) {
+        const result = await translateBatchToEnglish(
+          uncached.map((t) => ({ id: String(t.ts), text: t.text })),
+          googleApiKey,
+          defaultModel,
+        );
+        setTranslations((prev) => {
+          const m = new Map(prev[key] ?? []);
+          for (const [id, eng] of Object.entries(result)) m.set(Number(id), eng);
+          return { ...prev, [key]: m };
+        });
+      }
+      setShowTranslated((p) => ({ ...p, [key]: true }));
+    } catch (e) {
+      setTranslateErrors((p) => ({ ...p, [key]: e instanceof Error ? e.message : String(e) }));
+    } finally {
+      setTranslating(null);
+    }
   }
 
   // Machine-assist on the TEST side only: the LLM proposes fill values, the
@@ -397,6 +444,9 @@ export function ComparePage() {
               setCells({});
               setGolds({});
               setVars({});
+              setTranslations({});
+              setShowTranslated({});
+              setTranslateErrors({});
               setSelected(null);
               setSetupOpen(true);
             }}
@@ -619,7 +669,16 @@ export function ComparePage() {
         <section className="flex flex-1 min-w-0 divide-x divide-zinc-200 overflow-x-auto">
           {selected &&
             models.map((m, i) => {
-              const c = cells[cellKey(selected, i)];
+              const key = cellKey(selected, i);
+              const c = cells[key];
+              const colTurns = c?.turns ?? [];
+              const hasUncached = colTurns.some((t) => t.text && !translations[key]?.has(t.ts));
+              const translateLabel =
+                translating === key
+                  ? "…"
+                  : showTranslated[key] && !hasUncached
+                    ? "show original"
+                    : "translate";
               return (
                 <div key={i} className="flex min-w-[280px] flex-1 flex-col">
                   <div className="flex h-10 items-center gap-1.5 border-b border-zinc-200 bg-white px-3">
@@ -647,6 +706,16 @@ export function ComparePage() {
                       </span>
                     )}
                     <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                    {!!googleApiKey && colTurns.some((t) => t.text) && (
+                      <button
+                        onClick={() => void translateColumn(key, colTurns)}
+                        disabled={translating !== null}
+                        title="Translate this conversation to English using Gemini. Press again to refresh after new turns; press once more to show originals."
+                        className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-100 disabled:opacity-40"
+                      >
+                        🌐 {translateLabel}
+                      </button>
+                    )}
                     <ColumnStats cell={c} />
                     {c?.status === "done" && selected && (
                       golds[selected]?.column === i ? (
@@ -689,8 +758,15 @@ export function ComparePage() {
                     </div>
                   </div>
                   <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
-                    {(c?.turns ?? []).map((t, k) => (
-                      <TurnBubble key={k} turn={t} />
+                    {translateErrors[key] && (
+                      <div className="text-[10px] text-red-600">{translateErrors[key]}</div>
+                    )}
+                    {colTurns.map((t, k) => (
+                      <TurnBubble
+                        key={k}
+                        turn={t}
+                        displayText={showTranslated[key] ? translations[key]?.get(t.ts) : undefined}
+                      />
                     ))}
                     {c?.status === "running" && (
                       <div className="mr-8 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-400">
@@ -766,12 +842,16 @@ function ColumnStats({ cell }: { cell?: CellState }) {
   );
 }
 
-function TurnBubble({ turn }: { turn: TranscriptTurn }) {
+// displayText swaps in the English translation while the column's translate
+// toggle is on (same substitution the editor's TurnView does) — the stored
+// transcript stays verbatim.
+function TurnBubble({ turn, displayText }: { turn: TranscriptTurn; displayText?: string }) {
+  const shown = displayText ?? turn.text;
   return turn.role === "user" ? (
-    <div className="ml-8 rounded-lg bg-zinc-900 px-3 py-2 text-xs text-white">{turn.text}</div>
+    <div className="ml-8 rounded-lg bg-zinc-900 px-3 py-2 text-xs text-white">{shown}</div>
   ) : (
     <div className="mr-8 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs">
-      {turn.text}
+      {shown}
       {turn.latencyMs !== undefined && (
         <div className="mt-1 text-[10px] text-zinc-400">{(turn.latencyMs / 1000).toFixed(1)}s</div>
       )}
