@@ -361,7 +361,7 @@ export function ComparePage() {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <label
-            className="flex items-center gap-1 text-[10px] text-zinc-500"
+            className="flex cursor-default select-none items-center gap-1 text-[10px] text-zinc-500"
             title="Your speech-to-text rate, dollars per minute of caller audio — prices the ASR line of the voice estimate (caller speech time modeled at ~150 wpm)"
           >
             asr $/min
@@ -373,7 +373,7 @@ export function ComparePage() {
             />
           </label>
           <label
-            className="flex items-center gap-1 text-[10px] text-zinc-500"
+            className="flex cursor-default select-none items-center gap-1 text-[10px] text-zinc-500"
             title="Your text-to-speech rate, dollars per million characters — priced over the agent's actual transcript characters"
           >
             tts $/1M chars
@@ -528,7 +528,7 @@ export function ComparePage() {
                   {placeholders.map((name) => (
                     <label
                       key={name}
-                      className="flex items-center gap-1.5 rounded border border-zinc-200 py-0.5 pl-1.5 pr-0.5 text-[11px]"
+                      className="flex cursor-default select-none items-center gap-1.5 rounded border border-zinc-200 py-0.5 pl-1.5 pr-0.5 text-[11px]"
                     >
                       <span className="font-mono text-zinc-500">{`{{${name}}}`}</span>
                       <input
@@ -882,7 +882,7 @@ function ColumnStats({ cell, rates }: { cell?: CellState; rates: VoiceRates }) {
   // (one indicator per fact — the LLM component lives in the tooltip). No
   // rates = text mode, measured LLM $ as before.
   return (
-    <span className="whitespace-nowrap text-[10px] text-zinc-500">
+    <span className="cursor-default select-none whitespace-nowrap text-[10px] text-zinc-500">
       {`${u.inputTokens.toLocaleString()}/${u.outputTokens.toLocaleString()}`}
       {voice ? (
         <span title={voiceTitle}>{` · ≈${fmt(voice.total)} voice`}</span>
