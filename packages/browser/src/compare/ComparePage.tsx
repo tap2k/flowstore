@@ -3,7 +3,7 @@ import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
 import { genId } from "@flowstore/core/ids";
 import { sendPromptTurn } from "@flowstore/core/runtime/promptClient";
 import { substituteVars } from "@flowstore/core/codegen/promptGenerator";
-import { translateBatchToEnglish } from "@flowstore/core/runtime/translate";
+import { extractLooseJson, translateBatch } from "@flowstore/core/runtime/translate";
 import {
   IDLE_CELL,
   buildReportHtml,
@@ -63,10 +63,16 @@ export function ComparePage() {
   const [suggesting, setSuggesting] = useState(false);
   const [suggestError, setSuggestError] = useState<string | null>(null);
   // Per-column translate, mirroring the editor's SimulatePanel: manual
-  // trigger, one batched Gemini call over uncached turns (cached by turn ts),
-  // toggle swaps the bubble text to English. Google-key-gated like the editor.
-  const googleApiKey = useSettingsStore((s) => s.googleApiKey);
+  // trigger, one batched call over uncached turns (cached by turn ts), toggle
+  // swaps the bubble text to English. Runs on the default model via whatever
+  // dispatch resolves (Gemini strict-schema when Google-keyed; chat + lenient
+  // parse on OpenRouter et al.) — gated on dispatchability, not on a
+  // particular vendor key.
   const defaultModel = useSettingsStore((s) => s.defaultModel);
+  const translateReady = (() => {
+    const d = resolveDispatch(defaultModel);
+    return !!d.provider && !!d.apiKey.trim();
+  })();
   const [translations, setTranslations] = useState<Record<string, Map<number, string>>>({});
   const [showTranslated, setShowTranslated] = useState<Record<string, boolean>>({});
   const [translating, setTranslating] = useState<string | null>(null);
@@ -162,14 +168,15 @@ export function ComparePage() {
       setShowTranslated((p) => ({ ...p, [key]: false }));
       return;
     }
+    const d = resolveDispatch(defaultModel);
+    if (!d.provider || !d.apiKey.trim()) return; // button is gated on this
     setTranslating(key);
     setTranslateErrors((p) => ({ ...p, [key]: "" }));
     try {
       if (uncached.length > 0) {
-        const result = await translateBatchToEnglish(
+        const result = await translateBatch(
           uncached.map((t) => ({ id: String(t.ts), text: t.text })),
-          googleApiKey,
-          defaultModel,
+          { provider: d.provider, apiKey: d.apiKey, baseUrl: d.baseUrl, wireModel: d.wireModel },
         );
         setTranslations((prev) => {
           const m = new Map(prev[key] ?? []);
@@ -210,12 +217,15 @@ export function ComparePage() {
         provider: d.provider,
         baseUrl: d.baseUrl,
       });
-      const parsed = extractJsonObject(res.text);
-      if (!parsed) throw new Error("The model's reply wasn't parseable JSON — try again.");
+      const parsed = extractLooseJson(res.text);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("The model's reply wasn't parseable JSON — try again.");
+      }
+      const bag = parsed as Record<string, unknown>;
       setVars((prev) => {
         const next = { ...prev };
         for (const n of names) {
-          const v = parsed[n];
+          const v = bag[n];
           if (typeof v === "string" || typeof v === "number") next[n] = String(v);
         }
         return next;
@@ -734,11 +744,11 @@ export function ComparePage() {
                       </span>
                     )}
                     <div className="ml-auto flex shrink-0 items-center gap-1.5">
-                    {!!googleApiKey && colTurns.some((t) => t.text) && (
+                    {translateReady && colTurns.some((t) => t.text) && (
                       <button
                         onClick={() => void translateColumn(key, colTurns)}
                         disabled={translating !== null}
-                        title="Translate this conversation to English using Gemini. Press again to refresh after new turns; press once more to show originals."
+                        title="Translate this conversation to English. Press again to refresh after new turns; press once more to show originals."
                         className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-100 disabled:opacity-40"
                       >
                         🌐 {translateLabel}
@@ -909,20 +919,6 @@ function TurnBubble({ turn, displayText }: { turn: TranscriptTurn; displayText?:
       )}
     </div>
   );
-}
-
-// Lenient JSON-object extraction for suggestion replies: models sometimes
-// wrap the object in prose or code fences despite instructions.
-function extractJsonObject(text: string): Record<string, unknown> | null {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start < 0 || end <= start) return null;
-  try {
-    const v = JSON.parse(text.slice(start, end + 1));
-    return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
-  } catch {
-    return null;
-  }
 }
 
 // Icon buttons mirror the editor toolbar (ImportExport.tsx) — same classes,
