@@ -680,20 +680,25 @@ Triple duty — docs examples, product test fixtures, reference fleet — with
 one fleet-specific discipline: they version like instruments (deliberate
 bumps, never drift) so release-day columns stay comparable.
 
-On every major model release, deprecation, and price change, the studies tool
-runs on the fleet and the *generated report artifacts are published as-is*:
-nobody writes them, they're the product's own output, and every generated
-report — public or private — ends with the canonical hook as a template
-feature, not an editorial act: *"Do you want to run studies like this on your
-own prompts and agents? Try out this tool!"* The published report doubles as
-the product demo — reading it is experiencing the output. Conversion is one
-plain link: everything on both sides is open (tool, fleet, reports, archive),
-so a research post can simply say "we also ran the reference agents — here's
-the report, here's how to run yours." Linking a free open-source instrument
-is reproducibility, not promotion. Each public report is simultaneously
-marketing, a demo, a dogfood run, and another column in a public longitudinal
-ledger that compounds into authority — and nobody owns this beat for agents:
-reviewers benchmark capability, not "will your production agent survive."
+**The model is the subject; the agent is the apparatus; the transcript is
+the exhibit — never the headline.** Nobody browses transcripts from a fake
+insurance agent, but everyone reads "Gemini 3.7 drops identity verification
+in Spanish" about a model they run. On every release/deprecation/price
+change, the tool runs on the fleet and the public unit is a handful of
+**model-level findings** — each backed by exactly one curated side-by-side
+pair (the eye test's most damning exhibit, ten seconds to read), rolled up by
+template from the reports' headline findings, folded into the release-day
+post that exists anyway. The full generated reports sit one click beneath as
+evidence-and-demo — reading one is experiencing the product's output — and
+every generated report ends with the canonical hook as a template feature:
+*"Do you want to run studies like this on your own prompts and agents? Try
+out this tool!"* Everything on both sides is open (tool, fleet, reports,
+archive), so the post links them plainly — reproducibility, not promotion.
+Each release adds columns to a public longitudinal ledger that compounds into
+authority — and nobody owns this beat: reviewers benchmark capability, not
+"will your production agent survive." (Deferred, flagged not committed:
+probing *real deployed agents* via endpoint mode is the high-stakes version
+of this content; ToS/ethics questions come with it.)
 
 Launch the browser tool *on* a release day with that day's report as proof —
 ride an event, don't manufacture one. The fnol dogfood milestone is the pilot
