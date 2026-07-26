@@ -579,6 +579,6 @@ The plan above is strategy; these are the execution gaps, riskiest first.
 7. **Success/kill criterion for the kit.** Pick the next major deprecation
    window; if nobody runs the free kit during it, the hosted business isn't
    there either — revisit the entry point before building the company.
-7. **Repo front door.** The README still leads with the Behavioral IDE. With
+8. **Repo front door.** The README still leads with the Behavioral IDE. With
    ~0 installed users there is nothing to migrate and no positioning debt —
    repoint the front door when the kit ships, not before.
