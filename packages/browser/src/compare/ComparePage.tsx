@@ -17,6 +17,7 @@ import { SettingsSheet } from "@/components/sheets/SettingsSheet";
 import { DEFAULT_MODEL_ID, resolveDispatch } from "@/lib/store/settings";
 import { downloadBlob } from "@/lib/download";
 import { loadStudy, saveStudy } from "./studyStorage";
+import { GitHubStudyOpenModal, GitHubStudySaveModal } from "./GitHubStudyModals";
 
 // The compare tool: paste a prompt, edit scenarios, pick models, run the
 // small-N matrix, read the side-by-sides. The engine lives in
@@ -42,6 +43,8 @@ export function ComparePage() {
   const [setupOpen, setSetupOpen] = useState(true);
   const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [githubOpenOpen, setGithubOpenOpen] = useState(false);
+  const [githubSaveOpen, setGithubSaveOpen] = useState(false);
   // One gold per scenario id; `column` records which column it was captured
   // from this session — absent for golds that arrived via import.
   const [golds, setGolds] = useState<Record<string, CapturedGold & { column?: number }>>(
@@ -321,6 +324,24 @@ export function ComparePage() {
               />
             </label>
           )}
+          <button
+            onClick={() => setGithubOpenOpen(true)}
+            disabled={busy}
+            className={iconButtonClass}
+            title="Open a study from GitHub"
+            aria-label="Open from GitHub"
+          >
+            <GithubOpenIcon />
+          </button>
+          <button
+            onClick={() => setGithubSaveOpen(true)}
+            disabled={busy || (!prompt && scenarios.length === 0)}
+            className={iconButtonClass}
+            title="Save study to GitHub"
+            aria-label="Save to GitHub"
+          >
+            <GithubSaveIcon />
+          </button>
           <label className={iconButtonClass + " cursor-pointer"} title="Upload study (.flowstore.json)" aria-label="Upload study">
             <ImportIcon />
             <input
@@ -688,6 +709,26 @@ export function ComparePage() {
       </main>
       )}
       {settingsOpen && <SettingsSheet onClose={() => setSettingsOpen(false)} />}
+      {githubOpenOpen && (
+        <GitHubStudyOpenModal
+          onClose={() => setGithubOpenOpen(false)}
+          onOpenSettings={() => {
+            setGithubOpenOpen(false);
+            setSettingsOpen(true);
+          }}
+          onFiles={applyBundle}
+        />
+      )}
+      {githubSaveOpen && (
+        <GitHubStudySaveModal
+          onClose={() => setGithubSaveOpen(false)}
+          onOpenSettings={() => {
+            setGithubSaveOpen(false);
+            setSettingsOpen(true);
+          }}
+          buildFiles={() => buildStudyBundle(study)}
+        />
+      )}
     </div>
   );
 
@@ -758,6 +799,28 @@ const iconButtonClass =
   "rounded-md border border-zinc-200 p-1.5 text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 disabled:hover:bg-transparent";
 const menuItemClass =
   "block w-full text-left px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100";
+
+function GithubOpenIcon() {
+  // Cloud with downward arrow — open from remote (same glyph as the editor).
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+      <polyline points="8 17 12 21 16 17" />
+      <line x1="12" y1="12" x2="12" y2="21" />
+    </svg>
+  );
+}
+
+function GithubSaveIcon() {
+  // Cloud with upward arrow — push to remote (same glyph as the editor).
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+      <polyline points="16 16 12 12 8 16" />
+      <line x1="12" y1="12" x2="12" y2="21" />
+    </svg>
+  );
+}
 
 function ImportIcon() {
   return (
