@@ -81,9 +81,9 @@ export function ComparePage() {
         <div className="ml-auto flex items-center gap-3">
           <button
             onClick={() => setSetupOpen((v) => !v)}
-            className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-[11px] hover:bg-zinc-50"
+            className="rounded-full border border-zinc-300 bg-white px-4 py-1.5 text-xs font-medium hover:bg-zinc-50"
           >
-            {setupOpen ? "hide setup" : "edit setup"}
+            {setupOpen ? "hide" : "edit"}
           </button>
           <button
             onClick={run}
