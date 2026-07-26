@@ -17,7 +17,7 @@ import { SaveToNewRepoModal } from "@/components/toolbar/SaveToNewRepoModal";
 import { ShareModal } from "@/components/toolbar/ShareModal";
 import { SpecChangesModal } from "@/components/toolbar/SpecChangesModal";
 import { HistoryPanel } from "@/components/toolbar/HistoryPanel";
-import { Badge, Button, IconButton, ThemeToggle } from "@/components/ui";
+import { Badge, Button, IconButton } from "@/components/ui";
 import { useSpecStore } from "@/lib/store/spec";
 import { useUiStore } from "@/lib/store/ui";
 import { useSettingsStore } from "@/lib/store/settings";
@@ -153,14 +153,14 @@ export function App() {
           ) : null}
           <div className="ml-auto flex items-center gap-3">
             <SaveStatePill />
+            {/* Theme lives in the Settings sheet, not here: it is a
+                set-once-and-forget preference, and the toolbar is for actions
+                on the open project. */}
             <ImportExportToolbar
               onOpenSettings={() => setSettingsOpen(true)}
               onSaveToGitHub={() => setSaveRepoOpen(true)}
               onShare={() => setShareOpen(true)}
             />
-            {/* Sits after the project actions and before nothing — a preference,
-                not a document action, so it gets the far edge of the bar. */}
-            <ThemeToggle />
           </div>
         </header>
         <main className="flex flex-1 min-h-0">
