@@ -319,12 +319,20 @@ export const AgentSchema = Type.Object(
     // multilingual reasoning natively). Only user-facing utterances — script
     // text, FAQ answers, capability pending_message — are LocalizedString.
     system_prompt: Type.Optional(Type.String()),
-    // NOTE on provenance (no flag needed): the compiled prompt is never
-    // persisted here, so this field's shape already encodes which direction
-    // truth flows — contains {{generated}} (or absent) ⇒ the spec is master;
-    // full text without {{generated}} ⇒ the prompt is the verbatim master
-    // (imported/override) and the spec is a derived view. The system-of-record
-    // handover is the commit that changes this field's shape.
+    // Which artifact is the authoritative record for this agent. Absent =
+    // "spec" (the default: flows/guardrails are the truth, system_prompt is a
+    // template or deliberate override). "prompt": system_prompt is the
+    // verbatim master (imported from an existing deployment) and the spec —
+    // including flows minted later by extraction — is a derived view that
+    // reconciliation may rewrite. The two states are indistinguishable by
+    // shape once flows and a full prompt coexist (post-extraction), and the
+    // tooling behaves oppositely in each (reconciliation direction, fix
+    // navigation, what re-extraction may overwrite) — hence declared, not
+    // inferred. Runtimes ignore it (same class as `notes`); the recorded flip
+    // of this field is the system-of-record handover.
+    source_of_truth: Type.Optional(
+      Type.Union([Type.Literal("prompt"), Type.Literal("spec")])
+    ),
     variables: Type.Optional(Type.Record(Type.String(), VariableDeclSchema)),
     guardrails: Type.Optional(Type.Array(GuardrailSchema)),
     business_goals: Type.Optional(Type.Array(BusinessGoalSchema)),

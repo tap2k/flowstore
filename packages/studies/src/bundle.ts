@@ -32,8 +32,10 @@ export function buildStudyBundle(args: {
     id: "imported-agent",
     name: "Imported agent (compare study)",
     meta: { name: "Imported agent", modality: "text", languages: uniqueLanguages(scenarios) },
-    // Full text without {{generated}} = the prompt is the verbatim master.
     system_prompt: prompt,
+    // The imported prompt is the authoritative record; any spec content
+    // (including flows extraction mints later) is a derived view.
+    source_of_truth: "prompt",
     // Stub: no flows exist pre-extraction. See "flowless project" note above.
     entry_flow_id: "",
   });
