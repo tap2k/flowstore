@@ -502,6 +502,45 @@ editing, and the rest of the IDE surface sit behind the report in priority.
 In kit form the near-term deliverable is the study driver + report generator —
 almost entirely the reuse third.
 
+## Traction: we run regressions on random stuff — now run your own
+
+The funnel is a public report series and a one-line CTA. On every major model
+release, deprecation, and price change, publish same-day public artifacts on
+two tracks: regression/cost reports on a **public reference-agent fleet**
+(insurance intake, support, collections, booking — multilingual), and
+behavioral measurements of the raw models. One track says "here's what the new
+model does to a production agent"; the other says "models change more than
+you think." Every artifact ends the same way: *this same harness runs on your
+agent — free kit.* The public report supplies attention (release day),
+credibility (published method, inspectable transcripts), and the anxiety that
+converts; the kit is the personalized answer. Each public report is
+simultaneously marketing, a kit demo, a dogfood run, and another column in a
+public longitudinal ledger that compounds into authority — and nobody owns
+this beat for agents: reviewers benchmark capability, not "will your
+production agent survive."
+
+Launch the kit *on* a release day with that day's report as proof — ride an
+event, don't manufacture one. The fnol dogfood milestone is the pilot episode.
+
+Posture guard, now strategically load-bearing: the public series never ranks
+models and never sells beyond the CTA. Its refusal to be a leaderboard is what
+makes it credible enough to be a hook.
+
+Amplifiers:
+
+- **Deprecation-deadline content** — "<model> retires <date>: the agent
+  migration checklist" + kit. The deadline supplies the urgency; search intent
+  is pre-qualified.
+- **A GitHub Action** beside the Claude Code skill — "regression report on
+  push" is the two-verbs loop in the tool developers already live in; CI for
+  agents begs for it.
+- **Agency white-label** — design partners' client-facing reports carry
+  attribution; every study they sell is distribution.
+
+Leading metric, ahead of the kill-criterion window: are reports being
+*forwarded* (shares, opens by non-runners)? A report that's run but never
+forwarded is a tool; a forwarded one is a product.
+
 ## Open items (de-risk in this order)
 
 The plan above is strategy; these are the execution gaps, riskiest first.
@@ -515,7 +554,14 @@ The plan above is strategy; these are the execution gaps, riskiest first.
    report generator, pricing table. Dogfood milestone: run the full study on
    the fnol example across the current model roster and publish that report —
    it is simultaneously the v0 acceptance test, the design target for the
-   report, and the first marketing artifact.
+   report, and the first marketing artifact. The bar: the real competitor is
+   an afternoon of manual chats, so v0 must be near-zero-config — prompt in,
+   report out, no test authoring on day one. Prompt-only intake must work
+   (synthesized personas, authored golds); transcripts are the upgrade, not
+   the requirement — real transcripts live inside platform dashboards, full
+   of PII, and extracting them is real friction. Rule: **replay real
+   conversations first, synthesize personas only for coverage** — replayed
+   results are immune to "your simulated caller isn't my caller."
 3. **Design partners.** Two or three agencies matching the ICP, recruited
    before the kit is polished; their agents are the second and third reports.
 4. **Reconciliation design.** Named in "Two systems of record," not yet
@@ -524,7 +570,13 @@ The plan above is strategy; these are the execution gaps, riskiest first.
 5. **Drift metric.** The golds-as-ground-truth design says what drift is
    measured against; how distance is computed is undesigned. Premium report;
    can wait, but flag it before selling it.
-6. **Success/kill criterion for the kit.** Pick the next major deprecation
+6. **Judge disclosure.** Transcript-level grading uses an LLM judge, and a
+   study about model choice silently graded *by* a model has a circularity
+   problem a sharp customer will find. Report-design requirement: pin and
+   disclose the judge model per study, publish rubrics, link every verdict to
+   its spot-checkable transcript. The open-source kit is the strongest answer
+   — the methodology is auditable.
+7. **Success/kill criterion for the kit.** Pick the next major deprecation
    window; if nobody runs the free kit during it, the hosted business isn't
    there either — revisit the entry point before building the company.
 7. **Repo front door.** The README still leads with the Behavioral IDE. With
