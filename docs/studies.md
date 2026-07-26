@@ -46,9 +46,21 @@ production."
 The entry point cannot require a flowstore spec or a test suite. If the study's
 prerequisite is "first adopt our IDE and write golds," the want is back in front
 of the need. Customers bring what they have — their existing system prompt and
-real transcripts. The extraction prompts (AGENT-SPEC-PROMPT.txt; the
-gold-extraction prompt in the fnol example repo) convert that material into a
-spec and golds.
+real transcripts, **or a live agent endpoint**. The extraction prompts
+(AGENT-SPEC-PROMPT.txt; the gold-extraction prompt in the fnol example repo)
+convert prompt + transcripts into a spec and golds.
+
+The endpoint path (the execution layer's external agent mode, already built)
+serves what a prompt upload can't: platform-locked customers who can't export
+their prompt, golds *generated* by driving personas against the live agent —
+fresh baseline, no PII-laden dashboard export — and spec-from-behavior when
+there's no prompt text to extract from. An endpoint alone can't run a
+migration study (you can't swap the model behind a black box), but paired
+with a prompt it is the **production-parity control**: replay the same
+scenarios against the live endpoint and our reproduction, and publish the
+agreement rate — validating the harness before the report makes any claim.
+Probe staging endpoints or test numbers, not production — probes cost the
+customer money and pollute their analytics.
 
 **The spec is the residue of the study, not its entry fee.** They come for "can
 we switch to the cheaper model," they leave owning a spec with a regression
@@ -59,7 +71,8 @@ can shell out to N APIs.
 ## The whole surface is two verbs
 
 The customer-facing product is two upload actions: **upload new system** (the
-system prompt as deployed) and **upload new golds** (transcripts they bless).
+system prompt as deployed, or a pointer to a live endpoint) and **upload new
+golds** (transcripts they bless).
 Because system + golds are the agent's identity, these two verbs cover every
 change a customer can make. Each upload is a versioned commit in our ledger —
 a mirror of their runtime truth, not its master (see "Two systems of record").
@@ -91,7 +104,10 @@ and cost — and when prompt and spec disagree, the prompt wins.
 What we own from day one is the second system of record: the **ledger** — the
 versioned history of (prompt, spec, golds, results) and every study column
 ever run. The runtime truth is theirs; the memory is ours. The moat lives in
-the ledger.
+the ledger. (For endpoint intake the runtime truth isn't even copyable — we
+can only *sample* it — so the agent's identity in the ledger rests entirely
+on the golds and the behavior-derived spec, making golds-as-ground-truth
+carry more weight, not less.)
 
 Two consequences:
 
@@ -211,6 +227,8 @@ Fits:
 - Extraction prompts (messy source in, spec out) — the core of intake.
 - Test-file shapes, golds, assertions — grading.
 - Model adapters behind the simulate panel — the roster and API plumbing.
+- External agent mode (`AgentEndpoint` + the transcript-level testing surface)
+  — endpoint intake, already built.
 - The graph model in core — the report renders it its own way (above).
 
 Doesn't fit; don't force it:
@@ -277,6 +295,10 @@ cadence, and price:
 - **Repricing report**: your projected bill, recomputed. Trigger: a vendor
   price change. Zero new runs — the tokens are already in the ledger.
 - **Regression report**: did your change hold? Trigger: upload new system.
+- **Monitoring report** (subscription): did production move? Scheduled probes
+  of a live endpoint against pinned golds — catches the *silent* change: the
+  platform swapping the underlying model, a vendor "improvement" nobody
+  announced. The one report that needs no upload and no release; hosted-native.
 - **Drift report** (premium): is it still your agent? Below.
 - **Routing report** (premium): which model where — the cost-optimization
   report. Below.
