@@ -4,7 +4,8 @@ import { genId } from "@flowstore/core/ids";
 import { IDLE_CELL, buildReportHtml, buildStudyBundle, cellKey, runMatrix } from "@flowstore/studies";
 import type { CellState, Scenario } from "@flowstore/studies";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
-import { DEFAULT_MODEL_ID, resolveDispatch, useSettingsStore } from "@/lib/store/settings";
+import { SettingsSheet } from "@/components/sheets/SettingsSheet";
+import { DEFAULT_MODEL_ID, resolveDispatch } from "@/lib/store/settings";
 import { downloadBlob } from "@/lib/download";
 
 // The compare tool: paste a prompt, edit scenarios, pick models, run the
@@ -24,10 +25,6 @@ export function ComparePage() {
   const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const googleApiKey = useSettingsStore((s) => s.googleApiKey);
-  const openrouterApiKey = useSettingsStore((s) => s.openrouterApiKey);
-  const setGoogleApiKey = useSettingsStore((s) => s.setGoogleApiKey);
-  const setOpenrouterApiKey = useSettingsStore((s) => s.setOpenrouterApiKey);
 
   const patchCell = (key: string, patch: Partial<CellState>) =>
     setCells((prev) => ({ ...prev, [key]: { ...(prev[key] ?? IDLE_CELL), ...patch } }));
@@ -201,22 +198,14 @@ export function ComparePage() {
             <ClearIcon />
           </button>
           <span className="h-5 w-px bg-zinc-200" />
-          <div className="relative">
-            <button
-              onClick={() => setSettingsOpen((o) => !o)}
-              className={iconButtonClass}
-              title="Settings"
-              aria-label="Settings"
-            >
-              <SettingsIcon />
-            </button>
-            {settingsOpen && (
-              <div className="absolute right-0 top-full z-20 mt-1 flex min-w-[15rem] flex-col gap-2 rounded-md border border-zinc-200 bg-white p-3 shadow-md">
-                <KeyField label="google" value={googleApiKey} onChange={setGoogleApiKey} />
-                <KeyField label="openrouter" value={openrouterApiKey} onChange={setOpenrouterApiKey} />
-              </div>
-            )}
-          </div>
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className={iconButtonClass}
+            title="Settings"
+            aria-label="Settings"
+          >
+            <SettingsIcon />
+          </button>
         </div>
       </header>
 
@@ -320,12 +309,12 @@ export function ComparePage() {
       <main className="flex flex-1 min-h-0">
         <aside className="w-72 shrink-0 overflow-y-auto border-r border-zinc-200 bg-white">
           <table className="w-full border-collapse text-[11px]">
-            <thead className="sticky top-0 bg-zinc-50">
+            <thead className="sticky top-0 z-10 bg-zinc-50">
               <tr>
-                <th className="border-b border-zinc-200 px-2 py-1.5 text-left font-medium">
+                <th className="h-10 border-b border-zinc-200 px-2 text-left align-middle font-medium">
                   scenario
                 </th>
-                <th className="w-8 border-b border-l border-zinc-200 px-1 py-1.5" />
+                <th className="h-10 w-8 border-b border-l border-zinc-200 px-1 align-middle" />
 
               </tr>
             </thead>
@@ -367,7 +356,7 @@ export function ComparePage() {
                       <button
                         onClick={() => setModels((prev) => prev.filter((_, j) => j !== i))}
                         disabled={running}
-                        className="shrink-0 text-[11px] text-zinc-400 hover:text-red-600"
+                        className="shrink-0 rounded-md border border-zinc-200 px-1.5 py-0.5 text-[11px] text-zinc-500 hover:bg-red-50 hover:text-red-600"
                         title="Remove column"
                       >
                         ✕
@@ -383,7 +372,7 @@ export function ComparePage() {
                       <button
                         onClick={() => setModels((prev) => [...prev, DEFAULT_MODEL_ID])}
                         disabled={running}
-                        className="ml-1 shrink-0 rounded-md border border-zinc-200 px-1.5 py-0.5 text-[11px] text-zinc-500 hover:bg-zinc-100"
+                        className="ml-2 shrink-0 rounded-md border border-zinc-200 px-2 py-0.5 text-[12px] font-medium text-zinc-600 hover:bg-zinc-100"
                         title="Add model column"
                       >
                         +
@@ -411,6 +400,7 @@ export function ComparePage() {
         </section>
       </main>
       )}
+      {settingsOpen && <SettingsSheet onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 
@@ -498,24 +488,3 @@ function SettingsIcon() {
   );
 }
 
-function KeyField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return value ? (
-    <span className="text-[10px] text-zinc-400">{label} ✓</span>
-  ) : (
-    <input
-      type="password"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={`${label} API key`}
-      className="w-36 rounded border border-zinc-300 px-2 py-1 text-[11px]"
-    />
-  );
-}
