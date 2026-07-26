@@ -90,8 +90,9 @@ Studies are then event-driven — three deltas, three triggers:
 
 This is CI for agents: the upload is the push, the study is the build, the
 report is the build result. The entry product's whole surface is these two
-verbs and a report — in kit form, two files and a commit; hosted, two upload
-buttons and an inbox. No canvas, no editor, nothing to learn.
+verbs and a report — in the browser, a paste and a key; in kit form, two
+files and a commit; hosted, two upload buttons and an inbox. No canvas, no
+editor, nothing to learn.
 
 ## Two systems of record
 
@@ -226,19 +227,21 @@ Fits:
 
 - Extraction prompts (messy source in, spec out) — the core of intake.
 - Test-file shapes, golds, assertions — grading.
-- Model adapters behind the simulate panel — the roster and API plumbing.
+- The simulate panel's browser-side BYO-key engine — LLM calls from the
+  browser, model adapters, the roster: this is the entry product's runner.
 - External agent mode (`AgentEndpoint` + the transcript-level testing surface)
-  — endpoint intake, already built.
+  — endpoint intake, already built (kit tier; CORS keeps it out of the
+  browser).
 - The graph model in core — the report renders it its own way (above).
 
 Doesn't fit; don't force it:
 
 - The compiler in act one (verbatim-prompt rule).
-- The browser app as the vehicle — the report is a standalone artifact, not a
-  screen in the SPA.
-- The simulate panel — interactive, browser-side, BYO-key. The runner is batch,
-  server-side, our keys, retries, cost metering. Lift the message-shaping code
-  if it transplants cleanly; otherwise write it fresh.
+- The IDE surface (canvas, inspectors) as the vehicle — the entry product is
+  a standalone dead-simple page, and the report is a standalone artifact, not
+  a screen in the editor.
+- A server-side runner in act one — the browser BYO-key engine covers the
+  entry product; batch/hosted running arrives with the company tier.
 - File-model / git decomposition — meaningless to someone who uploaded a blob;
   stays an IDE concern.
 
@@ -452,40 +455,60 @@ essentially nothing; it was built for this.
   artifacts, not ad-hoc JSON. Golds gain blessing metadata (blessed-at;
   source: real transcript vs. authored) so resets are first-class.
 
-## Vehicle: kit first, company second, open source throughout
+## Vehicle: browser tool first, kit second, company third — open source throughout
 
-Three candidate vehicles — a company, open source, a raw set of things someone
-can point Claude Code at — and the answer is all three, in order.
+The funnel is a ladder, in order of decreasing reach; each rung's CTA is the
+next rung.
 
-**The kit ships first.** A study driver plus the report generator, as
-agent-runnable artifacts in this repo: point Claude Code at your system prompt
-and transcripts, get the report. The repo is already most of the way there (CLI
-compile, testing-from-scripts, extraction prompts, the fnol harness). The whole
-product survives translation into kit form: the two verbs become two files and
-a commit — the customer's git *is* their ledger — and both systems of record
-stay in their repo. The kit also dissolves an intake friction the hosted form
-fights: system prompts and transcripts are confidential, and "nothing leaves
-your machine" removes the barrier for exactly the customers with money. Zero
-switch cost to try, and it tests demand before the operational two-thirds gets
-built: if nobody runs the free kit during a deprecation window, the hosted
-business wasn't there either.
+**Rung 1 — public reports** (the traction section): attention. Every artifact
+ends with "now run your own."
 
-**The company forms around what a local kit cannot do.** Of the three study
-triggers, a kit covers the two customer verbs (their commits) but cannot know
-about a model release. The irreducible hosted kernel: **the calendar** — we
-watch releases, deprecations, and price changes, and re-run your suite the day
-they land. That's the subscription. Around it, the other host-only goods:
-human graders as a managed panel, cross-fleet baselines (your drift vs. the
-field — only aggregate position enables it), SLAs and procurement for teams
-that won't run agents on their own data. The company is the managed calendar
-plus what requires aggregation — not a gatekeeper in front of the machinery.
+**Rung 2 — the browser tool, the entry product.** A dead-simple standalone
+surface with its own name and URL — *not* a door into the IDE: paste your
+system prompt, paste an OpenRouter key, pick models (and languages), run.
+Two wow beats: the graph materializes first ("we mapped your agent" — the
+credibility beat), then the matrix fills in live, cell by cell, model by
+model — the screen-recordable moment. The report downloads as self-contained
+HTML; sharing is opt-in, and shared reports are themselves distribution.
+Time-to-wow is minutes, not clone-and-configure.
+
+Why browser + OpenRouter is load-bearing, not a detail: one key covers the
+whole matrix *and* live pricing (the cost headline computes with zero setup;
+direct keys optional for models OpenRouter lacks); browser-side BYO-key means
+**zero infrastructure for us** — no hosted runner, no billing, no metering;
+and it inherits flowstore's native security posture verbatim (the simulate
+panel already issues LLM calls from the browser), so "nothing leaves your
+browser" comes free — and open source makes the claim *verifiable*, which is
+the hook's credibility. The email capture is natural, not gated: "re-run this
+automatically when the next model drops" — calendar signup is the conversion
+event. The spec stays entirely backstage: it gives the report its
+coordinates; the user never sees or authors it. "Powered by flowstore" in the
+footer is the only trace.
+
+**Rung 3 — the kit and the GitHub Action: retention.** The two verbs in git,
+the ledger as their repo, CI on push, and the intake the browser can't do —
+live-endpoint studies and monitoring probes (CORS keeps endpoints out of the
+browser). The browser tool offers "export this study as a repo" as the
+bridge. Point Claude Code at it, or wire the Action.
+
+**Rung 4 — the company forms around what local tools cannot do.** The
+irreducible hosted kernel: **the calendar** — we watch releases,
+deprecations, and price changes, and re-run your suite the day they land.
+That's the subscription. Around it, the other host-only goods: human graders
+as a managed panel, cross-fleet baselines (your drift vs. the field — only
+aggregate position enables it), SLAs and procurement. The company is the
+managed calendar plus what requires aggregation — not a gatekeeper in front
+of the machinery.
 
 **Open source is the substrate, not a vehicle.** Machinery public, ops shell
-private — the split the repo decision already made.
+private — the split the repo decision already made. Under the virality lens
+it's even more clearly right: proprietary would protect exactly what isn't
+the moat and forfeit launchability, contributed adapters, and the verifiable
+privacy claim.
 
-Accepted risk: kit-first gives the entry product away, and kit-generated
-reports vary with the customer's setup. Taken knowingly — the kit user is the
-design partner, the model-release ping is the conversion, and the kit is
+Accepted risk: the free tiers give the entry product away, and self-run
+reports vary in quality. Taken knowingly — the free user is the design
+partner, the model-release ping is the conversion, and the tool is
 distribution.
 
 ## ICP and adoption surface
@@ -499,16 +522,16 @@ ledgers. Secondary: the in-house owner of one production agent where the LLM
 bill is material. Explicitly not the ICP: conversational-AI platform vendors —
 the build-it-themselves crowd, and eventual competitors.
 
-**Adoption surface: repo plus a gorgeous report — no app UI at entry.** Claude
-Code is the kit's interface; for this ICP that's the distribution channel, not
-a compromise. A bare harness invites "I could have built this myself"; the
-report is what can't be built in an afternoon, so design investment goes into
-the report artifact, not an intake webapp. Published sample reports are the
-marketing ("we ran N public agent prompts against the new model the day it
-dropped"). The DIY objection gets a strategic answer, not a defensive one:
-a team that forks the kit has adopted the spec format, accumulates a ledger in
-our file model, and still can't watch the calendar — which is the
-subscription.
+**Adoption surface: a dead-simple browser page plus a gorgeous report.** A
+URL beats a repo — paste-and-watch beats clone-and-configure — so the entry
+surface is the browser tool (see Vehicle), with the kit and Action as the
+retention tier for CI, endpoints, and the git ledger. Design investment goes
+into the report artifact and the live-matrix moment, not an IDE surface. A
+bare harness invites "I could have built this myself"; the report and the
+five-minute wow are what can't be built in an afternoon. The DIY objection
+gets a strategic answer, not a defensive one: a team that forks the tool has
+adopted the spec format, accumulates a ledger in our file model, and still
+can't watch the calendar — which is the subscription.
 
 **Naming:** flowstore stays as the substrate/format/repo name (the ledger
 makes "store" more apt, not less). The entry product gets its own
@@ -541,8 +564,9 @@ public longitudinal ledger that compounds into authority — and nobody owns
 this beat for agents: reviewers benchmark capability, not "will your
 production agent survive."
 
-Launch the kit *on* a release day with that day's report as proof — ride an
-event, don't manufacture one. The fnol dogfood milestone is the pilot episode.
+Launch the browser tool *on* a release day with that day's report as proof —
+ride an event, don't manufacture one. The fnol dogfood milestone is the pilot
+episode.
 
 Posture guard, now strategically load-bearing: the public series never ranks
 models and never sells beyond the CTA. Its refusal to be a leaderboard is what
@@ -572,8 +596,9 @@ The plan above is strategy; these are the execution gaps, riskiest first.
    prompts we didn't author. Unproven beyond our own examples. De-risk first:
    run extraction on a handful of real third-party agent prompts and judge the
    maps before building anything else.
-2. **Define kit v0 and the first report.** Scope: study driver (agent-runnable),
-   report generator, pricing table. Dogfood milestone: run the full study on
+2. **Define v0 and the first report.** Scope: the browser tool (paste prompt
+   + OpenRouter key → map → matrix → report), the report generator, pricing
+   table; the kit/Action follows. Dogfood milestone: run the full study on
    the fnol example across the current model roster and publish that report —
    it is simultaneously the v0 acceptance test, the design target for the
    report, and the first marketing artifact. The bar: the real competitor is
