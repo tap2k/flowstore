@@ -22,6 +22,8 @@ export function ComparePage() {
   const [monthly, setMonthly] = useState(30000);
   const [running, setRunning] = useState(false);
   const [setupOpen, setSetupOpen] = useState(true);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const googleApiKey = useSettingsStore((s) => s.googleApiKey);
   const openrouterApiKey = useSettingsStore((s) => s.openrouterApiKey);
@@ -115,46 +117,80 @@ export function ComparePage() {
           )}
         </div>
         <div className="ml-auto flex items-center gap-3">
-          <KeyField label="google" value={googleApiKey} onChange={setGoogleApiKey} />
-          <KeyField label="openrouter" value={openrouterApiKey} onChange={setOpenrouterApiKey} />
           {hasResults && !running && (
-            <>
-              <label className="flex items-center gap-1 text-[10px] text-zinc-500">
-                conv/mo
-                <input
-                  type="number"
-                  value={monthly}
-                  onChange={(e) => setMonthly(Number(e.target.value) || 0)}
-                  className="w-20 rounded border border-zinc-300 px-1.5 py-1 text-[11px]"
-                />
-              </label>
-              <button
-                onClick={() =>
-                  downloadBlob(
-                    "compare-report.html",
-                    buildReportHtml(study, BROWSER_REPORT_OPTS),
-                    "text/html",
-                  )
-                }
-                className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-zinc-50"
-              >
-                report
-              </button>
-              <button
-                onClick={() =>
-                  downloadBlob(
-                    "compare-study.flowstore.json",
-                    JSON.stringify(buildStudyBundle(study), null, 2),
-                    "application/json",
-                  )
-                }
-                className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-zinc-50"
-                title="A flowstore project bundle — the harness runs it, the editor opens it"
-              >
-                export study
-              </button>
-            </>
+            <label className="flex items-center gap-1 text-[10px] text-zinc-500">
+              conv/mo
+              <input
+                type="number"
+                value={monthly}
+                onChange={(e) => setMonthly(Number(e.target.value) || 0)}
+                className="w-20 rounded border border-zinc-300 px-1.5 py-1 text-[11px]"
+              />
+            </label>
           )}
+          <div className="relative">
+            <button
+              onClick={() => setExportOpen((o) => !o)}
+              disabled={!hasResults || running}
+              className={iconButtonClass}
+              title="Export"
+              aria-label="Export"
+            >
+              <ExportIcon />
+            </button>
+            {exportOpen && (
+              <div className="absolute right-0 top-full z-20 mt-1 min-w-[14rem] rounded-md border border-zinc-200 bg-white py-1 shadow-md">
+                <button
+                  onClick={() => {
+                    setExportOpen(false);
+                    downloadBlob("compare-report.html", buildReportHtml(study, BROWSER_REPORT_OPTS), "text/html");
+                  }}
+                  className={menuItemClass}
+                >
+                  Download report <span className="text-zinc-400">(HTML)</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setExportOpen(false);
+                    downloadBlob(
+                      "compare-study.flowstore.json",
+                      JSON.stringify(buildStudyBundle(study), null, 2),
+                      "application/json",
+                    );
+                  }}
+                  className={menuItemClass}
+                >
+                  Export study <span className="text-zinc-400">(flowstore project)</span>
+                </button>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => setCells({})}
+            disabled={!hasResults || running}
+            className={iconButtonClass}
+            title="Clear results"
+            aria-label="Clear results"
+          >
+            <ClearIcon />
+          </button>
+          <span className="h-5 w-px bg-zinc-200" />
+          <div className="relative">
+            <button
+              onClick={() => setSettingsOpen((o) => !o)}
+              className={iconButtonClass}
+              title="Settings"
+              aria-label="Settings"
+            >
+              <SettingsIcon />
+            </button>
+            {settingsOpen && (
+              <div className="absolute right-0 top-full z-20 mt-1 flex min-w-[15rem] flex-col gap-2 rounded-md border border-zinc-200 bg-white p-3 shadow-md">
+                <KeyField label="google" value={googleApiKey} onChange={setGoogleApiKey} />
+                <KeyField label="openrouter" value={openrouterApiKey} onChange={setOpenrouterApiKey} />
+              </div>
+            )}
+          </div>
           <button
             onClick={run}
             disabled={running || scenarios.length === 0 || models.length === 0}
@@ -347,6 +383,44 @@ function TurnBubble({ turn }: { turn: TranscriptTurn }) {
         <div className="mt-1 text-[10px] text-zinc-400">{(turn.latencyMs / 1000).toFixed(1)}s</div>
       )}
     </div>
+  );
+}
+
+// Icon buttons mirror the editor toolbar (ImportExport.tsx) — same classes,
+// same icons, same order (export, clear, | settings). Icons duplicated for
+// now; extract a shared icon lib when a third consumer appears.
+const iconButtonClass =
+  "rounded-md border border-zinc-200 p-1.5 text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 disabled:hover:bg-transparent";
+const menuItemClass =
+  "block w-full text-left px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100";
+
+function ExportIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
+function ClearIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
   );
 }
 
