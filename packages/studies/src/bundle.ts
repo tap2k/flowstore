@@ -111,7 +111,7 @@ export function buildStudyBundle(args: {
       turns: g.turns.map((t) => ({ role: t.role, text: t.text })),
       language: g.language,
       scenario_id: g.scenarioId,
-      source_kind: "transcript",
+      source_pointer: `compare-run:${stamp}`,
       blessed_at: stamp,
       tags: ["src:compare"],
     });

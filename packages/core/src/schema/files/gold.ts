@@ -27,14 +27,13 @@ export const GoldSchema = Type.Object(
     // don't translate a gold, you bless one per language. Cross-language
     // scenario identity comes from scenario_id, not from localized turns.
     language: Type.Optional(Type.String()),
-    // Blessing metadata: when the customer approved this transcript as the
-    // reference, and whether it came from a real conversation or was
-    // authored/synthesized. Drift is measured against blessed golds only;
-    // re-blessing (a new blessed_at) is the explicit baseline reset.
+    // When the customer approved this transcript as the reference. Drift is
+    // measured against blessed golds only; re-blessing (a new blessed_at) is
+    // the explicit baseline reset. Provenance (live call, simulated run,
+    // hand-authored, ...) is deliberately NOT an enum — the free-form
+    // source_pointer above carries it; classify later from real pointers if
+    // a consumer ever needs buckets.
     blessed_at: Type.Optional(Type.String()),
-    source_kind: Type.Optional(
-      Type.Union([Type.Literal("transcript"), Type.Literal("authored")])
-    ),
     // Shared scenario identity across language variants (and with test
     // cases). Language columns of a study join on this.
     scenario_id: Type.Optional(Type.String()),
