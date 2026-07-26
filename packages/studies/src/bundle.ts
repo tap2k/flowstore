@@ -4,7 +4,8 @@ import { cellKey } from "./types";
 // Study export in file-model shape from the first save: a serialized FileMap
 // ({path: content}) of a mini flowstore project — scenarios as scripted test
 // cases, transcripts as run results (existing schemas), the pasted prompt as
-// an immutable source document (sources/prompt.txt). One JSON bundle today
+// agent.system_prompt (full override — compiles to itself verbatim, so every
+// consumer runs the imported text with no extra mechanism). One JSON bundle today
 // (trivially zippable later); the export IS the graduation artifact — the
 // harness runs it, the editor opens it.
 //
@@ -26,17 +27,21 @@ export function buildStudyBundle(args: {
   const j = (v: unknown) => JSON.stringify(v, null, 2) + "\n";
 
   files["flowstore.json"] = j({ $schema: "flowstore://spec/project/v0" });
-  // The imported prompt is a SOURCE DOCUMENT beside the spec — the customer's
-  // verbatim artifact, immutable, never agent.system_prompt (which stays
-  // spec-owned authoring). Results point at it via prompt_source; provenance
-  // anchors from extraction (at graduation) point into it.
-  files["sources/prompt.txt"] = prompt;
   files["agent.json"] = j({
     $schema: "flowstore://spec/agent/v0",
     id: "imported-agent",
     name: "Imported agent (compare study)",
     meta: { name: "Imported agent", modality: "text", languages: uniqueLanguages(scenarios) },
-    // Stub: no flows exist pre-extraction. See "flowless project" note above.
+    // The imported prompt IS agent.system_prompt, as a full override (no
+    // {{generated}}). Override compiles to itself verbatim, so simulate,
+    // harness, and deployment all run the imported text with no extra
+    // mechanism — the compiled artifact is always the system under test.
+    // Structuring (extraction/sync in the editor) progressively converts
+    // spans into spec entities under P1 rules (opaque blocks preserved,
+    // deltas confirmed, re-render from spec); the handover is asymptotic.
+    system_prompt: prompt,
+    // Stub: no flows exist pre-extraction (flowless-project acceptance is a
+    // pending loader/validator decision).
     entry_flow_id: "",
   });
 
@@ -64,7 +69,7 @@ export function buildStudyBundle(args: {
         test_case_id: s.id,
         timestamp: stamp,
         model: m,
-        prompt_source: "sources/prompt.txt",
+        prompt_source: "agent.system_prompt (imported override)",
         language: s.language,
         usage: {
           text_in: c.usage?.inputTokens,

@@ -319,15 +319,17 @@ export const AgentSchema = Type.Object(
     // multilingual reasoning natively). Only user-facing utterances — script
     // text, FAQ answers, capability pending_message — are LocalizedString.
     system_prompt: Type.Optional(Type.String()),
-    // Note: an IMPORTED deployment prompt is never stored here — it lives as
-    // a source document beside the spec (sources/prompt.txt), immutable, the
-    // customer's verbatim artifact. This field is spec-owned authoring
-    // (template around {{generated}}, or a deliberate override). "Which
-    // artifact is authoritative" is deliberately NOT a spec property — it
-    // decomposes into an execution concern (which artifact the deployment
-    // runs: sources/ vs dist/ — execution config, like model choice) and a
-    // sync concern (what's been reconciled: the provenance-anchors sidecar's
-    // last-ingested source hash). Documents and pointers, not a flag.
+    // An IMPORTED deployment prompt lives here as a full override (no
+    // {{generated}}). Override compiles to itself verbatim, so the compiled
+    // artifact is always the system under test — simulate, harness, and
+    // deployment run the imported text with no selector mechanism. The
+    // editor's bidirectional sync (P1: diff-ingest, confirm, re-render,
+    // opaque blocks preserved) progressively structures it into spec
+    // entities; the sync state (which spans are structured, against which
+    // text) lives in the provenance-anchors sidecar, not here. The
+    // system-of-record handover is asymptotic: this field converges to a
+    // {{generated}} template (or absence) as the opaque fraction reaches
+    // zero. No authority flag — the compile semantics carry it.
     variables: Type.Optional(Type.Record(Type.String(), VariableDeclSchema)),
     guardrails: Type.Optional(Type.Array(GuardrailSchema)),
     business_goals: Type.Optional(Type.Array(BusinessGoalSchema)),
