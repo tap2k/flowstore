@@ -22,6 +22,7 @@ import { autoLayout } from "./layout";
 import { resolvePositions } from "./placement";
 import { loadPositions, savePositions, type Positions } from "./positions";
 import { useSpecStore } from "@/lib/store/spec";
+import { useThemeStore } from "@/lib/store/theme";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useAssistantChangesStore } from "@/lib/store/assistantChanges";
 import { validateGraph, groupIssuesByFlow, groupIssuesByEdge } from "@flowstore/core/validation/graphRules";
@@ -108,10 +109,37 @@ function RelayoutIcon() {
 // Font matches the public site's logo (font-mono, semibold, tracking-tight).
 function BrandMark() {
   return (
-    <span className="select-none font-mono text-base font-semibold tracking-tight text-zinc-500">
+    <span className="select-none font-mono text-base font-semibold tracking-tight text-text-tertiary">
       flowstore
     </span>
   );
+}
+
+/**
+ * The canvas plane and its two floating chrome pieces (controls, minimap) take
+ * colours as JS strings, not classes, so they can't use the Tailwind token
+ * utilities. Reading the custom properties off the root keeps tokens.css the
+ * single source of truth rather than duplicating hexes here; re-reading is keyed
+ * on the resolved theme, which the store writes to `data-theme` *before* it
+ * updates state, so the values are current by the time this recomputes.
+ *
+ * Nodes and edges are deliberately not themed yet — they keep their light
+ * palette until the node retrofit.
+ */
+function useCanvasTokens() {
+  const resolved = useThemeStore((s) => s.resolved);
+  return useMemo(() => {
+    const cs = getComputedStyle(document.documentElement);
+    const v = (name: string) => cs.getPropertyValue(name).trim();
+    return {
+      bg: v("--canvas-bg"),
+      dot: v("--canvas-dot"),
+      minimapBg: v("--minimap-bg"),
+      minimapNode: v("--minimap-node"),
+      minimapMask: v("--minimap-mask"),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolved]);
 }
 
 const SAVE_DEBOUNCE_MS = 300;
@@ -178,8 +206,10 @@ function buildGraph(spec: Spec): { nodes: Node[]; edges: Edge[] } {
         // from a plain type-colored one (issues must not be restyled over).
         data: { issueLevel: edgeLevel },
         label,
-        labelStyle: { fontSize: 11, fill: "#52525b" },
-        labelBgStyle: { fill: "#fafafa" },
+        // Colours deliberately omitted: an inline `fill` would beat the
+        // themed rules in globals.css, and the label chip sits on the canvas
+        // plane, so it has to follow the plane between light and dark.
+        labelStyle: { fontSize: 11 },
         style: { stroke, strokeWidth: 1.5 },
         markerEnd: { type: MarkerType.ArrowClosed, color: stroke, width: 18, height: 18 },
       });
@@ -219,8 +249,9 @@ export function Canvas() {
 }
 
 function EmptyCanvas() {
+  const t = useCanvasTokens();
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full bg-surface-canvas">
       <ReactFlow
         nodes={[]}
         edges={[]}
@@ -229,7 +260,7 @@ function EmptyCanvas() {
         minZoom={0.2}
         maxZoom={2}
       >
-        <Background gap={20} size={1} color="#e4e4e7" />
+        <Background gap={20} size={1} color={t.dot} bgColor={t.bg} />
         <Panel position="top-left">
           <NewFlowButton />
         </Panel>
@@ -305,7 +336,7 @@ function NewFlowButton() {
       // addFlow scaffolds a blank agent automatically when no spec is
       // loaded, so the first click both creates the spec and adds the
       // first flow.
-      className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-900 text-2xl font-light text-white shadow-lg ring-1 ring-black/5 transition hover:scale-105 hover:bg-zinc-700"
+      className="flex h-11 w-11 items-center justify-center rounded-full bg-emphasis text-2xl font-light text-emphasis-fg shadow-elev-2 ring-1 ring-border-subtle transition hover:scale-105 hover:bg-emphasis-hover"
       aria-label="Add a new flow"
     >
       +
@@ -315,6 +346,7 @@ function NewFlowButton() {
 
 function CanvasInner({ spec }: { spec: Spec }) {
   const specId = spec.agent.id;
+  const t = useCanvasTokens();
 
   const initial = useMemo(() => {
     const g = buildGraph(spec);
@@ -405,7 +437,7 @@ function CanvasInner({ spec }: { spec: Spec }) {
   }, [nodes, specId]);
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full bg-surface-canvas">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -431,7 +463,7 @@ function CanvasInner({ spec }: { spec: Spec }) {
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
       >
-        <Background gap={20} size={1} color="#e4e4e7" />
+        <Background gap={20} size={1} color={t.dot} bgColor={t.bg} />
         <Panel position="top-left">
           <NewFlowButton />
         </Panel>
@@ -447,7 +479,13 @@ function CanvasInner({ spec }: { spec: Spec }) {
         <Panel position="bottom-left" style={{ marginLeft: 52 }}>
           <BrandMark />
         </Panel>
-        <MiniMap pannable zoomable />
+        <MiniMap
+          pannable
+          zoomable
+          bgColor={t.minimapBg}
+          nodeColor={t.minimapNode}
+          maskColor={t.minimapMask}
+        />
       </ReactFlow>
     </div>
   );

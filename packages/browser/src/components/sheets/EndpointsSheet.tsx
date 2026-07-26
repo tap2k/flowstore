@@ -196,7 +196,7 @@ function CapabilityRow({
   return (
     <div className={`rounded border px-3 py-2 space-y-2 ${stale ? "border-state-warning-line bg-state-warning-bg" : "border-border-default bg-surface-sunken"}`}>
       <div className="flex items-center gap-2">
-        <span className="font-mono fs-label text-text-primary flex-1">{name}</span>
+        <span className="fs-data text-text-primary flex-1">{name}</span>
         {stale && <span className="text-[10px] text-state-warning-fg">not in spec</span>}
         <label className="flex items-center gap-1.5 fs-caption text-text-secondary cursor-pointer">
           <input

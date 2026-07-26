@@ -179,7 +179,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
               setGhStatus({ kind: "idle" });
             }}
             placeholder="ghp_… or github_pat_…"
-            className="flex-1 rounded border border-border-default px-2 py-1.5 fs-body font-mono focus:outline-none focus:ring-1 focus:ring-focus-ring"
+            className="flex-1 rounded border border-border-default px-2 py-1.5 fs-data focus:outline-none focus:ring-1 focus:ring-focus-ring"
           />
           <button
             onClick={() => setPatReveal((r) => !r)}
@@ -235,7 +235,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
               value={runnerUrl}
               onChange={(e) => setRunnerUrlInput(e.target.value)}
               placeholder={DEFAULT_RUNNER_URL}
-              className="flex-1 rounded border border-border-default px-2 py-1.5 fs-body font-mono focus:outline-none focus:ring-1 focus:ring-focus-ring"
+              className="flex-1 rounded border border-border-default px-2 py-1.5 fs-data focus:outline-none focus:ring-1 focus:ring-focus-ring"
             />
           </div>
           <p className="text-[11px] text-text-tertiary">
@@ -291,7 +291,7 @@ function ApiKeyRow({ label, placeholder, value, onChange, help }: ApiKeyRowProps
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="flex-1 rounded border border-border-default px-2 py-1.5 fs-body font-mono focus:outline-none focus:ring-1 focus:ring-focus-ring"
+          className="flex-1 rounded border border-border-default px-2 py-1.5 fs-data focus:outline-none focus:ring-1 focus:ring-focus-ring"
         />
         <button
           onClick={() => setReveal((r) => !r)}

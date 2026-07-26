@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Kbd } from "./Kbd";
 
 export type TooltipSide = "top" | "bottom" | "left" | "right";
@@ -37,6 +45,7 @@ export function Tooltip({
   className,
 }: TooltipProps) {
   const [open, setOpen] = useState(false);
+  const id = useId();
   // A ref, not a local: a local timer id is re-created every render, so the
   // clearTimeout on mouseleave would be clearing a stale handle and the tooltip
   // could still appear after the pointer left.
@@ -60,9 +69,15 @@ export function Tooltip({
       onFocus={() => setOpen(true)}
       onBlur={hide}
     >
-      {children}
+      {/* aria-describedby only while shown: pointing at an element that isn't in
+          the DOM leaves a dangling reference, and the tooltip is what supplies
+          the description, not the trigger. */}
+      {isValidElement<{ "aria-describedby"?: string }>(children) && open
+        ? cloneElement(children, { "aria-describedby": id })
+        : children}
       {open && (
         <span
+          id={id}
           role="tooltip"
           className={`fs-caption pointer-events-none absolute z-60 flex animate-fs-pop-in items-center gap-1.5 whitespace-nowrap rounded-2 border border-border-default bg-surface-raised px-[7px] py-1 text-text-primary shadow-elev-2 ${SIDE[side]}`}
         >

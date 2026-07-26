@@ -349,7 +349,7 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
               }
               className={
                 autoRun
-                  ? "rounded border border-state-error-line bg-state-error-bg px-2 py-0.5 text-[11px] text-state-error-fg hover:bg-state-error-bg disabled:opacity-40"
+                  ? "rounded border border-state-error-line bg-state-error-bg px-2 py-0.5 text-[11px] text-state-error-fg hover:bg-state-error-bg-hover disabled:opacity-40"
                   : "rounded border border-border-default bg-surface-panel px-2 py-0.5 text-[11px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
               }
             >
@@ -459,7 +459,7 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
                 onClick={onDeletePersona}
                 disabled={disabled || busy}
                 title={`Delete tests/personas/${loadedPersona.id}.persona.json.`}
-                className="rounded border border-state-error-line bg-surface-panel px-2 py-0.5 text-[10px] text-state-error-fg hover:bg-state-error-bg disabled:opacity-40"
+                className="rounded border border-state-error-line bg-surface-panel px-2 py-0.5 text-[10px] text-state-error-fg hover:bg-state-error-bg-hover disabled:opacity-40"
               >
                 delete
               </button>

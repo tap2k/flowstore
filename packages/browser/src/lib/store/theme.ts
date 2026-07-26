@@ -83,11 +83,17 @@ applyTheme(useThemeStore.getState().resolved);
 // Follow the OS while the preference is "system". Registered once at module
 // scope: this is a process-lifetime subscription, not component state.
 if (typeof window !== "undefined" && window.matchMedia) {
-  window.matchMedia(DARK_QUERY).addEventListener("change", () => {
+  const query = window.matchMedia(DARK_QUERY);
+  const onSystemChange = () => {
     const { preference } = useThemeStore.getState();
     if (preference !== "system") return;
     const resolved = systemTheme();
     applyTheme(resolved);
     useThemeStore.setState({ resolved });
-  });
+  };
+  query.addEventListener("change", onSystemChange);
+  // Each HMR re-evaluation of this module registers another listener, and the
+  // old ones keep firing against a stale closure — harmless in production
+  // (the module is evaluated once) but it stacks up over a dev session.
+  import.meta.hot?.dispose(() => query.removeEventListener("change", onSystemChange));
 }

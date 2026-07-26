@@ -1,3 +1,5 @@
+import { forwardRef } from "react";
+
 export interface TextareaProps
   extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "className"> {
   /**
@@ -11,9 +13,13 @@ export interface TextareaProps
 }
 
 /** Multi-line input on a sunken surface. */
-export function Textarea({ code, invalid, disabled, rows = 4, className, ...rest }: TextareaProps) {
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea(
+  { code, invalid, disabled, rows = 4, className, ...rest },
+  ref,
+) {
   return (
     <textarea
+      ref={ref}
       rows={rows}
       disabled={disabled}
       spellCheck={!code}
@@ -34,4 +40,4 @@ export function Textarea({ code, invalid, disabled, rows = 4, className, ...rest
       {...rest}
     />
   );
-}
+});

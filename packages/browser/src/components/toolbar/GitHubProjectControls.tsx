@@ -328,7 +328,7 @@ export function GitHubProjectControls({
         {error && (
           <div className="absolute top-full right-6 mt-2 z-30 rounded-md border border-state-error-line bg-state-error-bg px-3 py-1.5 fs-caption text-state-error-fg shadow-md">
             {error}
-            <button onClick={() => setError(null)} className="ml-2 text-state-error-fg hover:text-state-error-fg">
+            <button onClick={() => setError(null)} className="ml-2 text-state-error-fg hover:text-state-error-fg-hover">
               dismiss
             </button>
           </div>
@@ -409,7 +409,7 @@ export function GitHubProjectControls({
       {error && (
         <div className="absolute top-full right-6 mt-2 z-30 rounded-md border border-state-error-line bg-state-error-bg px-3 py-1.5 text-xs text-state-error-fg shadow-md">
           {error}
-          <button onClick={() => setError(null)} className="ml-2 text-state-error-fg hover:text-state-error-fg">
+          <button onClick={() => setError(null)} className="ml-2 text-state-error-fg hover:text-state-error-fg-hover">
             dismiss
           </button>
         </div>
@@ -442,7 +442,7 @@ export function GitHubProjectControls({
             </button>
             <button
               onClick={() => setProtectedBlocked(false)}
-              className="w-full px-3 py-1 text-xs text-state-warning-fg hover:text-state-warning-fg"
+              className="w-full px-3 py-1 text-xs text-state-warning-fg hover:text-state-warning-fg-hover"
             >
               dismiss
             </button>
@@ -549,7 +549,7 @@ function ConflictModal({
           </button>
           <button
             onClick={onOverwrite}
-            className="w-full rounded-md border border-state-error-line bg-state-error-bg px-3 py-1.5 fs-label text-state-error-fg hover:bg-state-error-bg"
+            className="w-full rounded-md border border-state-error-line bg-state-error-bg px-3 py-1.5 fs-label text-state-error-fg hover:bg-state-error-bg-hover"
           >
             Overwrite their changes
           </button>

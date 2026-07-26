@@ -3,6 +3,8 @@ export interface SwitchProps {
   disabled?: boolean;
   label?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  /** Forwarded to the native input so an external <label> can target it. */
+  id?: string;
   className?: string;
 }
 
@@ -10,7 +12,7 @@ export interface SwitchProps {
  * Binary switch for settings that take effect immediately. Use Checkbox for
  * changes that are staged until a save.
  */
-export function Switch({ checked, disabled, label, onChange, className }: SwitchProps) {
+export function Switch({ checked, disabled, label, onChange, id, className }: SwitchProps) {
   return (
     <label
       className={[
@@ -21,8 +23,14 @@ export function Switch({ checked, disabled, label, onChange, className }: Switch
         .filter(Boolean)
         .join(" ")}
     >
+      {/* role="switch" on the native checkbox: the control is a checkbox to the
+          browser (focus, space, form value) but announces as on/off rather than
+          checked/unchecked, which is what the visual promises. */}
       <input
+        id={id}
         type="checkbox"
+        role="switch"
+        aria-checked={!!checked}
         checked={!!checked}
         disabled={disabled}
         onChange={onChange}

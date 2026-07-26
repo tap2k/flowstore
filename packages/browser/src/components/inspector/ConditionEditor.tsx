@@ -36,7 +36,7 @@ export function ConditionEditor({ condition, onChange, placeholder, required }: 
         ))}
       </select>
       <textarea
-        className="w-full rounded border border-border-default px-2 py-1 fs-caption font-mono resize-y min-h-[50px] focus:outline-none focus:ring-1 focus:ring-focus-ring"
+        className="w-full rounded border border-border-default px-2 py-1 fs-data resize-y min-h-[50px] focus:outline-none focus:ring-1 focus:ring-focus-ring"
         value={expression}
         onChange={(e) => update({ expression: e.target.value })}
         placeholder={placeholder ?? (method === "llm" ? "Plain-language description" : "Expression")}

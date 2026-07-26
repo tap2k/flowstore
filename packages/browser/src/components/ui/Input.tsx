@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 import { Icon } from "./Icon";
 
@@ -22,16 +23,10 @@ export interface InputProps
  * Recessed text input: sunken fill + 1px border, no inner shadow. A recessed
  * input in this system is a surface step, not a shadow.
  */
-export function Input({
-  icon,
-  suffix,
-  mono,
-  invalid,
-  inputSize = "md",
-  disabled,
-  className,
-  ...rest
-}: InputProps) {
+export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
+  { icon, suffix, mono, invalid, inputSize = "md", disabled, className, ...rest },
+  ref,
+) {
   return (
     <div
       className={[
@@ -50,6 +45,7 @@ export function Input({
     >
       {icon && <Icon icon={icon} size={14} color="var(--text-tertiary)" />}
       <input
+        ref={ref}
         disabled={disabled}
         aria-invalid={invalid || undefined}
         className={[
@@ -62,4 +58,4 @@ export function Input({
       {suffix && <span className="fs-caption tracking-data text-text-tertiary tabular">{suffix}</span>}
     </div>
   );
-}
+});

@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 import { Icon, type IconWeight } from "./Icon";
 
@@ -24,28 +25,39 @@ export interface IconButtonProps {
   weight?: IconWeight;
   onClick?: (e: React.MouseEvent) => void;
   className?: string;
+  /** Set by DropdownMenu when this button is a menu trigger. */
+  "aria-expanded"?: boolean;
+  "aria-haspopup"?: "menu";
 }
 
 /**
  * Square icon-only control. The border appears only on hover so idle chrome
  * stays quiet — no control may outweigh an idle node border.
  */
-export function IconButton({
-  icon,
-  size = "md",
-  active,
-  disabled,
-  label,
-  weight,
-  onClick,
-  className,
-}: IconButtonProps) {
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
+  {
+    icon,
+    size = "md",
+    active,
+    disabled,
+    label,
+    weight,
+    onClick,
+    className,
+    "aria-expanded": ariaExpanded,
+    "aria-haspopup": ariaHasPopup,
+  },
+  ref,
+) {
   const s = SIZES[size];
   return (
     <button
+      ref={ref}
       type="button"
       aria-label={label}
       aria-pressed={active}
+      aria-expanded={ariaExpanded}
+      aria-haspopup={ariaHasPopup}
       title={label}
       disabled={disabled}
       onClick={onClick}
@@ -66,4 +78,4 @@ export function IconButton({
       <Icon icon={icon} weight={weight ?? (active ? "bold" : "regular")} size={s.icon} />
     </button>
   );
-}
+});

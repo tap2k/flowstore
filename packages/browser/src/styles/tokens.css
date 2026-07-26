@@ -81,11 +81,15 @@
   --state-success-line: #22a356;
   --state-success-bg: #edf7f0;
   --state-error-fg: #b42318; /* 5.6:1 */
+  --state-error-fg-hover: #8f1c13; /* 7.9:1 */
   --state-error-line: #e5484d;
   --state-error-bg: #fdf0ef;
+  --state-error-bg-hover: #fbe1df;
   --state-warning-fg: #8a5300; /* 4.8:1 */
+  --state-warning-fg-hover: #6d4200; /* 7.0:1 */
   --state-warning-line: #de9a17;
   --state-warning-bg: #fdf6e9;
+  --state-warning-bg-hover: #fbedd0;
   --state-disabled-fg: var(--n-8);
   --state-disabled-line: var(--n-4);
   --state-disabled-bg: var(--n-1);
@@ -154,11 +158,15 @@
   --state-success-line: #2e9e5b;
   --state-success-bg: #0c1a12;
   --state-error-fg: #ff9b96; /* 8.9:1 */
+  --state-error-fg-hover: #ffc2be; /* 12.1:1 */
   --state-error-line: #e5484d;
   --state-error-bg: #1c100f;
+  --state-error-bg-hover: #2a1917;
   --state-warning-fg: #f5c86b; /* 11.6:1 */
+  --state-warning-fg-hover: #f9dc9d; /* 14.0:1 */
   --state-warning-line: #c68a15;
   --state-warning-bg: #1a1408;
+  --state-warning-bg-hover: #271e0d;
   --state-disabled-fg: var(--n-8);
   --state-disabled-line: var(--n-4);
   --state-disabled-bg: var(--n-1);

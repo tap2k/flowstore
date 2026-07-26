@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { forwardRef, type ReactNode } from "react";
 import { SpinnerGap } from "@phosphor-icons/react";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 import { Icon } from "./Icon";
@@ -52,31 +52,42 @@ export interface ButtonProps {
   type?: "button" | "submit" | "reset";
   title?: string;
   className?: string;
+  /** Set by DropdownMenu when this button is a menu trigger. */
+  "aria-expanded"?: boolean;
+  "aria-haspopup"?: "menu";
 }
 
 /** Text button. One primary per view. */
-export function Button({
-  variant = "secondary",
-  size = "md",
-  icon,
-  iconRight,
-  disabled,
-  loading,
-  fullWidth,
-  children,
-  onClick,
-  type = "button",
-  title,
-  className,
-}: ButtonProps) {
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  {
+    variant = "secondary",
+    size = "md",
+    icon,
+    iconRight,
+    disabled,
+    loading,
+    fullWidth,
+    children,
+    onClick,
+    type = "button",
+    title,
+    className,
+    "aria-expanded": ariaExpanded,
+    "aria-haspopup": ariaHasPopup,
+  },
+  ref,
+) {
   const s = SIZES[size];
   const inert = disabled || loading;
   return (
     <button
+      ref={ref}
       type={type}
       title={title}
       disabled={inert}
       onClick={onClick}
+      aria-expanded={ariaExpanded}
+      aria-haspopup={ariaHasPopup}
       className={[
         "inline-flex items-center justify-center whitespace-nowrap rounded-2 border font-medium tracking-snug",
         "transition-[background-color,border-color,color,transform] duration-[90ms] ease-standard",
@@ -103,4 +114,4 @@ export function Button({
       {iconRight ? <Icon icon={iconRight} weight="bold" size={12} /> : null}
     </button>
   );
-}
+});

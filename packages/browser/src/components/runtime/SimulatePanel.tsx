@@ -997,7 +997,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             <button
               onClick={onReset}
               title="End this session and start fresh against the same spec."
-              className="shrink-0 rounded border border-state-error-line bg-surface-panel px-2 py-0.5 text-state-error-fg hover:bg-state-error-bg"
+              className="shrink-0 rounded border border-state-error-line bg-surface-panel px-2 py-0.5 text-state-error-fg hover:bg-state-error-bg-hover"
             >
               Clear
             </button>
@@ -1175,7 +1175,7 @@ function ActiveCaseStrip({
               type="button"
               onClick={onStop}
               aria-label="Stop case"
-              className="rounded border border-state-error-line bg-state-error-bg px-2 py-1 text-[12px] font-medium text-state-error-fg hover:bg-state-error-bg"
+              className="rounded border border-state-error-line bg-state-error-bg px-2 py-1 text-[12px] font-medium text-state-error-fg hover:bg-state-error-bg-hover"
               title="Stop. Any in-flight LLM call still completes; the loop halts on the next turn."
             >
               ■
@@ -1249,7 +1249,7 @@ function ActiveGoldStrip({
               type="button"
               onClick={onStop}
               aria-label="Stop gold run"
-              className="rounded border border-state-error-line bg-state-error-bg px-2 py-1 text-[12px] font-medium text-state-error-fg hover:bg-state-error-bg"
+              className="rounded border border-state-error-line bg-state-error-bg px-2 py-1 text-[12px] font-medium text-state-error-fg hover:bg-state-error-bg-hover"
               title="Stop. Any in-flight LLM call still completes; the loop halts on the next turn."
             >
               ■
@@ -1599,7 +1599,7 @@ function VoiceFooter({
           disabled={connecting}
           className={`rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-40 ${
             micMuted
-              ? "border-state-error-line bg-state-error-bg text-state-error-fg hover:bg-state-error-bg"
+              ? "border-state-error-line bg-state-error-bg text-state-error-fg hover:bg-state-error-bg-hover"
               : "border-border-default text-text-secondary hover:bg-surface-hover"
           }`}
           title={micMuted ? "Unmute the mic" : "Mute the mic"}

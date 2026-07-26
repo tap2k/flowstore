@@ -488,6 +488,7 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
 
   return (
     <Dialog
+      open
       title="Import spec"
       width={672}
       onClose={onClose}
@@ -584,10 +585,10 @@ function TranslationsImportPreviewModal({
 
   return (
     <Dialog
+      open
       title="Import translations"
       width={512}
       onClose={onCancel}
-      className="z-[60]"
       footer={
         <>
           <Button size="lg" onClick={onCancel}>

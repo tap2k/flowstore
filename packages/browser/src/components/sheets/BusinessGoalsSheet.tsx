@@ -50,7 +50,7 @@ export function BusinessGoalsSheet({ onClose }: { onClose: () => void }) {
                 ))}
               </select>
               <textarea
-                className="flex-1 rounded border border-border-default px-2 py-1 fs-caption font-mono resize-y min-h-[40px] focus:outline-none focus:ring-1 focus:ring-focus-ring"
+                className="flex-1 rounded border border-border-default px-2 py-1 fs-data resize-y min-h-[40px] focus:outline-none focus:ring-1 focus:ring-focus-ring"
                 value={g.expression}
                 onChange={(e) => update({ ...g, expression: e.target.value })}
                 placeholder={

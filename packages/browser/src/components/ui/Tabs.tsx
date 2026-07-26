@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 import { Icon } from "./Icon";
 
@@ -18,9 +19,41 @@ export interface TabsProps {
  * the colour vocabulary that reports a run.
  */
 export function Tabs({ items = [], value, onChange, className }: TabsProps) {
+  const list = useRef<HTMLDivElement>(null);
+  const valueAt = (i: number) => {
+    const item = items[i];
+    return typeof item === "string" ? item : item?.value;
+  };
+
+  // The ARIA tab pattern: arrows move between tabs (wrapping), Home/End jump to
+  // the ends, and only the selected tab is in the page's tab order — Tab enters
+  // and leaves the set rather than walking through every tab in it.
+  function onKeyDown(e: React.KeyboardEvent) {
+    const delta =
+      e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    let next: string | undefined;
+    if (delta !== 0) {
+      const i = items.findIndex((item) => (typeof item === "string" ? item : item.value) === value);
+      next = valueAt((i + delta + items.length) % items.length);
+    } else if (e.key === "Home") {
+      next = valueAt(0);
+    } else if (e.key === "End") {
+      next = valueAt(items.length - 1);
+    } else {
+      return;
+    }
+    if (next === undefined) return;
+    e.preventDefault();
+    onChange?.(next);
+    // Selection follows focus in this pattern, so move focus with it.
+    list.current?.querySelector<HTMLElement>(`[data-tab="${CSS.escape(next)}"]`)?.focus();
+  }
+
   return (
     <div
+      ref={list}
       role="tablist"
+      onKeyDown={onKeyDown}
       className={`flex gap-0.5 border-b border-border-subtle${className ? ` ${className}` : ""}`}
     >
       {items.map((item) => {
@@ -32,7 +65,9 @@ export function Tabs({ items = [], value, onChange, className }: TabsProps) {
             key={id}
             type="button"
             role="tab"
+            data-tab={id}
             aria-selected={on}
+            tabIndex={on ? 0 : -1}
             onClick={() => onChange?.(id)}
             className={[
               // -mb-px pulls the 2px rule over the container's own hairline so

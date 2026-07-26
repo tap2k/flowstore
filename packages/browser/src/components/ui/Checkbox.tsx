@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Check } from "@phosphor-icons/react";
 import { Icon } from "./Icon";
 
@@ -9,6 +10,8 @@ export interface CheckboxProps {
   /** Secondary line under the label, for a constraint or consequence. */
   hint?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  /** Forwarded to the native input so an external <label> can target it. */
+  id?: string;
   className?: string;
 }
 
@@ -26,9 +29,17 @@ export function Checkbox({
   label,
   hint,
   onChange,
+  id,
   className,
 }: CheckboxProps) {
   const on = checked || indeterminate;
+  // `indeterminate` is a DOM property with no HTML attribute, so React can't set
+  // it from JSX. Without this the mixed state is purely visual and assistive
+  // tech announces a plain "unchecked".
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (input.current) input.current.indeterminate = !!indeterminate;
+  }, [indeterminate]);
   return (
     <label
       className={[
@@ -40,6 +51,8 @@ export function Checkbox({
         .join(" ")}
     >
       <input
+        ref={input}
+        id={id}
         type="checkbox"
         checked={!!checked}
         disabled={disabled}

@@ -82,11 +82,15 @@
   --color-state-success-line: var(--state-success-line);
   --color-state-success-bg: var(--state-success-bg);
   --color-state-error-fg: var(--state-error-fg);
+  --color-state-error-fg-hover: var(--state-error-fg-hover);
   --color-state-error-line: var(--state-error-line);
   --color-state-error-bg: var(--state-error-bg);
+  --color-state-error-bg-hover: var(--state-error-bg-hover);
   --color-state-warning-fg: var(--state-warning-fg);
+  --color-state-warning-fg-hover: var(--state-warning-fg-hover);
   --color-state-warning-line: var(--state-warning-line);
   --color-state-warning-bg: var(--state-warning-bg);
+  --color-state-warning-bg-hover: var(--state-warning-bg-hover);
   --color-state-disabled-fg: var(--state-disabled-fg);
   --color-state-disabled-line: var(--state-disabled-line);
   --color-state-disabled-bg: var(--state-disabled-bg);
@@ -203,4 +207,52 @@ body {
   background: var(--n-7);
   border: 3px solid transparent;
   background-clip: content-box;
+}
+
+/* ============================================ REACT FLOW FLOATING CHROME */
+/* The zoom/fit/relayout cluster and the minimap ship their own stylesheet with
+   hardcoded whites and near-blacks (see the @xyflow/react import at the top),
+   so they can't follow the theme through props alone — these override the
+   library's own rules. The graph itself (nodes, edges, handles) is deliberately
+   untouched: it keeps its light palette until the node retrofit. */
+.react-flow__controls {
+  box-shadow: var(--elev-2);
+  border-radius: var(--r-3);
+  overflow: hidden;
+}
+.react-flow__controls-button {
+  background: var(--surface-panel);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  width: var(--hit-canvas);
+  height: var(--hit-canvas);
+}
+.react-flow__controls-button:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+.react-flow__controls-button:disabled {
+  background: var(--surface-panel);
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+/* The library sets `fill` on the glyph paths, which wins over `color` — point
+   it back at the inherited text colour so hover and disabled states carry. */
+.react-flow__controls-button svg {
+  fill: currentColor;
+  max-width: 14px;
+  max-height: 14px;
+}
+.react-flow__minimap {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-3);
+  box-shadow: var(--elev-2);
+}
+/* Edge labels are part of the graph, but their chip sits on the canvas plane
+   rather than on a node, so it has to follow the plane to stay legible. */
+.react-flow__edge-textbg {
+  fill: var(--edge-label-bg);
+}
+.react-flow__edge-text {
+  fill: var(--text-secondary);
 }

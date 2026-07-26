@@ -4,6 +4,19 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- The upright variable face covers every weight in the type scale, so it
+         is on the critical path for first paint. Without the preload the
+         browser only discovers it after the CSS parses and `font-display: swap`
+         shows a system-font flash first. The italic and static cuts are not
+         preloaded — they are fallbacks, and preloading unused fonts costs
+         bandwidth on the same critical path this is meant to protect. -->
+    <link
+      rel="preload"
+      href="/fonts/Geist-Variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <title>flowstore</title>
   </head>
   <body class="antialiased">

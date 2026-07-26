@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { CaretDown } from "@phosphor-icons/react";
 import { Icon } from "./Icon";
 
@@ -17,14 +18,10 @@ export interface SelectProps
  * OS popup is keyboard- and screen-reader-correct for free, and this system has
  * no visual opinion about the open menu that would justify rebuilding it.
  */
-export function Select({
-  options = [],
-  mono,
-  selectSize = "md",
-  disabled,
-  className,
-  ...rest
-}: SelectProps) {
+export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
+  { options = [], mono, selectSize = "md", disabled, className, ...rest },
+  ref,
+) {
   return (
     <div
       className={[
@@ -40,6 +37,7 @@ export function Select({
         .join(" ")}
     >
       <select
+        ref={ref}
         disabled={disabled}
         className={[
           "h-full w-full appearance-none border-none bg-transparent pl-2 pr-[26px] outline-none",
@@ -67,4 +65,4 @@ export function Select({
       />
     </div>
   );
-}
+});
