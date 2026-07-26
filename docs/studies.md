@@ -142,6 +142,12 @@ upsell: the report can close with "your prompt, re-specified and recompiled,
 passes N more scenarios and holds across models — here's the A/B." Codegen as a
 finding, not a prerequisite.
 
+One epistemic caveat the report must carry: verbatim cuts both ways. A prompt
+written in one vendor's dialect can fail on another model for formatting
+reasons a real migration would trivially fix, so verbatim runs can *overstate*
+candidate failures — the mirror image of the compiler critique. The report
+says so, and the respec A/B is the structural answer.
+
 ## The report is the product
 
 The buyer sees a standalone, forwardable artifact (HTML/PDF) — "a report of some
@@ -391,6 +397,12 @@ core cheap product; the test-file shapes already support it. Human grading is a
 layer: the customer supplies their own graders through a grading UI, or pays a
 premium tier. You can specify the questions and the gold standards either way.
 
+**The judge stays in handcuffs.** One judge grading all columns shares a
+vendor with some column — a circularity variant disclosure alone doesn't fix.
+So assertions and gold-matching are the primary grading; the LLM judge is
+minimal, pinned, disclosed, and may only select evidence from the transcript,
+never overrule ground truth.
+
 ## Per-node model routing and token/cost estimation
 
 Model choice doesn't have to be whole-agent — and cost, more than failure, is
@@ -497,6 +509,22 @@ essentially nothing; it was built for this.
   content-hash of the prompt region it came from, so re-extraction reconciles
   against anchors instead of re-guessing node identity. Ledger metadata, not
   behavior: a sidecar mapping file in the file model, not fields on Flow.
+- **Where language renderings live: inputs vs. evidence.** Scenario *inputs*
+  (persona prompts, scripted turns, descriptions) follow the scripts
+  precedent — `LocalizedString` renderings inside the same artifact, so
+  scenario identity stays language-invariant, with the translator CSV
+  round-trip extended to `tests/`. *Golds* are per-language artifacts — a
+  blessed transcript is inherently in one language; you don't translate a
+  gold, you bless one per language (`language` field, linked by scenario id,
+  blessed independently — which is why drift columns light up
+  language-by-language). The existing case-level `language` field is the
+  run-time rendering selector.
+- **`model_role` ships day one; the routing feature doesn't.** The field is
+  optional, additive, free, and gives extraction and the report an annotation
+  target. v0 studies run whole-agent columns only — but run records collect
+  per-turn tokens and node attribution from study one, so the routing report
+  later computes *retroactively over the accumulated ledger*: collect early,
+  sell later, re-run nothing.
 - **The study artifact family (the biggest addition).** New `$schema` URIs
   beside the testing artifacts: study manifest, run record (per-turn tokens,
   latency, model, active flow id, events, verdicts), report data model. A
@@ -562,7 +590,10 @@ or authors it. "Powered by flowstore" in the footer is the only trace.
 the ledger as their repo, CI on push, and the intake the browser can't do —
 live-endpoint studies and monitoring probes (CORS keeps endpoints out of the
 browser). The browser tool offers "export this study as a repo" as the
-bridge. Point Claude Code at it, or wire the Action.
+bridge. Point Claude Code at it, or wire the Action. Canonicality rule: the
+exported repo is the canonical ledger; browser localStorage is a cache of it.
+Sharing at rungs 2–3 is the self-contained HTML file itself; a hosted public
+gallery is a rung-4 good.
 
 **Rung 4 — the company forms around what local tools cannot do.** The
 irreducible hosted kernel: **the calendar** — we watch releases,
@@ -699,6 +730,19 @@ The plan above is strategy; these are the execution gaps, riskiest first.
 7. **Success/kill criterion for the kit.** Pick the next major deprecation
    window; if nobody runs the free kit during it, the hosted business isn't
    there either — revisit the entry point before building the company.
-8. **Repo front door.** The README still leads with the Behavioral IDE. With
+8. **Browser run mechanics.** A matrix through one OpenRouter key in one tab
+   hits rate limits, and the tab must stay open. Needed: partial results
+   persisted locally (resumable runs), progressive fill (the wow is the
+   *first* cells), tab-close warning, and an early spike on OpenRouter
+   concurrency limits — this is what protects "five minutes" from becoming
+   thirty. Extraction is on the same critical path: stream the graph as it
+   parses, start the matrix while the map refines; the "does this look
+   right?" correction is also the first blessing act.
+9. **The incumbent declaration.** The flow must ask "which model do you run
+   today?" — one required dropdown. The incumbent anchors the verbatim
+   control, the golds blessed from its transcripts, and the "your current
+   bill" cost baseline; the design leaned on it everywhere and captured it
+   nowhere.
+10. **Repo front door.** The README still leads with the Behavioral IDE. With
    ~0 installed users there is nothing to migrate and no positioning debt —
    repoint the front door when the kit ships, not before.
