@@ -36,6 +36,9 @@ export function ComparePage() {
   const [selected, setSelected] = useState<string | null>(initial.scenarios[0]?.id ?? null);
   const [monthly, setMonthly] = useState(initial.monthly);
   const [running, setRunning] = useState(false);
+  // Scenario id of an in-flight single-row run (the sidebar ▶); mutually
+  // exclusive with a full run.
+  const [rowRunning, setRowRunning] = useState<string | null>(null);
   const [setupOpen, setSetupOpen] = useState(true);
   const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -78,6 +81,14 @@ export function ComparePage() {
   const patchCell = (key: string, patch: Partial<CellState>) =>
     setCells((prev) => ({ ...prev, [key]: { ...(prev[key] ?? IDLE_CELL), ...patch } }));
 
+  // The engine's ResolveDispatch, backed by the shared settings store.
+  const resolveForEngine = (model: string) => {
+    const d = resolveDispatch(model);
+    return d.provider && d.apiKey.trim()
+      ? { provider: d.provider, apiKey: d.apiKey, baseUrl: d.baseUrl, wireModel: d.wireModel }
+      : null;
+  };
+
   async function run() {
     setRunning(true);
     setSetupOpen(false);
@@ -88,15 +99,26 @@ export function ComparePage() {
       systemPrompt: filledPrompt,
       scenarios,
       models,
-      resolveDispatch: (model) => {
-        const d = resolveDispatch(model);
-        return d.provider && d.apiKey.trim()
-          ? { provider: d.provider, apiKey: d.apiKey, baseUrl: d.baseUrl, wireModel: d.wireModel }
-          : null;
-      },
+      resolveDispatch: resolveForEngine,
       onCell: patchCell,
     });
     setRunning(false);
+  }
+
+  // Run one scenario row across every model column — a single-scenario matrix,
+  // so the engine's column parallelism and divergence pass apply unchanged.
+  async function runScenario(s: Scenario) {
+    if (running || rowRunning) return;
+    setRowRunning(s.id);
+    setSelected(s.id);
+    await runMatrix({
+      systemPrompt: filledPrompt,
+      scenarios: [s],
+      models,
+      resolveDispatch: resolveForEngine,
+      onCell: patchCell,
+    });
+    setRowRunning(null);
   }
 
   // Machine-assist on the TEST side only: the LLM proposes fill values, the
@@ -242,6 +264,7 @@ export function ComparePage() {
     void file.text().then((text) => applyBundle(JSON.parse(text) as Record<string, string>));
   }
 
+  const busy = running || rowRunning !== null;
   const hasResults = Object.keys(cells).length > 0;
   const totalCells = scenarios.length * models.length;
   const settledCells = Object.values(cells).filter(
@@ -281,7 +304,7 @@ export function ComparePage() {
           </button>
           <button
             onClick={run}
-            disabled={running || !prompt.trim() || scenarios.length === 0 || models.length === 0}
+            disabled={busy || !prompt.trim() || scenarios.length === 0 || models.length === 0}
             className="rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
           >
             {running ? `running ${settledCells}/${totalCells}…` : "run all"}
@@ -355,7 +378,7 @@ export function ComparePage() {
               setSelected(null);
               setSetupOpen(true);
             }}
-            disabled={running || (!prompt && scenarios.length === 0 && !hasResults)}
+            disabled={busy || (!prompt && scenarios.length === 0 && !hasResults)}
             className={iconButtonClass}
             title="Clear study"
             aria-label="Clear study"
@@ -533,18 +556,34 @@ export function ComparePage() {
                 <tr
                   key={s.id}
                   onClick={() => setSelected(s.id)}
-                  className={`cursor-pointer hover:bg-zinc-50 ${selected === s.id ? "bg-zinc-100" : ""}`}
+                  className={`group cursor-pointer hover:bg-zinc-50 ${selected === s.id ? "bg-zinc-100" : ""}`}
                 >
                   <td className="border-b border-zinc-100 px-2 py-1.5">
-                    {s.name} <span className="text-zinc-400">{s.language}</span>
-                    {golds[s.id] && golds[s.id].column === undefined && (
-                      <span
-                        className="ml-1 text-[9px] text-amber-700"
-                        title="An imported blessed gold transcript exists for this scenario"
-                      >
-                        gold ✓
+                    <div className="flex items-center gap-1">
+                      <span className="min-w-0 flex-1 truncate">
+                        {s.name} <span className="text-zinc-400">{s.language}</span>
+                        {golds[s.id] && golds[s.id].column === undefined && (
+                          <span
+                            className="ml-1 text-[9px] text-amber-700"
+                            title="An imported blessed gold transcript exists for this scenario"
+                          >
+                            gold ✓
+                          </span>
+                        )}
                       </span>
-                    )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void runScenario(s);
+                        }}
+                        disabled={busy || !prompt.trim() || models.length === 0}
+                        className="invisible shrink-0 rounded-md border border-zinc-200 px-1.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 group-hover:visible"
+                        title="Run this scenario on all models"
+                        aria-label={`Run scenario ${s.name}`}
+                      >
+                        ▶
+                      </button>
+                    </div>
                   </td>
                   <td className="border-b border-l border-zinc-100 px-1 py-1.5 text-center">
                     <ScenarioChip cells={models.map((_, i) => cells[cellKey(s.id, i)])} />
@@ -566,14 +605,14 @@ export function ComparePage() {
                     <ModelPicker
                       value={m}
                       onChange={(v) => setModels((prev) => prev.map((x, j) => (j === i ? v : x)))}
-                      disabled={running}
+                      disabled={busy}
                       showUnconfigured
                       className="min-w-0 text-[11px]"
                     />
                     {i > 0 && (
                       <button
                         onClick={() => setModels((prev) => prev.filter((_, j) => j !== i))}
-                        disabled={running}
+                        disabled={busy}
                         className="shrink-0 rounded-md border border-zinc-200 px-1.5 py-0.5 text-[11px] text-zinc-500 hover:bg-red-50 hover:text-red-600"
                         title="Remove column"
                       >
@@ -618,7 +657,7 @@ export function ComparePage() {
                     {i === models.length - 1 && models.length < 6 && (
                       <button
                         onClick={() => setModels((prev) => [...prev, DEFAULT_MODEL_ID])}
-                        disabled={running}
+                        disabled={busy}
                         className="shrink-0 rounded-md border border-zinc-200 px-2 py-0.5 text-[12px] font-medium text-zinc-600 hover:bg-zinc-100"
                         title="Add model column"
                       >
