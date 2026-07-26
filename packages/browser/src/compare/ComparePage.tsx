@@ -78,13 +78,21 @@ export function ComparePage() {
             flowstore · runs locally in your browser
           </div>
         </div>
-        <button
-          onClick={() => setSetupOpen((v) => !v)}
-          className="rounded-full border border-zinc-300 bg-white px-3 py-1 text-[11px] hover:bg-zinc-50"
-        >
-          {setupOpen ? "hide setup" : "edit setup"}
-        </button>
         <div className="ml-auto flex items-center gap-3">
+          <button
+            onClick={() => setSetupOpen((v) => !v)}
+            className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-[11px] hover:bg-zinc-50"
+          >
+            {setupOpen ? "hide setup" : "edit setup"}
+          </button>
+          <button
+            onClick={run}
+            disabled={running || !prompt.trim() || scenarios.length === 0 || models.length === 0}
+            className="rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+          >
+            {running ? "running…" : "run"}
+          </button>
+          <span className="h-5 w-px bg-zinc-200" />
           {hasResults && !running && (
             <label className="flex items-center gap-1 text-[10px] text-zinc-500">
               conv/mo
@@ -159,13 +167,6 @@ export function ComparePage() {
               </div>
             )}
           </div>
-          <button
-            onClick={run}
-            disabled={running || scenarios.length === 0 || models.length === 0}
-            className="rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
-          >
-            {running ? "running…" : "run"}
-          </button>
         </div>
       </header>
 
