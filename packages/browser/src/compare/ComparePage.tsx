@@ -319,6 +319,9 @@ export function ComparePage() {
               </tr>
             </thead>
             <tbody>
+              <tr aria-hidden="true">
+                <td colSpan={2} className="h-2 p-0" />
+              </tr>
               {scenarios.map((s) => (
                 <tr
                   key={s.id}
