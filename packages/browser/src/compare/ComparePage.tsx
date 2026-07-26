@@ -69,17 +69,20 @@ export function ComparePage() {
 
   return (
     <div className="flex h-screen flex-col bg-zinc-50 text-zinc-900">
-      <header className="flex items-center gap-3 border-b border-zinc-200 bg-white px-4 py-2">
-        <h1 className="text-sm font-semibold">
-          compare <span className="font-normal text-zinc-400">· flowstore</span>
-        </h1>
+      <header className="flex items-center gap-4 border-b border-zinc-200 bg-white px-6 py-3">
+        <div className="flex min-w-0 flex-col">
+          <h1 className="truncate text-lg font-semibold leading-tight text-zinc-900">compare</h1>
+          <div className="text-[11px] leading-tight text-zinc-500">
+            flowstore · runs locally in your browser
+          </div>
+        </div>
         <button
           onClick={() => setSetupOpen((v) => !v)}
           className="rounded-full border border-zinc-300 bg-white px-3 py-1 text-[11px] hover:bg-zinc-50"
         >
           {setupOpen ? "hide setup" : "edit setup"}
         </button>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-3">
           <KeyField label="google" value={googleApiKey} onChange={setGoogleApiKey} />
           <KeyField label="openrouter" value={openrouterApiKey} onChange={setOpenrouterApiKey} />
           {hasResults && !running && (
