@@ -378,6 +378,7 @@ export function ComparePage() {
                         diverges
                       </span>
                     )}
+                    <div className="ml-auto flex shrink-0 items-center gap-1.5">
                     <ColumnStats cell={c} />
                     {c?.status === "done" && selected && (
                       golds[selected]?.column === i ? (
@@ -411,12 +412,13 @@ export function ComparePage() {
                       <button
                         onClick={() => setModels((prev) => [...prev, DEFAULT_MODEL_ID])}
                         disabled={running}
-                        className="ml-2 shrink-0 rounded-md border border-zinc-200 px-2 py-0.5 text-[12px] font-medium text-zinc-600 hover:bg-zinc-100"
+                        className="shrink-0 rounded-md border border-zinc-200 px-2 py-0.5 text-[12px] font-medium text-zinc-600 hover:bg-zinc-100"
                         title="Add model column"
                       >
                         +
                       </button>
                     )}
+                    </div>
                   </div>
                   <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
                     {(c?.turns ?? []).map((t, k) => (
@@ -468,7 +470,7 @@ function ColumnStats({ cell }: { cell?: CellState }) {
   if (!cell?.usage) return null;
   const u = cell.usage;
   return (
-    <span className="ml-auto whitespace-nowrap text-[10px] text-zinc-500">
+    <span className="whitespace-nowrap text-[10px] text-zinc-500">
       {`${u.inputTokens.toLocaleString()}/${u.outputTokens.toLocaleString()}`}
       {u.cost !== undefined && ` · $${u.cost.toFixed(4)}`}
       {cell.totalMs > 0 && ` · ${(cell.totalMs / 1000).toFixed(1)}s`}
