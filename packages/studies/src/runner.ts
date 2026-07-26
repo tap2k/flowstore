@@ -1,30 +1,15 @@
-import { sendPromptTurn } from "@flowstore/core/runtime/promptClient";
+import { addUsage, sendPromptTurn } from "@flowstore/core/runtime/promptClient";
 import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
 import type { ChatUsage } from "@flowstore/core/llm/types";
 import type { CellState, ModelDispatch, Scenario } from "./types";
+import { IDLE_CELL, cellKey } from "./types";
 
-export function sumUsage(
-  a: ChatUsage | undefined,
-  b: ChatUsage | undefined,
-): ChatUsage | undefined {
-  if (!a) return b;
-  if (!b) return a;
-  const cost =
-    a.cost !== undefined || b.cost !== undefined ? (a.cost ?? 0) + (b.cost ?? 0) : undefined;
-  const cached =
-    a.cachedInputTokens !== undefined || b.cachedInputTokens !== undefined
-      ? (a.cachedInputTokens ?? 0) + (b.cachedInputTokens ?? 0)
-      : undefined;
-  return {
-    inputTokens: a.inputTokens + b.inputTokens,
-    outputTokens: a.outputTokens + b.outputTokens,
-    ...(cached !== undefined ? { cachedInputTokens: cached } : {}),
-    ...(cost !== undefined ? { cost } : {}),
-  };
-}
+// Resolves a model id to dispatch credentials, or null when the model can't
+// be dispatched (no key). Injected by the surface (browser settings store,
+// node CLI env) — the engine never reads config itself.
+export type ResolveDispatch = (model: string) => ModelDispatch | null;
 
 // Run one scenario against one model, reporting progress after every turn.
-// Isomorphic: no store/env access — the caller resolves and injects dispatch.
 export async function runCell(args: {
   systemPrompt: string;
   scenario: Scenario;
@@ -40,12 +25,11 @@ export async function runCell(args: {
   try {
     for (const userText of scenario.turns) {
       const userTurn: TranscriptTurn = { role: "user", text: userText, ts: Date.now(), events: [] };
-      history.push(userTurn);
-      onUpdate({ turns: [...history] });
+      onUpdate({ turns: [...history, userTurn] });
       const started = Date.now();
       const res = await sendPromptTurn({
         systemPrompt,
-        history: history.slice(0, -1),
+        history,
         userText,
         apiKey: dispatch.apiKey,
         model: dispatch.wireModel,
@@ -54,14 +38,62 @@ export async function runCell(args: {
       });
       const latencyMs = Date.now() - started;
       totalMs += latencyMs;
-      usage = sumUsage(usage, res.usage);
-      history.push({ role: "agent", text: res.text, ts: Date.now(), events: [], latencyMs });
+      usage = addUsage(usage, res.usage);
+      history.push(userTurn, { role: "agent", text: res.text, ts: Date.now(), events: [], latencyMs });
       onUpdate({ turns: [...history], usage, totalMs });
     }
     onUpdate({ status: "done" });
   } catch (err) {
     onUpdate({ status: "error", error: err instanceof Error ? err.message : String(err) });
   }
+}
+
+// The matrix: columns (models) in parallel, scenarios within a column
+// sequential; then the divergence pass vs column 0 (the incumbent). Owns the
+// whole engine policy so every surface (browser page, node CLI) shares it —
+// including setting `divergent`, which report/bundle consume. Returns the
+// final cells; emits every patch through onCell for live rendering.
+export async function runMatrix(args: {
+  systemPrompt: string;
+  scenarios: Scenario[];
+  models: string[];
+  resolveDispatch: ResolveDispatch;
+  onCell: (key: string, patch: Partial<CellState>) => void;
+}): Promise<Record<string, CellState>> {
+  const { systemPrompt, scenarios, models, resolveDispatch, onCell } = args;
+  const cells: Record<string, CellState> = {};
+  const emit = (key: string, patch: Partial<CellState>) => {
+    cells[key] = { ...(cells[key] ?? IDLE_CELL), ...patch };
+    onCell(key, patch);
+  };
+
+  await Promise.all(
+    models.map(async (model, mi) => {
+      for (const s of scenarios) {
+        const key = cellKey(s.id, mi);
+        // Resolved per cell on purpose: a key entered mid-run is picked up
+        // by the remaining scenarios in the column.
+        const dispatch = resolveDispatch(model);
+        if (!dispatch) {
+          emit(key, { status: "error", error: `No API key for ${model}.` });
+          continue;
+        }
+        await runCell({ systemPrompt, scenario: s, dispatch, onUpdate: (p) => emit(key, p) });
+      }
+    }),
+  );
+
+  for (const s of scenarios) {
+    const inc = cells[cellKey(s.id, 0)];
+    if (!inc || inc.status !== "done") continue;
+    for (let mi = 1; mi < models.length; mi++) {
+      const key = cellKey(s.id, mi);
+      const c = cells[key];
+      if (!c || c.status !== "done") continue;
+      emit(key, { divergent: divergence(inc.turns, c.turns) > DIVERGENCE_THRESHOLD });
+    }
+  }
+  return cells;
 }
 
 // Cheap lexical divergence between two columns' agent turns on the same

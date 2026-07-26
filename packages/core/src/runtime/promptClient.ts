@@ -77,7 +77,9 @@ export async function sendPromptTurn(args: {
   return { text, usage, invocations };
 }
 
-function addUsage(a: ChatUsage | undefined, b: ChatUsage | undefined): ChatUsage | undefined {
+// Exported: the studies matrix runner accumulates usage across turns with the
+// same semantics (cached and cost sum only when either side reports them).
+export function addUsage(a: ChatUsage | undefined, b: ChatUsage | undefined): ChatUsage | undefined {
   if (!a) return b;
   if (!b) return a;
   const cached =

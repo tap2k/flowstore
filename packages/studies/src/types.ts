@@ -45,11 +45,11 @@ export const IDLE_CELL: CellState = { status: "idle", turns: [], totalMs: 0 };
 export const cellKey = (scenarioId: string, column: number): string =>
   `${scenarioId}::${column}`;
 
+// The incumbent is always column 0 of `models` — derivable, not stored.
 export type Study = {
   title: string;
   prompt: string;
   models: string[];
-  incumbent: string;
   scenarios: Scenario[];
   cells: Record<string, CellState>;
   monthlyConversations: number;

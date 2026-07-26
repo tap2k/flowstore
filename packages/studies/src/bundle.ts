@@ -16,11 +16,10 @@ import { cellKey } from "./types";
 export function buildStudyBundle(args: {
   prompt: string;
   models: string[];
-  incumbent: string;
   scenarios: Scenario[];
   cells: Record<string, CellState>;
 }): Record<string, string> {
-  const { prompt, models, incumbent, scenarios, cells } = args;
+  const { prompt, models, scenarios, cells } = args;
   const stamp = new Date().toISOString();
   const runDir = `tests/runs/${stamp.slice(0, 19).replace(/[:T]/g, "-")}-compare`;
   const files: Record<string, string> = {};
@@ -31,14 +30,13 @@ export function buildStudyBundle(args: {
     $schema: "flowstore://spec/agent/v0",
     id: "imported-agent",
     name: "Imported agent (compare study)",
-    meta: { name: "Imported agent", modality: "text", languages: uniqueLanguages(scenarios) },
-    // The imported prompt IS agent.system_prompt, as a full override (no
-    // {{generated}}). Override compiles to itself verbatim, so simulate,
-    // harness, and deployment all run the imported text with no extra
-    // mechanism — the compiled artifact is always the system under test.
-    // Structuring (extraction/sync in the editor) progressively converts
-    // spans into spec entities under P1 rules (opaque blocks preserved,
-    // deltas confirmed, re-render from spec); the handover is asymptotic.
+    meta: {
+      name: "Imported agent",
+      modality: "text",
+      languages: [...new Set(scenarios.map((s) => s.language))],
+    },
+    // Full override (no {{generated}}): compiles to itself verbatim — see
+    // SCHEMA.md § system_prompt.
     system_prompt: prompt,
     // Stub: no flows exist pre-extraction (flowless-project acceptance is a
     // pending loader/validator decision).
@@ -71,15 +69,16 @@ export function buildStudyBundle(args: {
         model: m,
         prompt_source: "agent.system_prompt (imported override)",
         language: s.language,
+        // JSON.stringify drops undefined members — plain assignment suffices.
         usage: {
           text_in: c.usage?.inputTokens,
           text_out: c.usage?.outputTokens,
-          ...(c.usage?.cost !== undefined ? { cost: c.usage.cost } : {}),
+          cost: c.usage?.cost,
         },
         transcript: c.turns.map((t) => ({
           role: t.role,
           content: t.text,
-          ...(t.latencyMs !== undefined ? { latency_ms: t.latencyMs } : {}),
+          latency_ms: t.latencyMs,
         })),
       });
     }
@@ -90,15 +89,11 @@ export function buildStudyBundle(args: {
     // study fields settle (see studies plan).
     kind: "compare-study",
     timestamp: stamp,
-    incumbent,
+    incumbent: models[0],
     models,
     scenario_ids: scenarios.map((s) => s.id),
     results: resultFiles,
   });
 
   return files;
-}
-
-function uniqueLanguages(scenarios: Scenario[]): string[] {
-  return [...new Set(scenarios.map((s) => s.language))];
 }

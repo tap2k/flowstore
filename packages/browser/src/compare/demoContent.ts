@@ -1,3 +1,5 @@
+import type { Scenario } from "@flowstore/studies";
+
 // Demo agent + scenarios for the compare tool's zero-input state. A clinic
 // appointment-reminder agent: multilingual, identity-before-disclosure
 // guardrail (privacy), an objection flow, and an escalation path — the
@@ -16,8 +18,6 @@ Rules:
 - Answer in the language the patient speaks — English or Hindi. Match their register.
 - Never discuss politics, other patients, or anything unrelated. Steer back politely.
 - Close by summarizing any change made and thanking them.`;
-
-import type { Scenario } from "@flowstore/studies";
 
 export const DEMO_SCENARIOS: Scenario[] = [
   {

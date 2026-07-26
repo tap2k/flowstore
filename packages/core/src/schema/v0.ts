@@ -291,8 +291,7 @@ export const FlowSchema = Type.Object(
     // author-named role). Resolves to a concrete model via the execution
     // layer's roles map (models/*.json) — the spec never names a model id,
     // per "execution separate from spec". Portable authoring intent; studies
-    // record and evaluate assignments against it. No runtime dispatches on it
-    // yet (per-flow switching needs multi-provider plumbing).
+    // record and evaluate assignments against it.
     model_role: Type.Optional(Type.String()),
   },
   strict
@@ -309,27 +308,19 @@ export const AgentSchema = Type.Object(
     version: Type.Optional(Type.String()),
     meta: AgentMetaSchema,
     chatbot_initiates: Type.Optional(Type.Boolean()),
-    // Optional author-owned wrapper around the compiled system prompt.
-    // The placeholder `{{generated}}` expands to all spec-derived sections
-    // (role, guardrails, flows, knowledge…). Omitting the placeholder is a
-    // deliberate full override; codegen surfaces a warning but allows it.
-    // `{{variable}}` substitution applies just as in flow instructions.
-    // Single-language by design: this is LLM-facing framing the model reads,
-    // not a verbatim utterance, so it stays a plain string (the model handles
-    // multilingual reasoning natively). Only user-facing utterances — script
-    // text, FAQ answers, capability pending_message — are LocalizedString.
+    // Two modes, distinguished by content (see SCHEMA.md § system_prompt).
+    // WITH `{{generated}}`: a template — the placeholder expands to all
+    // spec-derived sections, and `{{variable}}` substitution applies as in
+    // flow instructions. WITHOUT `{{generated}}`: not a template — a verbatim
+    // document (a deliberate override, or a prompt imported from an existing
+    // deployment). Codegen is the identity function on it: no expansion, no
+    // substitution — its own {{placeholders}} pass through for the runtime
+    // to fill from the session bag. Imported agents enter flowstore in
+    // exactly that state; override compiles to itself, so the compiled
+    // artifact is always the system under test. Single-language by design:
+    // LLM-facing framing, not a verbatim utterance, so plain string — only
+    // user-facing utterances are LocalizedString.
     system_prompt: Type.Optional(Type.String()),
-    // An IMPORTED deployment prompt lives here as a full override (no
-    // {{generated}}). Override compiles to itself verbatim, so the compiled
-    // artifact is always the system under test — simulate, harness, and
-    // deployment run the imported text with no selector mechanism. The
-    // editor's bidirectional sync (P1: diff-ingest, confirm, re-render,
-    // opaque blocks preserved) progressively structures it into spec
-    // entities; the sync state (which spans are structured, against which
-    // text) lives in the provenance-anchors sidecar, not here. The
-    // system-of-record handover is asymptotic: this field converges to a
-    // {{generated}} template (or absence) as the opaque fraction reaches
-    // zero. No authority flag — the compile semantics carry it.
     variables: Type.Optional(Type.Record(Type.String(), VariableDeclSchema)),
     guardrails: Type.Optional(Type.Array(GuardrailSchema)),
     business_goals: Type.Optional(Type.Array(BusinessGoalSchema)),

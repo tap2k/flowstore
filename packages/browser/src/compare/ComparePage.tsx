@@ -1,17 +1,11 @@
 import { useState } from "react";
 import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
-import {
-  DIVERGENCE_THRESHOLD,
-  IDLE_CELL,
-  buildReportHtml,
-  buildStudyBundle,
-  cellKey,
-  divergence,
-  runCell,
-} from "@flowstore/studies";
+import { genId } from "@flowstore/core/ids";
+import { IDLE_CELL, buildReportHtml, buildStudyBundle, cellKey, runMatrix } from "@flowstore/studies";
 import type { CellState, Scenario } from "@flowstore/studies";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { DEFAULT_MODEL_ID, resolveDispatch, useSettingsStore } from "@/lib/store/settings";
+import { downloadBlob } from "@/lib/download";
 import { DEMO_PROMPT, DEMO_SCENARIOS } from "@/compare/demoContent";
 
 // The compare tool: paste a prompt, edit scenarios, pick models, run the
@@ -34,8 +28,6 @@ export function ComparePage() {
   const setGoogleApiKey = useSettingsStore((s) => s.setGoogleApiKey);
   const setOpenrouterApiKey = useSettingsStore((s) => s.setOpenrouterApiKey);
 
-  const incumbent = models[0];
-
   const patchCell = (key: string, patch: Partial<CellState>) =>
     setCells((prev) => ({ ...prev, [key]: { ...(prev[key] ?? IDLE_CELL), ...patch } }));
 
@@ -43,46 +35,19 @@ export function ComparePage() {
     setRunning(true);
     setSetupOpen(false);
     setCells({});
-    // Columns run in parallel; scenarios within a column run sequentially.
-    // Cells key on column index (duplicate models are legitimate columns).
-    await Promise.all(
-      models.map(async (model, mi) => {
-        for (const s of scenarios) {
-          const key = cellKey(s.id, mi);
-          const dispatch = resolveDispatch(model);
-          if (!dispatch.provider || !dispatch.apiKey.trim()) {
-            patchCell(key, { status: "error", error: `No API key for ${model}.` });
-            continue;
-          }
-          await runCell({
-            systemPrompt: prompt,
-            scenario: s,
-            dispatch: {
-              provider: dispatch.provider,
-              apiKey: dispatch.apiKey,
-              baseUrl: dispatch.baseUrl,
-              wireModel: dispatch.wireModel,
-            },
-            onUpdate: (patch) => patchCell(key, patch),
-          });
-        }
-      }),
-    );
-    // Divergence pass vs the incumbent column (column 0; cheap lexical
-    // "look here").
-    setCells((prev) => {
-      const next = { ...prev };
-      for (const s of scenarios) {
-        const inc = next[cellKey(s.id, 0)];
-        if (!inc || inc.status !== "done") continue;
-        for (let mi = 1; mi < models.length; mi++) {
-          const key = cellKey(s.id, mi);
-          const c = next[key];
-          if (!c || c.status !== "done") continue;
-          next[key] = { ...c, divergent: divergence(inc.turns, c.turns) > DIVERGENCE_THRESHOLD };
-        }
-      }
-      return next;
+    // The engine owns the matrix policy (parallelism, divergence); this page
+    // only supplies credentials and mirrors patches into React state.
+    await runMatrix({
+      systemPrompt: prompt,
+      scenarios,
+      models,
+      resolveDispatch: (model) => {
+        const d = resolveDispatch(model);
+        return d.provider && d.apiKey.trim()
+          ? { provider: d.provider, apiKey: d.apiKey, baseUrl: d.baseUrl, wireModel: d.wireModel }
+          : null;
+      },
+      onCell: patchCell,
     });
     setRunning(false);
   }
@@ -92,10 +57,14 @@ export function ComparePage() {
     title: "Model comparison study",
     prompt,
     models,
-    incumbent,
     scenarios,
     cells,
     monthlyConversations: monthly,
+  };
+  const BROWSER_REPORT_OPTS = {
+    latencyNote: "Latency measured from the browser; production latency depends on deployment.",
+    footer:
+      'Do you want to run studies like this on your own prompts and agents? Try out the tool — <a href="https://compare.flowstore.org">compare.flowstore.org</a>. Free, open source, runs in your browser; your prompt never leaves your machine.',
   };
 
   return (
@@ -111,28 +80,8 @@ export function ComparePage() {
           {setupOpen ? "hide setup" : "edit setup"}
         </button>
         <div className="ml-auto flex items-center gap-2">
-          {googleApiKey ? (
-            <span className="text-[10px] text-zinc-400">google ✓</span>
-          ) : (
-            <input
-              type="password"
-              value={googleApiKey}
-              onChange={(e) => setGoogleApiKey(e.target.value)}
-              placeholder="Google API key"
-              className="w-36 rounded border border-zinc-300 px-2 py-1 text-[11px]"
-            />
-          )}
-          {openrouterApiKey ? (
-            <span className="text-[10px] text-zinc-400">openrouter ✓</span>
-          ) : (
-            <input
-              type="password"
-              value={openrouterApiKey}
-              onChange={(e) => setOpenrouterApiKey(e.target.value)}
-              placeholder="OpenRouter API key"
-              className="w-36 rounded border border-zinc-300 px-2 py-1 text-[11px]"
-            />
-          )}
+          <KeyField label="google" value={googleApiKey} onChange={setGoogleApiKey} />
+          <KeyField label="openrouter" value={openrouterApiKey} onChange={setOpenrouterApiKey} />
           {hasResults && !running && (
             <>
               <label className="flex items-center gap-1 text-[10px] text-zinc-500">
@@ -145,14 +94,24 @@ export function ComparePage() {
                 />
               </label>
               <button
-                onClick={() => downloadHtml("compare-report.html", buildReportHtml(study))}
+                onClick={() =>
+                  downloadBlob(
+                    "compare-report.html",
+                    buildReportHtml(study, BROWSER_REPORT_OPTS),
+                    "text/html",
+                  )
+                }
                 className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-zinc-50"
               >
                 report
               </button>
               <button
                 onClick={() =>
-                  downloadJson("compare-study.flowstore.json", buildStudyBundle(study))
+                  downloadBlob(
+                    "compare-study.flowstore.json",
+                    JSON.stringify(buildStudyBundle(study), null, 2),
+                    "application/json",
+                  )
                 }
                 className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-zinc-50"
                 title="A flowstore project bundle — the harness runs it, the editor opens it"
@@ -183,7 +142,7 @@ export function ComparePage() {
               className="h-48 w-full resize-y rounded border border-zinc-300 p-2 font-mono text-[11px]"
             />
           </div>
-          <div className="flex flex-col gap-2 overflow-y-auto" style={{ maxHeight: "15rem" }}>
+          <div className="flex max-h-60 flex-col gap-2 overflow-y-auto">
             <label className="text-[11px] font-medium text-zinc-500">
               scenarios (one user turn per line)
             </label>
@@ -219,16 +178,19 @@ export function ComparePage() {
             ))}
             <button
               onClick={() =>
-                setScenarios((prev) => [
-                  ...prev,
-                  {
-                    id: `scenario-${prev.length + 1}-${Date.now() % 100000}`,
-                    scenarioId: `scenario-${prev.length + 1}`,
-                    name: `Scenario ${prev.length + 1}`,
-                    language: "EN",
-                    turns: [""],
-                  },
-                ])
+                setScenarios((prev) => {
+                  const id = genId("scenario");
+                  return [
+                    ...prev,
+                    {
+                      id,
+                      scenarioId: id,
+                      name: `Scenario ${prev.length + 1}`,
+                      language: "EN",
+                      turns: [""],
+                    },
+                  ];
+                })
               }
               className="self-start rounded-full border border-zinc-300 px-3 py-1 text-[11px] hover:bg-zinc-50"
             >
@@ -306,9 +268,8 @@ export function ComparePage() {
                   <td className="border-b border-zinc-100 px-2 py-1.5">
                     {s.name} <span className="text-zinc-400">{s.language}</span>
                   </td>
-                  {models.map((m, i) => {
+                  {models.map((_, i) => {
                     const c = cells[cellKey(s.id, i)];
-                    void m;
                     return (
                       <td key={i} className="border-b border-l border-zinc-100 px-1 py-1.5 text-center">
                         <CellChip cell={c} />
@@ -402,20 +363,24 @@ function TurnBubble({ turn }: { turn: TranscriptTurn }) {
   );
 }
 
-function downloadJson(filename: string, data: unknown): void {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  triggerDownload(filename, blob);
-}
-
-function downloadHtml(filename: string, html: string): void {
-  triggerDownload(filename, new Blob([html], { type: "text/html" }));
-}
-
-function triggerDownload(filename: string, blob: Blob): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+function KeyField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return value ? (
+    <span className="text-[10px] text-zinc-400">{label} ✓</span>
+  ) : (
+    <input
+      type="password"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={`${label} API key`}
+      className="w-36 rounded border border-zinc-300 px-2 py-1 text-[11px]"
+    />
+  );
 }

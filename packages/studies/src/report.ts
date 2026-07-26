@@ -1,4 +1,3 @@
-import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
 import type { CellState, Study } from "./types";
 import { cellKey } from "./types";
 
@@ -15,8 +14,19 @@ function fmtMoney(n: number): string {
   return n >= 0.01 ? `$${n.toFixed(2)}` : `$${n.toFixed(4)}`;
 }
 
-export function buildReportHtml(study: Study): string {
-  const { models, scenarios, cells, incumbent, monthlyConversations } = study;
+// opts let the surface own surface-specific copy (the browser page claims
+// "runs in your browser"; a CLI must not). Defaults are surface-neutral.
+export function buildReportHtml(
+  study: Study,
+  opts: { latencyNote?: string; footer?: string } = {},
+): string {
+  const { models, scenarios, cells, monthlyConversations } = study;
+  const latencyNote =
+    opts.latencyNote ??
+    "Latency measured client-side at run time; production latency depends on deployment.";
+  const footer =
+    opts.footer ??
+    'Do you want to run studies like this on your own prompts and agents? Try the tool — <a href="https://compare.flowstore.org">compare.flowstore.org</a>.';
   const date = new Date().toISOString().slice(0, 10);
 
   const perModel = models.map((m, mi) => {
@@ -62,7 +72,7 @@ export function buildReportHtml(study: Study): string {
         .map((m, mi) => {
           const c = cells[cellKey(s.id, mi)];
           const turns = (c?.turns ?? [])
-            .map((t: TranscriptTurn) =>
+            .map((t) =>
               t.role === "user"
                 ? `<div class="u">${esc(t.text)}</div>`
                 : `<div class="a">${esc(t.text)}${t.latencyMs !== undefined ? `<span class="lat">${(t.latencyMs / 1000).toFixed(1)}s</span>` : ""}</div>`,
@@ -106,9 +116,9 @@ export function buildReportHtml(study: Study): string {
 <h2>Summary</h2>
 <table><thead><tr><th>Model</th><th>Completed</th><th>Divergence vs current</th><th>Avg latency/reply</th><th>Tokens in/out</th><th>Cost/conversation</th><th>Est. monthly</th></tr></thead>
 <tbody>${summaryRows}</tbody></table>
-<div class="note">*Measured dollar cost is reported by OpenRouter-routed models; direct-provider runs show tokens only. Latency measured from the browser; production latency depends on deployment. Divergence is a lexical signal marking where to read — it is not a pass/fail verdict; read the transcripts.</div>
+<div class="note">*Measured dollar cost is reported by OpenRouter-routed models; direct-provider runs show tokens only. ${latencyNote} Divergence is a lexical signal marking where to read — it is not a pass/fail verdict; read the transcripts.</div>
 <h2>Example transcripts</h2>
 ${scenarioSections}
-<footer>Do you want to run studies like this on your own prompts and agents? Try out the tool — <a href="https://compare.flowstore.org">compare.flowstore.org</a>. Free, open source, runs in your browser; your prompt never leaves your machine.</footer>
+<footer>${footer}</footer>
 </div></body></html>`;
 }
