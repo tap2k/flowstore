@@ -23,6 +23,21 @@ export const GoldSchema = Type.Object(
     name: Type.Optional(Type.String()),
     notes: Type.Optional(Type.String()),
     source_pointer: Type.Optional(Type.String()),
+    // Language of the transcript. A gold is inherently in one language — you
+    // don't translate a gold, you bless one per language. Cross-language
+    // scenario identity comes from scenario_id, not from localized turns.
+    language: Type.Optional(Type.String()),
+    // Blessing metadata: when the customer approved this transcript as the
+    // reference, and whether it came from a real conversation or was
+    // authored/synthesized. Drift is measured against blessed golds only;
+    // re-blessing (a new blessed_at) is the explicit baseline reset.
+    blessed_at: Type.Optional(Type.String()),
+    source_kind: Type.Optional(
+      Type.Union([Type.Literal("transcript"), Type.Literal("authored")])
+    ),
+    // Shared scenario identity across language variants (and with test
+    // cases). Language columns of a study join on this.
+    scenario_id: Type.Optional(Type.String()),
     tags: Type.Optional(Type.Array(Type.String())),
     vars: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
     mocks: Type.Optional(Type.Record(Type.String(), MockBehaviorSchema)),

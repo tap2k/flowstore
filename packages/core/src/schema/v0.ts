@@ -287,6 +287,13 @@ export const FlowSchema = Type.Object(
     // does not affect the compiled monolithic prompt. Validator rejects ids
     // that don't resolve to an agent capability.
     tools: Type.Optional(Type.Array(Type.String())),
+    // Abstract capability requirement for this flow ("strong", "cheap", any
+    // author-named role). Resolves to a concrete model via the execution
+    // layer's roles map (models/*.json) — the spec never names a model id,
+    // per "execution separate from spec". Portable authoring intent; studies
+    // record and evaluate assignments against it. No runtime dispatches on it
+    // yet (per-flow switching needs multi-provider plumbing).
+    model_role: Type.Optional(Type.String()),
   },
   strict
 );
@@ -312,6 +319,12 @@ export const AgentSchema = Type.Object(
     // multilingual reasoning natively). Only user-facing utterances — script
     // text, FAQ answers, capability pending_message — are LocalizedString.
     system_prompt: Type.Optional(Type.String()),
+    // NOTE on provenance (no flag needed): the compiled prompt is never
+    // persisted here, so this field's shape already encodes which direction
+    // truth flows — contains {{generated}} (or absent) ⇒ the spec is master;
+    // full text without {{generated}} ⇒ the prompt is the verbatim master
+    // (imported/override) and the spec is a derived view. The system-of-record
+    // handover is the commit that changes this field's shape.
     variables: Type.Optional(Type.Record(Type.String(), VariableDeclSchema)),
     guardrails: Type.Optional(Type.Array(GuardrailSchema)),
     business_goals: Type.Optional(Type.Array(BusinessGoalSchema)),

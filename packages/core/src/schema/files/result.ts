@@ -12,6 +12,37 @@ const TranscriptTurn = Type.Object(
       Type.Literal("system"),
     ]),
     content: Type.String(),
+    // Wall-clock latency of the dispatch that produced this turn (agent turns).
+    latency_ms: Type.Optional(Type.Number()),
+    // Modality-aware usage for this turn. Unit-typed so S2S columns (audio
+    // tokens) slot in beside text without artifact migration; `cost` is
+    // dollars as reported by the provider (OpenRouter), absent elsewhere.
+    usage: Type.Optional(
+      Type.Object(
+        {
+          text_in: Type.Optional(Type.Number()),
+          text_out: Type.Optional(Type.Number()),
+          audio_in: Type.Optional(Type.Number()),
+          audio_out: Type.Optional(Type.Number()),
+          cached: Type.Optional(Type.Number()),
+          cost: Type.Optional(Type.Number()),
+        },
+        { additionalProperties: true },
+      ),
+    ),
+    // Flow-node attribution: which spec node this turn belongs to. In prompt
+    // mode there is no runtime flow state, so attribution is inferred
+    // post-hoc (mode: "inferred", with confidence); runner mode observes it.
+    node: Type.Optional(
+      Type.Object(
+        {
+          id: Type.String(),
+          mode: Type.Union([Type.Literal("inferred"), Type.Literal("observed")]),
+          confidence: Type.Optional(Type.Number()),
+        },
+        { additionalProperties: true },
+      ),
+    ),
   },
   { additionalProperties: true },
 );
@@ -66,6 +97,24 @@ export const ResultSchema = Type.Object(
     // files remain self-describing when copied or diffed in isolation —
     // same rationale as `model` above.
     prompt_source: Type.Optional(Type.String()),
+    // Language of the run (echoes the case's language for the same
+    // self-description rationale as `model` — result files stay meaningful
+    // when copied or diffed in isolation).
+    language: Type.Optional(Type.String()),
+    // Whole-run usage rollup (same unit-typed shape as per-turn usage).
+    usage: Type.Optional(
+      Type.Object(
+        {
+          text_in: Type.Optional(Type.Number()),
+          text_out: Type.Optional(Type.Number()),
+          audio_in: Type.Optional(Type.Number()),
+          audio_out: Type.Optional(Type.Number()),
+          cached: Type.Optional(Type.Number()),
+          cost: Type.Optional(Type.Number()),
+        },
+        { additionalProperties: true },
+      ),
+    ),
     transcript: Type.Array(TranscriptTurn),
     capability_calls: Type.Optional(Type.Array(CapabilityCall)),
     final_variables: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
