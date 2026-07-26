@@ -84,38 +84,6 @@ export function ComparePage() {
         >
           {setupOpen ? "hide setup" : "edit setup"}
         </button>
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          {models.map((m, i) => (
-            <div key={i} className="flex items-center gap-1">
-              {i === 0 && <span className="text-[10px] text-zinc-400">current</span>}
-              <ModelPicker
-                value={m}
-                onChange={(v) => setModels((prev) => prev.map((x, j) => (j === i ? v : x)))}
-                disabled={running}
-                showUnconfigured
-                className="text-xs"
-              />
-              {i > 0 && (
-                <button
-                  onClick={() => setModels((prev) => prev.filter((_, j) => j !== i))}
-                  disabled={running}
-                  className="text-[11px] text-zinc-400 hover:text-red-600"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          ))}
-          {models.length < 6 && (
-            <button
-              onClick={() => setModels((prev) => [...prev, DEFAULT_MODEL_ID])}
-              disabled={running}
-              className="rounded-full border border-zinc-300 px-2.5 py-1 text-[11px] hover:bg-zinc-50"
-            >
-              + model
-            </button>
-          )}
-        </div>
         <div className="ml-auto flex items-center gap-3">
           {hasResults && !running && (
             <label className="flex items-center gap-1 text-[10px] text-zinc-500">
@@ -308,8 +276,25 @@ export function ComparePage() {
               const c = cells[cellKey(selected, i)];
               return (
                 <div key={i} className="flex min-w-[280px] flex-1 flex-col">
-                  <div className="flex items-center gap-2 border-b border-zinc-200 bg-white px-3 py-1.5">
-                    <span className="truncate text-[11px] font-medium">{m}</span>
+                  <div className="flex items-center gap-1.5 border-b border-zinc-200 bg-white px-3 py-1.5">
+                    {i === 0 && <span className="shrink-0 text-[10px] text-zinc-400">current</span>}
+                    <ModelPicker
+                      value={m}
+                      onChange={(v) => setModels((prev) => prev.map((x, j) => (j === i ? v : x)))}
+                      disabled={running}
+                      showUnconfigured
+                      className="min-w-0 text-[11px]"
+                    />
+                    {i > 0 && (
+                      <button
+                        onClick={() => setModels((prev) => prev.filter((_, j) => j !== i))}
+                        disabled={running}
+                        className="shrink-0 text-[11px] text-zinc-400 hover:text-red-600"
+                        title="Remove column"
+                      >
+                        ✕
+                      </button>
+                    )}
                     {c?.divergent && (
                       <span className="rounded-full bg-amber-100 px-1.5 text-[9px] text-amber-800">
                         diverges
@@ -335,6 +320,19 @@ export function ComparePage() {
                 </div>
               );
             })}
+          {selected && models.length < 6 && (
+            <div className="flex w-10 shrink-0 items-start justify-center bg-white pt-1.5">
+              <button
+                onClick={() => setModels((prev) => [...prev, DEFAULT_MODEL_ID])}
+                disabled={running}
+                className={iconButtonClass}
+                title="Add model column"
+                aria-label="Add model column"
+              >
+                +
+              </button>
+            </div>
+          )}
         </section>
       </main>
     </div>
