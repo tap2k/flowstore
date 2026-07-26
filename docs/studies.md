@@ -169,6 +169,16 @@ and naming should rhyme with the editor's, so a study customer who later opens
 the canvas recognizes the map — continuity of visual vocabulary is what makes
 "the spec is the residue" feel seamless.
 
+**What a language column means.** The language axis is the language of the
+*user side*, never the prompt: the customer's prompt runs verbatim while
+scenarios and personas are translated, and the study grades comprehension,
+response-language correctness, and — the finding that matters — guardrail
+retention cross-lingually ("holds in English, drops the identity check in
+Hindi"). It needs nothing from the customer. Two caveats: language columns
+are conformance-graded only until golds are blessed in that language (drift
+starts in the baseline language), and a language failure is itself the act-two
+upsell — the fix is localized scripts, the spec's multilingual machinery.
+
 **Cost is a first-class finding, not a footnote.** Model churn is half driven
 by the bill. The runner meters tokens per scenario per model and the report
 projects them at the customer's volume. The entry report's headline is often
@@ -451,9 +461,26 @@ essentially nothing; it was built for this.
   manifest column is a **role→model binding**, not a bare model — whole-agent
   studies are the degenerate case where every role maps to one model — so
   entry studies and routing studies share one artifact shape and their columns
-  stay comparable. The pinned triple is (system, golds, bindings). The ledger and report consume stable
-  artifacts, not ad-hoc JSON. Golds gain blessing metadata (blessed-at;
-  source: real transcript vs. authored) so resets are first-class.
+  stay comparable. The pinned triple is (system, golds, bindings). The ledger
+  and report consume stable artifacts, not ad-hoc JSON. Golds gain blessing
+  metadata (blessed-at; source: real transcript vs. authored) so resets are
+  first-class. **The study export is the file model itself** — a flowstore
+  project directory (zipped), study artifacts beside the testing artifacts,
+  results under `studies/`. No second format: "export as repo" is literal,
+  and the browser→kit bridge is a download, not a migration.
+- **Net significance, and the no-bleed rule.** The runtime contract is
+  touched by exactly two optional fields (`model_role`; the system-prompt
+  mode flag) — additive, ignorable by every existing consumer. Everything
+  else is sidecar artifact families, like personas and cases: large in
+  surface area, zero in runtime risk. Runtime concerns land in execution
+  config where they already live (judge pinning = `roles.judge`; bindings =
+  the study manifest; tokens = run records). One subtlety the run-record
+  design absorbs: in verbatim-prompt mode there is no runtime flow state, so
+  per-node attribution is *inferred post-hoc* (turn→node mapping as a
+  computed annotation with a mode/confidence flag); runner mode observes it
+  natively. Same limitation class SCHEMA.md already documents for prompt-mode
+  state assertions. "Execution separate from spec" survives the studies
+  program intact.
 
 ## Vehicle: browser tool first, kit second, company third — open source throughout
 
@@ -479,11 +506,15 @@ direct keys optional for models OpenRouter lacks); browser-side BYO-key means
 and it inherits flowstore's native security posture verbatim (the simulate
 panel already issues LLM calls from the browser), so "nothing leaves your
 browser" comes free — and open source makes the claim *verifiable*, which is
-the hook's credibility. The email capture is natural, not gated: "re-run this
-automatically when the next model drops" — calendar signup is the conversion
-event. The spec stays entirely backstage: it gives the report its
-coordinates; the user never sees or authors it. "Powered by flowstore" in the
-footer is the only trace.
+the hook's credibility. No accounts, no required email: the calendar ships as
+a **free public feed** (JSON/RSS of releases, deprecations, price changes) —
+the browser tool checks it on revisit ("3 new models since your last study"),
+the Action subscribes to it, email/Slack are optional conveniences. Owning
+the public deprecation calendar is itself a traction asset, and the paid
+moment attaches where it belongs: auto-re-running against your held ledger
+(a consent moment, not a fine-print one), not the ping. The spec stays
+entirely backstage: it gives the report its coordinates; the user never sees
+or authors it. "Powered by flowstore" in the footer is the only trace.
 
 **Rung 3 — the kit and the GitHub Action: retention.** The two verbs in git,
 the ledger as their repo, CI on push, and the intake the browser can't do —
