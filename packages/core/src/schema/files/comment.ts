@@ -26,6 +26,10 @@ export const COMMENT_ANCHOR_KINDS = [
   "evaluator",
   "test_case",
   "mock",
+  // Review-workflow anchors: blessing a gold and adjudicating a run result
+  // are comment-shaped acts (studies plan, 2026-07).
+  "gold",
+  "result",
 ] as const;
 
 const CommentAnchor = Type.Object(

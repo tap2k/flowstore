@@ -313,9 +313,9 @@ export const AgentSchema = Type.Object(
     // spec-derived sections, and `{{variable}}` substitution applies as in
     // flow instructions. WITHOUT `{{generated}}`: not a template — a verbatim
     // document (a deliberate override, or a prompt imported from an existing
-    // deployment). Codegen is the identity function on it: no expansion, no
-    // substitution — its own {{placeholders}} pass through for the runtime
-    // to fill from the session bag. Imported agents enter flowstore in
+    // deployment). Compiled without session vars it is byte-identical (its
+    // own {{placeholders}} intact); session compilation fills {{vars}} from
+    // the provided bag, as for templates. Imported agents enter flowstore in
     // exactly that state; override compiles to itself, so the compiled
     // artifact is always the system under test. Single-language by design:
     // LLM-facing framing, not a verbatim utterance, so plain string — only
