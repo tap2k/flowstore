@@ -230,9 +230,10 @@ export function ComparePage() {
             />
           </div>
           <div className="flex max-h-60 flex-col gap-2 overflow-y-auto">
-            <label className="text-[11px] font-medium text-zinc-500">
-              scenarios (one user turn per line)
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-medium text-zinc-500">
+                scenarios (one user turn per line)
+              </label>
             <button
               onClick={() =>
                 setScenarios((prev) => {
@@ -250,10 +251,12 @@ export function ComparePage() {
                   ];
                 })
               }
-              className="self-start rounded-full border border-zinc-300 px-3 py-1 text-[11px] hover:bg-zinc-50"
+              className="rounded-full border border-zinc-300 px-2.5 py-0.5 text-[11px] hover:bg-zinc-50"
             >
               + scenario
             </button>
+            </div>
+
             {scenarios.map((s, i) => (
               <div key={s.id} className="rounded border border-zinc-200 p-2">
                 <div className="mb-1 flex items-center gap-2">
