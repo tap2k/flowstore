@@ -673,21 +673,27 @@ almost entirely the reuse third.
 ## Traction: we run regressions on random stuff — now run your own
 
 The funnel rides the existing publication cadence — **no new content program.**
+The reference fleet is the **open-source example agents**: fnol (already
+public, full test suite, multilingual) plus two or three siblings (support,
+collections, booking) that need building as documentation examples anyway.
+Triple duty — docs examples, product test fixtures, reference fleet — with
+one fleet-specific discipline: they version like instruments (deliberate
+bumps, never drift) so release-day columns stay comparable.
+
 On every major model release, deprecation, and price change, the studies tool
-runs on a **frozen public reference-agent fleet** (insurance intake, support,
-collections, booking — multilingual) and the *generated report artifacts are
-published as-is*: nobody writes them, they're the product's own output, and
-every generated report — public or private — ends with the canonical hook as
-a template feature, not an editorial act: *"Do you want to run studies like
-this on your own prompts and agents? Try out this tool!"* The published
-report doubles as the product demo — reading it is experiencing the output.
-Conversion is two natural hops: the existing research posts (unchanged voice,
-no CTA) carry at most one neutral "related" link to the release's generated
-report; the report carries the hook; the hook carries the tool. Each public
-report is simultaneously marketing, a demo, a dogfood run, and another column
-in a public longitudinal ledger that compounds into authority — and nobody
-owns this beat for agents: reviewers benchmark capability, not "will your
-production agent survive."
+runs on the fleet and the *generated report artifacts are published as-is*:
+nobody writes them, they're the product's own output, and every generated
+report — public or private — ends with the canonical hook as a template
+feature, not an editorial act: *"Do you want to run studies like this on your
+own prompts and agents? Try out this tool!"* The published report doubles as
+the product demo — reading it is experiencing the output. Conversion is one
+plain link: everything on both sides is open (tool, fleet, reports, archive),
+so a research post can simply say "we also ran the reference agents — here's
+the report, here's how to run yours." Linking a free open-source instrument
+is reproducibility, not promotion. Each public report is simultaneously
+marketing, a demo, a dogfood run, and another column in a public longitudinal
+ledger that compounds into authority — and nobody owns this beat for agents:
+reviewers benchmark capability, not "will your production agent survive."
 
 Launch the browser tool *on* a release day with that day's report as proof —
 ride an event, don't manufacture one. The fnol dogfood milestone is the pilot
@@ -696,10 +702,12 @@ reference-agent suites are treated as frozen instruments: re-run identically
 each release, transcripts archived, columns longitudinal — including how
 agents behaved on models that no longer exist, a history nobody else keeps.
 
-Posture guard, now strategically load-bearing: the research posts never carry
-the CTA at all (a "related" link is not a pitch), and the generated reports
-never rank models beyond their own evidence or sell beyond the hook. The
-refusal to be a leaderboard is what makes the whole chain credible.
+Posture guard, correctly scoped: the wall is **methodological and financial,
+not communicational** — never model-vendor money, frozen instruments, no
+leaderboard framing, reports never rank beyond their own evidence. Within
+that, the research and the tool are one open toolchain and may point at each
+other plainly; what would taint the science is vendor money or engineered
+findings, not cross-linking free instruments.
 
 Amplifiers:
 
