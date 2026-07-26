@@ -50,18 +50,19 @@ export function ComparePage() {
     setRunning(false);
   }
 
-  // Load the data-only example project straight from its sister repo —
-  // the example lives in git (canonical shape), not baked into the app.
-  const EXAMPLE_RAW = "https://raw.githubusercontent.com/tap2k/flowstore-example-clinic/main/";
-  const EXAMPLE_API = "https://api.github.com/repos/tap2k/flowstore-example-clinic/contents/tests/cases";
+  // The dead-start rescue: a bundled example file (same .flowstore.json the
+  // repo ships as its single-file form). Local static asset — no GitHub
+  // semantics; PAT users load real projects instead.
   async function loadExample() {
-    const agent = await (await fetch(EXAMPLE_RAW + "agent.json")).json();
-    const listing = (await (await fetch(EXAMPLE_API)).json()) as { name: string }[];
-    const cases = await Promise.all(
-      listing
-        .filter((f) => f.name.endsWith(".test.json"))
-        .map(async (f) => (await fetch(EXAMPLE_RAW + "tests/cases/" + f.name)).json()),
-    );
+    const files = (await (await fetch("/examples/clinic.flowstore.json")).json()) as Record<string, string>;
+    applyBundle(files);
+  }
+
+  function applyBundle(files: Record<string, string>) {
+    const agent = files["agent.json"] ? JSON.parse(files["agent.json"]) : {};
+    const cases = Object.keys(files)
+      .filter((k) => k.startsWith("tests/cases/") && k.endsWith(".test.json"))
+      .map((k) => JSON.parse(files[k]));
     applyProject(agent, cases);
   }
 
@@ -81,17 +82,8 @@ export function ComparePage() {
     setSetupOpen(true);
   }
 
-  // Upload a .flowstore.json bundle (the FileMap compare exports; the same
-  // shape the editor will adopt for import/export).
   function uploadBundle(file: File) {
-    void file.text().then((text) => {
-      const files = JSON.parse(text) as Record<string, string>;
-      const agent = files["agent.json"] ? JSON.parse(files["agent.json"]) : {};
-      const cases = Object.keys(files)
-        .filter((k) => k.startsWith("tests/cases/") && k.endsWith(".test.json"))
-        .map((k) => JSON.parse(files[k]));
-      applyProject(agent, cases);
-    });
+    void file.text().then((text) => applyBundle(JSON.parse(text) as Record<string, string>));
   }
 
   const hasResults = Object.keys(cells).length > 0;
