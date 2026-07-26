@@ -18,6 +18,12 @@ export type CapturedGold = {
   language: string;
   name: string;
   turns: { role: "agent" | "user"; text: string }[];
+  // Round-trip fields, present when the gold was imported rather than
+  // captured this session. Re-export must preserve the original identity and
+  // blessing — a bundle pass-through is not a re-bless.
+  goldId?: string;
+  blessedAt?: string;
+  sourcePointer?: string;
 };
 
 export function buildStudyBundle(args: {
@@ -106,13 +112,13 @@ export function buildStudyBundle(args: {
   for (const [sid, g] of Object.entries(golds ?? {})) {
     files[`tests/gold/${sid}.gold.json`] = j({
       $schema: "flowstore://test/gold/v0",
-      id: sid,
+      id: g.goldId ?? sid,
       name: g.name,
       turns: g.turns.map((t) => ({ role: t.role, text: t.text })),
       language: g.language,
       scenario_id: g.scenarioId,
-      source_pointer: `compare-run:${stamp}`,
-      blessed_at: stamp,
+      source_pointer: g.sourcePointer ?? `compare-run:${stamp}`,
+      blessed_at: g.blessedAt ?? stamp,
       tags: ["src:compare"],
     });
   }

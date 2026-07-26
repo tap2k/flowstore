@@ -109,6 +109,27 @@ describe("buildStudyBundle", () => {
     expect(parsed.language).toBe("EN");
   });
 
+  it("re-exporting an imported gold preserves its identity and blessing (no re-bless)", () => {
+    const roundTrip = buildStudyBundle({
+      prompt: "p",
+      models,
+      scenarios,
+      cells,
+      golds: {
+        s1: {
+          ...golds.s1,
+          goldId: "gold-orig",
+          blessedAt: "2026-07-01T00:00:00Z",
+          sourcePointer: "call-recording-2026-06-30",
+        },
+      },
+    });
+    const parsed = JSON.parse(roundTrip["tests/gold/s1.gold.json"]);
+    expect(parsed.id).toBe("gold-orig");
+    expect(parsed.blessed_at).toBe("2026-07-01T00:00:00Z");
+    expect(parsed.source_pointer).toBe("call-recording-2026-06-30");
+  });
+
   it("omits the gold section entirely when no golds were captured", () => {
     const bare = buildStudyBundle({ prompt: "p", models, scenarios, cells });
     expect(Object.keys(bare).some((p) => p.startsWith("tests/gold/"))).toBe(false);

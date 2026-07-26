@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
 import { genId } from "@flowstore/core/ids";
 import { IDLE_CELL, buildReportHtml, buildStudyBundle, cellKey, runMatrix } from "@flowstore/studies";
@@ -7,6 +7,7 @@ import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
 import { DEFAULT_MODEL_ID, resolveDispatch } from "@/lib/store/settings";
 import { downloadBlob } from "@/lib/download";
+import { loadStudy, saveStudy } from "./studyStorage";
 
 // The compare tool: paste a prompt, edit scenarios, pick models, run the
 // small-N matrix, read the side-by-sides. The engine lives in
@@ -14,18 +15,31 @@ import { downloadBlob } from "@/lib/download";
 // resolves credentials and renders state.
 
 export function ComparePage() {
-  const [prompt, setPrompt] = useState("");
-  const [scenarios, setScenarios] = useState<Scenario[]>([]);
-  const [models, setModels] = useState<string[]>([DEFAULT_MODEL_ID, DEFAULT_MODEL_ID]);
-  const [cells, setCells] = useState<Record<string, CellState>>({});
-  const [selected, setSelected] = useState<string | null>(scenarios[0]?.id ?? null);
-  const [monthly, setMonthly] = useState(30000);
+  // Hydrate once from localStorage (shared scoped-storage conventions) so a
+  // study survives refresh; the effect below writes changes back, debounced.
+  const [initial] = useState(loadStudy);
+  const [prompt, setPrompt] = useState(initial.prompt);
+  const [scenarios, setScenarios] = useState<Scenario[]>(initial.scenarios);
+  const [models, setModels] = useState<string[]>(
+    initial.models.length > 0 ? initial.models : [DEFAULT_MODEL_ID, DEFAULT_MODEL_ID],
+  );
+  const [cells, setCells] = useState<Record<string, CellState>>(initial.cells);
+  const [selected, setSelected] = useState<string | null>(initial.scenarios[0]?.id ?? null);
+  const [monthly, setMonthly] = useState(initial.monthly);
   const [running, setRunning] = useState(false);
   const [setupOpen, setSetupOpen] = useState(true);
   const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  // One gold per scenario id; value records which column it was captured from.
-  const [golds, setGolds] = useState<Record<string, CapturedGold & { column: number }>>({});
+  // One gold per scenario id; `column` records which column it was captured
+  // from this session — absent for golds that arrived via import.
+  const [golds, setGolds] = useState<Record<string, CapturedGold & { column?: number }>>(
+    initial.golds,
+  );
+
+  useEffect(() => {
+    const t = setTimeout(() => saveStudy({ prompt, scenarios, models, cells, monthly, golds }), 300);
+    return () => clearTimeout(t);
+  }, [prompt, scenarios, models, cells, monthly, golds]);
 
   const patchCell = (key: string, patch: Partial<CellState>) =>
     setCells((prev) => ({ ...prev, [key]: { ...(prev[key] ?? IDLE_CELL), ...patch } }));
@@ -64,22 +78,74 @@ export function ComparePage() {
     const cases = Object.keys(files)
       .filter((k) => k.startsWith("tests/cases/") && k.endsWith(".test.json"))
       .map((k) => JSON.parse(files[k]));
-    applyProject(agent, cases);
+    const golds = Object.keys(files)
+      .filter((k) => k.startsWith("tests/gold/") && k.endsWith(".gold.json"))
+      .map((k) => JSON.parse(files[k]));
+    applyProject(agent, cases, golds);
   }
 
-  function applyProject(agent: { system_prompt?: string }, cases: Array<Record<string, unknown>>) {
+  function applyProject(
+    agent: { system_prompt?: string },
+    cases: Array<Record<string, unknown>>,
+    goldFiles: Array<Record<string, unknown>> = [],
+  ) {
+    const goldTurns = (g: Record<string, unknown>) =>
+      (Array.isArray(g.turns) ? g.turns : []) as { role: "agent" | "user"; text: string }[];
+
+    // Scenarios come from cases; when a project ships golds but no cases yet,
+    // the golds' user turns ARE the scenarios (replaying a blessed transcript
+    // is exactly what a scripted case does).
+    const nextScenarios: Scenario[] =
+      cases.length > 0
+        ? cases.map((c) => ({
+            id: String(c.id),
+            scenarioId: String(c.scenario_id ?? c.id),
+            name: String(c.name ?? c.id),
+            language: String(c.language ?? "EN"),
+            turns: Array.isArray(c.user_turns) ? c.user_turns.map(String) : [],
+          }))
+        : goldFiles.map((g) => ({
+            id: String(g.id),
+            scenarioId: String(g.scenario_id ?? g.id),
+            name: String(g.name ?? g.id),
+            language: String(g.language ?? "EN"),
+            turns: goldTurns(g)
+              .filter((t) => t.role === "user")
+              .map((t) => String(t.text)),
+          }));
+
+    // Rebind golds to scenarios: explicit case.gold_id first, then shared id
+    // (our own bundles key gold files by case id), then scenario_id+language.
+    const caseById = new Map(cases.map((c) => [String(c.id), c]));
+    const nextGolds: Record<string, CapturedGold & { column?: number }> = {};
+    for (const s of nextScenarios) {
+      const declared = caseById.get(s.id)?.gold_id;
+      const g =
+        goldFiles.find((g) => declared !== undefined && String(g.id) === String(declared)) ??
+        goldFiles.find((g) => String(g.id) === s.id) ??
+        goldFiles.find(
+          (g) =>
+            g.scenario_id !== undefined &&
+            String(g.scenario_id) === s.scenarioId &&
+            String(g.language ?? "EN") === s.language,
+        );
+      if (!g) continue;
+      nextGolds[s.id] = {
+        scenarioId: s.scenarioId,
+        language: s.language,
+        name: s.name,
+        turns: goldTurns(g).map((t) => ({ role: t.role, text: String(t.text) })),
+        goldId: String(g.id),
+        blessedAt: typeof g.blessed_at === "string" ? g.blessed_at : undefined,
+        sourcePointer: typeof g.source_pointer === "string" ? g.source_pointer : undefined,
+      };
+    }
+
     setPrompt(agent.system_prompt ?? "");
-    setScenarios(
-      cases.map((c) => ({
-        id: String(c.id),
-        scenarioId: String(c.scenario_id ?? c.id),
-        name: String(c.name ?? c.id),
-        language: String(c.language ?? "EN"),
-        turns: Array.isArray(c.user_turns) ? c.user_turns.map(String) : [],
-      })),
-    );
+    setScenarios(nextScenarios);
+    setGolds(nextGolds);
     setCells({});
-    setSelected(cases[0] ? String(cases[0].id) : null);
+    setSelected(nextScenarios[0]?.id ?? null);
     setSetupOpen(true);
   }
 
@@ -194,6 +260,7 @@ export function ComparePage() {
               setScenarios([]);
               setModels([DEFAULT_MODEL_ID, DEFAULT_MODEL_ID]);
               setCells({});
+              setGolds({});
               setSelected(null);
               setSetupOpen(true);
             }}
@@ -344,6 +411,14 @@ export function ComparePage() {
                 >
                   <td className="border-b border-zinc-100 px-2 py-1.5">
                     {s.name} <span className="text-zinc-400">{s.language}</span>
+                    {golds[s.id] && golds[s.id].column === undefined && (
+                      <span
+                        className="ml-1 text-[9px] text-amber-700"
+                        title="An imported blessed gold transcript exists for this scenario"
+                      >
+                        gold ✓
+                      </span>
+                    )}
                   </td>
                   <td className="border-b border-l border-zinc-100 px-1 py-1.5 text-center">
                     <ScenarioChip cells={models.map((_, i) => cells[cellKey(s.id, i)])} />
