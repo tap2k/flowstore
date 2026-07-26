@@ -83,7 +83,7 @@ export function ComparePage() {
             onClick={() => setSetupOpen((v) => !v)}
             className="rounded-full border border-zinc-300 bg-white px-4 py-1.5 text-xs font-medium hover:bg-zinc-50"
           >
-            {setupOpen ? "hide" : "edit"}
+            {setupOpen ? "hide prompt" : "edit prompt"}
           </button>
           <button
             onClick={run}
