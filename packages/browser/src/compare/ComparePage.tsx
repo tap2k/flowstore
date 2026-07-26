@@ -80,6 +80,7 @@ export function ComparePage() {
       })),
     );
     setCells({});
+    setSelected(cases[0] ? String(cases[0].id) : null);
     setSetupOpen(true);
   }
 
@@ -184,11 +185,18 @@ export function ComparePage() {
             )}
           </div>
           <button
-            onClick={() => setCells({})}
-            disabled={!hasResults || running}
+            onClick={() => {
+              setPrompt("");
+              setScenarios([]);
+              setModels([DEFAULT_MODEL_ID, DEFAULT_MODEL_ID]);
+              setCells({});
+              setSelected(null);
+              setSetupOpen(true);
+            }}
+            disabled={running || (!prompt && scenarios.length === 0 && !hasResults)}
             className={iconButtonClass}
-            title="Clear results"
-            aria-label="Clear results"
+            title="Clear study"
+            aria-label="Clear study"
           >
             <ClearIcon />
           </button>
@@ -262,6 +270,7 @@ export function ComparePage() {
               onClick={() =>
                 setScenarios((prev) => {
                   const id = genId("scenario");
+                  setSelected((sel) => sel ?? id);
                   return [
                     ...prev,
                     {
