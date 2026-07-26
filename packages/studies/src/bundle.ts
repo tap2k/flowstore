@@ -59,10 +59,10 @@ export function buildStudyBundle(args: {
 
   const resultFiles: string[] = [];
   for (const s of scenarios) {
-    for (const m of models) {
-      const c = cells[cellKey(s.id, m)];
+    for (const [mi, m] of models.entries()) {
+      const c = cells[cellKey(s.id, mi)];
       if (!c || c.status !== "done") continue;
-      const path = `${runDir}/${s.id}--${m.replace(/[^a-zA-Z0-9._-]/g, "_")}.result.json`;
+      const path = `${runDir}/${s.id}--c${mi}-${m.replace(/[^a-zA-Z0-9._-]/g, "_")}.result.json`;
       resultFiles.push(path);
       files[path] = j({
         $schema: "flowstore://run/result/v0",

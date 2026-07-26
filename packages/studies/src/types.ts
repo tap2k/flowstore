@@ -38,9 +38,12 @@ export type CellState = {
 
 export const IDLE_CELL: CellState = { status: "idle", turns: [], totalMs: 0 };
 
-// Cell key convention used across runner, report, and bundle.
-export const cellKey = (scenarioId: string, model: string): string =>
-  `${scenarioId}::${model}`;
+// Cell key convention used across runner, report, and bundle. Keyed by COLUMN
+// INDEX, not model id: the same model may legitimately appear in two columns
+// (variance testing), and the default state does exactly that — model-keyed
+// cells would collide and interleave concurrent writes.
+export const cellKey = (scenarioId: string, column: number): string =>
+  `${scenarioId}::${column}`;
 
 export type Study = {
   title: string;

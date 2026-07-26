@@ -19,9 +19,9 @@ export function buildReportHtml(study: Study): string {
   const { models, scenarios, cells, incumbent, monthlyConversations } = study;
   const date = new Date().toISOString().slice(0, 10);
 
-  const perModel = models.map((m) => {
+  const perModel = models.map((m, mi) => {
     const modelCells = scenarios
-      .map((s) => cells[cellKey(s.id, m)])
+      .map((s) => cells[cellKey(s.id, mi)])
       .filter((c): c is CellState => !!c && c.status === "done");
     const replies = modelCells.flatMap((c) =>
       c.turns.filter((t) => t.role === "agent" && t.latencyMs !== undefined),
@@ -37,13 +37,13 @@ export function buildReportHtml(study: Study): string {
       costs.length === modelCells.length && modelCells.length > 0
         ? costs.reduce((a, b) => a + b, 0) / modelCells.length
         : undefined;
-    const divergent = scenarios.filter((s) => cells[cellKey(s.id, m)]?.divergent).length;
-    return { model: m, avgLatency, tokensIn, tokensOut, costPerConv, divergent, n: modelCells.length };
+    const divergent = scenarios.filter((s) => cells[cellKey(s.id, mi)]?.divergent).length;
+    return { model: m, mi, avgLatency, tokensIn, tokensOut, costPerConv, divergent, n: modelCells.length };
   });
 
   const summaryRows = perModel
     .map((r) => {
-      const isInc = r.model === incumbent;
+      const isInc = r.mi === 0;
       return `<tr${isInc ? ' class="inc"' : ""}>
         <td>${esc(r.model)}${isInc ? ' <span class="tag">current</span>' : ""}</td>
         <td>${r.n}/${scenarios.length}</td>
@@ -59,8 +59,8 @@ export function buildReportHtml(study: Study): string {
   const scenarioSections = scenarios
     .map((s) => {
       const cols = models
-        .map((m) => {
-          const c = cells[cellKey(s.id, m)];
+        .map((m, mi) => {
+          const c = cells[cellKey(s.id, mi)];
           const turns = (c?.turns ?? [])
             .map((t: TranscriptTurn) =>
               t.role === "user"

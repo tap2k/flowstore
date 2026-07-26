@@ -11,9 +11,14 @@ export function sumUsage(
   if (!b) return a;
   const cost =
     a.cost !== undefined || b.cost !== undefined ? (a.cost ?? 0) + (b.cost ?? 0) : undefined;
+  const cached =
+    a.cachedInputTokens !== undefined || b.cachedInputTokens !== undefined
+      ? (a.cachedInputTokens ?? 0) + (b.cachedInputTokens ?? 0)
+      : undefined;
   return {
     inputTokens: a.inputTokens + b.inputTokens,
     outputTokens: a.outputTokens + b.outputTokens,
+    ...(cached !== undefined ? { cachedInputTokens: cached } : {}),
     ...(cost !== undefined ? { cost } : {}),
   };
 }

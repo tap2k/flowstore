@@ -44,10 +44,11 @@ export function ComparePage() {
     setSetupOpen(false);
     setCells({});
     // Columns run in parallel; scenarios within a column run sequentially.
+    // Cells key on column index (duplicate models are legitimate columns).
     await Promise.all(
       models.map(async (model, mi) => {
         for (const s of scenarios) {
-          const key = cellKey(s.id, model);
+          const key = cellKey(s.id, mi);
           const dispatch = resolveDispatch(model);
           if (!dispatch.provider || !dispatch.apiKey.trim()) {
             patchCell(key, { status: "error", error: `No API key for ${model}.` });
@@ -64,19 +65,18 @@ export function ComparePage() {
             },
             onUpdate: (patch) => patchCell(key, patch),
           });
-          void mi;
         }
       }),
     );
-    // Divergence pass vs the incumbent column (cheap lexical "look here").
+    // Divergence pass vs the incumbent column (column 0; cheap lexical
+    // "look here").
     setCells((prev) => {
       const next = { ...prev };
       for (const s of scenarios) {
-        const inc = next[cellKey(s.id, incumbent)];
+        const inc = next[cellKey(s.id, 0)];
         if (!inc || inc.status !== "done") continue;
-        for (const m of models) {
-          if (m === incumbent) continue;
-          const key = cellKey(s.id, m);
+        for (let mi = 1; mi < models.length; mi++) {
+          const key = cellKey(s.id, mi);
           const c = next[key];
           if (!c || c.status !== "done") continue;
           next[key] = { ...c, divergent: divergence(inc.turns, c.turns) > DIVERGENCE_THRESHOLD };
@@ -307,7 +307,8 @@ export function ComparePage() {
                     {s.name} <span className="text-zinc-400">{s.language}</span>
                   </td>
                   {models.map((m, i) => {
-                    const c = cells[cellKey(s.id, m)];
+                    const c = cells[cellKey(s.id, i)];
+                    void m;
                     return (
                       <td key={i} className="border-b border-l border-zinc-100 px-1 py-1.5 text-center">
                         <CellChip cell={c} />
@@ -323,7 +324,7 @@ export function ComparePage() {
         <section className="flex flex-1 min-w-0 divide-x divide-zinc-200 overflow-x-auto">
           {selected &&
             models.map((m, i) => {
-              const c = cells[cellKey(selected, m)];
+              const c = cells[cellKey(selected, i)];
               return (
                 <div key={i} className="flex min-w-[280px] flex-1 flex-col">
                   <div className="flex items-center gap-2 border-b border-zinc-200 bg-white px-3 py-1.5">
