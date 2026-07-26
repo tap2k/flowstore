@@ -128,20 +128,28 @@ export function ComparePage() {
           walking skeleton — hardcoded scenario
         </span>
         <div className="ml-auto flex items-center gap-2">
-          <input
-            type="password"
-            value={googleApiKey}
-            onChange={(e) => setGoogleApiKey(e.target.value)}
-            placeholder="Google API key"
-            className="w-36 rounded border border-zinc-300 px-2 py-1 text-[11px]"
-          />
-          <input
-            type="password"
-            value={openrouterApiKey}
-            onChange={(e) => setOpenrouterApiKey(e.target.value)}
-            placeholder="OpenRouter API key"
-            className="w-36 rounded border border-zinc-300 px-2 py-1 text-[11px]"
-          />
+          {googleApiKey ? (
+            <span className="text-[10px] text-zinc-400">google ✓</span>
+          ) : (
+            <input
+              type="password"
+              value={googleApiKey}
+              onChange={(e) => setGoogleApiKey(e.target.value)}
+              placeholder="Google API key"
+              className="w-36 rounded border border-zinc-300 px-2 py-1 text-[11px]"
+            />
+          )}
+          {openrouterApiKey ? (
+            <span className="text-[10px] text-zinc-400">openrouter ✓</span>
+          ) : (
+            <input
+              type="password"
+              value={openrouterApiKey}
+              onChange={(e) => setOpenrouterApiKey(e.target.value)}
+              placeholder="OpenRouter API key"
+              className="w-36 rounded border border-zinc-300 px-2 py-1 text-[11px]"
+            />
+          )}
           <button
             onClick={run}
             disabled={running}
