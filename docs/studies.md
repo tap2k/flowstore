@@ -574,8 +574,9 @@ essentially nothing; it was built for this.
 The funnel is a ladder, in order of decreasing reach; each rung's CTA is the
 next rung.
 
-**Rung 1 — public reports** (the traction section): attention. Every artifact
-ends with "now run your own."
+**Rung 1 — public reports** (the traction section): attention. Every
+product-series artifact ends with the hook: "Do you want to run studies like
+this on your own prompts and agents? Try out this tool!"
 
 **Rung 2 — the browser tool, the entry product.** A dead-simple standalone
 surface with its own name and URL — *not* a door into the IDE: paste your
@@ -676,8 +677,9 @@ two tracks: regression/cost reports on a **public reference-agent fleet**
 (insurance intake, support, collections, booking — multilingual), and
 behavioral measurements of the raw models. One track says "here's what the new
 model does to a production agent"; the other says "models change more than
-you think." Every artifact ends the same way: *this same harness runs on your
-agent — free kit.* The public report supplies attention (release day),
+you think." Every product-series artifact ends the same way — the canonical
+hook: *"Do you want to run studies like this on your own prompts and agents?
+Try out this tool!"* The public report supplies attention (release day),
 credibility (published method, inspectable transcripts), and the anxiety that
 converts; the kit is the personalized answer. Each public report is
 simultaneously marketing, a kit demo, a dogfood run, and another column in a
