@@ -6,7 +6,6 @@ import type { CellState, Scenario } from "@flowstore/studies";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { DEFAULT_MODEL_ID, resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { downloadBlob } from "@/lib/download";
-import { DEMO_PROMPT, DEMO_SCENARIOS } from "@/compare/demoContent";
 
 // The compare tool: paste a prompt, edit scenarios, pick models, run the
 // small-N matrix, read the side-by-sides. The engine lives in
@@ -14,8 +13,8 @@ import { DEMO_PROMPT, DEMO_SCENARIOS } from "@/compare/demoContent";
 // resolves credentials and renders state.
 
 export function ComparePage() {
-  const [prompt, setPrompt] = useState(DEMO_PROMPT);
-  const [scenarios, setScenarios] = useState<Scenario[]>(DEMO_SCENARIOS);
+  const [prompt, setPrompt] = useState("");
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [models, setModels] = useState<string[]>([DEFAULT_MODEL_ID, DEFAULT_MODEL_ID]);
   const [cells, setCells] = useState<Record<string, CellState>>({});
   const [selected, setSelected] = useState<string | null>(scenarios[0]?.id ?? null);
@@ -54,6 +53,49 @@ export function ComparePage() {
     setRunning(false);
   }
 
+  // Load the data-only example project straight from its sister repo —
+  // the example lives in git (canonical shape), not baked into the app.
+  const EXAMPLE_RAW = "https://raw.githubusercontent.com/tap2k/flowstore-example-clinic/main/";
+  const EXAMPLE_API = "https://api.github.com/repos/tap2k/flowstore-example-clinic/contents/tests/cases";
+  async function loadExample() {
+    const agent = await (await fetch(EXAMPLE_RAW + "agent.json")).json();
+    const listing = (await (await fetch(EXAMPLE_API)).json()) as { name: string }[];
+    const cases = await Promise.all(
+      listing
+        .filter((f) => f.name.endsWith(".test.json"))
+        .map(async (f) => (await fetch(EXAMPLE_RAW + "tests/cases/" + f.name)).json()),
+    );
+    applyProject(agent, cases);
+  }
+
+  function applyProject(agent: { system_prompt?: string }, cases: Array<Record<string, unknown>>) {
+    setPrompt(agent.system_prompt ?? "");
+    setScenarios(
+      cases.map((c) => ({
+        id: String(c.id),
+        scenarioId: String(c.scenario_id ?? c.id),
+        name: String(c.name ?? c.id),
+        language: String(c.language ?? "EN"),
+        turns: Array.isArray(c.user_turns) ? c.user_turns.map(String) : [],
+      })),
+    );
+    setCells({});
+    setSetupOpen(true);
+  }
+
+  // Upload a .flowstore.json bundle (the FileMap compare exports; the same
+  // shape the editor will adopt for import/export).
+  function uploadBundle(file: File) {
+    void file.text().then((text) => {
+      const files = JSON.parse(text) as Record<string, string>;
+      const agent = files["agent.json"] ? JSON.parse(files["agent.json"]) : {};
+      const cases = Object.keys(files)
+        .filter((k) => k.startsWith("tests/cases/") && k.endsWith(".test.json"))
+        .map((k) => JSON.parse(files[k]));
+      applyProject(agent, cases);
+    });
+  }
+
   const hasResults = Object.keys(cells).length > 0;
   const study = {
     title: "Model comparison study",
@@ -73,9 +115,9 @@ export function ComparePage() {
     <div className="flex h-screen flex-col bg-zinc-50 text-zinc-900">
       <header className="flex items-center gap-4 border-b border-zinc-200 bg-white px-6 py-3">
         <div className="flex min-w-0 flex-col">
-          <h1 className="truncate text-lg font-semibold leading-tight text-zinc-900">compare</h1>
+          <h1 className="truncate text-lg font-semibold leading-tight text-zinc-900">flowstore</h1>
           <div className="text-[11px] leading-tight text-zinc-500">
-            flowstore · runs locally in your browser
+            runs locally in your browser
           </div>
         </div>
         <div className="ml-auto flex items-center gap-3">
@@ -240,6 +282,32 @@ export function ComparePage() {
         </div>
       )}
 
+      {!prompt && scenarios.length === 0 && !hasResults ? (
+        <div className="flex flex-1 items-center justify-center">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="text-sm text-zinc-500">
+              Paste a system prompt above, upload a study, or start from the example.
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => void loadExample()}
+                className="rounded-full border border-zinc-300 bg-white px-4 py-1.5 text-xs font-medium hover:bg-zinc-50"
+              >
+                load example (clinic agent)
+              </button>
+              <label className="cursor-pointer rounded-full border border-zinc-300 bg-white px-4 py-1.5 text-xs font-medium hover:bg-zinc-50">
+                upload .flowstore.json
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && uploadBundle(e.target.files[0])}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      ) : (
       <main className="flex flex-1 min-h-0">
         <aside className="w-72 shrink-0 overflow-y-auto border-r border-zinc-200 bg-white">
           <table className="w-full border-collapse text-[11px]">
@@ -336,6 +404,7 @@ export function ComparePage() {
           )}
         </section>
       </main>
+      )}
     </div>
   );
 
