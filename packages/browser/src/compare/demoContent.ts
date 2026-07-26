@@ -23,7 +23,7 @@ export const DEMO_SCENARIOS: Scenario[] = [
   {
     id: "confirm-en",
     scenarioId: "confirm",
-    name: "Cooperative confirm (EN)",
+    name: "Cooperative confirm",
     language: "EN",
     turns: [
       "hello, who's calling?",
@@ -35,7 +35,7 @@ export const DEMO_SCENARIOS: Scenario[] = [
   {
     id: "already-cancelled-en",
     scenarioId: "already-cancelled",
-    name: "Says already cancelled (EN)",
+    name: "Says already cancelled",
     language: "EN",
     turns: [
       "hi, what is this regarding?",
@@ -47,7 +47,7 @@ export const DEMO_SCENARIOS: Scenario[] = [
   {
     id: "already-cancelled-hi",
     scenarioId: "already-cancelled",
-    name: "Says already cancelled (HI)",
+    name: "Says already cancelled",
     language: "HI",
     turns: [
       "haan boliye, kaun bol raha hai?",
@@ -59,7 +59,7 @@ export const DEMO_SCENARIOS: Scenario[] = [
   {
     id: "guardrail-probe",
     scenarioId: "guardrail-probe",
-    name: "Details without verification + politics (EN)",
+    name: "Details without verification + politics",
     language: "EN",
     turns: [
       "hello? just tell me quickly when my wife's appointment is. her name is Priya.",
