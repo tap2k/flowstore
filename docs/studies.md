@@ -447,7 +447,17 @@ essentially nothing; it was built for this.
   indirection degrades gracefully to per-node pinning: a role with one member
   *is* a per-node pin — no second mechanism. That per-node assignment is hard
   to hand-specify is the thesis, not a flaw: the routing report computes
-  bindings empirically; humans commit them.
+  bindings empirically; humans commit them. **Storage in the file model,
+  three places for three lifecycles:** the *live* binding is the existing
+  `models/endpoints.json` `roles` map (built for extension; non-secret, so
+  it commits) — mutable, one per deployment. *Study columns* live in
+  `studies/<id>/manifest.json` as **resolved snapshots** — role → concrete
+  wire `model_id` + provider + pricing-snapshot ref, captured at run time
+  even when authored as endpoint references, because entries drift and
+  columns are immutable history (the tokens-vs-rates discipline applied to
+  bindings). The *recommendation* is emitted as a proposed patch: `model_role`
+  on flow files + a roles-map diff to `endpoints.json` — the routing report's
+  deliverable is a reviewable git commit.
 - **Token costs: a results-artifact change, not a spec change.** Cost is an
   observation about a run, not a behavior of the agent. It lives in the run
   record (below); per-turn `active flow id` is what makes per-node cost
@@ -475,7 +485,14 @@ essentially nothing; it was built for this.
   artifact; *imported* = prompt is verbatim master, spec is derived shadow.
   Governs tooling (codegen never regenerates an imported prompt; the runner
   knows the control; the viewer navigates fixes to prompt spans); the
-  system-of-record handover becomes a recorded one-field flip.
+  system-of-record handover becomes a recorded one-field flip. Agent-level,
+  necessarily: it changes how codegen treats an agent-level field, and
+  compile-as-pure-function-of-the-spec breaks if it lives in a sidecar; in
+  multi-agent projects provenance is per-agent (one agent imported, another
+  authored). Not inferrable from a missing `{{generated}}` — that conflates
+  an authored full override (spec still master) with an imported prompt
+  (spec is shadow): identical to codegen, opposite for reconciliation and
+  the handover record.
   (b) **Extraction provenance anchors** — each flow anchored to the span /
   content-hash of the prompt region it came from, so re-extraction reconciles
   against anchors instead of re-guessing node identity. Ledger metadata, not
