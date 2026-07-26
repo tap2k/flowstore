@@ -233,6 +233,27 @@ export function ComparePage() {
             <label className="text-[11px] font-medium text-zinc-500">
               scenarios (one user turn per line)
             </label>
+            <button
+              onClick={() =>
+                setScenarios((prev) => {
+                  const id = genId("scenario");
+                  setSelected((sel) => sel ?? id);
+                  return [
+                    {
+                      id,
+                      scenarioId: id,
+                      name: `Scenario ${prev.length + 1}`,
+                      language: "EN",
+                      turns: [""],
+                    },
+                    ...prev,
+                  ];
+                })
+              }
+              className="self-start rounded-full border border-zinc-300 px-3 py-1 text-[11px] hover:bg-zinc-50"
+            >
+              + scenario
+            </button>
             {scenarios.map((s, i) => (
               <div key={s.id} className="rounded border border-zinc-200 p-2">
                 <div className="mb-1 flex items-center gap-2">
@@ -263,27 +284,7 @@ export function ComparePage() {
                 />
               </div>
             ))}
-            <button
-              onClick={() =>
-                setScenarios((prev) => {
-                  const id = genId("scenario");
-                  setSelected((sel) => sel ?? id);
-                  return [
-                    ...prev,
-                    {
-                      id,
-                      scenarioId: id,
-                      name: `Scenario ${prev.length + 1}`,
-                      language: "EN",
-                      turns: [""],
-                    },
-                  ];
-                })
-              }
-              className="self-start rounded-full border border-zinc-300 px-3 py-1 text-[11px] hover:bg-zinc-50"
-            >
-              + scenario
-            </button>
+
           </div>
         </div>
       )}
