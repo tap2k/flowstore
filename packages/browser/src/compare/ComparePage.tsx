@@ -220,9 +220,11 @@ export function ComparePage() {
       {setupOpen && (
         <div className="grid grid-cols-2 gap-4 border-b border-zinc-200 bg-white px-4 py-3">
           <div className="flex flex-col">
-            <label className="mb-1 text-[11px] font-medium text-zinc-500">
-              system prompt (run verbatim on every model)
-            </label>
+            <div className="mb-1 flex h-6 items-center">
+              <label className="text-[11px] font-medium text-zinc-500">
+                system prompt (run verbatim on every model)
+              </label>
+            </div>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
@@ -230,7 +232,7 @@ export function ComparePage() {
             />
           </div>
           <div className="flex min-w-0 flex-col">
-            <div className="mb-1 flex items-center justify-between">
+            <div className="mb-1 flex h-6 items-center justify-between">
               <label className="text-[11px] font-medium text-zinc-500">
                 scenarios (one user turn per line)
               </label>
