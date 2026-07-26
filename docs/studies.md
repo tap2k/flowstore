@@ -687,7 +687,10 @@ production agent survive."
 
 Launch the browser tool *on* a release day with that day's report as proof —
 ride an event, don't manufacture one. The fnol dogfood milestone is the pilot
-episode.
+episode. The two tracks share one calendar and one run-day habit, and the
+reference-agent suites are treated as frozen instruments: re-run identically
+each release, transcripts archived, columns longitudinal — including how
+agents behaved on models that no longer exist, a history nobody else keeps.
 
 Posture guard, now strategically load-bearing: the public series never ranks
 models and never sells beyond the CTA. Its refusal to be a leaderboard is what
