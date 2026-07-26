@@ -213,11 +213,43 @@ export function resolveDispatch(modelId: string, keyOverrides?: KeyOverrides): R
   // A draft value (including "") for the resolved endpoint wins over the store.
   const keyFor = (e: EndpointId, stored: string) =>
     keyOverrides && keyOverrides[e] !== undefined ? keyOverrides[e]! : stored;
+  // OpenRouter fallback for native-endpoint models: a FALLBACK, never an
+  // override — with the native key present the picked route always wins.
+  // Only when the native key is absent and an OpenRouter key exists does the
+  // model dispatch there, under OpenRouter's vendor-prefixed id. Keeps "one
+  // OpenRouter key covers the whole matrix" true (and those calls return
+  // measured $). Voice (Live) entries are excluded — they are Google-only,
+  // and a fallback would swap the crisp "needs a Google key" error for a
+  // confusing OpenRouter 404. Structured-output callers are unaffected:
+  // provider resolves to openai-compatible, which their gate already rejects.
+  const openrouterFallback = (vendor: string): ResolvedDispatch | null => {
+    const orKey = keyFor("openrouter", s.openrouterApiKey);
+    if (!orKey.trim() || (entry as { voice?: boolean } | undefined)?.voice) return null;
+    return {
+      provider: "openai-compatible",
+      apiKey: orKey,
+      baseUrl: OPENROUTER_BASE_URL,
+      endpoint: "openrouter",
+      wireModel: `${vendor}/${wireModel}`,
+    };
+  };
   switch (endpoint) {
-    case "google":
-      return { provider: "google", apiKey: keyFor("google", s.googleApiKey), endpoint, wireModel };
-    case "openai":
-      return { provider: "openai", apiKey: keyFor("openai", s.openaiApiKey), endpoint, wireModel };
+    case "google": {
+      const apiKey = keyFor("google", s.googleApiKey);
+      if (!apiKey.trim()) {
+        const fb = openrouterFallback("google");
+        if (fb) return fb;
+      }
+      return { provider: "google", apiKey, endpoint, wireModel };
+    }
+    case "openai": {
+      const apiKey = keyFor("openai", s.openaiApiKey);
+      if (!apiKey.trim()) {
+        const fb = openrouterFallback("openai");
+        if (fb) return fb;
+      }
+      return { provider: "openai", apiKey, endpoint, wireModel };
+    }
     case "openrouter":
       return {
         provider: "openai-compatible",
