@@ -13,13 +13,21 @@ import { cellKey } from "./types";
 // and entry_flow_id is required by AgentSchema (the "flowless project" open
 // question). The stub records intent; extraction at graduation mints flows.
 
+export type CapturedGold = {
+  scenarioId: string;
+  language: string;
+  name: string;
+  turns: { role: "agent" | "user"; text: string }[];
+};
+
 export function buildStudyBundle(args: {
   prompt: string;
   models: string[];
   scenarios: Scenario[];
   cells: Record<string, CellState>;
+  golds?: Record<string, CapturedGold>;
 }): Record<string, string> {
-  const { prompt, models, scenarios, cells } = args;
+  const { prompt, models, scenarios, cells, golds } = args;
   const stamp = new Date().toISOString();
   const runDir = `tests/runs/${stamp.slice(0, 19).replace(/[:T]/g, "-")}-compare`;
   const files: Record<string, string> = {};
@@ -94,6 +102,20 @@ export function buildStudyBundle(args: {
     scenario_ids: scenarios.map((s) => s.id),
     results: resultFiles,
   });
+
+  for (const [sid, g] of Object.entries(golds ?? {})) {
+    files[`tests/gold/${sid}.gold.json`] = j({
+      $schema: "flowstore://test/gold/v0",
+      id: sid,
+      name: g.name,
+      turns: g.turns.map((t) => ({ role: t.role, text: t.text })),
+      language: g.language,
+      scenario_id: g.scenarioId,
+      source_kind: "transcript",
+      blessed_at: stamp,
+      tags: ["src:compare"],
+    });
+  }
 
   return files;
 }

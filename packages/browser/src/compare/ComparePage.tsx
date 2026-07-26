@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
 import { genId } from "@flowstore/core/ids";
 import { IDLE_CELL, buildReportHtml, buildStudyBundle, cellKey, runMatrix } from "@flowstore/studies";
-import type { CellState, Scenario } from "@flowstore/studies";
+import type { CapturedGold, CellState, Scenario } from "@flowstore/studies";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
 import { DEFAULT_MODEL_ID, resolveDispatch } from "@/lib/store/settings";
@@ -24,6 +24,8 @@ export function ComparePage() {
   const [setupOpen, setSetupOpen] = useState(true);
   const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // One gold per scenario id; value records which column it was captured from.
+  const [golds, setGolds] = useState<Record<string, CapturedGold & { column: number }>>({});
 
 
   const patchCell = (key: string, patch: Partial<CellState>) =>
@@ -94,6 +96,7 @@ export function ComparePage() {
     scenarios,
     cells,
     monthlyConversations: monthly,
+    golds,
   };
   const BROWSER_REPORT_OPTS = {
     latencyNote: "Latency measured from the browser; production latency depends on deployment.",
@@ -372,6 +375,34 @@ export function ComparePage() {
                       </span>
                     )}
                     <ColumnStats cell={c} />
+                    {c?.status === "done" && selected && (
+                      golds[selected]?.column === i ? (
+                        <span className="shrink-0 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700" title="This transcript is the blessed gold for this scenario">
+                          gold ✓
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            const sc = scenarios.find((x) => x.id === selected);
+                            if (!sc || !c) return;
+                            setGolds((prev) => ({
+                              ...prev,
+                              [selected]: {
+                                scenarioId: sc.scenarioId,
+                                language: sc.language,
+                                name: sc.name,
+                                column: i,
+                                turns: c.turns.map((t) => ({ role: t.role, text: t.text })),
+                              },
+                            }));
+                          }}
+                          className="shrink-0 rounded-md border border-zinc-200 px-1.5 py-0.5 text-[10px] text-zinc-500 hover:bg-amber-50 hover:text-amber-700"
+                          title="Capture this transcript as the gold (blessed reference) for this scenario"
+                        >
+                          capture gold
+                        </button>
+                      )
+                    )}
                     {i === models.length - 1 && models.length < 6 && (
                       <button
                         onClick={() => setModels((prev) => [...prev, DEFAULT_MODEL_ID])}
