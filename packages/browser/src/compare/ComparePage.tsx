@@ -82,6 +82,38 @@ export function ComparePage() {
         >
           {setupOpen ? "hide setup" : "edit setup"}
         </button>
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {models.map((m, i) => (
+            <div key={i} className="flex items-center gap-1">
+              {i === 0 && <span className="text-[10px] text-zinc-400">current</span>}
+              <ModelPicker
+                value={m}
+                onChange={(v) => setModels((prev) => prev.map((x, j) => (j === i ? v : x)))}
+                disabled={running}
+                showUnconfigured
+                className="text-xs"
+              />
+              {i > 0 && (
+                <button
+                  onClick={() => setModels((prev) => prev.filter((_, j) => j !== i))}
+                  disabled={running}
+                  className="text-[11px] text-zinc-400 hover:text-red-600"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          ))}
+          {models.length < 6 && (
+            <button
+              onClick={() => setModels((prev) => [...prev, DEFAULT_MODEL_ID])}
+              disabled={running}
+              className="rounded-full border border-zinc-300 px-2.5 py-1 text-[11px] hover:bg-zinc-50"
+            >
+              + model
+            </button>
+          )}
+        </div>
         <div className="ml-auto flex items-center gap-3">
           <KeyField label="google" value={googleApiKey} onChange={setGoogleApiKey} />
           <KeyField label="openrouter" value={openrouterApiKey} onChange={setOpenrouterApiKey} />
@@ -203,45 +235,6 @@ export function ComparePage() {
         </div>
       )}
 
-      <div className="flex items-center gap-2 border-b border-zinc-200 bg-white px-4 py-2">
-        {models.map((m, i) => (
-          <div key={i} className="flex items-center gap-1">
-            <ModelPicker
-              value={m}
-              onChange={(v) => setModels((prev) => prev.map((x, j) => (j === i ? v : x)))}
-              disabled={running}
-              showUnconfigured
-              className="text-xs"
-            />
-            {i === 0 ? (
-              <span className="rounded-full border border-zinc-300 px-1.5 text-[9px] text-zinc-500">
-                current
-              </span>
-            ) : (
-              <button
-                onClick={() => setModels((prev) => prev.filter((_, j) => j !== i))}
-                disabled={running}
-                className="text-[11px] text-zinc-400 hover:text-red-600"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-        ))}
-        {models.length < 6 && (
-          <button
-            onClick={() => setModels((prev) => [...prev, DEFAULT_MODEL_ID])}
-            disabled={running}
-            className="rounded-full border border-zinc-300 px-3 py-1 text-[11px] hover:bg-zinc-50"
-          >
-            + model
-          </button>
-        )}
-        <span className="ml-auto text-[10px] text-zinc-400">
-          first model = your current one (the comparison baseline)
-        </span>
-      </div>
-
       <main className="flex flex-1 min-h-0">
         <aside className="w-72 shrink-0 overflow-y-auto border-r border-zinc-200 bg-white">
           <table className="w-full border-collapse text-[11px]">
@@ -250,15 +243,8 @@ export function ComparePage() {
                 <th className="border-b border-zinc-200 px-2 py-1.5 text-left font-medium">
                   scenario
                 </th>
-                {models.map((m, i) => (
-                  <th
-                    key={i}
-                    className="border-b border-l border-zinc-200 px-1 py-1.5 text-center font-medium"
-                    title={m}
-                  >
-                    {i === 0 ? "cur" : `m${i + 1}`}
-                  </th>
-                ))}
+                <th className="w-8 border-b border-l border-zinc-200 px-1 py-1.5" />
+
               </tr>
             </thead>
             <tbody>
@@ -271,14 +257,9 @@ export function ComparePage() {
                   <td className="border-b border-zinc-100 px-2 py-1.5">
                     {s.name} <span className="text-zinc-400">{s.language}</span>
                   </td>
-                  {models.map((_, i) => {
-                    const c = cells[cellKey(s.id, i)];
-                    return (
-                      <td key={i} className="border-b border-l border-zinc-100 px-1 py-1.5 text-center">
-                        <CellChip cell={c} />
-                      </td>
-                    );
-                  })}
+                  <td className="border-b border-l border-zinc-100 px-1 py-1.5 text-center">
+                    <ScenarioChip cells={models.map((_, i) => cells[cellKey(s.id, i)])} />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -328,16 +309,19 @@ export function ComparePage() {
   }
 }
 
-function CellChip({ cell }: { cell?: CellState }) {
-  if (!cell || cell.status === "idle") return <span className="text-zinc-300">·</span>;
-  if (cell.status === "running") return <span className="text-zinc-400">…</span>;
-  if (cell.status === "error") return <span className="text-red-600">✕</span>;
-  return cell.divergent ? (
-    <span className="text-amber-600" title="diverges from current model — read it">
+// One aggregate indicator per scenario row — per-model detail lives in the
+// side-by-side view. Priority: running > error > diverged > clean.
+function ScenarioChip({ cells }: { cells: (CellState | undefined)[] }) {
+  const live = cells.filter((c): c is CellState => !!c && c.status !== "idle");
+  if (live.length === 0) return <span className="text-zinc-300">·</span>;
+  if (live.some((c) => c.status === "running")) return <span className="text-zinc-400">…</span>;
+  if (live.some((c) => c.status === "error")) return <span className="text-red-600">✕</span>;
+  return live.some((c) => c.divergent) ? (
+    <span className="text-amber-600" title="a model diverges from your current one here — read it">
       ▲
     </span>
   ) : (
-    <span className="text-emerald-600">✓</span>
+    <span className="text-emerald-600" title="all models agree with your current one">✓</span>
   );
 }
 
