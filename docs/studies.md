@@ -680,6 +680,22 @@ Triple duty — docs examples, product test fixtures, reference fleet — with
 one fleet-specific discipline: they version like instruments (deliberate
 bumps, never drift) so release-day columns stay comparable.
 
+**The default instrument: an open-ended, multi-turn census.** The flagship
+public battery is a frozen set of relatively generic and/or fun multi-turn
+scenarios — the conversational analogue of a one-word census: no right
+answer by construction, measuring what models *do* across turns when nothing
+forces their hand (what they ask back, how long they talk, when they commit,
+how they close, whether character holds from turn 2 to turn 12). Fun prompts
+make the transcripts inherently browsable — the side-by-side is entertainment
+with findings in it — and the battery ships with the browser tool as its
+**zero-input demo**: latest release-day results preloaded, browse the matrix
+and exhibits before pasting anything or holding a key; "now run it on your
+own prompt" is the same motion one input later. The battery is frozen *data*
+(open scenario files) run by the product's engine — shared as data, not code.
+Release-day content then layers: fun-battery findings for the broad audience,
+fleet-agent findings (guardrails, cost) for practitioners, full reports one
+click deep for buyers.
+
 **The model is the subject; the agent is the apparatus; the transcript is
 the exhibit — never the headline.** Nobody browses transcripts from a fake
 insurance agent, but everyone reads "Gemini 3.7 drops identity verification
