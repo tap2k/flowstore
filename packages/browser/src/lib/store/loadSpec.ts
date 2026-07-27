@@ -4,6 +4,7 @@ import type { ResolvedModelsConfig } from "@flowstore/core/files/models";
 import type { Comment } from "@flowstore/core/schema/files/comment";
 import { useSpecStore } from "./spec";
 import { useGithubProjectStore } from "./githubProject";
+import { markProjectBaseline } from "./dirty";
 import { useTestsStore } from "./tests";
 import { useModelsStore } from "./models";
 import { useCommentsStore } from "./comments";
@@ -60,12 +61,16 @@ export function loadSpec(spec: Spec | null, opts: LoadSpecOptions = {}): void {
 }
 
 // The commit policy for PORTABLE artifacts — pasted specs, file/bundle
-// imports, the compare handoff: confirm before replacing a loaded spec, then
-// load and drop any GitHub claim. Imported specs have no claim to whichever
-// repo we were previously connected to; clearing means the next Save creates
-// a fresh repo, not an accidental overwrite. One function for the same
-// reason loadSpec is one function — per-call-site copies of the confirm +
-// clear pair drift. Returns false when the user declines (nothing changes).
+// imports, the bundled example, the compare handoff: confirm before
+// replacing a loaded spec, then load, drop any GitHub claim, and re-baseline
+// dirtiness. Imported specs have no claim to whichever repo we were
+// previously connected to; clearing means the next Save creates a fresh
+// repo, not an accidental overwrite. The just-loaded payload is the new
+// save-state reference — without the re-baseline, the load itself trips the
+// drift detector and a user who has edited nothing gets the unsaved pill and
+// the leave-site prompt. One function for the same reason loadSpec is one
+// function — per-call-site copies of this sequence drift. Returns false when
+// the user declines (nothing changes).
 export function loadPortableSpec(spec: Spec, opts: LoadSpecOptions = {}): boolean {
   if (
     useSpecStore.getState().spec &&
@@ -75,5 +80,6 @@ export function loadPortableSpec(spec: Spec, opts: LoadSpecOptions = {}): boolea
   }
   loadSpec(spec, opts);
   useGithubProjectStore.getState().clear();
+  markProjectBaseline();
   return true;
 }

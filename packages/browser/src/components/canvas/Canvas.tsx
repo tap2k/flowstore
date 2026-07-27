@@ -28,7 +28,7 @@ import { useAssistantChangesStore } from "@/lib/store/assistantChanges";
 import { validateGraph, groupIssuesByFlow, groupIssuesByEdge, isImportedFlowless } from "@flowstore/core/validation/graphRules";
 import { worstSeverity } from "@/lib/diagnostics";
 import { loadProject } from "@flowstore/core/files";
-import { loadSpec } from "@/lib/store/loadSpec";
+import { loadPortableSpec } from "@/lib/store/loadSpec";
 import { parseSourceToSpec } from "@/lib/chat/specParse";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 
@@ -270,7 +270,10 @@ function EmptyCanvas() {
         setError(errors[0]?.message ?? "Example failed to load.");
         return;
       }
-      loadSpec(spec, { testingArtifacts, comments, modelsConfig });
+      // Portable-artifact policy (confirm/clear/re-baseline) — the example is
+      // an import like any other; without the re-baseline it would show as
+      // unsaved before the user touches anything.
+      loadPortableSpec(spec, { testingArtifacts, comments, modelsConfig });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Example failed to load.");
     }
