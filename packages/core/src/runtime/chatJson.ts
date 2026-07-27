@@ -17,6 +17,10 @@ import { toJsonSchema } from "./openaiJson";
 // parse failure after the retry. Acceptable for the current consumers (the
 // watcher fails soft; judge schemas are small).
 
+// Module-local Ajv instance, separate from validation/ajv.ts on purpose:
+// that one is configured (formats, spec compilation) for artifact
+// validation; this one only checks chat replies against translated response
+// schemas. Sharing would couple runtime dispatch to the validation module.
 const ajv = new Ajv({ allErrors: true, strict: false });
 // Cache compiled validators by schema object identity — consumer schemas are
 // module-level constants, so this hits after the first call.

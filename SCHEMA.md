@@ -484,7 +484,7 @@ A case names an **actor** (how the conversation is driven) plus a **scenario ove
 
 `user_turns` (scripted) is mutually exclusive with the actor fields; `persona_id` and `system_prompt` compose. A scripted case never binds a persona just for its fixture — it carries the fixture inline. **Prompt resolution:** the effective actor prompt is `persona.system_prompt` + (appended) `case.system_prompt`; either alone resolves to just itself. **Fixture resolution:** the effective fixture for a persona-bound case is `persona ∪ case` — `vars` merge per key, `mocks` **replace per capability id**, the case always winning. A scripted / inline case (no persona) resolves to just its own fixture.
 
-Situational fixture: `vars?` and `mocks?` (same shapes as on the persona). Optional assertion/eval fields: `assertions[]` (per-turn substring), `transcript_assertions[]` (substring/regex/count/terminate-within over the whole transcript), `state_assertions[]` (against final variable state; runner target only), `capability_assertions[]` (was this capability invoked?), `evaluators[]` (rubric names resolving to `tests/rubrics/<n>.rubric.json` or `tests/evaluators/<n>.py`), `gold_id` (reference transcript for gold-comparing rubrics), `language`, `model`, `tags[]`.
+Situational fixture: `vars?` and `mocks?` (same shapes as on the persona). Optional assertion/eval fields: `assertions[]` (per-turn substring), `transcript_assertions[]` (substring/regex/count/terminate-within over the whole transcript), `state_assertions[]` (against final variable state; runner target only), `capability_assertions[]` (was this capability invoked?), `evaluators[]` (rubric names resolving to `tests/rubrics/<n>.rubric.json` or `tests/evaluators/<n>.py`), `gold_id` (reference to the gold this case derives from or is graded against — blessing lineage as a real field, replacing the stale-prone `src:gold:<id>` tag convention; tags stay annotation), `scenario_id` (cross-language scenario identity: renderings of the same scenario in different languages are **separate case files sharing a `scenario_id`**, with per-file `language` as the selector — study language columns join on it; testing artifacts stay per-file-language by design, never `LocalizedString`), `language`, `model`, `tags[]`.
 
 ### Decision Test (`flowstore://test/decision-test/v0`)
 
@@ -495,6 +495,30 @@ Many branches off a shared conversational prefix. Maps 1:1 to a flow's `exit_pat
 - `state?` / `mocks?` — the fixture the routing branches run against, all inline. `state` is a **mid-conversation snapshot** ("the conversation already established these values"), injected into the variable bag wholesale — including derived state like `identity_confirmed`. Deliberately not called `vars`: persona/case vars are character sheets filtered by `provided`; decision-test state is a teleport to the point under test, so it bypasses that filter by design. Decision tests have no actor (they script their own prefix + branch inputs), so there is no persona to inherit from.
 
 No persona-driven mode here — decision tests are always scripted.
+
+### Gold (`flowstore://test/gold/v0`)
+
+A gold is a **verbatim reference transcript** — the canonical example of how a conversation should go. Independent artifact, not 1:1 with cases: one gold may seed many derived cases, and a captured gold may have no case yet. Sources today: extracted from customer material, captured from a Simulate session, or captured/imported through the compare tool.
+
+- `turns: {role: "agent"|"user", text}[]` — the transcript, verbatim. Never localized: a gold is inherently in one language — you don't translate a gold, you **bless one per language**.
+- `language?` — the transcript's language code.
+- `scenario_id?` — cross-language scenario identity, joining this gold to its sibling renderings and to cases (same convention as on cases).
+- `blessed_at?` — when the customer approved this transcript as the reference. **Drift is measured against blessed golds only**; re-blessing (a new `blessed_at`) is the explicit baseline reset — floating baselines would let character erode by ratchet. Round-trips must preserve it: a bundle import/export pass-through is not a re-bless.
+- `source_pointer?` — free-form provenance (a call recording id, `compare-run:<ts>`, a doc link). Deliberately **not an enum**: classify later from real pointers if a consumer ever needs buckets.
+- `vars?` / `mocks?` — the fixture under which the gold was recorded, same shapes as personas/cases.
+
+Also: `id`, optional `name`, `notes`, `tags[]`.
+
+### Run Result (`flowstore://run/result/v0`)
+
+What a runner writes after one run of a test case, at `tests/runs/<ts>-<label>/` (see FILE-MODEL.md). **Machine-written, so the schema is open** (`additionalProperties: true` at every level): forward-compat beats typo-catching — strictness follows authorship, and hand-authored artifacts (persona/case/gold) stay strict. Core fields: `test_case_id`, `timestamp`, `transcript`, optional `model`, `error`, `capability_calls[]`, `final_variables`, `evaluator_results[]`, `trials[]`. Study-relevant additions:
+
+- `prompt_source?` — what system prompt this run executed: `"flowstore-compile"` for the spec-compiled default, or a free-form pointer for verbatim/imported/third-party prompts. On the result (not only the run manifest) so result files stay self-describing when copied or diffed alone.
+- `language?` — echo of the case's language, same self-description rationale.
+- `usage?` — whole-run rollup, **unit-typed and modality-aware**: `{text_in, text_out, audio_in, audio_out, cached, cost}`. Tokens are *measurements*; `cost` is dollars **as reported by the provider** (OpenRouter routes report it; direct providers don't — absent means unmeasured, never zero). Prices for projections live in versioned rate data, never in results. The audio fields are reserved so S2S columns land without artifact migration.
+- Per-transcript-turn: `latency_ms?` (wall-clock of the dispatch that produced an agent turn), `usage?` (same unit-typed shape), and `node? {id, mode: "inferred"|"observed", confidence?}` — flow-node attribution. Prompt-mode runs have no runtime flow state, so attribution is post-hoc (`mode: "inferred"`); runner-mode observes it.
+
+When the runs manifest is formalized (`flowstore://run/manifest/v0`, planned), the judge pin it records must name the judge's **mechanism/route** (provider strict-schema vs. validated-chat fallback) alongside the model id — verdicts from different mechanisms aren't longitudinally comparable without that disclosure.
 
 ### Mock Behavior
 

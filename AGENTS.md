@@ -42,7 +42,8 @@ The canvas is the canonical editing surface. Text views are entry and export onl
 - **Imperative text import** — paste free-form source: an analyst's script, a process doc, a system prompt, supporting docs. An LLM converts it directly to v0 JSON in one shot, schema-constrained.
 - **Export as JSON** — the exported file is the same shape the declarative import accepts; round-trip preserves the spec.
 - **Export as system prompt** — deterministic codegen ([packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts)) that flattens the spec into a single monolithic system prompt. For copy-paste into runtimes that take a system prompt (OpenAI, Claude, Voiceflow, etc.); a graph-native runtime consumes the JSON directly.
-- **Simulate panel** — text chat against a paired runtime, BYOK Gemini, against the spec currently being edited. Canvas highlights the active flow and last-traversed edge live during the run.
+- **Simulate panel** — text chat against a paired runtime, BYOK (any configured provider; OpenRouter falls in when a native key is absent), against the spec currently being edited. Canvas highlights the active flow and last-traversed edge live during the run.
+- **Compare** (`compare.html`, deployed at compare.flowstore.org) — the evaluation entry point: paste a system prompt (run verbatim), edit scenarios, run a small-N model matrix on the user's key. Engine in `@flowstore/studies` (isomorphic; never reads stores); the page is a browser surface sharing the editor's settings store and chrome. Studies export as `.flowstore.json` bundles / GitHub repos the editor opens — git is the graduation bus.
 - **Eval-on-canvas (post-MVP).** Findings from the testing surface (test cases, personas, rubrics, run results — all in flowstore per [FILE-MODEL.md](./FILE-MODEL.md)) overlay onto the same node and edge IDs the spec defines — guardrail-fail rates pinned to guardrail nodes, test coverage on flow nodes. The canvas is the eval view; there is no separate findings tab.
 
 ## Tech Stack
@@ -67,7 +68,7 @@ Don't add infrastructure before the need. The design doc's MVP discipline is the
 
 ## Repository Layout
 
-npm workspaces monorepo. `@flowstore/core` is pure TS (files, schema, codegen, providers); `@flowstore/browser` is the Vite-built React SPA. `@flowstore/core` is consumed in-source — Vite reads its TS exports directly, no build step during dev.
+npm workspaces monorepo. `@flowstore/core` is pure TS (files, schema, codegen, providers); `@flowstore/studies` is the isomorphic study engine (matrix runner, bundle read/write, report, voice-cost — depends on core, never on browser); `@flowstore/browser` is the Vite-built React SPA. Core and studies are consumed in-source — Vite reads their TS exports directly, no build step during dev.
 
 ```
 /package.json                       workspace root; scripts delegate via -w
@@ -83,10 +84,12 @@ npm workspaces monorepo. `@flowstore/core` is pure TS (files, schema, codegen, p
     /validation/                    Ajv validators + graph rules
     /llm/                           provider dispatch + types (providers/: google, openai, openai-compatible)
     /runtime/                       conversation-simulation primitives (mocks, persona, transcript, …)
+/packages/studies/                  @flowstore/studies (runner, bundle, report, placeholders, voiceCost)
 /packages/browser/                  @flowstore/browser (the Vite-built React SPA)
   /package.json
   /vite.config.ts                   @vitejs/plugin-react + @tailwindcss/vite; alias @/* -> ./src/*
-  /index.html                       single HTML entry; loads /src/main.tsx
+  /index.html                       editor entry; compare.html is the second entry
+                                      (BUILD_TARGET=compare roots compare for the compare.flowstore.org deploy)
   /src/
     main.tsx                        mounts <App /> via createRoot
     App.tsx                         top-level shell (header, canvas, panels)
@@ -94,11 +97,13 @@ npm workspaces monorepo. `@flowstore/core` is pure TS (files, schema, codegen, p
       /canvas/                      React Flow nodes, edges, controls
       /inspector/                   schema-driven editor forms
       /sheets/                      tabular editors attached to canvas nodes
+    /compare/                       the compare surface (page, zustand store, studyStorage, GitHub modals)
     /lib/
       /store/                       zustand stores (browser-only state)
       /chat/                        chat-panel store-mutating tools (browser-only)
+      githubUi.tsx                  GitHub modal chrome shared by editor + compare
     /styles/                        globals.css, Tailwind
-  /public/                          static assets served as-is (favicon.ico)
+  /public/                          static assets served as-is (favicon, _headers CSP, examples/*.flowstore.json zero-state bundles)
 /examples/                          demo specs (coffee/) — loaded via the editor's file picker, not served as runtime URLs
 ```
 
@@ -143,6 +148,7 @@ From the product design doc. The ones that most affect editor decisions:
 - **Optional by default.** Valid schema with minimal fields. Depth added incrementally.
 - **Decomposition is the substrate.** Monolithic prompts hit an instruction-following ceiling in regulated behavior spaces; modular flows are how agents stay reliable at scale.
 - **Decomposition is progressive.** Start coarse, split when there's a real seam. The principle above applies *at scale*; for small specs the right move is *less* decomposition. Node count is a result of behavioral seams, not a target.
+- **Best mechanism per capability; fallback never override.** When a capability depends on provider features (strict structured output, measured cost, native routing), implement one entry point that picks the best mechanism per provider — and add fallbacks only where the preferred route is *unavailable* (a missing key, an unsupported provider), never silently replacing a route the user picked. Existing instances: model dispatch (native key wins; OpenRouter fallback when it's absent), structured output (strict `responseSchema` on Google/OpenAI; validated chat + corrective retry elsewhere), translate (a thin consumer of the former). Callers never branch on mechanism.
 - **Conversation-shape, not workflow-shape.** flowstore primitives are flows, exit paths, guardrails, captures, three methods. Workflow primitives (if/else nodes, while-loops, transform/map nodes, set-state nodes) are the wrong altitude — that's general-purpose orchestration, not regulated conversational behavior. When extending the schema, push toward the conversation-design vocabulary the buyer already speaks.
 
 ## Spec Authoring Granularity

@@ -296,7 +296,7 @@ Per-uuid additive files at project root (`comments/<uuid>.comment.json`). Each c
   "$schema": "flowstore://meta/comment/v0",
   "id": "c-2026-05-21-a8f3",
   "anchor": {
-    "kind": "flow",                      // closed enum (TypeBox schema): flow | exit_path | capability | guardrail | business_goal | variable | faq | glossary | table | persona | rubric | evaluator | test_case | mock
+    "kind": "flow",                      // closed enum (TypeBox schema): flow | exit_path | capability | guardrail | business_goal | variable | faq | glossary | table | persona | rubric | evaluator | test_case | mock | gold | result
     "id": "verify_identity"              // the entity's id; for exit_path, the composite "<flow_id>::<exit_path_id>"
   },
   "author": "nirja",                     // GitHub username
@@ -306,7 +306,7 @@ Per-uuid additive files at project root (`comments/<uuid>.comment.json`). Each c
 }
 ```
 
-Pure additive — two collaborators creating comments simultaneously write two files; never conflict. Threading is **flat** in v1: all comments on the same anchor are siblings, ordered by `timestamp` (no `parent_id`/reply nesting yet). Resolution flips `resolved: true` on a comment rather than recording a separate resolving comment. When the anchored entity is removed, cascade-delete handles the orphaned comments (validation flags them otherwise).
+The `gold` and `result` kinds exist for the review workflows the studies plan introduces: blessing a gold and adjudicating a run result are comment-shaped acts. Pure additive — two collaborators creating comments simultaneously write two files; never conflict. Threading is **flat** in v1: all comments on the same anchor are siblings, ordered by `timestamp` (no `parent_id`/reply nesting yet). Resolution flips `resolved: true` on a comment rather than recording a separate resolving comment. When the anchored entity is removed, cascade-delete handles the orphaned comments (validation flags them otherwise).
 
 ---
 

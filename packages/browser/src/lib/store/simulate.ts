@@ -12,7 +12,7 @@ import {
   generateSessionId,
 } from "@flowstore/core/runtime/httpAgentClient";
 import type { AgentEndpoint } from "@flowstore/core/files/models";
-import { sendPromptTurn, type CapabilityInvocation } from "@flowstore/core/runtime/promptClient";
+import { addUsage, sendPromptTurn, type CapabilityInvocation } from "@flowstore/core/runtime/promptClient";
 import { generatePersonaTurn } from "@flowstore/core/runtime/personaClient";
 import { generateRoutePersona } from "@flowstore/core/runtime/personaGen";
 import {
@@ -149,6 +149,10 @@ interface SimulateState {
   systemPrompt: string | null;
   specSnapshot: Spec | null;
   lastUsage: ChatUsage | null;
+  // Whole-session accumulation of lastUsage (token-cost.md: tokens
+  // everywhere, dollars where free — cost sums only when the provider
+  // reports it, i.e. OpenRouter routes).
+  sessionUsage: ChatUsage | null;
   // Voice-mode indicator: who currently holds the floor on the live socket.
   // null in text/runner mode and between voice sessions.
   voicePhase: VoicePhase | null;
@@ -347,6 +351,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   systemPrompt: null,
   specSnapshot: null,
   lastUsage: null,
+  sessionUsage: null,
   voicePhase: null,
   micMuted: false,
   personaPrompt: "",
@@ -872,6 +877,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       systemPrompt: null,
       specSnapshot: null,
       lastUsage: null,
+      sessionUsage: null,
       voicePhase: null,
       micMuted: false,
       guardrailVerdict: null,
@@ -1015,6 +1021,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           set({
             transcript: [openerTurn, agentTurn],
             lastUsage: res.usage ?? null,
+            sessionUsage: addUsage(get().sessionUsage ?? undefined, res.usage) ?? null,
             status: "ready",
           });
           // Attribute the opener so the graph lights up before the first user turn.
@@ -1216,6 +1223,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         set({
           transcript: [...get().transcript, agentTurn],
           lastUsage: res.usage ?? null,
+          sessionUsage: addUsage(get().sessionUsage ?? undefined, res.usage) ?? null,
           status: endsConvo ? "ended" : "ready",
           ...(endsConvo ? { autoRun: false } : {}),
         });
@@ -1359,6 +1367,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       systemPrompt: null,
       specSnapshot: null,
       lastUsage: null,
+      sessionUsage: null,
       voicePhase: null,
       micMuted: false,
       autoStepping: false,

@@ -76,7 +76,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const currentFlowId = useSimulateStore((s) => s.currentFlowId);
   const systemPrompt = useSimulateStore((s) => s.systemPrompt);
   const specSnapshot = useSimulateStore((s) => s.specSnapshot);
-  const lastUsage = useSimulateStore((s) => s.lastUsage);
+  const sessionUsage = useSimulateStore((s) => s.sessionUsage);
   const voicePhase = useSimulateStore((s) => s.voicePhase);
   const micMuted = useSimulateStore((s) => s.micMuted);
   const setMicMuted = useSimulateStore((s) => s.setMicMuted);
@@ -673,8 +673,8 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           <div className="text-[11px] text-text-tertiary truncate">
             {mode === "voice" && hasSession
               ? `${subtitle}${voicePhase && voicePhase !== "idle" ? ` · ${voicePhase}` : ""}`
-              : isPromptMode(mode) && lastUsage
-                ? `${subtitle} · ${lastUsage.inputTokens.toLocaleString()} in / ${lastUsage.outputTokens.toLocaleString()} out`
+              : isPromptMode(mode) && sessionUsage
+                ? `${subtitle} · ${sessionUsage.inputTokens.toLocaleString()} in / ${sessionUsage.outputTokens.toLocaleString()} out${sessionUsage.cost !== undefined ? ` · $${sessionUsage.cost.toFixed(4)}` : ""}`
                 : currentFlowId
                   ? `${subtitle} · ${currentFlowId}`
                   : subtitle}
