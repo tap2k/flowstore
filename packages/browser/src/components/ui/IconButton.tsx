@@ -1,8 +1,10 @@
 import { forwardRef } from "react";
+import { SpinnerGap } from "@phosphor-icons/react";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 import { Icon, type IconWeight } from "./Icon";
 
 export type IconButtonSize = "sm" | "md" | "lg" | "canvas";
+export type IconButtonVariant = "ghost" | "primary";
 
 const SIZES: Record<IconButtonSize, { box: string; icon: number }> = {
   sm: { box: "size-6", icon: 14 },
@@ -19,8 +21,12 @@ const SIZES: Record<IconButtonSize, { box: string; icon: number }> = {
 export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   icon: PhosphorIcon;
   size?: IconButtonSize;
+  /** "ghost" (default) is quiet chrome; "primary" is the emphasis fill — one per view. */
+  variant?: IconButtonVariant;
   /** Toggled-on state: selected fill + bold glyph (a second signal besides colour). */
   active?: boolean;
+  /** Swaps the glyph for a spinner and blocks interaction (mirrors Button). */
+  loading?: boolean;
   /** Required — serves as both the tooltip and the accessible name. */
   label: string;
   /** Leave unset. The component picks regular, or bold when `active`. */
@@ -32,10 +38,23 @@ export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonEl
  * stays quiet — no control may outweigh an idle node border.
  */
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  { icon, size = "md", active, disabled, label, weight, className, type = "button", ...rest },
+  {
+    icon,
+    size = "md",
+    variant = "ghost",
+    active,
+    disabled,
+    loading,
+    label,
+    weight,
+    className,
+    type = "button",
+    ...rest
+  },
   ref,
 ) {
   const s = SIZES[size];
+  const inert = disabled || loading;
   return (
     <button
       ref={ref}
@@ -43,23 +62,36 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       aria-label={label}
       aria-pressed={active}
       title={label}
-      disabled={disabled}
+      disabled={inert}
       {...rest}
       className={[
         "inline-flex items-center justify-center rounded-2 border",
         "transition-[background-color,border-color,color] duration-[90ms] ease-standard",
         s.box,
-        disabled
-          ? "cursor-not-allowed border-transparent bg-transparent text-text-disabled"
-          : active
-            ? "cursor-pointer border-border-default bg-surface-selected text-text-primary active:bg-surface-active"
-            : "cursor-pointer border-transparent bg-transparent text-text-secondary hover:border-border-default hover:bg-surface-hover active:bg-surface-active",
+        inert
+          ? variant === "primary"
+            ? "cursor-not-allowed border-state-disabled-line bg-state-disabled-bg text-text-disabled"
+            : "cursor-not-allowed border-transparent bg-transparent text-text-disabled"
+          : variant === "primary"
+            ? "cursor-pointer border-transparent bg-emphasis text-emphasis-fg hover:bg-emphasis-hover active:bg-emphasis-hover"
+            : active
+              ? "cursor-pointer border-border-default bg-surface-selected text-text-primary active:bg-surface-active"
+              : "cursor-pointer border-transparent bg-transparent text-text-secondary hover:border-border-default hover:bg-surface-hover active:bg-surface-active",
         className ?? "",
       ]
         .filter(Boolean)
         .join(" ")}
     >
-      <Icon icon={icon} weight={weight ?? (active ? "bold" : "regular")} size={s.icon} />
+      {loading ? (
+        <Icon
+          icon={SpinnerGap}
+          weight="bold"
+          size={s.icon}
+          className="animate-fs-spin motion-reduce:animate-none"
+        />
+      ) : (
+        <Icon icon={icon} weight={weight ?? (active ? "bold" : "regular")} size={s.icon} />
+      )}
     </button>
   );
 });

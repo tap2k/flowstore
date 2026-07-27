@@ -461,7 +461,9 @@
   font-feature-settings: "calt" 0;
   -webkit-font-smoothing: antialiased;
   tab-size: 2;
-  white-space: pre;
+  /* No white-space here: it's a container concern, not typography. CodeBlock
+     sets pre itself (line-number gutter needs 1:1 visual lines); textareas
+     keep their native wrapping. */
 }
 .fs-data {
   font: var(--fw-medium) var(--fs-12) / var(--lh-12) var(--font-sans);

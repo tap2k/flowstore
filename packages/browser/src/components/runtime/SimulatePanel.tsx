@@ -665,7 +665,10 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
 
   return (
     <aside className="flex flex-col h-full w-[380px] border-l border-border-default bg-surface-panel">
-      <div className="flex items-center justify-between border-b border-border-default px-4 py-2">
+      {/* items-start: the action row tracks the "Run" title line, not the
+          two-line block's center, so the buttons don't drift down when the
+          subtitle wraps in status/usage states. */}
+      <div className="flex items-start justify-between border-b border-border-default px-4 py-2">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-text-primary truncate">
             Run

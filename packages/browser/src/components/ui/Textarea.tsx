@@ -30,8 +30,6 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
         "focus:shadow-[0_0_0_2px_var(--select-halo)]",
         disabled ? "bg-state-disabled-bg text-text-disabled" : "bg-surface-sunken text-text-primary",
         invalid ? "border-state-error-line" : "border-border-default focus:border-n-11",
-        // fs-code sets white-space:pre, which would stop a prose textarea from
-        // wrapping; the code variant wants exactly that.
         code ? "fs-code" : "fs-ui",
         className ?? "",
       ]

@@ -162,6 +162,8 @@ export function Preview() {
 
         <Row title="Icon buttons">
           <IconButton icon={Play} label="Run" />
+          <IconButton icon={Play} label="Run" variant="primary" />
+          <IconButton icon={Play} label="Saving" loading />
           <IconButton icon={Gear} label="Settings" active />
           <IconButton icon={Trash} label="Delete" disabled />
           <IconButton icon={ArrowCounterClockwise} label="Undo" size="canvas" />

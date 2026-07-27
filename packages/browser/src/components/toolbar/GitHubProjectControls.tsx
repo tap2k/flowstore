@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { ArrowsClockwise, CloudArrowUp, UserPlus } from "@phosphor-icons/react";
+import { Button, DropdownMenu, IconButton, Input, Textarea } from "@/components/ui";
+import { Shell } from "@/lib/githubUi";
 import { useSettingsStore } from "@/lib/store/settings";
 import { useSpecStore } from "@/lib/store/spec";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
@@ -29,51 +32,6 @@ function buildCommitMessage(comment: string | undefined, summary: string): strin
   return `${title}\n\n${summary}`;
 }
 
-const iconButtonClass =
-  "rounded-md border border-border-default p-1.5 text-text-secondary hover:bg-surface-hover disabled:opacity-50 disabled:hover:bg-transparent";
-const menuItemClass =
-  "block w-full text-left px-3 py-1.5 fs-caption text-text-secondary hover:bg-surface-hover";
-
-function SaveIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
-      <polyline points="16 16 12 12 8 16" />
-      <line x1="12" y1="12" x2="12" y2="21" />
-    </svg>
-  );
-}
-
-function ShareIcon() {
-  // Person-plus glyph — universal "add someone" affordance.
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <line x1="19" y1="8" x2="19" y2="14" />
-      <line x1="22" y1="11" x2="16" y2="11" />
-    </svg>
-  );
-}
-
-function RefreshIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <polyline points="23 4 23 10 17 10" />
-      <polyline points="1 20 1 14 7 14" />
-      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-    </svg>
-  );
-}
-
-function Spinner() {
-  return (
-    <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
-  );
-}
-
 export function GitHubProjectControls({
   onSaveToGitHub,
   onShare,
@@ -99,24 +57,6 @@ export function GitHubProjectControls({
   const [protectedBlocked, setProtectedBlocked] = useState(false);
   const [newBranchOpen, setNewBranchOpen] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [saveMenuOpen, setSaveMenuOpen] = useState(false);
-  const saveMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!saveMenuOpen) return;
-    function onDoc(e: MouseEvent) {
-      if (!saveMenuRef.current?.contains(e.target as Node)) setSaveMenuOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setSaveMenuOpen(false);
-    }
-    document.addEventListener("mousedown", onDoc, true);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc, true);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [saveMenuOpen]);
 
   // Cmd/Ctrl+S in connected + writable mode → doSave. Ref keeps the static
   // listener pointed at the latest doSave closure without re-attaching every
@@ -141,16 +81,7 @@ export function GitHubProjectControls({
   if (!spec) return null;
   // Local project — not yet on GitHub. The cloud prompts to save (create a repo).
   if (!location) {
-    return (
-      <button
-        onClick={onSaveToGitHub}
-        className={iconButtonClass}
-        title="Save to GitHub"
-        aria-label="Save to GitHub"
-      >
-        <SaveIcon />
-      </button>
-    );
+    return <IconButton icon={CloudArrowUp} label="Save to GitHub" onClick={onSaveToGitHub} />;
   }
   if (!pat) return null;
 
@@ -308,23 +239,17 @@ export function GitHubProjectControls({
   if (!canWrite) {
     return (
       <>
-        <button
+        <IconButton
+          icon={CloudArrowUp}
+          label="Save a copy to your account"
           onClick={onSaveToGitHub}
-          className={iconButtonClass}
-          title="Save a copy to your account"
-          aria-label="Save a copy"
-        >
-          <SaveIcon />
-        </button>
-        <button
-          onClick={doRefresh}
-          disabled={refreshing}
-          className={iconButtonClass}
-          title="Get latest"
-          aria-label="Get latest"
-        >
-          {refreshing ? <Spinner /> : <RefreshIcon />}
-        </button>
+        />
+        <IconButton
+          icon={ArrowsClockwise}
+          label="Get latest"
+          loading={refreshing}
+          onClick={() => void doRefresh()}
+        />
         {error && (
           <div className="absolute top-full right-6 mt-2 z-30 rounded-md border border-state-error-line bg-state-error-bg px-3 py-1.5 fs-caption text-state-error-fg shadow-md">
             {error}
@@ -343,67 +268,24 @@ export function GitHubProjectControls({
 
   return (
     <>
-      <div ref={saveMenuRef} className="relative">
-        <button
-          onClick={() => setSaveMenuOpen((o) => !o)}
-          disabled={saving}
-          className={iconButtonClass}
-          title="Save to GitHub"
-          aria-label="Save to GitHub"
-        >
-          {saving ? <Spinner /> : <SaveIcon />}
-        </button>
-        {saveMenuOpen && (
-          <div className="absolute right-0 top-full mt-1 z-20 min-w-[14rem] rounded-md border border-border-default bg-surface-panel shadow-md py-1">
-            <button
-              onClick={() => {
-                setSaveMenuOpen(false);
-                setSaveDialogOpen(true);
-              }}
-              className={menuItemClass}
-            >
-              Save to <span className="font-mono">{location.ref}</span>…
-            </button>
-            <button
-              onClick={() => {
-                setSaveMenuOpen(false);
-                setNewBranchOpen(true);
-              }}
-              className={menuItemClass}
-            >
-              Save to a new branch…
-            </button>
-            <div className="my-1 border-t border-border-subtle" />
-            <button
-              onClick={() => {
-                setSaveMenuOpen(false);
-                onSaveToGitHub();
-              }}
-              className={menuItemClass}
-            >
-              Save to a new repo…
-            </button>
-          </div>
-        )}
-      </div>
-      <button
-        onClick={doRefresh}
-        disabled={refreshing}
-        className={iconButtonClass}
-        title="Refresh from GitHub"
-        aria-label="Refresh from GitHub"
-      >
-        {refreshing ? <Spinner /> : <RefreshIcon />}
-      </button>
+      <DropdownMenu
+        align="right"
+        trigger={<IconButton icon={CloudArrowUp} label="Save to GitHub" loading={saving} />}
+        items={[
+          { label: `Save to ${location.ref}…`, onSelect: () => setSaveDialogOpen(true) },
+          { label: "Save to a new branch…", onSelect: () => setNewBranchOpen(true) },
+          { separator: true },
+          { label: "Save to a new repo…", onSelect: onSaveToGitHub },
+        ]}
+      />
+      <IconButton
+        icon={ArrowsClockwise}
+        label="Refresh from GitHub"
+        loading={refreshing}
+        onClick={() => void doRefresh()}
+      />
       {canAdmin && (
-        <button
-          onClick={onShare}
-          className={iconButtonClass}
-          title="Share — manage collaborators"
-          aria-label="Share"
-        >
-          <ShareIcon />
-        </button>
+        <IconButton icon={UserPlus} label="Share — manage collaborators" onClick={onShare} />
       )}
 
       {error && (
@@ -422,30 +304,30 @@ export function GitHubProjectControls({
             saves are blocked. Save your work elsewhere:
           </p>
           <div className="space-y-1.5">
-            <button
+            <Button
+              variant="primary"
+              size="sm"
+              fullWidth
               onClick={() => {
                 setProtectedBlocked(false);
                 setNewBranchOpen(true);
               }}
-              className="w-full rounded-md bg-emphasis px-3 py-1.5 text-xs font-medium text-emphasis-fg hover:bg-emphasis-hover"
             >
               Save to a new branch…
-            </button>
-            <button
+            </Button>
+            <Button
+              size="sm"
+              fullWidth
               onClick={() => {
                 setProtectedBlocked(false);
                 onSaveToGitHub();
               }}
-              className="w-full rounded-md border border-border-default bg-surface-panel px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover"
             >
               Save a copy to a new repo…
-            </button>
-            <button
-              onClick={() => setProtectedBlocked(false)}
-              className="w-full px-3 py-1 text-xs text-state-warning-fg hover:text-state-warning-fg-hover"
-            >
+            </Button>
+            <Button variant="ghost" size="sm" fullWidth onClick={() => setProtectedBlocked(false)}>
               dismiss
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -518,50 +400,27 @@ function ConflictModal({
   onOverwrite,
 }: ConflictModalProps) {
   return (
-    <div
-      className="fixed inset-0 z-50 bg-surface-scrim flex items-center justify-center p-4"
-      onClick={onCancel}
-    >
-      <div
-        className="bg-surface-panel rounded-lg shadow-lg w-full max-w-md p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-lg font-semibold text-text-primary mb-2">
-          Someone else saved changes
-        </h2>
-        <p className="fs-body text-text-secondary mb-4">
-          Another collaborator saved to this project while you were editing.
-          Save yours as a separate <strong>draft</strong> — nothing gets lost,
-          and the two versions can be combined later.
-        </p>
-        <div className="space-y-2">
-          <button
-            onClick={onSaveAsDraft}
-            className="w-full rounded-md bg-emphasis px-3 py-2 fs-control text-emphasis-fg hover:bg-emphasis-hover"
-          >
-            Save as a new draft
-          </button>
-          <button
-            onClick={onGetLatest}
-            className="w-full rounded-md border border-border-default px-3 py-1.5 fs-label text-text-secondary hover:bg-surface-hover"
-          >
-            Get latest &amp; discard my edits
-          </button>
-          <button
-            onClick={onOverwrite}
-            className="w-full rounded-md border border-state-error-line bg-state-error-bg px-3 py-1.5 fs-label text-state-error-fg hover:bg-state-error-bg-hover"
-          >
-            Overwrite their changes
-          </button>
-          <button
-            onClick={onCancel}
-            className="w-full px-3 py-1.5 fs-caption text-text-tertiary hover:text-text-primary"
-          >
-            Cancel
-          </button>
-        </div>
+    <Shell title="Someone else saved changes" onClose={onCancel}>
+      <p className="fs-body text-text-secondary mb-4 mt-0">
+        Another collaborator saved to this project while you were editing.
+        Save yours as a separate <strong>draft</strong> — nothing gets lost,
+        and the two versions can be combined later.
+      </p>
+      <div className="space-y-2">
+        <Button variant="primary" fullWidth onClick={onSaveAsDraft}>
+          Save as a new draft
+        </Button>
+        <Button fullWidth onClick={onGetLatest}>
+          Get latest &amp; discard my edits
+        </Button>
+        <Button variant="destructive" fullWidth onClick={onOverwrite}>
+          Overwrite their changes
+        </Button>
+        <Button variant="ghost" fullWidth onClick={onCancel}>
+          Cancel
+        </Button>
       </div>
-    </div>
+    </Shell>
   );
 }
 
@@ -585,49 +444,34 @@ function NewBranchModal({ baseBranch, saving, onCancel, onSubmit }: NewBranchMod
   const slug = toBranchSlug(name);
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-surface-scrim flex items-center justify-center p-4"
-      onClick={onCancel}
-    >
-      <div
-        className="bg-surface-panel rounded-lg shadow-lg w-full max-w-md p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-lg font-semibold text-text-primary mb-2">Save to a new branch</h2>
-        <p className="text-xs text-text-secondary mb-3">
-          Forks off <span className="font-mono">{baseBranch}</span> at its current HEAD,
-          writes your edits to the new branch, and switches the editor to it.
+    <Shell title="Save to a new branch" onClose={onCancel}>
+      <p className="fs-caption text-text-secondary mb-3 mt-0">
+        Forks off <span className="font-mono">{baseBranch}</span> at its current HEAD,
+        writes your edits to the new branch, and switches the editor to it.
+      </p>
+      <Input
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="my draft"
+      />
+      {name.trim() && (
+        <p className="fs-caption mt-1 text-text-tertiary">
+          Saved as <span className="font-mono">{slug}</span>
         </p>
-        <input
-          autoFocus
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="my draft"
-          className="w-full rounded border border-border-default px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-focus-ring"
-        />
-        {name.trim() && (
-          <p className="mt-1 text-[11px] text-text-tertiary">
-            Saved as <span className="font-mono">{slug}</span>
-          </p>
-        )}
-        <div className="flex justify-end gap-2 pt-3">
-          <button
-            onClick={onCancel}
-            className="rounded-md border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => name.trim() && onSubmit(slug)}
-            disabled={!name.trim() || saving}
-            className="rounded-md bg-emphasis px-3 py-1.5 text-xs font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-50"
-          >
-            {saving ? "Saving…" : "Save to branch"}
-          </button>
-        </div>
+      )}
+      <div className="flex justify-end gap-2 pt-3">
+        <Button onClick={onCancel}>Cancel</Button>
+        <Button
+          variant="primary"
+          loading={saving}
+          disabled={!name.trim()}
+          onClick={() => name.trim() && onSubmit(slug)}
+        >
+          Save to branch
+        </Button>
       </div>
-    </div>
+    </Shell>
   );
 }
 
@@ -647,50 +491,37 @@ function SaveCommentModal({ branch, saving, onCancel, onSubmit }: SaveCommentMod
   const [comment, setComment] = useState("");
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-surface-scrim flex items-center justify-center p-4"
-      onClick={onCancel}
-    >
-      <div
-        className="bg-surface-panel rounded-lg shadow-lg w-full max-w-md p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-lg font-semibold text-text-primary mb-2">
+    <Shell
+      title={
+        <>
           Save to <span className="font-mono">{branch}</span>
-        </h2>
-        <p className="fs-caption text-text-secondary mb-3">
-          Add an optional comment to describe this change.
-        </p>
-        <textarea
-          autoFocus
-          rows={3}
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          onKeyDown={(e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-              e.preventDefault();
-              if (!saving) onSubmit(comment);
-            }
-          }}
-          placeholder="Comment (optional)"
-          className="w-full resize-none rounded border border-border-default px-2 py-1.5 fs-body focus:outline-none focus:ring-1 focus:ring-focus-ring"
-        />
-        <div className="flex justify-end gap-2 pt-3">
-          <button
-            onClick={onCancel}
-            className="rounded-md border border-border-default px-3 py-1.5 fs-label text-text-secondary hover:bg-surface-hover"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onSubmit(comment)}
-            disabled={saving}
-            className="rounded-md bg-emphasis px-3 py-1.5 fs-label text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-50"
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </div>
+        </>
+      }
+      onClose={onCancel}
+    >
+      <p className="fs-caption text-text-secondary mb-3 mt-0">
+        Add an optional comment to describe this change.
+      </p>
+      <Textarea
+        autoFocus
+        rows={3}
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        onKeyDown={(e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+            e.preventDefault();
+            if (!saving) onSubmit(comment);
+          }
+        }}
+        placeholder="Comment (optional)"
+        className="resize-none"
+      />
+      <div className="flex justify-end gap-2 pt-3">
+        <Button onClick={onCancel}>Cancel</Button>
+        <Button variant="primary" loading={saving} onClick={() => onSubmit(comment)}>
+          Save
+        </Button>
       </div>
-    </div>
+    </Shell>
   );
 }

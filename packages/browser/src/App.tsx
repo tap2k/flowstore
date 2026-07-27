@@ -147,7 +147,7 @@ export function App() {
                   )}
                 </div>
               ) : (
-                <div className="fs-micro text-text-tertiary">Working locally</div>
+                <div className="fs-micro text-text-tertiary">runs locally in your browser</div>
               )}
             </div>
           ) : null}
@@ -208,8 +208,9 @@ export function App() {
                   icon={Sparkle}
                   label="Assistant — describe a spec change in natural language"
                   size="lg"
+                  variant="primary"
                   onClick={() => setChatOpen(true)}
-                  className="border-transparent bg-emphasis text-emphasis-fg shadow-elev-2 hover:border-transparent hover:bg-emphasis-hover"
+                  className="shadow-elev-2"
                 />
               )}
             </div>
@@ -261,6 +262,7 @@ function SaveStatePill() {
   const isDirty = useDirtyStore((s) => s.isDirty);
   const lastSavedAt = useDirtyStore((s) => s.lastSavedAt);
   const hasProject = useGithubProjectStore((s) => s.location !== null);
+  const githubPat = useSettingsStore((s) => s.githubPat);
   const [showChanges, setShowChanges] = useState(false);
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -270,6 +272,9 @@ function SaveStatePill() {
   }, [lastSavedAt]);
 
   if (!spec) return null;
+  // Without a PAT there is nowhere to save to — "Unsaved changes" would nag
+  // about an action the user can't take (localStorage autosave covers local).
+  if (isDirty && !githubPat.trim()) return null;
   if (isDirty) {
     // Only offer the diff when there's a GitHub project to compare against;
     // otherwise the pill is just a status indicator.
