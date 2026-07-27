@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "dev:site": "npm -w @flowstore/site run dev",
     "build:site": "npm -w @flowstore/site run build",
-    "preview:site": "npm -w @flowstore/site run preview"
+    "preview:site": "npm -w @flowstore/site run preview",
+    "build:compare": "npm -w @flowstore/browser run build:compare"
   },
   "devDependencies": {
     "typescript": "^5",

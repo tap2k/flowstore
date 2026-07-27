@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:compare": "tsc -b && BUILD_TARGET=compare vite build"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",

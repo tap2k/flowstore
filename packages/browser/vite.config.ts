@@ -1,8 +1,28 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 import fs from "node:fs";
+
+// BUILD_TARGET=compare (the compare.flowstore.org Pages project's build
+// command) roots the compare surface: compare.html is emitted as index.html
+// and the editor as create.html — SAME ORIGIN, so settings/keys/PAT share
+// between the two surfaces and in-browser graduation needs no export. The
+// default build (create.flowstore.org) is unchanged: editor at the root,
+// compare at /compare.html.
+function compareRootPlugin(): Plugin {
+  return {
+    name: "compare-root",
+    apply: "build",
+    // writeBundle (not generateBundle): Vite's own html plugin emits the
+    // entry pages late, so the reliable point is after files hit disk.
+    writeBundle(options) {
+      const dir = options.dir ?? path.resolve(__dirname, "dist");
+      fs.renameSync(path.join(dir, "index.html"), path.join(dir, "create.html"));
+      fs.renameSync(path.join(dir, "compare.html"), path.join(dir, "index.html"));
+    },
+  };
+}
 
 // Repo root holds AGENT-SPEC-PROMPT.txt, which the app bundles as a raw string
 // (`@root/AGENT-SPEC-PROMPT.txt?raw`) so the in-editor parser and the
@@ -24,7 +44,11 @@ function pagesHeaders(): Record<string, string> {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    ...(process.env.BUILD_TARGET === "compare" ? [compareRootPlugin()] : []),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
