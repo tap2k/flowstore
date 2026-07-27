@@ -4,6 +4,12 @@ import { generateStructuredJson } from "./structuredOutput";
 import { agentContextPreamble } from "./llmJson";
 import type { DeclaredVariable } from "./contextVars";
 
+// TODO(editor propagation): this generator is Spec-coupled (typed
+// VariableDecls, agent purpose, capabilities). When there is no Spec, the
+// editor should fall back to grounding generation on the system prompt
+// instead, like compare's generateVars/generateScenarios
+// (@flowstore/studies generate.ts) — exact shape to be decided.
+
 const SYSTEM_PROMPT = `You generate realistic test values for variables declared in an agent specification.
 
 Make values coherent — variables that describe a single user/persona should be consistent (a phone number, name, account id, balance, etc., should all describe the same plausible person). Use realistic-sounding values, NOT obvious placeholders like "Test User" or "12345".

@@ -242,11 +242,11 @@ export function ComparePage() {
                   </span>
                   <Button
                     size="sm"
-                    loading={s.suggesting}
-                    onClick={() => void s.suggestVars()}
+                    loading={s.generatingVars}
+                    onClick={() => void s.generateVars()}
                     disabled={placeholders.every((n) => (s.vars[n] ?? "").trim())}
                   >
-                    {s.suggesting ? "suggesting…" : "suggest values"}
+                    {s.generatingVars ? "generating…" : "generate values"}
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -265,8 +265,8 @@ export function ComparePage() {
                     </label>
                   ))}
                 </div>
-                {s.suggestError && (
-                  <div className="mt-1 text-[10px] text-state-error-fg">{s.suggestError}</div>
+                {s.generateVarsError && (
+                  <div className="mt-1 text-[10px] text-state-error-fg">{s.generateVarsError}</div>
                 )}
               </div>
             )}
@@ -276,10 +276,23 @@ export function ComparePage() {
               <label className="min-w-0 truncate text-[11px] font-medium text-text-tertiary">
                 scenarios (one user turn per line)
               </label>
-              <Button onClick={() => s.addScenario()} size="sm" icon={Plus} className="shrink-0">
-                scenario
-              </Button>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  size="sm"
+                  loading={s.generatingScenarios}
+                  onClick={() => void s.generateScenarios()}
+                  disabled={!s.prompt.trim()}
+                >
+                  {s.generatingScenarios ? "generating…" : "generate scenarios"}
+                </Button>
+                <Button onClick={() => s.addScenario()} size="sm" icon={Plus}>
+                  scenario
+                </Button>
+              </div>
             </div>
+            {s.generateScenariosError && (
+              <div className="mb-1 text-[10px] text-state-error-fg">{s.generateScenariosError}</div>
+            )}
 
             {/* No box around the list: inputs are already the recessed layer
                 (sunken-on-panel, same as the prompt column) — a bordered

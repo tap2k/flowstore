@@ -2,12 +2,13 @@ import { create } from "zustand";
 import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
 import { genId } from "@flowstore/core/ids";
 import { substituteVars } from "@flowstore/core/codegen/promptGenerator";
-import { generateStructuredJson } from "@flowstore/core/runtime/structuredOutput";
 import { translateBatch } from "@flowstore/core/runtime/translate";
 import {
   IDLE_CELL,
   cellKey,
   detectPlaceholders,
+  generateScenarios,
+  generateVars,
   parseStudyBundle,
   runMatrix,
 } from "@flowstore/studies";
@@ -28,8 +29,8 @@ import {
 // when it settles.
 
 // The engine's ResolveDispatch, backed by the shared settings store — and
-// the single "is this model dispatchable" predicate (run, translate, and
-// suggest all use it rather than respelling the provider/key check).
+// the single "is this model dispatchable" predicate (run, translate, and the
+// generators all use it rather than respelling the provider/key check).
 export function resolveForEngine(model: string) {
   const d = resolveDispatch(model);
   return d.provider && d.apiKey.trim()
@@ -72,8 +73,10 @@ interface CompareState {
   // exclusive with a full run.
   rowRunning: string | null;
   setupOpen: boolean;
-  suggesting: boolean;
-  suggestError: string | null;
+  generatingVars: boolean;
+  generateVarsError: string | null;
+  generatingScenarios: boolean;
+  generateScenariosError: string | null;
   // Per-column translate, mirroring the editor's SimulatePanel: manual
   // trigger, one batched call over uncached turns (cached by turn ts),
   // toggle swaps the bubble text to English.
@@ -100,7 +103,8 @@ interface CompareState {
   run: () => Promise<void>;
   runScenario: (s: Scenario) => Promise<void>;
   translateColumn: (key: string, turns: TranscriptTurn[]) => Promise<void>;
-  suggestVars: () => Promise<void>;
+  generateVars: () => Promise<void>;
+  generateScenarios: () => Promise<void>;
   captureGold: (scenarioId: string, column: number) => void;
 }
 
@@ -118,8 +122,10 @@ export const useCompareStore = create<CompareState>((set, get) => ({
   running: false,
   rowRunning: null,
   setupOpen: true,
-  suggesting: false,
-  suggestError: null,
+  generatingVars: false,
+  generateVarsError: null,
+  generatingScenarios: false,
+  generateScenariosError: null,
   translations: {},
   showTranslated: {},
   translating: null,
@@ -313,44 +319,51 @@ export const useCompareStore = create<CompareState>((set, get) => ({
   // user edits them before any run touches a model. Runs on the DEFAULT
   // model, like every assist (translate, watcher, generators) — the
   // incumbent is the system under test, never the tooling.
-  suggestVars: async () => {
+  generateVars: async () => {
     const { prompt, vars } = get();
     const names = detectPlaceholders(prompt).filter((n) => !(vars[n] ?? "").trim());
     if (names.length === 0) return;
     const d = resolveForEngine(useSettingsStore.getState().defaultModel);
     if (!d) {
-      set({ suggestError: "Suggesting values needs an API key for the default model (settings)." });
+      set({ generateVarsError: "Generating values needs an API key for the default model (settings)." });
       return;
     }
-    set({ suggesting: true, suggestError: null });
+    set({ generatingVars: true, generateVarsError: null });
     try {
-      const bag = await generateStructuredJson<Record<string, string>>(
-        d.provider,
-        d.apiKey,
-        d.wireModel,
-        {
-          baseUrl: d.baseUrl,
-          systemPrompt:
-            "You suggest plausible sample values for template variables in a conversational agent's system prompt, so the prompt can be test-run. Values are short strings.",
-          userPrompt: `Variables: ${names.join(", ")}\n\nSystem prompt:\n${prompt.slice(0, 8000)}`,
-          responseSchema: {
-            type: "OBJECT",
-            properties: Object.fromEntries(names.map((n) => [n, { type: "STRING" }])),
-            required: names,
-          },
-        },
-      );
-      set((s) => {
-        const next = { ...s.vars };
-        for (const n of names) {
-          if (typeof bag[n] === "string") next[n] = bag[n];
-        }
-        return { vars: next };
-      });
+      const bag = await generateVars(prompt, names, d);
+      set((s) => ({ vars: { ...s.vars, ...bag } }));
     } catch (e) {
-      set({ suggestError: e instanceof Error ? e.message : String(e) });
+      set({ generateVarsError: e instanceof Error ? e.message : String(e) });
     } finally {
-      set({ suggesting: false });
+      set({ generatingVars: false });
+    }
+  },
+
+  // Draft scenarios from the placeholder-filled prompt, grounded on the
+  // existing list so new ones cover different paths. Appends (addScenario
+  // prepends — generated rows read as "more", not "first").
+  generateScenarios: async () => {
+    const { prompt, vars, scenarios } = get();
+    if (!prompt.trim()) return;
+    const d = resolveForEngine(useSettingsStore.getState().defaultModel);
+    if (!d) {
+      set({
+        generateScenariosError:
+          "Generating scenarios needs an API key for the default model (settings).",
+      });
+      return;
+    }
+    set({ generatingScenarios: true, generateScenariosError: null });
+    try {
+      const fresh = await generateScenarios(filledPromptOf(prompt, vars), scenarios, d);
+      set((s) => ({
+        scenarios: [...s.scenarios, ...fresh],
+        selected: s.selected ?? fresh[0]?.id ?? null,
+      }));
+    } catch (e) {
+      set({ generateScenariosError: e instanceof Error ? e.message : String(e) });
+    } finally {
+      set({ generatingScenarios: false });
     }
   },
 
