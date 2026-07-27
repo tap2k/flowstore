@@ -976,13 +976,19 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         const sessionId = `prompt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         // Light the entry flow immediately — the sim starts there, so the graph
         // shouldn't sit dark until the first decode resolves. The watcher walks
-        // it forward from here.
+        // it forward from here. Only when attribution is ON: with the watcher
+        // off nothing advances the glow, and a frozen "current node" is a lie.
+        const attributionOn = useSettingsStore.getState().simulateAttribution;
         set({
           sessionId,
           systemPrompt,
           specSnapshot: spec,
-          currentFlowId: spec.agent.entry_flow_id,
-          traversedFlowIds: [spec.agent.entry_flow_id],
+          ...(attributionOn
+            ? {
+                currentFlowId: spec.agent.entry_flow_id,
+                traversedFlowIds: [spec.agent.entry_flow_id],
+              }
+            : {}),
         });
 
         if (spec.agent.chatbot_initiates) {
@@ -1531,3 +1537,19 @@ async function attributeTurn(
     console.warn("[flow-watcher] decode failed:", e);
   }
 }
+
+// Toggling attribution OFF mid-session must also clear the prompt-mode glow —
+// otherwise the last decoded state stays lit and reads as current. (Runner
+// sessions get exact attribution from events; the toggle doesn't apply.)
+useSettingsStore.subscribe((s, prev) => {
+  if (s.simulateAttribution || !prev.simulateAttribution) return;
+  const sim = useSimulateStore.getState();
+  if (!isPromptMode(sim.mode)) return;
+  useSimulateStore.setState({
+    currentFlowId: null,
+    traversedEdgeIds: [],
+    traversedFlowIds: [],
+    attribution: null,
+    attributionSeq: sim.attributionSeq + 1,
+  });
+});
