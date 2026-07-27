@@ -35,8 +35,9 @@ interface SettingsState {
   openrouterApiKey: string;
   // defaultModel is the ONE persisted model choice: the value used wherever
   // no explicit per-location pick is made (Generate vars/mocks/persona-from-
-  // name+notes; Translate). Must be structured-output-capable (Google Gemini
-  // or OpenAI) — strict-schema is the contract.
+  // name+notes; Translate; the flow watcher). Any dispatchable model works —
+  // structured output uses the provider's strict-schema mode where it exists
+  // and validated chat elsewhere (see core structuredOutput).
   defaultModel: string;
   // The four per-location picks are transient — seeded from defaultModel on
   // load, overridable in their UI spot for the session, never persisted and
@@ -282,21 +283,6 @@ export function hasKeyForModel(modelId: string, keyOverrides?: KeyOverrides): bo
   return false;
 }
 
-// Providers whose adapter implements strict structured output
-// (generateStructuredJson). OpenRouter / openai-compatible bare models don't,
-// so models that resolve to them can't back schema-constrained generation.
-const STRUCTURED_OUTPUT_PROVIDERS: ReadonlySet<ProviderId> = new Set([
-  "google",
-  "openai",
-]);
-
-// True iff the model dispatches to a provider that supports strict structured
-// output. Mirrors generateStructuredJson's provider switch so the picker
-// filter can't drift from what the runtime actually supports.
-export function supportsStructuredOutput(modelId: string): boolean {
-  const p = resolveDispatch(modelId).provider;
-  return p !== null && STRUCTURED_OUTPUT_PROVIDERS.has(p);
-}
 
 export function loadSavedSettings(): void {
   if (typeof window === "undefined") return;

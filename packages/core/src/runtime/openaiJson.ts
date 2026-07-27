@@ -22,8 +22,9 @@ interface GenerateJsonOpts {
 // Recursive walk: lowercase `type`, force additionalProperties:false on object
 // schemas, and ensure required lists every property (strict mode requires it).
 // Caller schemas already mark every property required so the required-list
-// rewrite is usually a no-op.
-function toJsonSchema(schema: unknown): unknown {
+// rewrite is usually a no-op. Exported: chatJson validates chat replies
+// against this same translation, so every route enforces one contract.
+export function toJsonSchema(schema: unknown): unknown {
   if (schema === null || typeof schema !== "object") return schema;
   if (Array.isArray(schema)) return schema.map(toJsonSchema);
   const inObj = schema as Record<string, unknown>;

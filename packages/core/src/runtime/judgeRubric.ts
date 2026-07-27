@@ -40,8 +40,9 @@ export async function judgeRubric(args: {
   provider: ProviderId;
   apiKey: string;
   model: string;
+  baseUrl?: string;
 }): Promise<RubricVerdict> {
-  const { rubric, transcript, provider, apiKey, model } = args;
+  const { rubric, transcript, provider, apiKey, model, baseUrl } = args;
 
   // Skip very short transcripts — judging a 1-turn opener is noise. The
   // Python reference uses 3 as the floor; mirror.
@@ -67,6 +68,7 @@ export async function judgeRubric(args: {
       {
         systemPrompt: SYSTEM_PROMPT,
         userPrompt: judgePrompt,
+        baseUrl,
         responseSchema: {
           type: "OBJECT",
           properties: {

@@ -53,9 +53,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const model = mode === "voice" ? voiceModel : agentModel;
   const dispatch = resolveDispatch(model);
   const apiKey = dispatch.apiKey;
-  // Rubric judging uses Gemini structured output and needs the Google key
-  // specifically. (Translate no longer does — it rides translateBatch on
-  // whatever dispatch the default model resolves to.)
   const googleApiKey = useSettingsStore((s) => s.googleApiKey);
   const setSimulateAgentModel = useSettingsStore((s) => s.setSimulateAgentModel);
   const simulateAttribution = useSettingsStore((s) => s.simulateAttribution);
@@ -348,7 +345,8 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       allRubrics.some((r) => r.id === id),
     );
     if (boundIds.length === 0) return;
-    if (!googleApiKey) {
+    const rubricJudge = resolveDispatch(judgeModel);
+    if (!rubricJudge.provider || !rubricJudge.apiKey.trim()) {
       setRubricVerdicts(
         Object.fromEntries(
           boundIds.map((id) => [
@@ -356,7 +354,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             {
               score: null,
               notes:
-                "judge skipped — no Google API key configured (rubric judging uses Gemini structured output)",
+                "judge skipped — no API key for the judge model (settings)",
             } satisfies RubricVerdict,
           ]),
         ),
@@ -379,6 +377,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           provider: judgeDispatch.provider,
           apiKey: judgeDispatch.apiKey,
           model: judgeDispatch.wireModel,
+          baseUrl: judgeDispatch.baseUrl,
         });
         patchRubricVerdict(id, verdict);
       }),
@@ -409,10 +408,11 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     }
     // Both are non-null: the early-return guard above ensures this, but we
     // capture them here so closures below see narrowed (non-nullable) types.
-    const { provider, apiKey, wireModel } = judgeDispatch as {
+    const { provider, apiKey, wireModel, baseUrl } = judgeDispatch as {
       provider: NonNullable<typeof judgeDispatch.provider>;
       apiKey: string;
       wireModel: string;
+      baseUrl?: string;
     };
     setEvaluating(true);
     setGuardrailVerdict(null);
@@ -431,6 +431,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           provider,
           apiKey,
           model: wireModel,
+          baseUrl,
         }).then(setGuardrailVerdict),
       );
 
@@ -457,6 +458,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
               provider,
               apiKey,
               model: wireModel,
+              baseUrl,
             });
             patchGoldTurnVerdict(idx, verdict);
           }),

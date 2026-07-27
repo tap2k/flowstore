@@ -39,7 +39,7 @@ import { providedVars } from "@flowstore/core/runtime/contextVars";
 import type { GuardrailVerdict } from "@flowstore/core/runtime/judgeGuardrails";
 import type { RubricVerdict } from "@flowstore/core/runtime/judgeRubric";
 import type { GoldTurnVerdict } from "@flowstore/core/runtime/judgeGoldTurn";
-import { resolveDispatch, supportsStructuredOutput, useSettingsStore } from "@/lib/store/settings";
+import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { buildTransitionTable } from "@flowstore/core/runtime/transitionTable";
 import {
   runFlowDecode,
@@ -589,9 +589,6 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     });
 
     const provider = creds.provider; // null-checked above
-    const canFixture = supportsStructuredOutput(
-      useSettingsStore.getState().simulatePersonaModel,
-    );
     const goalNote = { notes: `This persona's goal is to reach: ${label}.` };
     let systemPrompt = "";
     let llmVars: Record<string, unknown> = {};
@@ -608,10 +605,10 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         apiKey: creds.apiKey,
         model: creds.model,
       });
-      if (canFixture) {
+      {
         const declared = collectDeclaredVariables(spec);
         if (declared.length > 0) {
-          llmVars = await generateContextVars(spec, provider, creds.apiKey, creds.model, declared, goalNote);
+          llmVars = await generateContextVars(spec, provider, creds.apiKey, creds.model, declared, goalNote, creds.baseUrl);
         }
         const caps = collectMockableCapabilities(spec);
         if (caps.length > 0) {
@@ -623,6 +620,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
             caps,
             llmVars,
             goalNote,
+            creds.baseUrl,
           );
         }
       }
@@ -1497,11 +1495,9 @@ async function attributeTurn(
   // turn (rate-limit headroom for persona batches; cost on expensive models).
   if (!useSettingsStore.getState().simulateAttribution) return;
   const creds = readLlmCreds("extractor");
-  // The watcher needs strict structured JSON, which only Google/OpenAI provide
-  // (the canonical predicate — same gate the persona fixture generator uses).
-  // Any other provider, or a missing key → disable silently, no glow.
+  // Any dispatchable model works (structured output falls back to validated
+  // chat on openai-compatible routes); missing key → disable silently, no glow.
   if (!creds.provider || !creds.apiKey) return;
-  if (!supportsStructuredOutput(useSettingsStore.getState().defaultModel)) return;
 
   const seq = get().attributionSeq + 1;
   set({ attributionSeq: seq });
@@ -1514,6 +1510,7 @@ async function attributeTurn(
     // (kills the auto-run staleness) and later turns fix earlier ones.
     const steps = await runFlowDecode(spec, creds.provider, creds.apiKey, creds.model, {
       transcript,
+      baseUrl: creds.baseUrl,
     });
     // A newer turn or a reset/fork superseded this call.
     if (get().sessionId !== sessionId || get().attributionSeq !== seq) return;

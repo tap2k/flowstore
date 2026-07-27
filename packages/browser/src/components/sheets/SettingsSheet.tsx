@@ -158,13 +158,12 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           value={defaultModel}
           onChange={setGenerateModel}
           showUnconfigured
-          structuredOnly
           keyOverrides={{ google: google.trim(), openai: openai.trim() }}
           className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
         />
         <p className="text-[11px] text-zinc-500">
           Used wherever no explicit model is picked — generating personas,
-          variables and mocks, and translating transcripts. Pick a structured-output model (Gemini or GPT). 
+          variables and mocks, and translating transcripts.
         </p>
       </div>
 

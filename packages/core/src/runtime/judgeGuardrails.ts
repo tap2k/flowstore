@@ -82,8 +82,9 @@ export async function judgeGuardrails(args: {
   provider: ProviderId;
   apiKey: string;
   model: string;
+  baseUrl?: string;
 }): Promise<GuardrailVerdict> {
-  const { guardrails, systemPrompt, transcript, provider, apiKey, model } = args;
+  const { guardrails, systemPrompt, transcript, provider, apiKey, model, baseUrl } = args;
 
   // No early skip on empty guardrails/goals: hallucination grounding is
   // universal — we still judge whether the agent stayed grounded in its system
@@ -123,6 +124,7 @@ ${formatTranscript(transcript)}`;
       guardrails: { statement: string; met: string; reason: string }[];
       hallucinations: { claim: string; turn: number; reason: string }[];
     }>(provider, apiKey, model, {
+      baseUrl,
       systemPrompt: SYSTEM_PROMPT,
       userPrompt,
       responseSchema: {
