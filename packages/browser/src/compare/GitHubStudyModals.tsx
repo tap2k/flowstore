@@ -31,10 +31,13 @@ export function GitHubStudyOpenModal({
   onClose,
   onOpenSettings,
   onFiles,
+  onOpened,
 }: {
   onClose: () => void;
   onOpenSettings: () => void;
   onFiles: (files: Record<string, string>) => void;
+  /** Fires after onFiles with the repo the study came from. */
+  onOpened?: (loc: { owner: string; repo: string; ref: string }) => void;
 }) {
   const pat = useSettingsStore((s) => s.githubPat);
   const [client] = useState<Octokit | null>(() => (pat ? makeGitHubClient(pat) : null));
@@ -54,6 +57,7 @@ export function GitHubStudyOpenModal({
         return;
       }
       onFiles(files);
+      onOpened?.({ owner, repo, ref });
       onClose();
     } catch (e: unknown) {
       if (typeof e === "object" && e !== null && "status" in e && (e as { status: unknown }).status === 404) {
@@ -164,10 +168,13 @@ export function GitHubStudySaveModal({
   onClose,
   onOpenSettings,
   buildFiles,
+  onSaved,
 }: {
   onClose: () => void;
   onOpenSettings: () => void;
   buildFiles: () => Record<string, string>;
+  /** Fires on a successful push with the repo the study landed in. */
+  onSaved?: (loc: { owner: string; repo: string; ref: string }) => void;
 }) {
   const pat = useSettingsStore((s) => s.githubPat);
   const [client] = useState<Octokit | null>(() => (pat ? makeGitHubClient(pat) : null));
@@ -214,6 +221,7 @@ export function GitHubStudySaveModal({
         files,
         "Add compare study",
       );
+      onSaved?.({ owner: r.owner, repo: r.repo, ref: r.default_branch });
       setDone({ url: `https://github.com/${r.owner}/${r.repo}`, note });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save study");
@@ -238,6 +246,7 @@ export function GitHubStudySaveModal({
         buildFiles(),
         "Add compare study",
       );
+      onSaved?.({ owner: created.owner, repo: created.repo, ref: created.defaultBranch });
       setDone({ url: `https://github.com/${created.owner}/${created.repo}` });
     } catch (e) {
       if (isRepoNameTaken(e)) setError("A repo with that name already exists.");

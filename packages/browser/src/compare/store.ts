@@ -14,7 +14,12 @@ import {
 import type { CellState, Scenario } from "@flowstore/studies";
 import { DEFAULT_MODEL_ID, resolveDispatch } from "@/lib/store/settings";
 import { useSettingsStore } from "@/lib/store/settings";
-import { loadStudy, saveStudy, type StudyGold } from "./studyStorage";
+import {
+  loadStudy,
+  saveStudy,
+  type StudyGithubLocation,
+  type StudyGold,
+} from "./studyStorage";
 
 // Compare's state and actions, in the editor's store idiom (zustand; the
 // page renders, the store owns behavior). Hydrates once from studyStorage at
@@ -60,6 +65,8 @@ interface CompareState {
   // session; absent = imported).
   golds: Record<string, StudyGold>;
   vars: Record<string, string>;
+  // Repo the study came from / last landed in; null = local-only study.
+  github: StudyGithubLocation | null;
   running: boolean;
   // Scenario id of an in-flight single-row run (the sidebar ▶); mutually
   // exclusive with a full run.
@@ -85,6 +92,7 @@ interface CompareState {
   addModel: () => void;
   removeModel: (i: number) => void;
   setVar: (name: string, value: string) => void;
+  setGithubLocation: (loc: StudyGithubLocation | null) => void;
   clearStudy: () => void;
   applyBundle: (files: Record<string, string>) => void;
   loadExample: () => Promise<void>;
@@ -106,6 +114,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
   selected: initial.scenarios[0]?.id ?? null,
   golds: initial.golds,
   vars: initial.vars,
+  github: initial.github,
   running: false,
   rowRunning: null,
   setupOpen: true,
@@ -152,6 +161,8 @@ export const useCompareStore = create<CompareState>((set, get) => ({
 
   setVar: (name, value) => set((s) => ({ vars: { ...s.vars, [name]: value } })),
 
+  setGithubLocation: (loc) => set({ github: loc }),
+
   clearStudy: () =>
     set({
       prompt: "",
@@ -160,6 +171,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       cells: {},
       golds: {},
       vars: {},
+      github: null,
       translations: {},
       showTranslated: {},
       translateErrors: {},
@@ -177,6 +189,9 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       scenarios: parsed.scenarios,
       golds: parsed.golds,
       vars: parsed.vars,
+      // A bundle has no repo claim (the GitHub open flow re-stamps the
+      // location right after this — see ComparePage's onOpened wiring).
+      github: null,
       cells: {},
       translations: {},
       showTranslated: {},
@@ -295,15 +310,16 @@ export const useCompareStore = create<CompareState>((set, get) => ({
   },
 
   // Machine-assist on the TEST side only: the LLM proposes fill values, the
-  // user edits them before any run touches a model. Rides the shared
-  // structured-output dispatch on the incumbent model.
+  // user edits them before any run touches a model. Runs on the DEFAULT
+  // model, like every assist (translate, watcher, generators) — the
+  // incumbent is the system under test, never the tooling.
   suggestVars: async () => {
-    const { prompt, vars, models } = get();
+    const { prompt, vars } = get();
     const names = detectPlaceholders(prompt).filter((n) => !(vars[n] ?? "").trim());
     if (names.length === 0) return;
-    const d = resolveForEngine(models[0]);
+    const d = resolveForEngine(useSettingsStore.getState().defaultModel);
     if (!d) {
-      set({ suggestError: "Suggesting values needs an API key for your current model (settings)." });
+      set({ suggestError: "Suggesting values needs an API key for the default model (settings)." });
       return;
     }
     set({ suggesting: true, suggestError: null });
@@ -372,7 +388,7 @@ useCompareStore.subscribe((s) => {
   if (s.running || s.rowRunning !== null) return;
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    const { prompt, scenarios, models, cells, golds, vars } = useCompareStore.getState();
-    saveStudy({ prompt, scenarios, models, cells, golds, vars });
+    const { prompt, scenarios, models, cells, golds, vars, github } = useCompareStore.getState();
+    saveStudy({ prompt, scenarios, models, cells, golds, vars, github });
   }, 300);
 });

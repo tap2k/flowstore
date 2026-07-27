@@ -87,13 +87,33 @@ export function ComparePage() {
   return (
     <div className="flex h-screen flex-col bg-surface-sunken text-text-primary">
       <header className="flex items-center gap-4 border-b border-border-default bg-surface-panel px-6 py-3">
+        {/* Identity block, mirroring the editor's: connected → title + repo
+            link; local → brand + the privacy tagline. The wordmark also sits
+            bottom-left (BrandMark), matching the editor's canvas. */}
         <div className="flex min-w-0 flex-col">
-          <h1 className="truncate text-lg font-semibold leading-tight text-text-primary">flowstore</h1>
-          <div className="text-[11px] leading-tight text-text-tertiary">
-            runs locally in your browser
-          </div>
+          {s.github ? (
+            <>
+              <h1 className="fs-sectionTitle truncate text-text-primary">{s.github.repo}</h1>
+              <a
+                href={`https://github.com/${s.github.owner}/${s.github.repo}/tree/${s.github.ref}`}
+                target="_blank"
+                rel="noreferrer"
+                title={`${s.github.owner}/${s.github.repo}@${s.github.ref}`}
+                className="fs-data truncate leading-tight text-text-tertiary no-underline hover:text-text-primary"
+              >
+                {s.github.owner}/{s.github.repo}@{s.github.ref}
+              </a>
+            </>
+          ) : (
+            <>
+              <h1 className="fs-sectionTitle truncate text-text-primary">flowstore</h1>
+              <div className="text-[11px] leading-tight text-text-tertiary">
+                runs locally in your browser
+              </div>
+            </>
+          )}
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-1">
           <label
             className="flex items-center gap-1 text-[10px] text-text-tertiary"
             title="Your speech-to-text rate, dollars per minute of caller audio — prices the ASR line of the voice estimate (caller speech time modeled at ~150 wpm)"
@@ -147,7 +167,7 @@ export function ComparePage() {
           {/* A label, not an IconButton: it has to wrap the file input to keep
               the native picker one click away. Styled to match IconButton. */}
           <label
-            className="inline-flex size-7 cursor-pointer items-center justify-center rounded-2 border border-transparent text-text-secondary hover:border-border-default hover:bg-surface-hover"
+            className="inline-flex size-7 cursor-pointer items-center justify-center rounded-2 border border-transparent bg-transparent text-text-secondary transition-[background-color,border-color,color] duration-[90ms] ease-standard hover:border-border-default hover:bg-surface-hover active:bg-surface-active"
             title="Upload study (.flowstore.json)"
             aria-label="Upload study"
           >
@@ -201,8 +221,8 @@ export function ComparePage() {
       </header>
 
       {s.setupOpen && (
-        <div className="grid grid-cols-2 gap-4 border-b border-border-default bg-surface-panel px-4 py-3">
-          <div className="flex flex-col">
+        <div className="grid grid-cols-2 border-b border-border-default bg-surface-panel px-4 py-3">
+          <div className="flex flex-col pr-4">
             <div className="mb-1 flex h-6 items-center">
               <label className="text-[11px] font-medium text-text-tertiary">
                 system prompt (run verbatim on every model)
@@ -251,17 +271,20 @@ export function ComparePage() {
               </div>
             )}
           </div>
-          <div className="flex min-w-0 flex-col">
-            <div className="mb-1 flex h-6 items-center justify-between">
-              <label className="text-[11px] font-medium text-text-tertiary">
+          <div className="flex min-w-0 flex-col border-l border-border-subtle pl-4">
+            <div className="mb-1 flex h-6 items-center justify-between gap-2">
+              <label className="min-w-0 truncate text-[11px] font-medium text-text-tertiary">
                 scenarios (one user turn per line)
               </label>
-            <Button onClick={() => s.addScenario()} size="sm" icon={Plus}>
-              scenario
-            </Button>
+              <Button onClick={() => s.addScenario()} size="sm" icon={Plus} className="shrink-0">
+                scenario
+              </Button>
             </div>
 
-            <div className="flex h-48 flex-col gap-2 overflow-y-auto rounded border border-border-default bg-surface-panel p-2">
+            {/* No box around the list: inputs are already the recessed layer
+                (sunken-on-panel, same as the prompt column) — a bordered
+                wrapper here reads as a third, redundant surface. */}
+            <div className="flex h-48 flex-col gap-3 overflow-y-auto pr-1">
             {s.scenarios.map((sc, i) => (
               <div key={sc.id}>
                 <div className="mb-1 flex items-center gap-2">
@@ -496,6 +519,7 @@ export function ComparePage() {
             setSettingsOpen(true);
           }}
           onFiles={s.applyBundle}
+          onOpened={s.setGithubLocation}
         />
       )}
       {githubSaveOpen && (
@@ -506,8 +530,14 @@ export function ComparePage() {
             setSettingsOpen(true);
           }}
           buildFiles={() => buildStudyBundle(study)}
+          onSaved={s.setGithubLocation}
         />
       )}
+      {/* Brand wordmark, bottom-left like the editor's canvas BrandMark
+          (Canvas.tsx) — same face as the public site's logo. */}
+      <span className="pointer-events-none fixed bottom-3 left-4 z-10 select-none font-mono text-base font-semibold tracking-tight text-text-tertiary">
+        flowstore
+      </span>
     </div>
   );
 }
@@ -579,5 +609,5 @@ function TurnBubble({ turn, displayText }: { turn: TranscriptTurn; displayText?:
 
 // Toolbar group separator, matching the editor toolbar's Divider.
 function Divider() {
-  return <span className="h-5 w-px bg-border-subtle" aria-hidden="true" />;
+  return <span className="mx-1 h-5 w-px bg-border-subtle" aria-hidden="true" />;
 }

@@ -10,6 +10,10 @@ import type { CapturedGold, CellState, Scenario } from "@flowstore/studies";
 // from this session (absent for golds that arrived via import).
 export type StudyGold = CapturedGold & { column?: number };
 
+// Which repo the study was opened from / last saved to. Local artifacts
+// (upload, example) carry no repo claim, mirroring the editor's rule.
+export type StudyGithubLocation = { owner: string; repo: string; ref: string };
+
 export type PersistedStudy = {
   prompt: string;
   scenarios: Scenario[];
@@ -19,6 +23,7 @@ export type PersistedStudy = {
   // Placeholder-fill values for the prompt's {{vars}} (fixture bag — the
   // prompt text itself is never rewritten).
   vars: Record<string, string>;
+  github: StudyGithubLocation | null;
 };
 
 export const EMPTY_STUDY: PersistedStudy = {
@@ -28,6 +33,7 @@ export const EMPTY_STUDY: PersistedStudy = {
   cells: {},
   golds: {},
   vars: {},
+  github: null,
 };
 
 const storage = createScopedJsonStorage<PersistedStudy>({
@@ -55,6 +61,13 @@ const storage = createScopedJsonStorage<PersistedStudy>({
             Object.entries(raw.vars).filter(([, v]) => typeof v === "string"),
           ) as Record<string, string>
         : {},
+      github:
+        isPlainObject(raw.github) &&
+        typeof raw.github.owner === "string" &&
+        typeof raw.github.repo === "string" &&
+        typeof raw.github.ref === "string"
+          ? { owner: raw.github.owner, repo: raw.github.repo, ref: raw.github.ref }
+          : null,
     };
   },
   isEmpty: (v) =>
