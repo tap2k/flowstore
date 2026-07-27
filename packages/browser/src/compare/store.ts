@@ -57,6 +57,9 @@ export function filledPromptOf(prompt: string, vars: Record<string, string>): st
 }
 
 interface CompareState {
+  // Stable per-study agent id (see studyStorage) — minted here, re-minted on
+  // clear, adopted from agent.json on bundle open.
+  agentId: string;
   prompt: string;
   scenarios: Scenario[];
   models: string[];
@@ -105,12 +108,14 @@ interface CompareState {
   translateColumn: (key: string, turns: TranscriptTurn[]) => Promise<void>;
   generateVars: () => Promise<void>;
   generateScenarios: () => Promise<void>;
+  openInEditor: () => void;
   captureGold: (scenarioId: string, column: number) => void;
 }
 
 const initial = loadStudy();
 
 export const useCompareStore = create<CompareState>((set, get) => ({
+  agentId: initial.agentId,
   prompt: initial.prompt,
   scenarios: initial.scenarios,
   models: initial.models.length > 0 ? initial.models : [DEFAULT_MODEL_ID, DEFAULT_MODEL_ID],
@@ -171,6 +176,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
 
   clearStudy: () =>
     set({
+      agentId: genId("agent"),
       prompt: "",
       scenarios: [],
       models: [DEFAULT_MODEL_ID, DEFAULT_MODEL_ID],
@@ -191,6 +197,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
     // maps the parsed study into state.
     const parsed = parseStudyBundle(files);
     set({
+      agentId: parsed.agentId ?? genId("agent"),
       prompt: parsed.prompt,
       scenarios: parsed.scenarios,
       golds: parsed.golds,
@@ -367,6 +374,15 @@ export const useCompareStore = create<CompareState>((set, get) => ({
     }
   },
 
+  // Graduation: land this study in the editor at "/" (same origin, same
+  // localStorage). Flushes the pending save first — navigation would kill the
+  // debounce timer — then navigates with the flag the editor's boot drain
+  // (lib/compareHandoff.ts) looks for.
+  openInEditor: () => {
+    flushStudy();
+    window.location.href = "/?study=compare";
+  },
+
   captureGold: (scenarioId, column) => {
     const { scenarios, cells } = get();
     const sc = scenarios.find((x) => x.id === scenarioId);
@@ -395,13 +411,20 @@ function patchCell(set: (fn: (s: CompareState) => Partial<CompareState>) => void
 // Persist the study — debounced, and never mid-run: every cell patch touches
 // `cells`, and serializing all transcripts to localStorage dozens of times
 // during a matrix run is pure waste. The run's settling state change fires
-// the one save that matters.
+// the one save that matters. flushStudy is the single snapshot-and-save,
+// shared with openInEditor's pre-navigation flush.
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+function flushStudy() {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  const { agentId, prompt, scenarios, models, cells, golds, vars, github } =
+    useCompareStore.getState();
+  saveStudy({ agentId, prompt, scenarios, models, cells, golds, vars, github });
+}
 useCompareStore.subscribe((s) => {
   if (s.running || s.rowRunning !== null) return;
   if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    const { prompt, scenarios, models, cells, golds, vars, github } = useCompareStore.getState();
-    saveStudy({ prompt, scenarios, models, cells, golds, vars, github });
-  }, 300);
+  saveTimer = setTimeout(flushStudy, 300);
 });

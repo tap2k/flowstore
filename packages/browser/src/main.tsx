@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "@/styles/globals.css";
 import { App } from "@/App";
 import { initAnalytics } from "@/lib/analytics";
+import { drainCompareHandoff } from "@/lib/compareHandoff";
 
 // /?ds renders the design-system gallery instead of the app — every atom in both
 // themes on one page. Dev-only, and lazily imported: a static import would ship
@@ -19,7 +20,12 @@ const Preview = import.meta.env.DEV
   ? lazy(() => import("@/components/ui/Preview").then((m) => ({ default: m.Preview })))
   : () => null;
 
-if (!designSystem) initAnalytics();
+if (!designSystem) {
+  initAnalytics();
+  // Compare's "open in editor" graduation — import the study before first
+  // render so the hydrated-or-imported spec is the dirty baseline.
+  drainCompareHandoff();
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -1,4 +1,5 @@
 import { createScopedJsonStorage, isPlainObject } from "@/lib/store/scopedStorage";
+import { genId } from "@flowstore/core/ids";
 import type { CapturedGold, CellState, Scenario } from "@flowstore/studies";
 
 // Compare's study state survives refresh the same way the editor's panel
@@ -15,6 +16,11 @@ export type StudyGold = CapturedGold & { column?: number };
 export type StudyGithubLocation = { owner: string; repo: string; ref: string };
 
 export type PersistedStudy = {
+  // Stable per-study agent id, kept for the study's life — the editor scopes
+  // canvas positions and persona buckets by it after graduation. Always
+  // present: minted here at the storage boundary (fresh and legacy payloads
+  // alike), so no downstream consumer handles its absence.
+  agentId: string;
   prompt: string;
   scenarios: Scenario[];
   models: string[];
@@ -26,7 +32,7 @@ export type PersistedStudy = {
   github: StudyGithubLocation | null;
 };
 
-export const EMPTY_STUDY: PersistedStudy = {
+export const EMPTY_STUDY: Omit<PersistedStudy, "agentId"> = {
   prompt: "",
   scenarios: [],
   models: [],
@@ -36,9 +42,18 @@ export const EMPTY_STUDY: PersistedStudy = {
   github: null,
 };
 
+export const freshStudy = (): PersistedStudy => ({ agentId: genId("agent"), ...EMPTY_STUDY });
+
+// One "study has nothing to run or graduate" predicate, shared by the send
+// side (ComparePage's open-in-editor gating) and the receive side (the
+// editor's handoff drain) so they can't drift. Distinct from the storage
+// isEmpty below, which decides persistence-worthiness.
+export const isStudyEmpty = (s: Pick<PersistedStudy, "prompt" | "scenarios">): boolean =>
+  !s.prompt.trim() && s.scenarios.length === 0;
+
 const storage = createScopedJsonStorage<PersistedStudy>({
   prefix: "flowstore:compare:study:",
-  defaultValue: () => EMPTY_STUDY,
+  defaultValue: freshStudy,
   validate: (raw) => {
     if (!isPlainObject(raw)) return null;
     if (typeof raw.prompt !== "string") return null;
@@ -51,6 +66,7 @@ const storage = createScopedJsonStorage<PersistedStudy>({
       cells[k] = v.status === "running" ? { ...v, status: "idle" } : v;
     }
     return {
+      agentId: typeof raw.agentId === "string" && raw.agentId ? raw.agentId : genId("agent"),
       prompt: raw.prompt,
       scenarios: raw.scenarios as Scenario[],
       models: (raw.models as string[]).filter((m) => typeof m === "string"),

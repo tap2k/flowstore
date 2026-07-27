@@ -27,6 +27,7 @@ import { SettingsSheet } from "@/components/sheets/SettingsSheet";
 import { useSettingsStore } from "@/lib/store/settings";
 import { downloadBlob } from "@/lib/download";
 import { activeVarsOf, resolveForEngine, useCompareStore } from "./store";
+import { isStudyEmpty } from "./studyStorage";
 import { GitHubStudyOpenModal, GitHubStudySaveModal } from "./GitHubStudyModals";
 
 // The compare tool: paste a prompt, edit scenarios, pick models, run the
@@ -69,6 +70,7 @@ export function ComparePage() {
     (c) => c.status === "done" || c.status === "error",
   ).length;
   const study = {
+    agentId: s.agentId,
     title: "Model comparison study",
     prompt: s.prompt,
     models: s.models,
@@ -81,7 +83,7 @@ export function ComparePage() {
   const BROWSER_REPORT_OPTS = {
     latencyNote: "Latency measured from the browser; production latency depends on deployment.",
     footer:
-      'Do you want to run studies like this on your own prompts and agents? Try out the tool — <a href="https://compare.flowstore.org">compare.flowstore.org</a>. Free, open source, runs in your browser; your prompt never leaves your machine.',
+      'Do you want to run studies like this on your own prompts and agents? Try out the tool — <a href="https://create.flowstore.org/compare.html">create.flowstore.org</a>. Free, open source, runs in your browser; your prompt never leaves your machine.',
   };
 
   return (
@@ -149,6 +151,17 @@ export function ComparePage() {
             disabled={busy || !s.prompt.trim() || s.scenarios.length === 0 || s.models.length === 0}
           >
             {s.running ? `running ${settledCells}/${totalCells}…` : "run all"}
+          </Button>
+          <Divider />
+          {/* Graduation: same-origin jump to the editor, which imports this
+              study from localStorage on boot (lib/compareHandoff.ts). */}
+          <Button
+            size="sm"
+            onClick={() => s.openInEditor()}
+            disabled={busy || isStudyEmpty(s)}
+            title="Open this study in the flow editor — prompt, scenarios, and golds come along"
+          >
+            open in editor →
           </Button>
           <Divider />
           <IconButton

@@ -29,7 +29,7 @@ export function buildReportHtml(
     "Latency measured client-side at run time; production latency depends on deployment.";
   const footer =
     opts.footer ??
-    'Do you want to run studies like this on your own prompts and agents? Try the tool — <a href="https://compare.flowstore.org">compare.flowstore.org</a>.';
+    'Do you want to run studies like this on your own prompts and agents? Try the tool — <a href="https://create.flowstore.org/compare.html">create.flowstore.org</a>.';
   const date = new Date().toISOString().slice(0, 10);
 
   const perModel = models.map((m, mi) => {

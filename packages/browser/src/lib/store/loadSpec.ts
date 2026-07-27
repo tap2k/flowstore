@@ -3,6 +3,7 @@ import type { TestingArtifacts } from "@flowstore/core/files";
 import type { ResolvedModelsConfig } from "@flowstore/core/files/models";
 import type { Comment } from "@flowstore/core/schema/files/comment";
 import { useSpecStore } from "./spec";
+import { useGithubProjectStore } from "./githubProject";
 import { useTestsStore } from "./tests";
 import { useModelsStore } from "./models";
 import { useCommentsStore } from "./comments";
@@ -56,4 +57,23 @@ export function loadSpec(spec: Spec | null, opts: LoadSpecOptions = {}): void {
   // and the discussion is scoped to it), so a swap starts a fresh transcript.
   // Persistence still survives a panel close / reload / HMR within one spec.
   useChatStore.getState().clear();
+}
+
+// The commit policy for PORTABLE artifacts — pasted specs, file/bundle
+// imports, the compare handoff: confirm before replacing a loaded spec, then
+// load and drop any GitHub claim. Imported specs have no claim to whichever
+// repo we were previously connected to; clearing means the next Save creates
+// a fresh repo, not an accidental overwrite. One function for the same
+// reason loadSpec is one function — per-call-site copies of the confirm +
+// clear pair drift. Returns false when the user declines (nothing changes).
+export function loadPortableSpec(spec: Spec, opts: LoadSpecOptions = {}): boolean {
+  if (
+    useSpecStore.getState().spec &&
+    !window.confirm("Replace the current spec? Unsaved changes will be lost.")
+  ) {
+    return false;
+  }
+  loadSpec(spec, opts);
+  useGithubProjectStore.getState().clear();
+  return true;
 }

@@ -44,7 +44,7 @@ const golds = {
   },
 };
 
-const files = buildStudyBundle({ prompt: "You are Asha, a clinic assistant.", models, scenarios, cells, golds });
+const files = buildStudyBundle({ agentId: "agent-test", prompt: "You are Asha, a clinic assistant.", models, scenarios, cells, golds });
 
 describe("buildStudyBundle", () => {
   it("every emitted file parses as JSON", () => {
@@ -112,6 +112,7 @@ describe("buildStudyBundle", () => {
 
   it("placeholder-fill vars ship as provided declarations + case fixtures, prompt untouched", () => {
     const withVars = buildStudyBundle({
+      agentId: "agent-test",
       prompt: "You are Asha at {{clinic_name}}.",
       models,
       scenarios,
@@ -134,6 +135,7 @@ describe("buildStudyBundle", () => {
 
   it("re-exporting an imported gold preserves its identity and blessing (no re-bless)", () => {
     const roundTrip = buildStudyBundle({
+      agentId: "agent-test",
       prompt: "p",
       models,
       scenarios,
@@ -164,6 +166,7 @@ describe("buildStudyBundle", () => {
 
   it("round-trips through parseStudyBundle — the writer's inverse", () => {
     const withVars = buildStudyBundle({
+      agentId: "agent-test",
       prompt: "You are Asha at {{clinic_name}}.",
       models,
       scenarios,
@@ -207,7 +210,7 @@ describe("buildStudyBundle", () => {
   });
 
   it("omits the gold section entirely when no golds were captured", () => {
-    const bare = buildStudyBundle({ prompt: "p", models, scenarios, cells });
+    const bare = buildStudyBundle({ agentId: "agent-test", prompt: "p", models, scenarios, cells });
     expect(Object.keys(bare).some((p) => p.startsWith("tests/gold/"))).toBe(false);
   });
 });

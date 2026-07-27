@@ -1,28 +1,16 @@
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 import fs from "node:fs";
 
-// BUILD_TARGET=compare (the compare.flowstore.org Pages project's build
-// command) roots the compare surface: compare.html is emitted as index.html
-// and the editor as create.html — SAME ORIGIN, so settings/keys/PAT share
-// between the two surfaces and in-browser graduation needs no export. The
-// default build (create.flowstore.org) is unchanged: editor at the root,
-// compare at /compare.html.
-function compareRootPlugin(): Plugin {
-  return {
-    name: "compare-root",
-    apply: "build",
-    // writeBundle (not generateBundle): Vite's own html plugin emits the
-    // entry pages late, so the reliable point is after files hit disk.
-    writeBundle(options) {
-      const dir = options.dir ?? path.resolve(__dirname, "dist");
-      fs.renameSync(path.join(dir, "index.html"), path.join(dir, "create.html"));
-      fs.renameSync(path.join(dir, "compare.html"), path.join(dir, "index.html"));
-    },
-  };
-}
+// ONE deployment, one origin (create.flowstore.org): editor at the root,
+// compare at /compare.html. Same origin means settings/keys/PAT and the
+// persisted study share between the two surfaces, so compare's "open in
+// editor" graduation (lib/compareHandoff.ts) needs no export.
+// compare.flowstore.org is a 301 to /compare.html here, configured at the
+// host — serving the files on a second domain would recreate two isolated
+// storage universes.
 
 // Repo root holds AGENT-SPEC-PROMPT.txt, which the app bundles as a raw string
 // (`@root/AGENT-SPEC-PROMPT.txt?raw`) so the in-editor parser and the
@@ -44,11 +32,7 @@ function pagesHeaders(): Record<string, string> {
 }
 
 export default defineConfig({
-  plugins: [
-    react(),
-    tailwindcss(),
-    ...(process.env.BUILD_TARGET === "compare" ? [compareRootPlugin()] : []),
-  ],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -70,7 +54,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, "index.html"),
-        // The compare tool (compare.flowstore.org) — a separate entry, not a
+        // The compare tool (/compare.html) — a separate entry, not a
         // route: the app has no router, and a second HTML entry needs no SPA
         // fallback on Pages.
         compare: path.resolve(__dirname, "compare.html"),

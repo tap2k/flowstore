@@ -32,6 +32,10 @@ export function buildStudyBundle(args: {
   scenarios: Scenario[];
   cells: Record<string, CellState>;
   golds?: Record<string, CapturedGold>;
+  // Stable per-study agent id (compare mints one per study and persists it).
+  // Agent-id-scoped editor state — canvas positions, persona/vars buckets —
+  // keys off this, so two studies must not share an id.
+  agentId: string;
   // Placeholder-fill values for the prompt's {{vars}}. The prompt stays
   // byte-verbatim; these ship as the session-start bag — declared
   // `provided` on the agent, valued on every case (the fixture overlay) —
@@ -51,7 +55,7 @@ export function buildStudyBundle(args: {
   files["flowstore.json"] = j({ $schema: "flowstore://spec/project/v0" });
   files["agent.json"] = j({
     $schema: "flowstore://spec/agent/v0",
-    id: "imported-agent",
+    id: args.agentId,
     name: "Imported agent (compare study)",
     // identity/purpose are file metadata here — with a full-override prompt
     // they never enter the compiled output. Required by the strict schema so
@@ -160,6 +164,9 @@ export function buildStudyBundle(args: {
 
 export type ParsedStudyBundle = {
   prompt: string;
+  // agent.json's id, when the bundle has one — round-trips study identity so
+  // a re-opened study keeps its editor-side buckets. Null: caller mints.
+  agentId: string | null;
   scenarios: Scenario[];
   // Keyed by scenario (case) id — the same keying buildStudyBundle writes.
   golds: Record<string, CapturedGold>;
@@ -169,7 +176,7 @@ export type ParsedStudyBundle = {
 
 export function parseStudyBundle(files: Record<string, string>): ParsedStudyBundle {
   const agent = files["agent.json"]
-    ? (JSON.parse(files["agent.json"]) as { system_prompt?: string })
+    ? (JSON.parse(files["agent.json"]) as { id?: string; system_prompt?: string })
     : {};
   const cases = Object.keys(files)
     .filter((k) => k.startsWith("tests/cases/") && k.endsWith(".test.json"))
@@ -239,5 +246,11 @@ export function parseStudyBundle(files: Record<string, string>): ParsedStudyBund
     }
   }
 
-  return { prompt: agent.system_prompt ?? "", scenarios, golds, vars };
+  return {
+    prompt: agent.system_prompt ?? "",
+    agentId: typeof agent.id === "string" && agent.id ? agent.id : null,
+    scenarios,
+    golds,
+    vars,
+  };
 }

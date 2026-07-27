@@ -11,7 +11,7 @@ vi.stubGlobal("window", {
   },
 });
 
-import { EMPTY_STUDY, loadStudy, saveStudy } from "./studyStorage";
+import { EMPTY_STUDY, freshStudy, loadStudy, saveStudy } from "./studyStorage";
 
 const KEY = "flowstore:compare:study:current";
 
@@ -20,6 +20,7 @@ afterEach(() => backing.clear());
 
 const study = () => ({
   ...EMPTY_STUDY,
+  agentId: "agent-test",
   prompt: "You are Asha.",
   scenarios: [{ id: "s1", scenarioId: "s1", name: "S1", language: "EN", turns: ["hi"] }],
   models: ["m0", "m1"],
@@ -47,15 +48,25 @@ describe("studyStorage", () => {
   it("saving an empty study removes the key instead of storing junk", () => {
     saveStudy(study());
     expect(backing.has(KEY)).toBe(true);
-    saveStudy(EMPTY_STUDY);
+    // agentId doesn't make a study persistence-worthy — every study has one.
+    saveStudy(freshStudy());
     expect(backing.has(KEY)).toBe(false);
   });
 
-  it("garbage and shape drift fall back to the empty study", () => {
+  it("garbage and shape drift fall back to a fresh empty study (agentId minted)", () => {
     backing.set(KEY, "not json{");
-    expect(loadStudy()).toEqual(EMPTY_STUDY);
+    expect(loadStudy()).toEqual({ ...EMPTY_STUDY, agentId: expect.any(String) });
     backing.set(KEY, JSON.stringify({ prompt: 42 }));
-    expect(loadStudy()).toEqual(EMPTY_STUDY);
+    expect(loadStudy()).toEqual({ ...EMPTY_STUDY, agentId: expect.any(String) });
+  });
+
+  it("legacy payloads without agentId get one minted on load", () => {
+    const { agentId: _dropped, ...legacy } = study();
+    backing.set(KEY, JSON.stringify(legacy));
+    const loaded = loadStudy();
+    expect(loaded.agentId).toEqual(expect.any(String));
+    expect(loaded.agentId).not.toBe("");
+    expect(loaded.prompt).toBe("You are Asha.");
   });
 
   it("drops non-string vars and non-string models on load", () => {

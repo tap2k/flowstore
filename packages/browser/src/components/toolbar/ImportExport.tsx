@@ -31,7 +31,7 @@ import {
   loadProject,
 } from "@flowstore/core/files";
 import { useModelsStore } from "@/lib/store/models";
-import { loadSpec, type LoadSpecOptions } from "@/lib/store/loadSpec";
+import { loadPortableSpec, loadSpec, type LoadSpecOptions } from "@/lib/store/loadSpec";
 import { useCommentsStore } from "@/lib/store/comments";
 import { useTestsStore } from "@/lib/store/tests";
 import { useUiStore } from "@/lib/store/ui";
@@ -246,14 +246,9 @@ export function ImportExportToolbar({
   function commitImport(parsed: unknown, opts?: LoadSpecOptions) {
     const result = validateSpec(parsed);
     if (!result.valid) return formatErrors(result.errors);
-    if (spec && !window.confirm("Replace the current spec? Unsaved changes will be lost.")) return null;
-    loadSpec(result.spec, opts);
-    // Imported specs are portable artifacts — they have no claim to whichever
-    // GitHub repo we were previously connected to. Clearing the connection
-    // means the next Save creates a fresh repo, not an accidental overwrite
-    // of the project we just navigated away from.
-    clearGithubProject();
-    setImportOpen(false);
+    // Portable-artifact policy (confirm + load + drop the GitHub claim)
+    // lives in loadPortableSpec, shared with the compare handoff drain.
+    if (loadPortableSpec(result.spec, opts)) setImportOpen(false);
     return null;
   }
 
