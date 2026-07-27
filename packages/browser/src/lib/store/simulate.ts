@@ -605,24 +605,22 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         apiKey: creds.apiKey,
         model: creds.model,
       });
-      {
-        const declared = collectDeclaredVariables(spec);
-        if (declared.length > 0) {
-          llmVars = await generateContextVars(spec, provider, creds.apiKey, creds.model, declared, goalNote, creds.baseUrl);
-        }
-        const caps = collectMockableCapabilities(spec);
-        if (caps.length > 0) {
-          llmMockReturns = await generateCapabilityMocks(
-            spec,
-            provider,
-            creds.apiKey,
-            creds.model,
-            caps,
-            llmVars,
-            goalNote,
-            creds.baseUrl,
-          );
-        }
+      const declared = collectDeclaredVariables(spec);
+      if (declared.length > 0) {
+        llmVars = await generateContextVars(spec, provider, creds.apiKey, creds.model, declared, goalNote, creds.baseUrl);
+      }
+      const caps = collectMockableCapabilities(spec);
+      if (caps.length > 0) {
+        llmMockReturns = await generateCapabilityMocks(
+          spec,
+          provider,
+          creds.apiKey,
+          creds.model,
+          caps,
+          llmVars,
+          goalNote,
+          creds.baseUrl,
+        );
       }
     } catch (e) {
       set({

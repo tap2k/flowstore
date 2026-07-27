@@ -24,9 +24,8 @@ import { loadPositions, savePositions, type Positions } from "./positions";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useAssistantChangesStore } from "@/lib/store/assistantChanges";
-import { validateGraph, groupIssuesByFlow, groupIssuesByEdge } from "@flowstore/core/validation/graphRules";
+import { validateGraph, groupIssuesByFlow, groupIssuesByEdge, isImportedFlowless } from "@flowstore/core/validation/graphRules";
 import { worstSeverity } from "@/lib/diagnostics";
-import { GENERATED_PLACEHOLDER } from "@flowstore/core/codegen/promptGenerator";
 import { loadProject } from "@flowstore/core/files";
 import { loadSpec } from "@/lib/store/loadSpec";
 import { parseSourceToSpec } from "@/lib/chat/specParse";
@@ -517,10 +516,8 @@ function CanvasInner({ spec }: { spec: Spec }) {
   }, [nodes, specId]);
 
   // Imported project (full-override prompt, zero flows): offer extraction.
-  const importedFlowless =
-    spec.flows.length === 0 &&
-    !!spec.agent.system_prompt &&
-    !spec.agent.system_prompt.includes(GENERATED_PLACEHOLDER);
+  // Same predicate the validator uses to suppress its advisories.
+  const importedFlowless = isImportedFlowless(spec);
 
   return (
     <div className="relative w-full h-full">

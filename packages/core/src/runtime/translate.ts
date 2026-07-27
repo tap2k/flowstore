@@ -1,4 +1,5 @@
-import { chat } from "../llm/dispatch";
+import { generateJsonChat } from "./chatJson";
+export { extractLooseJson } from "./jsonRecovery";
 
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
 
@@ -72,28 +73,6 @@ export async function translateBatchToEnglish(
   return Object.fromEntries(arr.map((x) => [x.id, x.translation]));
 }
 
-// Lenient JSON recovery for plain-chat structured replies: models wrap the
-// payload in prose or code fences despite instructions. Finds the outermost
-// JSON value between the first bracket and the last matching one. Shared by
-// every chat-plus-parse caller (translate fallback, compare's suggest-values).
-export function extractLooseJson(text: string): unknown {
-  for (const [open, close] of [
-    ["[", "]"],
-    ["{", "}"],
-  ] as const) {
-    const start = text.indexOf(open);
-    const end = text.lastIndexOf(close);
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(text.slice(start, end + 1));
-      } catch {
-        // fall through to the next bracket pair (or null)
-      }
-    }
-  }
-  return null;
-}
-
 // Dispatch-shaped credentials for translateBatch — mirrors what the surfaces'
 // resolveDispatch returns, so callers pass it straight through.
 export interface TranslateDispatch {
@@ -104,10 +83,11 @@ export interface TranslateDispatch {
 }
 
 // One entry point, best mechanism per provider: Google keeps the strict
-// responseSchema path above (byte-identical behavior); chat-capable providers
-// (OpenRouter et al.) get plain chat + lenient parse. Callers never branch on
-// mechanism — the id round-trip contract is the same on every path, and
-// missing ids degrade to the original text on the caller's side.
+// responseSchema path above (byte-identical behavior); everything else rides
+// generateJsonChat — the same validated chat + corrective-retry mechanism
+// every structured-output consumer uses. Callers never branch on mechanism;
+// the id round-trip contract is identical on every path, and missing ids
+// degrade to the original text on the caller's side.
 export async function translateBatch(
   items: TranslateItem[],
   dispatch: TranslateDispatch,
@@ -116,29 +96,31 @@ export async function translateBatch(
   if (dispatch.provider === "google") {
     return translateBatchToEnglish(items, dispatch.apiKey, dispatch.wireModel);
   }
-  const res = await chat(
+  const arr = await generateJsonChat<Array<{ id: string; translation: string }>>(
     dispatch.provider,
     dispatch.apiKey,
     dispatch.wireModel,
     {
+      baseUrl: dispatch.baseUrl,
       systemPrompt:
-        'Translate the "text" field of each item to English. ' +
-        'Reply with ONLY a JSON array with one object per input, each {"id", "translation"}, preserving each "id" exactly. ' +
-        "No commentary, no code fences.",
-      messages: [{ role: "user", content: JSON.stringify(items) }],
-      tools: [],
+        'Translate the "text" field of each item to English, preserving each "id" exactly.',
+      userPrompt: JSON.stringify(items),
+      responseSchema: TRANSLATE_SCHEMA,
     },
-    { baseUrl: dispatch.baseUrl },
   );
-  const parsed = extractLooseJson(res.text);
-  if (!Array.isArray(parsed)) {
-    throw new Error("Translate: the model's reply wasn't parseable JSON — try again.");
-  }
-  const out: Record<string, string> = {};
-  for (const x of parsed) {
-    if (x && typeof x === "object" && typeof x.id === "string" && typeof x.translation === "string") {
-      out[x.id] = x.translation;
-    }
-  }
-  return out;
+  return Object.fromEntries(arr.map((x) => [x.id, x.translation]));
 }
+
+// Shared shape for both mechanisms (the Gemini path embeds the same schema
+// in its generationConfig above).
+const TRANSLATE_SCHEMA = {
+  type: "ARRAY",
+  items: {
+    type: "OBJECT",
+    properties: {
+      id: { type: "STRING" },
+      translation: { type: "STRING" },
+    },
+    required: ["id", "translation"],
+  },
+};

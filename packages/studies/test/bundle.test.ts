@@ -4,7 +4,7 @@ import { validateFile } from "@flowstore/core/validation/ajv";
 import { GoldSchema } from "@flowstore/core/schema/files/gold";
 import { TestCaseSchema } from "@flowstore/core/schema/files/testCase";
 import { ResultSchema } from "@flowstore/core/schema/files/result";
-import { buildStudyBundle } from "../src/bundle";
+import { buildStudyBundle, parseStudyBundle } from "../src/bundle";
 import type { CellState, Scenario } from "../src/types";
 import { cellKey } from "../src/types";
 
@@ -160,6 +160,50 @@ describe("buildStudyBundle", () => {
     expect(spec?.flows).toEqual([]); // flowless imported project — accepted
     expect(testingArtifacts?.testCases).toHaveLength(2);
     expect(testingArtifacts?.golds).toHaveLength(1);
+  });
+
+  it("round-trips through parseStudyBundle — the writer's inverse", () => {
+    const withVars = buildStudyBundle({
+      prompt: "You are Asha at {{clinic_name}}.",
+      models,
+      scenarios,
+      cells,
+      golds: {
+        s1: { ...golds.s1, goldId: "gold-orig", blessedAt: "2026-07-01T00:00:00Z" },
+      },
+      vars: { clinic_name: "Sunrise Clinic" },
+    });
+    const parsed = parseStudyBundle(withVars);
+    expect(parsed.prompt).toBe("You are Asha at {{clinic_name}}.");
+    expect(parsed.scenarios).toEqual(scenarios);
+    expect(parsed.vars).toEqual({ clinic_name: "Sunrise Clinic" });
+    // Gold rebinds to its scenario with blessing/identity intact — so a
+    // re-export after import preserves them (no re-bless, no re-key).
+    expect(parsed.golds.s1?.goldId).toBe("gold-orig");
+    expect(parsed.golds.s1?.blessedAt).toBe("2026-07-01T00:00:00Z");
+    expect(parsed.golds.s1?.turns).toEqual(golds.s1.turns);
+  });
+
+  it("derives scenarios from golds' user turns when a project has no cases", () => {
+    const goldOnly = {
+      "agent.json": JSON.stringify({ system_prompt: "p" }),
+      "tests/gold/g1.gold.json": JSON.stringify({
+        id: "g1",
+        name: "From gold",
+        language: "HI",
+        scenario_id: "sc-1",
+        turns: [
+          { role: "user", text: "namaste" },
+          { role: "agent", text: "hello" },
+          { role: "user", text: "haan" },
+        ],
+      }),
+    };
+    const parsed = parseStudyBundle(goldOnly);
+    expect(parsed.scenarios).toEqual([
+      { id: "g1", scenarioId: "sc-1", name: "From gold", language: "HI", turns: ["namaste", "haan"] },
+    ]);
+    expect(parsed.golds.g1?.turns).toHaveLength(3);
   });
 
   it("omits the gold section entirely when no golds were captured", () => {

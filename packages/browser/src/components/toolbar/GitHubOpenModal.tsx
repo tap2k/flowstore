@@ -11,59 +11,21 @@ import { loadProject } from "@flowstore/core/files";
 import { loadSpec } from "@/lib/store/loadSpec";
 import { markProjectBaseline } from "@/lib/store/dirty";
 import { scaffoldNewProject } from "@flowstore/core/files/scaffold";
+import {
+  FLOWSTORE_TOPIC,
+  Shell,
+  parseGitHubUrl,
+  useRepoList,
+  type RepoSummary,
+} from "@/lib/githubUi";
 
 interface GitHubOpenModalProps {
   onClose: () => void;
   onOpenSettings: () => void;
 }
 
-interface RepoSummary {
-  full_name: string;
-  owner: string;
-  repo: string;
-  default_branch: string;
-  // From the list response's permissions.push — false for read-only
-  // collaborator / org-read access. Propagates into githubProject.canWrite
-  // so the editor knows up front that Save needs to route to "Save a copy."
-  canWrite: boolean;
-  // From the list response's permissions.admin — only owners/admins can
-  // manage collaborators, so the Share button is gated on this.
-  canAdmin: boolean;
-  // Repo topics returned by listForAuthenticatedUser. Powers the
-  // "flowstore-only" default filter — flowstore projects stamp the
-  // `flowstore` topic at create time so they show up here without
-  // probing each repo for agent.json.
-  topics: string[];
-}
-
-const FLOWSTORE_TOPIC = "flowstore";
-
 interface BranchSummary {
   name: string;
-}
-
-// Accepts: https://github.com/owner/repo[/tree/branch][/...]
-// or owner/repo shorthand. Returns null for anything that doesn't resolve.
-function parseGitHubUrl(input: string): { owner: string; repo: string; branch?: string } | null {
-  try {
-    const trimmed = input.trim();
-    let pathname: string;
-    try {
-      const url = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
-      if (url.hostname !== "github.com") return null;
-      pathname = url.pathname;
-    } catch {
-      pathname = `/${trimmed}`;
-    }
-    const parts = pathname.replace(/^\//, "").split("/").filter(Boolean);
-    if (parts.length < 2) return null;
-    const [owner, repo, maybeTree, ...branchParts] = parts;
-    const branch =
-      maybeTree === "tree" && branchParts.length > 0 ? branchParts.join("/") : undefined;
-    return { owner, repo: repo.replace(/\.git$/, ""), branch };
-  } catch {
-    return null;
-  }
 }
 
 export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProps) {
@@ -72,11 +34,10 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
   const setLoaded = useGithubProjectStore((s) => s.setLoaded);
 
   const [client] = useState<Octokit | null>(() => (pat ? makeGitHubClient(pat) : null));
-  const [repos, setRepos] = useState<RepoSummary[] | null>(null);
+  const { repos, loading: loadingRepos, error: repoListError } = useRepoList(client, pat);
   const [selectedRepoIdx, setSelectedRepoIdx] = useState<number>(-1);
   const [branches, setBranches] = useState<BranchSummary[] | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<string>("");
-  const [loadingRepos, setLoadingRepos] = useState(false);
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [openingProject, setOpeningProject] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,28 +52,6 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
   const [urlInput, setUrlInput] = useState("");
   const [urlError, setUrlError] = useState<string | null>(null);
   const [urlOpening, setUrlOpening] = useState(false);
-
-  useEffect(() => {
-    if (!client) return;
-    setLoadingRepos(true);
-    setError(null);
-    client.rest.repos
-      .listForAuthenticatedUser({ sort: "updated", per_page: 100, type: "all" })
-      .then((res) => {
-        const summaries: RepoSummary[] = res.data.map((r) => ({
-          full_name: r.full_name,
-          owner: r.owner.login,
-          repo: r.name,
-          default_branch: r.default_branch,
-          canWrite: r.permissions?.push ?? false,
-          canAdmin: r.permissions?.admin ?? false,
-          topics: r.topics ?? [],
-        }));
-        setRepos(summaries);
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to fetch repos"))
-      .finally(() => setLoadingRepos(false));
-  }, [client]);
 
   useEffect(() => {
     if (!client || selectedRepoIdx < 0 || !repos) {
@@ -380,9 +319,9 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
             </select>
           )}
         </div>
-        {error && (
+        {(error ?? repoListError) && (
           <div className="rounded border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
-            {error}
+            {error ?? repoListError}
           </div>
         )}
         {initOffer && (
@@ -450,30 +389,5 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
         )}
       </div>
     </Shell>
-  );
-}
-
-function Shell({
-  children,
-  onClose,
-  title,
-}: {
-  children: React.ReactNode;
-  onClose: () => void;
-  title: string;
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-lg shadow-lg w-full max-w-md p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-lg font-semibold text-zinc-900 mb-3">{title}</h2>
-        {children}
-      </div>
-    </div>
   );
 }

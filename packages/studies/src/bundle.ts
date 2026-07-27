@@ -149,3 +149,95 @@ export function buildStudyBundle(args: {
 
   return files;
 }
+
+// ---------------------------------------------------------------------------
+// The read side — buildStudyBundle's inverse, kept beside it so the
+// round-trip contract lives (and is tested) in one module. Tolerant of
+// arbitrary flowstore projects, not just our own bundles: scenarios come
+// from cases, or are derived from golds' user turns when a project ships
+// golds but no cases (replaying a blessed transcript IS a scripted case).
+// ---------------------------------------------------------------------------
+
+export type ParsedStudyBundle = {
+  prompt: string;
+  scenarios: Scenario[];
+  // Keyed by scenario (case) id — the same keying buildStudyBundle writes.
+  golds: Record<string, CapturedGold>;
+  // Placeholder-fill values, read back from the cases' fixture vars.
+  vars: Record<string, string>;
+};
+
+export function parseStudyBundle(files: Record<string, string>): ParsedStudyBundle {
+  const agent = files["agent.json"]
+    ? (JSON.parse(files["agent.json"]) as { system_prompt?: string })
+    : {};
+  const cases = Object.keys(files)
+    .filter((k) => k.startsWith("tests/cases/") && k.endsWith(".test.json"))
+    .map((k) => JSON.parse(files[k]) as Record<string, unknown>);
+  const goldFiles = Object.keys(files)
+    .filter((k) => k.startsWith("tests/gold/") && k.endsWith(".gold.json"))
+    .map((k) => JSON.parse(files[k]) as Record<string, unknown>);
+
+  const goldTurns = (g: Record<string, unknown>) =>
+    (Array.isArray(g.turns) ? g.turns : []) as { role: "agent" | "user"; text: string }[];
+
+  const scenarios: Scenario[] =
+    cases.length > 0
+      ? cases.map((c) => ({
+          id: String(c.id),
+          scenarioId: String(c.scenario_id ?? c.id),
+          name: String(c.name ?? c.id),
+          language: String(c.language ?? "EN"),
+          turns: Array.isArray(c.user_turns) ? c.user_turns.map(String) : [],
+        }))
+      : goldFiles.map((g) => ({
+          id: String(g.id),
+          scenarioId: String(g.scenario_id ?? g.id),
+          name: String(g.name ?? g.id),
+          language: String(g.language ?? "EN"),
+          turns: goldTurns(g)
+            .filter((t) => t.role === "user")
+            .map((t) => String(t.text)),
+        }));
+
+  // Rebind golds to scenarios: explicit case.gold_id first, then shared id
+  // (our own bundles key gold files by case id), then scenario_id+language.
+  const caseById = new Map(cases.map((c) => [String(c.id), c]));
+  const golds: Record<string, CapturedGold> = {};
+  for (const s of scenarios) {
+    const declared = caseById.get(s.id)?.gold_id;
+    const g =
+      goldFiles.find((g) => declared !== undefined && String(g.id) === String(declared)) ??
+      goldFiles.find((g) => String(g.id) === s.id) ??
+      goldFiles.find(
+        (g) =>
+          g.scenario_id !== undefined &&
+          String(g.scenario_id) === s.scenarioId &&
+          String(g.language ?? "EN") === s.language,
+      );
+    if (!g) continue;
+    golds[s.id] = {
+      scenarioId: s.scenarioId,
+      language: s.language,
+      name: s.name,
+      turns: goldTurns(g).map((t) => ({ role: t.role, text: String(t.text) })),
+      goldId: String(g.id),
+      blessedAt: typeof g.blessed_at === "string" ? g.blessed_at : undefined,
+      sourcePointer: typeof g.source_pointer === "string" ? g.source_pointer : undefined,
+    };
+  }
+
+  // Fill values ride the cases' fixture vars (every case carries the same
+  // study-global bag on export) — first non-empty value per key wins.
+  const vars: Record<string, string> = {};
+  for (const c of cases) {
+    if (!c.vars || typeof c.vars !== "object" || Array.isArray(c.vars)) continue;
+    for (const [k, v] of Object.entries(c.vars as Record<string, unknown>)) {
+      if (vars[k] === undefined && (typeof v === "string" || typeof v === "number")) {
+        vars[k] = String(v);
+      }
+    }
+  }
+
+  return { prompt: agent.system_prompt ?? "", scenarios, golds, vars };
+}

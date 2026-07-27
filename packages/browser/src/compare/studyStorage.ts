@@ -6,19 +6,19 @@ import type { CapturedGold, CellState, Scenario } from "@flowstore/studies";
 // One study slot for now ("current") — localStorage serves only the casual
 // tier; real continuity is the exported bundle / the study repo.
 
+// A study gold: the engine's CapturedGold plus which column it was captured
+// from this session (absent for golds that arrived via import).
+export type StudyGold = CapturedGold & { column?: number };
+
 export type PersistedStudy = {
   prompt: string;
   scenarios: Scenario[];
   models: string[];
   cells: Record<string, CellState>;
-  golds: Record<string, CapturedGold & { column?: number }>;
+  golds: Record<string, StudyGold>;
   // Placeholder-fill values for the prompt's {{vars}} (fixture bag — the
   // prompt text itself is never rewritten).
   vars: Record<string, string>;
-  // Cascade voice rates as entered (strings — they're input-box state).
-  // Stack-level facts, so the clear-study button leaves them alone.
-  asrPerMin: string;
-  ttsPerMChars: string;
 };
 
 export const EMPTY_STUDY: PersistedStudy = {
@@ -28,8 +28,6 @@ export const EMPTY_STUDY: PersistedStudy = {
   cells: {},
   golds: {},
   vars: {},
-  asrPerMin: "",
-  ttsPerMChars: "",
 };
 
 const storage = createScopedJsonStorage<PersistedStudy>({
@@ -57,8 +55,6 @@ const storage = createScopedJsonStorage<PersistedStudy>({
             Object.entries(raw.vars).filter(([, v]) => typeof v === "string"),
           ) as Record<string, string>
         : {},
-      asrPerMin: typeof raw.asrPerMin === "string" ? raw.asrPerMin : "",
-      ttsPerMChars: typeof raw.ttsPerMChars === "string" ? raw.ttsPerMChars : "",
     };
   },
   isEmpty: (v) =>
@@ -66,9 +62,7 @@ const storage = createScopedJsonStorage<PersistedStudy>({
     v.scenarios.length === 0 &&
     Object.keys(v.cells).length === 0 &&
     Object.keys(v.golds).length === 0 &&
-    Object.keys(v.vars).length === 0 &&
-    !v.asrPerMin &&
-    !v.ttsPerMChars,
+    Object.keys(v.vars).length === 0,
 });
 
 const STUDY_ID = "current";

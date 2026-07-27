@@ -34,6 +34,20 @@ export interface GraphIssue {
   severity?: "warning";
 }
 
+// A flowless project with a full-override system_prompt is an IMPORTED
+// project (compare-tool bundle: prompt pasted verbatim, spec entities not
+// yet extracted). That state is expected, not an authoring mistake — the
+// validator suppresses the entry-flow and missing-{{generated}} advisories
+// for it, and the editor offers extraction ("generate flows") on exactly the
+// same predicate. One definition so the two can't drift.
+export function isImportedFlowless(spec: Spec): boolean {
+  return (
+    spec.flows.length === 0 &&
+    !!spec.agent.system_prompt &&
+    !spec.agent.system_prompt.includes(GENERATED_PLACEHOLDER)
+  );
+}
+
 export function validateGraph(spec: Spec): GraphIssue[] {
   const issues: GraphIssue[] = [];
   const flowIds = new Set<string>();
@@ -48,16 +62,7 @@ export function validateGraph(spec: Spec): GraphIssue[] {
     flowIds.add(f.id);
   }
 
-  // A flowless project with a full-override system_prompt is an IMPORTED
-  // project (compare-tool bundle: prompt pasted verbatim, spec entities not
-  // yet extracted). That state is expected, not an authoring mistake — the
-  // entry-flow and missing-{{generated}} advisories below are suppressed for
-  // it. See SCHEMA.md § system_prompt.
-  const overridePrompt =
-    !!spec.agent.system_prompt &&
-    spec.agent.system_prompt.length > 0 &&
-    !spec.agent.system_prompt.includes(GENERATED_PLACEHOLDER);
-  const importedProject = spec.flows.length === 0 && overridePrompt;
+  const importedProject = isImportedFlowless(spec);
 
   if (!spec.agent.entry_flow_id) {
     if (!importedProject) {

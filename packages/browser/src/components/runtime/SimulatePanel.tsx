@@ -365,19 +365,19 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       Object.fromEntries(boundIds.map((id) => [id, "pending" as const])),
     );
     const finalTranscript = useSimulateStore.getState().transcript;
+    // rubricJudge was gate-checked above; the guard narrowed provider/apiKey.
+    const judgeProvider = rubricJudge.provider;
     await Promise.all(
       boundIds.map(async (id) => {
         const rubric = allRubrics.find((r) => r.id === id);
         if (!rubric) return;
-        const judgeDispatch = resolveDispatch(judgeModel);
-        if (!judgeDispatch.provider || !judgeDispatch.apiKey) return;
         const verdict = await judgeRubric({
           rubric,
           transcript: finalTranscript.map((t) => ({ role: t.role, text: t.text })),
-          provider: judgeDispatch.provider,
-          apiKey: judgeDispatch.apiKey,
-          model: judgeDispatch.wireModel,
-          baseUrl: judgeDispatch.baseUrl,
+          provider: judgeProvider,
+          apiKey: rubricJudge.apiKey,
+          model: rubricJudge.wireModel,
+          baseUrl: rubricJudge.baseUrl,
         });
         patchRubricVerdict(id, verdict);
       }),

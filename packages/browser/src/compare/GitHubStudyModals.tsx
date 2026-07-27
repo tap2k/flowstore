@@ -1,5 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSettingsStore } from "@/lib/store/settings";
+import {
+  FLOWSTORE_TOPIC,
+  Shell,
+  parseGitHubUrl,
+  toRepoSlug,
+  useRepoList,
+} from "@/lib/githubUi";
 import {
   Octokit,
   createRepo,
@@ -14,67 +21,6 @@ import {
 // SaveToNewRepoModal idioms (same PAT from the shared settings store, same
 // flowstore-topic filter, same modal shell). Git is the graduation bus:
 // compare pushes the study repo; the editor opens it — no bundle dance.
-
-interface RepoSummary {
-  full_name: string;
-  owner: string;
-  repo: string;
-  default_branch: string;
-  canWrite: boolean;
-  topics: string[];
-}
-
-const FLOWSTORE_TOPIC = "flowstore";
-
-// Accepts https://github.com/owner/repo[/tree/branch] or owner/repo shorthand.
-function parseGitHubUrl(input: string): { owner: string; repo: string; branch?: string } | null {
-  try {
-    const trimmed = input.trim();
-    let pathname: string;
-    try {
-      const url = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
-      if (url.hostname !== "github.com") return null;
-      pathname = url.pathname;
-    } catch {
-      pathname = `/${trimmed}`;
-    }
-    const parts = pathname.replace(/^\//, "").split("/").filter(Boolean);
-    if (parts.length < 2) return null;
-    const [owner, repo, maybeTree, ...branchParts] = parts;
-    const branch =
-      maybeTree === "tree" && branchParts.length > 0 ? branchParts.join("/") : undefined;
-    return { owner, repo: repo.replace(/\.git$/, ""), branch };
-  } catch {
-    return null;
-  }
-}
-
-function useRepoList(client: Octokit | null) {
-  const [repos, setRepos] = useState<RepoSummary[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    if (!client) return;
-    setLoading(true);
-    client.rest.repos
-      .listForAuthenticatedUser({ sort: "updated", per_page: 100, type: "all" })
-      .then((res) =>
-        setRepos(
-          res.data.map((r) => ({
-            full_name: r.full_name,
-            owner: r.owner.login,
-            repo: r.name,
-            default_branch: r.default_branch,
-            canWrite: r.permissions?.push ?? false,
-            topics: r.topics ?? [],
-          })),
-        ),
-      )
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to fetch repos"))
-      .finally(() => setLoading(false));
-  }, [client]);
-  return { repos, loading, error };
-}
 
 // ---------------------------------------------------------------------------
 // Open study from GitHub: repo → FileMap → onFiles (the page's applyBundle).
@@ -91,7 +37,7 @@ export function GitHubStudyOpenModal({
 }) {
   const pat = useSettingsStore((s) => s.githubPat);
   const [client] = useState<Octokit | null>(() => (pat ? makeGitHubClient(pat) : null));
-  const { repos, loading: loadingRepos, error: listError } = useRepoList(client);
+  const { repos, loading: loadingRepos, error: listError } = useRepoList(client, pat);
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const [urlInput, setUrlInput] = useState("");
   const [opening, setOpening] = useState(false);
@@ -231,17 +177,6 @@ export function GitHubStudyOpenModal({
 // agency workflow — the study lands in the client's repo) or a new one.
 // ---------------------------------------------------------------------------
 
-// GitHub repo names allow [A-Za-z0-9._-]; everything else collapses to a dash.
-function toRepoSlug(name: string): string {
-  return (
-    name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9._-]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "compare-study"
-  );
-}
-
 export function GitHubStudySaveModal({
   onClose,
   onOpenSettings,
@@ -253,7 +188,7 @@ export function GitHubStudySaveModal({
 }) {
   const pat = useSettingsStore((s) => s.githubPat);
   const [client] = useState<Octokit | null>(() => (pat ? makeGitHubClient(pat) : null));
-  const { repos, loading: loadingRepos, error: listError } = useRepoList(client);
+  const { repos, loading: loadingRepos, error: listError } = useRepoList(client, pat);
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const [newName, setNewName] = useState(
@@ -310,7 +245,7 @@ export function GitHubStudySaveModal({
     setError(null);
     try {
       const created = await createRepo(client, {
-        name: toRepoSlug(newName),
+        name: toRepoSlug(newName, "compare-study"),
         private: isPrivate,
         description: "Model comparison study (flowstore)",
       });
@@ -476,31 +411,5 @@ export function GitHubStudySaveModal({
         </button>
       </div>
     </Shell>
-  );
-}
-
-// Same modal shell as the editor's GitHub modals.
-function Shell({
-  children,
-  onClose,
-  title,
-}: {
-  children: React.ReactNode;
-  onClose: () => void;
-  title: string;
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-lg shadow-lg w-full max-w-md p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-lg font-semibold text-zinc-900 mb-3">{title}</h2>
-        {children}
-      </div>
-    </div>
   );
 }

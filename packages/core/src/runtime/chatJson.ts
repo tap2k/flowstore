@@ -1,7 +1,7 @@
 import Ajv, { type ValidateFunction } from "ajv";
 import { chat } from "../llm/dispatch";
 import type { ChatMessage, ProviderId } from "../llm/types";
-import { extractLooseJson } from "./translate";
+import { extractLooseJson } from "./jsonRecovery";
 import { toJsonSchema } from "./openaiJson";
 
 // Structured output over plain chat, for providers with no strict-schema

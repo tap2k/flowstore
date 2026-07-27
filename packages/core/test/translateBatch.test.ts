@@ -64,14 +64,29 @@ describe("translateBatch — chat fallback path", () => {
     );
   });
 
-  it("drops malformed entries instead of failing the batch", async () => {
-    mockChat.mockResolvedValue({
-      text: '[{"id":"1","translation":"ok"},{"id":2,"translation":"bad id"},{"id":"3"}]',
-      toolCalls: [],
-      stopReason: "end_turn",
-    });
-    const out = await translateBatch([{ id: "1", text: "x" }], dispatch);
-    expect(out).toEqual({ "1": "ok" });
+  it("a malformed batch triggers the corrective retry, then succeeds whole", async () => {
+    // Rides chatJson: schema validation rejects the bad entries and feeds the
+    // errors back rather than silently dropping items from the batch.
+    mockChat
+      .mockResolvedValueOnce({
+        text: '[{"id":"1","translation":"ok"},{"id":2,"translation":"bad id"}]',
+        toolCalls: [],
+        stopReason: "end_turn",
+      })
+      .mockResolvedValueOnce({
+        text: '[{"id":"1","translation":"ok"},{"id":"2","translation":"fixed"}]',
+        toolCalls: [],
+        stopReason: "end_turn",
+      });
+    const out = await translateBatch(
+      [
+        { id: "1", text: "x" },
+        { id: "2", text: "y" },
+      ],
+      dispatch,
+    );
+    expect(out).toEqual({ "1": "ok", "2": "fixed" });
+    expect(mockChat).toHaveBeenCalledTimes(2);
   });
 
   it("throws a retryable error when the reply has no JSON", async () => {

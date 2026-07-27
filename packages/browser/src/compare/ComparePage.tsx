@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
 import { genId } from "@flowstore/core/ids";
-import { sendPromptTurn } from "@flowstore/core/runtime/promptClient";
 import { substituteVars } from "@flowstore/core/codegen/promptGenerator";
-import { extractLooseJson, translateBatch } from "@flowstore/core/runtime/translate";
+import { generateStructuredJson } from "@flowstore/core/runtime/structuredOutput";
+import { translateBatch } from "@flowstore/core/runtime/translate";
 import {
   IDLE_CELL,
   buildReportHtml,
@@ -11,14 +11,15 @@ import {
   cellKey,
   detectPlaceholders,
   estimateVoiceCost,
+  parseStudyBundle,
   runMatrix,
 } from "@flowstore/studies";
-import type { CapturedGold, CellState, Scenario, VoiceRates } from "@flowstore/studies";
+import type { CellState, Scenario, VoiceRates } from "@flowstore/studies";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
 import { DEFAULT_MODEL_ID, resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { downloadBlob } from "@/lib/download";
-import { loadStudy, saveStudy } from "./studyStorage";
+import { loadStudy, saveStudy, type StudyGold } from "./studyStorage";
 import { GitHubStudyOpenModal, GitHubStudySaveModal } from "./GitHubStudyModals";
 
 // The compare tool: paste a prompt, edit scenarios, pick models, run the
@@ -46,20 +47,19 @@ export function ComparePage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [githubOpenOpen, setGithubOpenOpen] = useState(false);
   const [githubSaveOpen, setGithubSaveOpen] = useState(false);
-  // One gold per scenario id; `column` records which column it was captured
-  // from this session — absent for golds that arrived via import.
-  const [golds, setGolds] = useState<Record<string, CapturedGold & { column?: number }>>(
-    initial.golds,
-  );
+  // One gold per scenario id (see StudyGold: column = captured-from this
+  // session; absent = imported).
+  const [golds, setGolds] = useState<Record<string, StudyGold>>(initial.golds);
   // Placeholder-fill: values for the prompt's {{vars}}. The pasted prompt is
   // never rewritten — the fill is a session-compile bag applied at send time,
   // exactly the promptGenerator override semantics.
   const [vars, setVars] = useState<Record<string, string>>(initial.vars);
-  // Cascade voice rates (the user's ASR/TTS vendor pricing). Kept as raw
-  // input strings; parsed once into VoiceRates below. Stack-level facts —
-  // clear-study leaves them alone.
-  const [asrPerMin, setAsrPerMin] = useState(initial.asrPerMin);
-  const [ttsPerMChars, setTtsPerMChars] = useState(initial.ttsPerMChars);
+  // Cascade voice rates live in the settings store — stack-level facts
+  // like the API keys (they describe the user's vendors, not any one study).
+  const asrPerMin = useSettingsStore((s) => s.voiceAsrPerMin);
+  const setAsrPerMin = useSettingsStore((s) => s.setVoiceAsrPerMin);
+  const ttsPerMChars = useSettingsStore((s) => s.voiceTtsPerMChars);
+  const setTtsPerMChars = useSettingsStore((s) => s.setVoiceTtsPerMChars);
   const [suggesting, setSuggesting] = useState(false);
   const [suggestError, setSuggestError] = useState<string | null>(null);
   // Per-column translate, mirroring the editor's SimulatePanel: manual
@@ -69,22 +69,24 @@ export function ComparePage() {
   // parse on OpenRouter et al.) — gated on dispatchability, not on a
   // particular vendor key.
   const defaultModel = useSettingsStore((s) => s.defaultModel);
-  const translateReady = (() => {
-    const d = resolveDispatch(defaultModel);
-    return !!d.provider && !!d.apiKey.trim();
-  })();
   const [translations, setTranslations] = useState<Record<string, Map<number, string>>>({});
   const [showTranslated, setShowTranslated] = useState<Record<string, boolean>>({});
   const [translating, setTranslating] = useState<string | null>(null);
   const [translateErrors, setTranslateErrors] = useState<Record<string, string>>({});
 
+  // Persist the study — but not mid-run: every cell patch touches `cells`,
+  // and serializing all transcripts to localStorage dozens of times during a
+  // matrix run is pure waste. The run's final state flip re-arms the effect,
+  // so exactly one save fires when it settles.
+  const busyRef = running || rowRunning !== null;
   useEffect(() => {
+    if (busyRef) return;
     const t = setTimeout(
-      () => saveStudy({ prompt, scenarios, models, cells, golds, vars, asrPerMin, ttsPerMChars }),
+      () => saveStudy({ prompt, scenarios, models, cells, golds, vars }),
       300,
     );
     return () => clearTimeout(t);
-  }, [prompt, scenarios, models, cells, golds, vars, asrPerMin, ttsPerMChars]);
+  }, [busyRef, prompt, scenarios, models, cells, golds, vars]);
 
   // Parsed rates; a blank or non-numeric field contributes nothing, and with
   // both blank the voice estimate disappears everywhere.
@@ -115,13 +117,16 @@ export function ComparePage() {
   const patchCell = (key: string, patch: Partial<CellState>) =>
     setCells((prev) => ({ ...prev, [key]: { ...(prev[key] ?? IDLE_CELL), ...patch } }));
 
-  // The engine's ResolveDispatch, backed by the shared settings store.
+  // The engine's ResolveDispatch, backed by the shared settings store. Also
+  // the page's single "is this model dispatchable" predicate — translate and
+  // suggest reuse it rather than respelling the provider/key check.
   const resolveForEngine = (model: string) => {
     const d = resolveDispatch(model);
     return d.provider && d.apiKey.trim()
       ? { provider: d.provider, apiKey: d.apiKey, baseUrl: d.baseUrl, wireModel: d.wireModel }
       : null;
   };
+  const translateReady = resolveForEngine(defaultModel) !== null;
 
   async function run() {
     setRunning(true);
@@ -148,18 +153,16 @@ export function ComparePage() {
     if (running || rowRunning) return;
     setRowRunning(s.id);
     setSelected(s.id);
-    // Fresh transcripts for this row: drop its translation cache/toggles so
-    // the columns can't show stale glosses over new turns.
-    setTranslations((prev) => {
-      const next = { ...prev };
+    // Fresh transcripts for this row: drop its translation cache, toggles,
+    // and errors so the columns can't show stale glosses over new turns.
+    const dropRow = <T,>(rec: Record<string, T>): Record<string, T> => {
+      const next = { ...rec };
       for (let mi = 0; mi < models.length; mi++) delete next[cellKey(s.id, mi)];
       return next;
-    });
-    setShowTranslated((prev) => {
-      const next = { ...prev };
-      for (let mi = 0; mi < models.length; mi++) delete next[cellKey(s.id, mi)];
-      return next;
-    });
+    };
+    setTranslations(dropRow);
+    setShowTranslated(dropRow);
+    setTranslateErrors(dropRow);
     await runMatrix({
       systemPrompt: filledPrompt,
       scenarios: [s],
@@ -180,15 +183,15 @@ export function ComparePage() {
       setShowTranslated((p) => ({ ...p, [key]: false }));
       return;
     }
-    const d = resolveDispatch(defaultModel);
-    if (!d.provider || !d.apiKey.trim()) return; // button is gated on this
+    const dispatch = resolveForEngine(defaultModel);
+    if (!dispatch) return; // button is gated on this
     setTranslating(key);
     setTranslateErrors((p) => ({ ...p, [key]: "" }));
     try {
       if (uncached.length > 0) {
         const result = await translateBatch(
           uncached.map((t) => ({ id: String(t.ts), text: t.text })),
-          { provider: d.provider, apiKey: d.apiKey, baseUrl: d.baseUrl, wireModel: d.wireModel },
+          dispatch,
         );
         setTranslations((prev) => {
           const m = new Map(prev[key] ?? []);
@@ -205,40 +208,40 @@ export function ComparePage() {
   }
 
   // Machine-assist on the TEST side only: the LLM proposes fill values, the
-  // user edits them before any run touches a model. Plain chat + lenient JSON
-  // parse so it works on OpenRouter-routed models too (structured-output
-  // dispatch is Google/OpenAI-direct only).
+  // user edits them before any run touches a model. Rides the shared
+  // structured-output dispatch (strict schema on Google/OpenAI, validated
+  // chat elsewhere) on the incumbent model.
   async function suggestVars() {
     const names = placeholders.filter((n) => !(vars[n] ?? "").trim());
     if (names.length === 0) return;
-    const d = resolveDispatch(models[0]);
-    if (!d.provider || !d.apiKey.trim()) {
+    const d = resolveForEngine(models[0]);
+    if (!d) {
       setSuggestError("Suggesting values needs an API key for your current model (settings).");
       return;
     }
     setSuggesting(true);
     setSuggestError(null);
     try {
-      const res = await sendPromptTurn({
-        systemPrompt:
-          "You suggest plausible sample values for template variables in a conversational agent's system prompt, so the prompt can be test-run. Reply with ONLY a JSON object mapping every listed variable name to a short sample string value. No commentary, no code fences.",
-        history: [],
-        userText: `Variables: ${names.join(", ")}\n\nSystem prompt:\n${prompt.slice(0, 8000)}`,
-        apiKey: d.apiKey,
-        model: d.wireModel,
-        provider: d.provider,
-        baseUrl: d.baseUrl,
-      });
-      const parsed = extractLooseJson(res.text);
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        throw new Error("The model's reply wasn't parseable JSON — try again.");
-      }
-      const bag = parsed as Record<string, unknown>;
+      const bag = await generateStructuredJson<Record<string, string>>(
+        d.provider,
+        d.apiKey,
+        d.wireModel,
+        {
+          baseUrl: d.baseUrl,
+          systemPrompt:
+            "You suggest plausible sample values for template variables in a conversational agent's system prompt, so the prompt can be test-run. Values are short strings.",
+          userPrompt: `Variables: ${names.join(", ")}\n\nSystem prompt:\n${prompt.slice(0, 8000)}`,
+          responseSchema: {
+            type: "OBJECT",
+            properties: Object.fromEntries(names.map((n) => [n, { type: "STRING" }])),
+            required: names,
+          },
+        },
+      );
       setVars((prev) => {
         const next = { ...prev };
         for (const n of names) {
-          const v = bag[n];
-          if (typeof v === "string" || typeof v === "number") next[n] = String(v);
+          if (typeof bag[n] === "string") next[n] = bag[n];
         }
         return next;
       });
@@ -258,91 +261,16 @@ export function ComparePage() {
   }
 
   function applyBundle(files: Record<string, string>) {
-    const agent = files["agent.json"] ? JSON.parse(files["agent.json"]) : {};
-    const cases = Object.keys(files)
-      .filter((k) => k.startsWith("tests/cases/") && k.endsWith(".test.json"))
-      .map((k) => JSON.parse(files[k]));
-    const golds = Object.keys(files)
-      .filter((k) => k.startsWith("tests/gold/") && k.endsWith(".gold.json"))
-      .map((k) => JSON.parse(files[k]));
-    applyProject(agent, cases, golds);
-  }
-
-  function applyProject(
-    agent: { system_prompt?: string },
-    cases: Array<Record<string, unknown>>,
-    goldFiles: Array<Record<string, unknown>> = [],
-  ) {
-    const goldTurns = (g: Record<string, unknown>) =>
-      (Array.isArray(g.turns) ? g.turns : []) as { role: "agent" | "user"; text: string }[];
-
-    // Scenarios come from cases; when a project ships golds but no cases yet,
-    // the golds' user turns ARE the scenarios (replaying a blessed transcript
-    // is exactly what a scripted case does).
-    const nextScenarios: Scenario[] =
-      cases.length > 0
-        ? cases.map((c) => ({
-            id: String(c.id),
-            scenarioId: String(c.scenario_id ?? c.id),
-            name: String(c.name ?? c.id),
-            language: String(c.language ?? "EN"),
-            turns: Array.isArray(c.user_turns) ? c.user_turns.map(String) : [],
-          }))
-        : goldFiles.map((g) => ({
-            id: String(g.id),
-            scenarioId: String(g.scenario_id ?? g.id),
-            name: String(g.name ?? g.id),
-            language: String(g.language ?? "EN"),
-            turns: goldTurns(g)
-              .filter((t) => t.role === "user")
-              .map((t) => String(t.text)),
-          }));
-
-    // Rebind golds to scenarios: explicit case.gold_id first, then shared id
-    // (our own bundles key gold files by case id), then scenario_id+language.
-    const caseById = new Map(cases.map((c) => [String(c.id), c]));
-    const nextGolds: Record<string, CapturedGold & { column?: number }> = {};
-    for (const s of nextScenarios) {
-      const declared = caseById.get(s.id)?.gold_id;
-      const g =
-        goldFiles.find((g) => declared !== undefined && String(g.id) === String(declared)) ??
-        goldFiles.find((g) => String(g.id) === s.id) ??
-        goldFiles.find(
-          (g) =>
-            g.scenario_id !== undefined &&
-            String(g.scenario_id) === s.scenarioId &&
-            String(g.language ?? "EN") === s.language,
-        );
-      if (!g) continue;
-      nextGolds[s.id] = {
-        scenarioId: s.scenarioId,
-        language: s.language,
-        name: s.name,
-        turns: goldTurns(g).map((t) => ({ role: t.role, text: String(t.text) })),
-        goldId: String(g.id),
-        blessedAt: typeof g.blessed_at === "string" ? g.blessed_at : undefined,
-        sourcePointer: typeof g.source_pointer === "string" ? g.source_pointer : undefined,
-      };
-    }
-
-    // Fill values ride the cases' fixture vars (every case carries the same
-    // study-global bag on export) — first non-empty value per key wins.
-    const importedVars: Record<string, string> = {};
-    for (const c of cases) {
-      if (!c.vars || typeof c.vars !== "object" || Array.isArray(c.vars)) continue;
-      for (const [k, v] of Object.entries(c.vars as Record<string, unknown>)) {
-        if (importedVars[k] === undefined && (typeof v === "string" || typeof v === "number")) {
-          importedVars[k] = String(v);
-        }
-      }
-    }
-
-    setPrompt(agent.system_prompt ?? "");
-    setScenarios(nextScenarios);
-    setGolds(nextGolds);
-    setVars(importedVars);
+    // Parsing (scenarios from cases or golds, gold rebinding, fixture vars)
+    // lives beside buildStudyBundle in @flowstore/studies — the page only
+    // maps the parsed study into state.
+    const parsed = parseStudyBundle(files);
+    setPrompt(parsed.prompt);
+    setScenarios(parsed.scenarios);
+    setGolds(parsed.golds);
+    setVars(parsed.vars);
     setCells({});
-    setSelected(nextScenarios[0]?.id ?? null);
+    setSelected(parsed.scenarios[0]?.id ?? null);
     setSetupOpen(true);
   }
 

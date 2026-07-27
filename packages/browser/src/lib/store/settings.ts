@@ -13,6 +13,8 @@ const GITHUB_PAT_KEY = "flowstore:settings:github_pat";
 const SIM_ATTRIBUTION_KEY = "flowstore:settings:simulate_attribution";
 const GITHUB_LOGIN_KEY = "flowstore:settings:github_login";
 const GITHUB_NAME_KEY = "flowstore:settings:github_name";
+const VOICE_ASR_KEY = "flowstore:settings:voice_asr_per_min";
+const VOICE_TTS_KEY = "flowstore:settings:voice_tts_per_m_chars";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -67,6 +69,13 @@ interface SettingsState {
   // echo succeeds. Cleared if the PAT is removed or the echo fails.
   githubLogin: string;
   githubName: string;
+  // Cascade voice rates for compare's voice-cost estimate, as entered
+  // (raw input strings; compare parses). Stack-level facts like the API
+  // keys — they describe the user's ASR/TTS vendors, not any one study.
+  voiceAsrPerMin: string;
+  voiceTtsPerMChars: string;
+  setVoiceAsrPerMin: (v: string) => void;
+  setVoiceTtsPerMChars: (v: string) => void;
   setGoogleApiKey: (key: string) => void;
   setOpenaiApiKey: (key: string) => void;
   setOpenrouterApiKey: (key: string) => void;
@@ -121,6 +130,16 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   githubPat: "",
   githubLogin: "",
   githubName: "",
+  voiceAsrPerMin: "",
+  voiceTtsPerMChars: "",
+  setVoiceAsrPerMin: (v) => {
+    persistString(VOICE_ASR_KEY, v);
+    set({ voiceAsrPerMin: v });
+  },
+  setVoiceTtsPerMChars: (v) => {
+    persistString(VOICE_TTS_KEY, v);
+    set({ voiceTtsPerMChars: v });
+  },
   setGoogleApiKey: (key) => {
     persistString(KEY, key);
     set({ googleApiKey: key });
@@ -314,6 +333,10 @@ export function loadSavedSettings(): void {
       patch.simulateAttribution = false;
     }
     if (pat) patch.githubPat = pat;
+    const voiceAsr = window.localStorage.getItem(VOICE_ASR_KEY);
+    const voiceTts = window.localStorage.getItem(VOICE_TTS_KEY);
+    if (voiceAsr) patch.voiceAsrPerMin = voiceAsr;
+    if (voiceTts) patch.voiceTtsPerMChars = voiceTts;
     if (login) patch.githubLogin = login;
     if (name) patch.githubName = name;
     if (Object.keys(patch).length > 0) useSettingsStore.setState(patch);
