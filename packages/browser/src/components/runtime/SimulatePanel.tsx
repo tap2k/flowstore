@@ -16,7 +16,7 @@ import type { VoicePhase } from "@/lib/runtime/voiceSession";
 import { formatErrors, validateSpec } from "@flowstore/core/validation/ajv";
 import type { RuntimeEvent } from "@flowstore/core/runtime/eventTypes";
 import { formatEvent, formatValueTruncated } from "@flowstore/core/runtime/formatEvent";
-import { translateBatchToEnglish } from "@flowstore/core/runtime/translate";
+import { translateBatch } from "@flowstore/core/runtime/translate";
 import { ModelPicker } from "./ModelPicker";
 import { PersonaForm } from "./PersonaForm";
 import { PersonasPanel } from "./PersonasPanel";
@@ -53,8 +53,6 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const model = mode === "voice" ? voiceModel : agentModel;
   const dispatch = resolveDispatch(model);
   const apiKey = dispatch.apiKey;
-  // Translate uses Gemini structured output; needs the Google key
-  // specifically (not whichever provider the picker is on).
   const googleApiKey = useSettingsStore((s) => s.googleApiKey);
   const setSimulateAgentModel = useSettingsStore((s) => s.setSimulateAgentModel);
   const simulateAttribution = useSettingsStore((s) => s.simulateAttribution);
@@ -347,7 +345,8 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       allRubrics.some((r) => r.id === id),
     );
     if (boundIds.length === 0) return;
-    if (!googleApiKey) {
+    const rubricJudge = resolveDispatch(judgeModel);
+    if (!rubricJudge.provider || !rubricJudge.apiKey.trim()) {
       setRubricVerdicts(
         Object.fromEntries(
           boundIds.map((id) => [
@@ -355,7 +354,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             {
               score: null,
               notes:
-                "judge skipped — no Google API key configured (rubric judging uses Gemini structured output)",
+                "judge skipped — no API key for the judge model (settings)",
             } satisfies RubricVerdict,
           ]),
         ),
@@ -366,18 +365,19 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
       Object.fromEntries(boundIds.map((id) => [id, "pending" as const])),
     );
     const finalTranscript = useSimulateStore.getState().transcript;
+    // rubricJudge was gate-checked above; the guard narrowed provider/apiKey.
+    const judgeProvider = rubricJudge.provider;
     await Promise.all(
       boundIds.map(async (id) => {
         const rubric = allRubrics.find((r) => r.id === id);
         if (!rubric) return;
-        const judgeDispatch = resolveDispatch(judgeModel);
-        if (!judgeDispatch.provider || !judgeDispatch.apiKey) return;
         const verdict = await judgeRubric({
           rubric,
           transcript: finalTranscript.map((t) => ({ role: t.role, text: t.text })),
-          provider: judgeDispatch.provider,
-          apiKey: judgeDispatch.apiKey,
-          model: judgeDispatch.wireModel,
+          provider: judgeProvider,
+          apiKey: rubricJudge.apiKey,
+          model: rubricJudge.wireModel,
+          baseUrl: rubricJudge.baseUrl,
         });
         patchRubricVerdict(id, verdict);
       }),
@@ -408,10 +408,11 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     }
     // Both are non-null: the early-return guard above ensures this, but we
     // capture them here so closures below see narrowed (non-nullable) types.
-    const { provider, apiKey, wireModel } = judgeDispatch as {
+    const { provider, apiKey, wireModel, baseUrl } = judgeDispatch as {
       provider: NonNullable<typeof judgeDispatch.provider>;
       apiKey: string;
       wireModel: string;
+      baseUrl?: string;
     };
     setEvaluating(true);
     setGuardrailVerdict(null);
@@ -430,6 +431,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           provider,
           apiKey,
           model: wireModel,
+          baseUrl,
         }).then(setGuardrailVerdict),
       );
 
@@ -456,6 +458,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
               provider,
               apiKey,
               model: wireModel,
+              baseUrl,
             });
             patchGoldTurnVerdict(idx, verdict);
           }),
@@ -602,7 +605,14 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           ...uncachedTurns.map((t) => ({ id: String(t.ts), text: t.text })),
           ...uncachedGoldItems.map(({ idx, text }) => ({ id: `gold:${idx}`, text })),
         ];
-        const result = await translateBatchToEnglish(items, googleApiKey, defaultModel);
+        const d = resolveDispatch(defaultModel);
+        if (!d.provider || !d.apiKey.trim()) return; // button is gated on this
+        const result = await translateBatch(items, {
+          provider: d.provider,
+          apiKey: d.apiKey,
+          baseUrl: d.baseUrl,
+          wireModel: d.wireModel,
+        });
         setTranslations((prev) => {
           const next = new Map(prev);
           for (const [id, eng] of Object.entries(result)) {
@@ -631,7 +641,9 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     : showTranslated && !hasUncached
       ? "show original"
       : "translate";
-  const translateVisible = !!googleApiKey && transcript.some((t) => t.text);
+  const translateDispatch = resolveDispatch(defaultModel);
+  const translateVisible =
+    !!translateDispatch.provider && !!translateDispatch.apiKey.trim() && transcript.some((t) => t.text);
 
   function onKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -1045,7 +1057,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
               <button
                 onClick={onTranslate}
                 disabled={translating}
-                title="Translate agent and user messages to English using Gemini. Press again to refresh after new turns; press once more to show originals."
+                title="Translate agent and user messages to English. Press again to refresh after new turns; press once more to show originals."
                 className="rounded px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
               >
                 🌐 {translateLabel}
@@ -1085,7 +1097,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
               <button
                 onClick={onTranslate}
                 disabled={translating}
-                title="Translate agent and user messages to English using Gemini."
+                title="Translate agent and user messages to English."
                 className="rounded px-2 py-1 text-text-secondary hover:bg-surface-hover disabled:opacity-40"
               >
                 🌐 {translateLabel}

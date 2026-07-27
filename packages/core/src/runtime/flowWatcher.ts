@@ -48,6 +48,8 @@ export interface FlowDecodeArgs {
   // Cap on turns sent (from the end). Default: all. Windowing loses the walk's
   // start (the "from entry" anchor), so prefer whole transcripts for short sims.
   maxTurns?: number;
+  // Endpoint for openai-compatible dispatch; ignored by Google/OpenAI paths.
+  baseUrl?: string;
 }
 
 // One decoded step per agent turn, in order.
@@ -169,6 +171,7 @@ export async function runFlowDecode(
   args: FlowDecodeArgs,
 ): Promise<FlowPathStep[]> {
   const parsed = await generateStructuredJson<{ path: RawStep[] }>(provider, apiKey, model, {
+    baseUrl: args.baseUrl,
     systemPrompt: SYSTEM_PROMPT,
     userPrompt: buildDecodeUserPrompt(spec, args),
     // Mechanical classification over a large prompt (whole graph + transcript):

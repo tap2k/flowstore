@@ -43,5 +43,14 @@ export default defineConfig({
     // `?url` and must resolve to a real same-origin file — script-src allows
     // 'self' but not data:, so an inlined worklet fails to load under the CSP.
     assetsInlineLimit: 0,
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, "index.html"),
+        // The compare tool (compare.flowstore.org) — a separate entry, not a
+        // route: the app has no router, and a second HTML entry needs no SPA
+        // fallback on Pages.
+        compare: path.resolve(__dirname, "compare.html"),
+      },
+    },
   },
 });

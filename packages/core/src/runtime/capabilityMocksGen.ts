@@ -35,6 +35,7 @@ export async function generateCapabilityMocks(
   capabilities: MockableCapability[],
   contextVars: Record<string, unknown> = {},
   personaContext?: { name?: string; notes?: string },
+  baseUrl?: string,
 ): Promise<Record<string, Record<string, unknown>>> {
   if (capabilities.length === 0) return {};
 
@@ -106,6 +107,7 @@ export async function generateCapabilityMocks(
     apiKey,
     model,
     {
+      baseUrl,
       systemPrompt: SYSTEM_PROMPT,
       userPrompt,
       responseSchema: {

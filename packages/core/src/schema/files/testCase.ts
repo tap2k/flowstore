@@ -105,6 +105,16 @@ export const TestCaseSchema = Type.Object(
     // Language code for multilingual specs (e.g. "ES"). Required when spec declares >1 language;
     // runner fails loud rather than guessing.
     language: Type.Optional(Type.String()),
+    // Reference to the gold this case derives from or is graded against.
+    // Replaces the stale-prone "src:gold:<id>" tag convention for lineage
+    // (tags stay as annotation). Documented in SCHEMA.md's testing-artifact
+    // sketch since v0; implemented 2026-07.
+    gold_id: Type.Optional(Type.String()),
+    // Shared scenario identity across language variants: renderings of the
+    // same scenario in different languages are separate case files sharing a
+    // scenario_id (per-file `language` stays the selector). Study language
+    // columns join on this.
+    scenario_id: Type.Optional(Type.String()),
     // Suite-filter labels. Colon-namespace convention: "src:gold:<id>", "flow:<flow_id>", etc.
     // flow: tags are unvalidated annotation — not a coverage guarantee (stale silently on rename).
     // Bare tags for routing buckets ("negotiation", "after-grace"). Promote to field when earned.

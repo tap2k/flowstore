@@ -34,6 +34,20 @@ export interface GraphIssue {
   severity?: "warning";
 }
 
+// A flowless project with a full-override system_prompt is an IMPORTED
+// project (compare-tool bundle: prompt pasted verbatim, spec entities not
+// yet extracted). That state is expected, not an authoring mistake — the
+// validator suppresses the entry-flow and missing-{{generated}} advisories
+// for it, and the editor offers extraction ("generate flows") on exactly the
+// same predicate. One definition so the two can't drift.
+export function isImportedFlowless(spec: Spec): boolean {
+  return (
+    spec.flows.length === 0 &&
+    !!spec.agent.system_prompt &&
+    !spec.agent.system_prompt.includes(GENERATED_PLACEHOLDER)
+  );
+}
+
 export function validateGraph(spec: Spec): GraphIssue[] {
   const issues: GraphIssue[] = [];
   const flowIds = new Set<string>();
@@ -48,8 +62,12 @@ export function validateGraph(spec: Spec): GraphIssue[] {
     flowIds.add(f.id);
   }
 
+  const importedProject = isImportedFlowless(spec);
+
   if (!spec.agent.entry_flow_id) {
-    issues.push({ code: "entry-flow-missing", at: { kind: "global" }, message: "agent.entry_flow_id is missing" });
+    if (!importedProject) {
+      issues.push({ code: "entry-flow-missing", at: { kind: "global" }, message: "agent.entry_flow_id is missing" });
+    }
   } else if (!flowIds.has(spec.agent.entry_flow_id)) {
     issues.push({
       code: "entry-flow-unknown",
@@ -65,12 +83,16 @@ export function validateGraph(spec: Spec): GraphIssue[] {
     if (resolved.length > 0) {
       const first = resolved.indexOf(GENERATED_PLACEHOLDER);
       if (first < 0) {
-        issues.push({
-          code: "system-prompt-missing-generated",
-          at: { kind: "global" },
-          severity: "warning",
-          message: `agent.system_prompt omits ${GENERATED_PLACEHOLDER} — all spec-derived sections will be excluded from the compiled prompt`,
-        });
+        // Vacuous for a flowless imported project: there are no spec-derived
+        // sections to exclude yet.
+        if (!importedProject) {
+          issues.push({
+            code: "system-prompt-missing-generated",
+            at: { kind: "global" },
+            severity: "warning",
+            message: `agent.system_prompt omits ${GENERATED_PLACEHOLDER} — all spec-derived sections will be excluded from the compiled prompt`,
+          });
+        }
       } else if (resolved.indexOf(GENERATED_PLACEHOLDER, first + GENERATED_PLACEHOLDER.length) >= 0) {
         issues.push({
           code: "system-prompt-multiple-generated",

@@ -1,0 +1,121 @@
+import { addUsage, sendPromptTurn } from "@flowstore/core/runtime/promptClient";
+import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
+import type { ChatUsage } from "@flowstore/core/llm/types";
+import type { CellState, ModelDispatch, Scenario } from "./types";
+import { IDLE_CELL, cellKey } from "./types";
+
+// Resolves a model id to dispatch credentials, or null when the model can't
+// be dispatched (no key). Injected by the surface (browser settings store,
+// node CLI env) — the engine never reads config itself.
+export type ResolveDispatch = (model: string) => ModelDispatch | null;
+
+// Run one scenario against one model, reporting progress after every turn.
+export async function runCell(args: {
+  systemPrompt: string;
+  scenario: Scenario;
+  dispatch: ModelDispatch;
+  onUpdate: (patch: Partial<CellState>) => void;
+}): Promise<void> {
+  const { systemPrompt, scenario, dispatch, onUpdate } = args;
+  onUpdate({ status: "running", turns: [], usage: undefined, totalMs: 0, error: undefined });
+
+  const history: TranscriptTurn[] = [];
+  let usage: ChatUsage | undefined;
+  let totalMs = 0;
+  try {
+    for (const userText of scenario.turns) {
+      const userTurn: TranscriptTurn = { role: "user", text: userText, ts: Date.now(), events: [] };
+      onUpdate({ turns: [...history, userTurn] });
+      const started = Date.now();
+      const res = await sendPromptTurn({
+        systemPrompt,
+        history,
+        userText,
+        apiKey: dispatch.apiKey,
+        model: dispatch.wireModel,
+        provider: dispatch.provider,
+        baseUrl: dispatch.baseUrl,
+      });
+      const latencyMs = Date.now() - started;
+      totalMs += latencyMs;
+      usage = addUsage(usage, res.usage);
+      history.push(userTurn, { role: "agent", text: res.text, ts: Date.now(), events: [], latencyMs });
+      onUpdate({ turns: [...history], usage, totalMs });
+    }
+    onUpdate({ status: "done" });
+  } catch (err) {
+    onUpdate({ status: "error", error: err instanceof Error ? err.message : String(err) });
+  }
+}
+
+// The matrix: columns (models) in parallel, scenarios within a column
+// sequential; then the divergence pass vs column 0 (the incumbent). Owns the
+// whole engine policy so every surface (browser page, node CLI) shares it —
+// including setting `divergent`, which report/bundle consume. Returns the
+// final cells; emits every patch through onCell for live rendering.
+export async function runMatrix(args: {
+  systemPrompt: string;
+  scenarios: Scenario[];
+  models: string[];
+  resolveDispatch: ResolveDispatch;
+  onCell: (key: string, patch: Partial<CellState>) => void;
+}): Promise<Record<string, CellState>> {
+  const { systemPrompt, scenarios, models, resolveDispatch, onCell } = args;
+  const cells: Record<string, CellState> = {};
+  const emit = (key: string, patch: Partial<CellState>) => {
+    cells[key] = { ...(cells[key] ?? IDLE_CELL), ...patch };
+    onCell(key, patch);
+  };
+
+  await Promise.all(
+    models.map(async (model, mi) => {
+      for (const s of scenarios) {
+        const key = cellKey(s.id, mi);
+        // Resolved per cell on purpose: a key entered mid-run is picked up
+        // by the remaining scenarios in the column.
+        const dispatch = resolveDispatch(model);
+        if (!dispatch) {
+          emit(key, { status: "error", error: `No API key for ${model}.` });
+          continue;
+        }
+        await runCell({ systemPrompt, scenario: s, dispatch, onUpdate: (p) => emit(key, p) });
+      }
+    }),
+  );
+
+  for (const s of scenarios) {
+    const inc = cells[cellKey(s.id, 0)];
+    if (!inc || inc.status !== "done") continue;
+    for (let mi = 1; mi < models.length; mi++) {
+      const key = cellKey(s.id, mi);
+      const c = cells[key];
+      if (!c || c.status !== "done") continue;
+      emit(key, { divergent: divergence(inc.turns, c.turns) > DIVERGENCE_THRESHOLD });
+    }
+  }
+  return cells;
+}
+
+// Cheap lexical divergence between two columns' agent turns on the same
+// scenario: 1 - Jaccard over word sets. Deliberately not a verdict — it only
+// ranks where a human should look first.
+export function divergence(a: TranscriptTurn[], b: TranscriptTurn[]): number {
+  const words = (turns: TranscriptTurn[]) =>
+    new Set(
+      turns
+        .filter((t) => t.role === "agent")
+        .map((t) => t.text.toLowerCase())
+        .join(" ")
+        .split(/[^\p{L}\p{N}]+/u)
+        .filter(Boolean),
+    );
+  const wa = words(a);
+  const wb = words(b);
+  if (wa.size === 0 && wb.size === 0) return 0;
+  let inter = 0;
+  for (const w of wa) if (wb.has(w)) inter++;
+  const union = wa.size + wb.size - inter;
+  return union === 0 ? 0 : 1 - inter / union;
+}
+
+export const DIVERGENCE_THRESHOLD = 0.72;

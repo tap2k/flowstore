@@ -25,8 +25,9 @@ export async function judgeGoldTurn(args: {
   provider: ProviderId;
   apiKey: string;
   model: string;
+  baseUrl?: string;
 }): Promise<GoldTurnVerdict> {
-  const { goldTurn, liveTurn, provider, apiKey, model } = args;
+  const { goldTurn, liveTurn, provider, apiKey, model, baseUrl } = args;
   const userPrompt = USER_PROMPT_TEMPLATE.replace("{{gold}}", goldTurn).replace(
     "{{live}}",
     liveTurn,
@@ -39,6 +40,7 @@ export async function judgeGoldTurn(args: {
       {
         systemPrompt: SYSTEM_PROMPT,
         userPrompt,
+        baseUrl,
         responseSchema: {
           type: "OBJECT",
           properties: {

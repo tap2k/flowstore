@@ -162,6 +162,16 @@ export function FlowInspector() {
           />
         </Field>
 
+        <Field label="Model role">
+          <input
+            className={inputClass}
+            value={flow.model_role ?? ""}
+            onChange={(e) => patch({ model_role: e.target.value || undefined })}
+            placeholder={'Abstract tier, e.g. "strong" or "cheap" — resolved per deployment'}
+            title="Author-named capability requirement; the execution layer's roles map resolves it to a concrete model. The spec never names a model id."
+          />
+        </Field>
+
         {import.meta.env.VITE_DEV === "1" && (
           <Field label="Guardrails">
             <ListEditor<Guardrail>

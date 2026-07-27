@@ -194,6 +194,38 @@ describe("validateGraph", () => {
       expect(byCode(issues, "system-prompt-multiple-generated")).toEqual([]);
     });
   });
+
+  // A flowless project with a full-override prompt is an IMPORTED project
+  // (compare study bundle) — expected state, not an authoring mistake. The
+  // entry-flow and missing-{{generated}} advisories are suppressed exactly
+  // there and nowhere else.
+  describe("imported (flowless override) projects", () => {
+    it("accepts a flowless project with an override prompt clean", () => {
+      const issues = validateGraph(
+        spec({ entry: undefined, flows: [], system_prompt: "You are an imported agent." }),
+      );
+      expect(byCode(issues, "entry-flow-missing")).toEqual([]);
+      expect(byCode(issues, "system-prompt-missing-generated")).toEqual([]);
+      expect(issues).toEqual([]);
+    });
+
+    it("still warns missing-{{generated}} once flows exist", () => {
+      const issues = validateGraph(spec({ system_prompt: "You are an imported agent." }));
+      expect(byCode(issues, "system-prompt-missing-generated")).toHaveLength(1);
+    });
+
+    it("still flags a missing entry flow when the prompt is a template, not an override", () => {
+      const issues = validateGraph(
+        spec({ entry: undefined, flows: [], system_prompt: "Pre.\n\n{{generated}}" }),
+      );
+      expect(byCode(issues, "entry-flow-missing")).toHaveLength(1);
+    });
+
+    it("still flags a flowless project with no prompt at all", () => {
+      const issues = validateGraph(spec({ entry: undefined, flows: [], system_prompt: undefined }));
+      expect(byCode(issues, "entry-flow-missing")).toHaveLength(1);
+    });
+  });
 });
 
 describe("validateSpec (ajv)", () => {

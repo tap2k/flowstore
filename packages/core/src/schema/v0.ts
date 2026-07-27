@@ -287,6 +287,12 @@ export const FlowSchema = Type.Object(
     // does not affect the compiled monolithic prompt. Validator rejects ids
     // that don't resolve to an agent capability.
     tools: Type.Optional(Type.Array(Type.String())),
+    // Abstract capability requirement for this flow ("strong", "cheap", any
+    // author-named role). Resolves to a concrete model via the execution
+    // layer's roles map (models/*.json) — the spec never names a model id,
+    // per "execution separate from spec". Portable authoring intent; studies
+    // record and evaluate assignments against it.
+    model_role: Type.Optional(Type.String()),
   },
   strict
 );
@@ -302,15 +308,18 @@ export const AgentSchema = Type.Object(
     version: Type.Optional(Type.String()),
     meta: AgentMetaSchema,
     chatbot_initiates: Type.Optional(Type.Boolean()),
-    // Optional author-owned wrapper around the compiled system prompt.
-    // The placeholder `{{generated}}` expands to all spec-derived sections
-    // (role, guardrails, flows, knowledge…). Omitting the placeholder is a
-    // deliberate full override; codegen surfaces a warning but allows it.
-    // `{{variable}}` substitution applies just as in flow instructions.
-    // Single-language by design: this is LLM-facing framing the model reads,
-    // not a verbatim utterance, so it stays a plain string (the model handles
-    // multilingual reasoning natively). Only user-facing utterances — script
-    // text, FAQ answers, capability pending_message — are LocalizedString.
+    // Two modes, distinguished by content (see SCHEMA.md § system_prompt).
+    // WITH `{{generated}}`: a template — the placeholder expands to all
+    // spec-derived sections, and `{{variable}}` substitution applies as in
+    // flow instructions. WITHOUT `{{generated}}`: not a template — a verbatim
+    // document (a deliberate override, or a prompt imported from an existing
+    // deployment). Compiled without session vars it is byte-identical (its
+    // own {{placeholders}} intact); session compilation fills {{vars}} from
+    // the provided bag, as for templates. Imported agents enter flowstore in
+    // exactly that state; override compiles to itself, so the compiled
+    // artifact is always the system under test. Single-language by design:
+    // LLM-facing framing, not a verbatim utterance, so plain string — only
+    // user-facing utterances are LocalizedString.
     system_prompt: Type.Optional(Type.String()),
     variables: Type.Optional(Type.Record(Type.String(), VariableDeclSchema)),
     guardrails: Type.Optional(Type.Array(GuardrailSchema)),

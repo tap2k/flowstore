@@ -3,7 +3,6 @@ import type { ModelEntry } from "@flowstore/core/files/models";
 import {
   hasKeyForModel,
   resolveDispatch,
-  supportsStructuredOutput,
   useSettingsStore,
   type KeyOverrides,
 } from "@/lib/store/settings";
@@ -19,10 +18,6 @@ interface ModelPickerProps {
   // hidden. Set true if a screen wants to show the picker as-is for
   // discoverability and surface a separate "missing key" error on submit.
   showUnconfigured?: boolean;
-  // When true, only models whose provider supports strict structured output
-  // (Google / OpenAI) are listed — for pickers that back schema-constrained
-  // generation, where any other model would throw at dispatch.
-  structuredOnly?: boolean;
   // When true, only Live-capable (voice-tagged) models are listed — for the
   // Simulation panel's voice mode, which can only dispatch to a Live model.
   voiceOnly?: boolean;
@@ -43,7 +38,6 @@ export function ModelPicker({
   disabled,
   title,
   showUnconfigured = false,
-  structuredOnly = false,
   voiceOnly = false,
   keyOverrides,
 }: ModelPickerProps) {
@@ -65,7 +59,6 @@ export function ModelPicker({
 
   function filterEntry(id: string, m: ModelEntry): boolean {
     if (voiceOnly ? !m.voice : !!m.voice) return false;
-    if (structuredOnly && !supportsStructuredOutput(id)) return false;
     if (id === value) return true;
     if (!showUnconfigured && !hasKeyForModel(id, keyOverrides)) return false;
     return true;

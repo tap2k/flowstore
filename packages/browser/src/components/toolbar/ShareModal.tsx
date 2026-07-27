@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
+import { Shell } from "@/lib/githubUi";
 import {
   addCollaborator,
   cancelInvitation,
@@ -159,15 +160,19 @@ export function ShareModal({ onClose }: ShareModalProps) {
   const hasAnyone = collaborators.length > 0 || invitations.length > 0;
 
   return (
-    <Shell onClose={onClose}>
-      <h2 className="text-lg font-semibold text-text-primary">
-        Share{" "}
-        {location ? (
-          <span className="font-mono text-sm text-text-secondary">{location.repo}</span>
-        ) : (
-          "project"
-        )}
-      </h2>
+    <Shell
+      onClose={onClose}
+      title={
+        <>
+          Share{" "}
+          {location ? (
+            <span className="font-mono text-sm text-text-secondary">{location.repo}</span>
+          ) : (
+            "project"
+          )}
+        </>
+      }
+    >
 
       <div className="mt-4 flex gap-2">
         <input
@@ -300,18 +305,3 @@ function labelForPermission(p: string): string {
   }
 }
 
-function Shell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-surface-scrim flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-surface-panel rounded-lg shadow-lg w-full max-w-md p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}

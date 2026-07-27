@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toRepoSlug } from "@/lib/githubUi";
 import { useSettingsStore } from "@/lib/store/settings";
 import { useSpecStore } from "@/lib/store/spec";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
@@ -18,17 +19,6 @@ interface SaveToNewRepoModalProps {
   onOpenSettings: () => void;
 }
 
-// GitHub repo names allow [A-Za-z0-9._-]; everything else collapses to a dash.
-function toRepoSlug(name: string): string {
-  return (
-    name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9._-]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "untitled-agent"
-  );
-}
-
 // "Save to GitHub" / "New project" / "Save as a copy" all funnel here — the
 // op is identical (create a repo, write the current spec as the first
 // commit), only the seed spec differs. Creates the repo from whatever is in
@@ -44,7 +34,7 @@ export function SaveToNewRepoModal({ onClose, onOpenSettings }: SaveToNewRepoMod
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const slug = toRepoSlug(name);
+  const slug = toRepoSlug(name, "untitled-agent");
 
   if (!pat) {
     return (

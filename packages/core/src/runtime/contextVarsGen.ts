@@ -36,6 +36,7 @@ export async function generateContextVars(
   model: string,
   declared: DeclaredVariable[],
   personaContext?: { name?: string; notes?: string },
+  baseUrl?: string,
 ): Promise<Record<string, unknown>> {
   // Drop blank-named declarations: an empty/whitespace key is invalid in a
   // Gemini responseSchema ("properties[]: key cannot be empty") and couldn't
@@ -85,6 +86,7 @@ export async function generateContextVars(
   ].join("\n");
 
   const parsed = await generateStructuredJson<Record<string, unknown>>(provider, apiKey, model, {
+    baseUrl,
     systemPrompt: SYSTEM_PROMPT,
     userPrompt,
     responseSchema: {

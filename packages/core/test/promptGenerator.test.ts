@@ -92,6 +92,49 @@ describe("compileSystemPrompt — variable substitution", () => {
   });
 });
 
+// The settled import contract (2026-07-26): an override prompt (no
+// {{generated}}) compiles to ITSELF — compile is the identity when no vars are
+// passed, so the exported artifact is byte-verbatim the imported text with its
+// own {{placeholders}} intact; a session compile WITH a vars bag is the
+// runtime fill. These pin that rule so it can't regress silently.
+describe("compileSystemPrompt — override semantics (imported prompts)", () => {
+  const imported = "You are Asha at {{clinic_name}}. Greet {{patient_name}} politely.";
+
+  it("no vars → byte-identical, placeholders intact", () => {
+    const text = compileSystemPrompt(withTemplate(imported)).text;
+    expect(text).toBe(imported + "\n");
+    expect(text).toContain("{{clinic_name}}");
+    expect(text).toContain("{{patient_name}}");
+  });
+
+  it("an empty vars bag also leaves placeholders intact", () => {
+    const text = compileSystemPrompt(withTemplate(imported), {}).text;
+    expect(text).toBe(imported + "\n");
+  });
+
+  it("session compile with vars fills exactly the provided placeholders", () => {
+    const text = compileSystemPrompt(withTemplate(imported), {
+      clinic_name: "Sunrise Clinic",
+      patient_name: "Ravi",
+    }).text;
+    expect(text).toBe("You are Asha at Sunrise Clinic. Greet Ravi politely.\n");
+  });
+
+  it("a partial bag fills what it has and leaves the rest visible", () => {
+    const text = compileSystemPrompt(withTemplate(imported), { clinic_name: "Sunrise Clinic" }).text;
+    expect(text).toContain("Sunrise Clinic");
+    expect(text).toContain("{{patient_name}}");
+  });
+
+  it("null/undefined values leave the placeholder (missing var stays spottable)", () => {
+    const text = compileSystemPrompt(withTemplate(imported), {
+      clinic_name: null,
+      patient_name: undefined,
+    }).text;
+    expect(text).toBe(imported + "\n");
+  });
+});
+
 describe("compileSystemPrompt — multilingual", () => {
   // fnol-min declares en-US (default) + es-MX, with a localized script and an
   // en-US-only variation.

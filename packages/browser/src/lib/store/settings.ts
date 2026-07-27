@@ -13,6 +13,8 @@ const GITHUB_PAT_KEY = "flowstore:settings:github_pat";
 const SIM_ATTRIBUTION_KEY = "flowstore:settings:simulate_attribution";
 const GITHUB_LOGIN_KEY = "flowstore:settings:github_login";
 const GITHUB_NAME_KEY = "flowstore:settings:github_name";
+const VOICE_ASR_KEY = "flowstore:settings:voice_asr_per_min";
+const VOICE_TTS_KEY = "flowstore:settings:voice_tts_per_m_chars";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -35,8 +37,9 @@ interface SettingsState {
   openrouterApiKey: string;
   // defaultModel is the ONE persisted model choice: the value used wherever
   // no explicit per-location pick is made (Generate vars/mocks/persona-from-
-  // name+notes; Translate). Must be structured-output-capable (Google Gemini
-  // or OpenAI) — strict-schema is the contract.
+  // name+notes; Translate; the flow watcher). Any dispatchable model works —
+  // structured output uses the provider's strict-schema mode where it exists
+  // and validated chat elsewhere (see core structuredOutput).
   defaultModel: string;
   // The four per-location picks are transient — seeded from defaultModel on
   // load, overridable in their UI spot for the session, never persisted and
@@ -66,6 +69,13 @@ interface SettingsState {
   // echo succeeds. Cleared if the PAT is removed or the echo fails.
   githubLogin: string;
   githubName: string;
+  // Cascade voice rates for compare's voice-cost estimate, as entered
+  // (raw input strings; compare parses). Stack-level facts like the API
+  // keys — they describe the user's ASR/TTS vendors, not any one study.
+  voiceAsrPerMin: string;
+  voiceTtsPerMChars: string;
+  setVoiceAsrPerMin: (v: string) => void;
+  setVoiceTtsPerMChars: (v: string) => void;
   setGoogleApiKey: (key: string) => void;
   setOpenaiApiKey: (key: string) => void;
   setOpenrouterApiKey: (key: string) => void;
@@ -120,6 +130,16 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   githubPat: "",
   githubLogin: "",
   githubName: "",
+  voiceAsrPerMin: "",
+  voiceTtsPerMChars: "",
+  setVoiceAsrPerMin: (v) => {
+    persistString(VOICE_ASR_KEY, v);
+    set({ voiceAsrPerMin: v });
+  },
+  setVoiceTtsPerMChars: (v) => {
+    persistString(VOICE_TTS_KEY, v);
+    set({ voiceTtsPerMChars: v });
+  },
   setGoogleApiKey: (key) => {
     persistString(KEY, key);
     set({ googleApiKey: key });
@@ -213,11 +233,43 @@ export function resolveDispatch(modelId: string, keyOverrides?: KeyOverrides): R
   // A draft value (including "") for the resolved endpoint wins over the store.
   const keyFor = (e: EndpointId, stored: string) =>
     keyOverrides && keyOverrides[e] !== undefined ? keyOverrides[e]! : stored;
+  // OpenRouter fallback for native-endpoint models: a FALLBACK, never an
+  // override — with the native key present the picked route always wins.
+  // Only when the native key is absent and an OpenRouter key exists does the
+  // model dispatch there, under OpenRouter's vendor-prefixed id. Keeps "one
+  // OpenRouter key covers the whole matrix" true (and those calls return
+  // measured $). Voice (Live) entries are excluded — they are Google-only,
+  // and a fallback would swap the crisp "needs a Google key" error for a
+  // confusing OpenRouter 404. Structured-output callers are unaffected:
+  // provider resolves to openai-compatible, which their gate already rejects.
+  const openrouterFallback = (vendor: string): ResolvedDispatch | null => {
+    const orKey = keyFor("openrouter", s.openrouterApiKey);
+    if (!orKey.trim() || (entry as { voice?: boolean } | undefined)?.voice) return null;
+    return {
+      provider: "openai-compatible",
+      apiKey: orKey,
+      baseUrl: OPENROUTER_BASE_URL,
+      endpoint: "openrouter",
+      wireModel: `${vendor}/${wireModel}`,
+    };
+  };
   switch (endpoint) {
-    case "google":
-      return { provider: "google", apiKey: keyFor("google", s.googleApiKey), endpoint, wireModel };
-    case "openai":
-      return { provider: "openai", apiKey: keyFor("openai", s.openaiApiKey), endpoint, wireModel };
+    case "google": {
+      const apiKey = keyFor("google", s.googleApiKey);
+      if (!apiKey.trim()) {
+        const fb = openrouterFallback("google");
+        if (fb) return fb;
+      }
+      return { provider: "google", apiKey, endpoint, wireModel };
+    }
+    case "openai": {
+      const apiKey = keyFor("openai", s.openaiApiKey);
+      if (!apiKey.trim()) {
+        const fb = openrouterFallback("openai");
+        if (fb) return fb;
+      }
+      return { provider: "openai", apiKey, endpoint, wireModel };
+    }
     case "openrouter":
       return {
         provider: "openai-compatible",
@@ -250,21 +302,6 @@ export function hasKeyForModel(modelId: string, keyOverrides?: KeyOverrides): bo
   return false;
 }
 
-// Providers whose adapter implements strict structured output
-// (generateStructuredJson). OpenRouter / openai-compatible bare models don't,
-// so models that resolve to them can't back schema-constrained generation.
-const STRUCTURED_OUTPUT_PROVIDERS: ReadonlySet<ProviderId> = new Set([
-  "google",
-  "openai",
-]);
-
-// True iff the model dispatches to a provider that supports strict structured
-// output. Mirrors generateStructuredJson's provider switch so the picker
-// filter can't drift from what the runtime actually supports.
-export function supportsStructuredOutput(modelId: string): boolean {
-  const p = resolveDispatch(modelId).provider;
-  return p !== null && STRUCTURED_OUTPUT_PROVIDERS.has(p);
-}
 
 export function loadSavedSettings(): void {
   if (typeof window === "undefined") return;
@@ -296,6 +333,10 @@ export function loadSavedSettings(): void {
       patch.simulateAttribution = false;
     }
     if (pat) patch.githubPat = pat;
+    const voiceAsr = window.localStorage.getItem(VOICE_ASR_KEY);
+    const voiceTts = window.localStorage.getItem(VOICE_TTS_KEY);
+    if (voiceAsr) patch.voiceAsrPerMin = voiceAsr;
+    if (voiceTts) patch.voiceTtsPerMChars = voiceTts;
     if (login) patch.githubLogin = login;
     if (name) patch.githubName = name;
     if (Object.keys(patch).length > 0) useSettingsStore.setState(patch);
