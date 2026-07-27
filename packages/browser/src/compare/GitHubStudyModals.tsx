@@ -92,9 +92,9 @@ export function GitHubStudyOpenModal({
       <div className="space-y-3">
         {pat ? (
           <div>
-            <label className="text-xs font-medium text-zinc-700">Repository</label>
+            <label className="text-xs font-medium text-text-secondary">Repository</label>
             {loadingRepos ? (
-              <div className="mt-1 text-xs text-zinc-500">Loading…</div>
+              <div className="mt-1 text-xs text-text-tertiary">Loading…</div>
             ) : (
               <select
                 value={selectedIdx}
@@ -102,7 +102,7 @@ export function GitHubStudyOpenModal({
                   setSelectedIdx(Number(e.target.value));
                   setError(null);
                 }}
-                className="mt-1 w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                className="mt-1 w-full rounded border border-border-default px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-focus-ring"
               >
                 <option value={-1}>— select —</option>
                 {(repos ?? [])
@@ -117,12 +117,12 @@ export function GitHubStudyOpenModal({
             )}
           </div>
         ) : (
-          <div className="text-xs text-zinc-500">
+          <div className="text-xs text-text-tertiary">
             Add a GitHub PAT in settings to list your repos; public repos open by URL below.
           </div>
         )}
         <div>
-          <label className="text-xs font-medium text-zinc-700">
+          <label className="text-xs font-medium text-text-secondary">
             {pat ? "or paste a URL" : "Public repo URL"}
           </label>
           <input
@@ -136,11 +136,11 @@ export function GitHubStudyOpenModal({
               if (e.key === "Enter") void openSelection();
             }}
             placeholder="https://github.com/owner/repo"
-            className="mt-1 w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            className="mt-1 w-full rounded border border-border-default px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-focus-ring"
           />
         </div>
         {(error ?? listError) && (
-          <div className="rounded border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
+          <div className="rounded border border-state-error-line bg-state-error-bg px-2 py-1.5 text-xs text-state-error-fg">
             {error ?? listError}
           </div>
         )}
@@ -148,14 +148,14 @@ export function GitHubStudyOpenModal({
       <div className="flex justify-end gap-2 pt-3">
         <button
           onClick={onClose}
-          className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+          className="rounded-md border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover"
         >
           Cancel
         </button>
         {!pat && (
           <button
             onClick={onOpenSettings}
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+            className="rounded-md border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover"
           >
             Open Settings
           </button>
@@ -163,7 +163,7 @@ export function GitHubStudyOpenModal({
         <button
           onClick={() => void openSelection()}
           disabled={opening || (!urlInput.trim() && selectedIdx < 0)}
-          className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+          className="rounded-md bg-emphasis px-3 py-1.5 text-xs font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-50"
         >
           {opening ? "Opening…" : "Open"}
         </button>
@@ -267,19 +267,19 @@ export function GitHubStudySaveModal({
   if (!pat) {
     return (
       <Shell title="Save study to GitHub" onClose={onClose}>
-        <div className="text-xs text-zinc-500">
+        <div className="text-xs text-text-tertiary">
           Saving to GitHub needs a personal access token. Add one in settings.
         </div>
         <div className="flex justify-end gap-2 pt-3">
           <button
             onClick={onClose}
-            className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+            className="rounded-md border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover"
           >
             Cancel
           </button>
           <button
             onClick={onOpenSettings}
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+            className="rounded-md border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover"
           >
             Open Settings
           </button>
@@ -291,7 +291,7 @@ export function GitHubStudySaveModal({
   if (done) {
     return (
       <Shell title="Study saved" onClose={onClose}>
-        <div className="space-y-2 text-xs text-zinc-700">
+        <div className="space-y-2 text-xs text-text-secondary">
           <div>
             Pushed to{" "}
             <a href={done.url} target="_blank" rel="noreferrer" className="font-medium underline">
@@ -299,15 +299,15 @@ export function GitHubStudySaveModal({
             </a>
             .
           </div>
-          {done.note && <div className="text-amber-800">{done.note}</div>}
-          <div className="text-zinc-500">
+          {done.note && <div className="text-state-warning-fg">{done.note}</div>}
+          <div className="text-text-tertiary">
             It's a flowstore project — the editor opens it from GitHub as-is.
           </div>
         </div>
         <div className="flex justify-end pt-3">
           <button
             onClick={onClose}
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
+            className="rounded-md bg-emphasis px-3 py-1.5 text-xs font-medium text-emphasis-fg hover:bg-emphasis-hover"
           >
             Done
           </button>
@@ -319,7 +319,7 @@ export function GitHubStudySaveModal({
   return (
     <Shell title="Save study to GitHub" onClose={onClose}>
       <div className="space-y-3">
-        <div className="flex gap-1 rounded-md border border-zinc-200 p-0.5 text-xs">
+        <div className="flex gap-1 rounded-md border border-border-default p-0.5 text-xs">
           {(["existing", "new"] as const).map((m) => (
             <button
               key={m}
@@ -327,7 +327,7 @@ export function GitHubStudySaveModal({
                 setMode(m);
                 setError(null);
               }}
-              className={`flex-1 rounded px-2 py-1 ${mode === m ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"}`}
+              className={`flex-1 rounded px-2 py-1 ${mode === m ? "bg-emphasis text-emphasis-fg" : "text-text-secondary hover:bg-surface-hover"}`}
             >
               {m === "existing" ? "existing repo" : "new repo"}
             </button>
@@ -335,9 +335,9 @@ export function GitHubStudySaveModal({
         </div>
         {mode === "existing" ? (
           <div>
-            <label className="text-xs font-medium text-zinc-700">Repository (writable)</label>
+            <label className="text-xs font-medium text-text-secondary">Repository (writable)</label>
             {loadingRepos ? (
-              <div className="mt-1 text-xs text-zinc-500">Loading…</div>
+              <div className="mt-1 text-xs text-text-tertiary">Loading…</div>
             ) : (
               <select
                 value={selectedIdx}
@@ -345,7 +345,7 @@ export function GitHubStudySaveModal({
                   setSelectedIdx(Number(e.target.value));
                   setError(null);
                 }}
-                className="mt-1 w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                className="mt-1 w-full rounded border border-border-default px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-focus-ring"
               >
                 <option value={-1}>— select —</option>
                 {(repos ?? [])
@@ -363,7 +363,7 @@ export function GitHubStudySaveModal({
                   ))}
               </select>
             )}
-            <div className="mt-1 text-[10px] text-zinc-500">
+            <div className="mt-1 text-[10px] text-text-tertiary">
               Writes to the default branch. If the repo is already a flowstore project, only
               tests/ and runs are added.
             </div>
@@ -371,15 +371,15 @@ export function GitHubStudySaveModal({
         ) : (
           <div className="space-y-2">
             <div>
-              <label className="text-xs font-medium text-zinc-700">Repository name</label>
+              <label className="text-xs font-medium text-text-secondary">Repository name</label>
               <input
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                className="mt-1 w-full rounded border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                className="mt-1 w-full rounded border border-border-default px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-focus-ring"
               />
             </div>
-            <label className="flex items-center gap-1.5 text-xs text-zinc-700">
+            <label className="flex items-center gap-1.5 text-xs text-text-secondary">
               <input
                 type="checkbox"
                 checked={isPrivate}
@@ -390,7 +390,7 @@ export function GitHubStudySaveModal({
           </div>
         )}
         {(error ?? listError) && (
-          <div className="rounded border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
+          <div className="rounded border border-state-error-line bg-state-error-bg px-2 py-1.5 text-xs text-state-error-fg">
             {error ?? listError}
           </div>
         )}
@@ -398,14 +398,14 @@ export function GitHubStudySaveModal({
       <div className="flex justify-end gap-2 pt-3">
         <button
           onClick={onClose}
-          className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+          className="rounded-md border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover"
         >
           Cancel
         </button>
         <button
           onClick={() => void (mode === "existing" ? saveExisting() : saveNew())}
           disabled={saving || (mode === "existing" ? selectedIdx < 0 : !newName.trim())}
-          className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+          className="rounded-md bg-emphasis px-3 py-1.5 text-xs font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-50"
         >
           {saving ? "Saving…" : "Save"}
         </button>

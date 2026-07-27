@@ -301,17 +301,17 @@ export function ComparePage() {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-zinc-50 text-zinc-900">
-      <header className="flex items-center gap-4 border-b border-zinc-200 bg-white px-6 py-3">
+    <div className="flex h-screen flex-col bg-surface-sunken text-text-primary">
+      <header className="flex items-center gap-4 border-b border-border-default bg-surface-panel px-6 py-3">
         <div className="flex min-w-0 flex-col">
-          <h1 className="truncate text-lg font-semibold leading-tight text-zinc-900">flowstore</h1>
-          <div className="text-[11px] leading-tight text-zinc-500">
+          <h1 className="truncate text-lg font-semibold leading-tight text-text-primary">flowstore</h1>
+          <div className="text-[11px] leading-tight text-text-tertiary">
             runs locally in your browser
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <label
-            className="flex items-center gap-1 text-[10px] text-zinc-500"
+            className="flex items-center gap-1 text-[10px] text-text-tertiary"
             title="Your speech-to-text rate, dollars per minute of caller audio — prices the ASR line of the voice estimate (caller speech time modeled at ~150 wpm)"
           >
             asr $/min
@@ -319,11 +319,11 @@ export function ComparePage() {
               value={asrPerMin}
               onChange={(e) => setAsrPerMin(e.target.value)}
               placeholder="0.008"
-              className="w-16 rounded border border-zinc-300 px-1.5 py-1 text-[11px]"
+              className="w-16 rounded border border-border-default px-1.5 py-1 text-[11px]"
             />
           </label>
           <label
-            className="flex items-center gap-1 text-[10px] text-zinc-500"
+            className="flex items-center gap-1 text-[10px] text-text-tertiary"
             title="Your text-to-speech rate, dollars per million characters — priced over the agent's actual transcript characters"
           >
             tts $/1M chars
@@ -331,24 +331,24 @@ export function ComparePage() {
               value={ttsPerMChars}
               onChange={(e) => setTtsPerMChars(e.target.value)}
               placeholder="8.00"
-              className="w-16 rounded border border-zinc-300 px-1.5 py-1 text-[11px]"
+              className="w-16 rounded border border-border-default px-1.5 py-1 text-[11px]"
             />
           </label>
-          <span className="h-5 w-px bg-zinc-200" />
+          <span className="h-5 w-px bg-border-default" />
           <button
             onClick={() => setSetupOpen((v) => !v)}
-            className="rounded-full border border-zinc-300 bg-white px-4 py-1.5 text-xs font-medium hover:bg-zinc-50"
+            className="rounded-full border border-border-default bg-surface-panel px-4 py-1.5 text-xs font-medium hover:bg-surface-hover"
           >
             {setupOpen ? "hide prompt" : "edit prompt"}
           </button>
           <button
             onClick={run}
             disabled={busy || !prompt.trim() || scenarios.length === 0 || models.length === 0}
-            className="rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+            className="rounded-full bg-emphasis px-4 py-1.5 text-xs font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-40"
           >
             {running ? `running ${settledCells}/${totalCells}…` : "run all"}
           </button>
-          <span className="h-5 w-px bg-zinc-200" />
+          <span className="h-5 w-px bg-border-default" />
           <button
             onClick={() => setGithubOpenOpen(true)}
             disabled={busy}
@@ -367,7 +367,7 @@ export function ComparePage() {
           >
             <GithubSaveIcon />
           </button>
-          <span className="h-5 w-px bg-zinc-200" />
+          <span className="h-5 w-px bg-border-default" />
           <label className={iconButtonClass + " cursor-pointer"} title="Upload study (.flowstore.json)" aria-label="Upload study">
             <ImportIcon />
             <input
@@ -388,7 +388,7 @@ export function ComparePage() {
               <ExportIcon />
             </button>
             {exportOpen && (
-              <div className="absolute right-0 top-full z-20 mt-1 min-w-[14rem] rounded-md border border-zinc-200 bg-white py-1 shadow-md">
+              <div className="absolute right-0 top-full z-20 mt-1 min-w-[14rem] rounded-md border border-border-default bg-surface-raised py-1 shadow-md">
                 <button
                   onClick={() => {
                     setExportOpen(false);
@@ -396,7 +396,7 @@ export function ComparePage() {
                   }}
                   className={menuItemClass}
                 >
-                  Download report <span className="text-zinc-400">(HTML)</span>
+                  Download report <span className="text-text-disabled">(HTML)</span>
                 </button>
                 <button
                   onClick={() => {
@@ -409,7 +409,7 @@ export function ComparePage() {
                   }}
                   className={menuItemClass}
                 >
-                  Export study <span className="text-zinc-400">(flowstore project)</span>
+                  Export study <span className="text-text-disabled">(flowstore project)</span>
                 </button>
               </div>
             )}
@@ -435,7 +435,7 @@ export function ComparePage() {
           >
             <ClearIcon />
           </button>
-          <span className="h-5 w-px bg-zinc-200" />
+          <span className="h-5 w-px bg-border-default" />
           <button
             onClick={() => setSettingsOpen(true)}
             className={iconButtonClass}
@@ -448,28 +448,28 @@ export function ComparePage() {
       </header>
 
       {setupOpen && (
-        <div className="grid grid-cols-2 gap-4 border-b border-zinc-200 bg-white px-4 py-3">
+        <div className="grid grid-cols-2 gap-4 border-b border-border-default bg-surface-panel px-4 py-3">
           <div className="flex flex-col">
             <div className="mb-1 flex h-6 items-center">
-              <label className="text-[11px] font-medium text-zinc-500">
+              <label className="text-[11px] font-medium text-text-tertiary">
                 system prompt (run verbatim on every model)
               </label>
             </div>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              className="h-48 w-full resize-y rounded border border-zinc-300 p-2 font-mono text-[11px]"
+              className="h-48 w-full resize-y rounded border border-border-default p-2 font-mono text-[11px]"
             />
             {placeholders.length > 0 && (
               <div className="mt-2">
                 <div className="mb-1 flex h-6 items-center justify-between">
-                  <span className="text-[11px] font-medium text-zinc-500">
+                  <span className="text-[11px] font-medium text-text-tertiary">
                     placeholders (filled at send time — the prompt text stays verbatim)
                   </span>
                   <button
                     onClick={() => void suggestVars()}
                     disabled={suggesting || placeholders.every((n) => (vars[n] ?? "").trim())}
-                    className="rounded-full border border-zinc-300 px-2.5 py-0.5 text-[11px] hover:bg-zinc-50 disabled:opacity-40"
+                    className="rounded-full border border-border-default px-2.5 py-0.5 text-[11px] hover:bg-surface-hover disabled:opacity-40"
                   >
                     {suggesting ? "suggesting…" : "suggest values"}
                   </button>
@@ -478,27 +478,27 @@ export function ComparePage() {
                   {placeholders.map((name) => (
                     <label
                       key={name}
-                      className="flex items-center gap-1.5 rounded border border-zinc-200 py-0.5 pl-1.5 pr-0.5 text-[11px]"
+                      className="flex items-center gap-1.5 rounded border border-border-default py-0.5 pl-1.5 pr-0.5 text-[11px]"
                     >
-                      <span className="font-mono text-zinc-500">{`{{${name}}}`}</span>
+                      <span className="font-mono text-text-tertiary">{`{{${name}}}`}</span>
                       <input
                         value={vars[name] ?? ""}
                         onChange={(e) => setVars((p) => ({ ...p, [name]: e.target.value }))}
                         placeholder="value"
-                        className="w-32 rounded border border-zinc-200 px-1.5 py-0.5 text-[11px]"
+                        className="w-32 rounded border border-border-default px-1.5 py-0.5 text-[11px]"
                       />
                     </label>
                   ))}
                 </div>
                 {suggestError && (
-                  <div className="mt-1 text-[10px] text-red-600">{suggestError}</div>
+                  <div className="mt-1 text-[10px] text-state-error-fg">{suggestError}</div>
                 )}
               </div>
             )}
           </div>
           <div className="flex min-w-0 flex-col">
             <div className="mb-1 flex h-6 items-center justify-between">
-              <label className="text-[11px] font-medium text-zinc-500">
+              <label className="text-[11px] font-medium text-text-tertiary">
                 scenarios (one user turn per line)
               </label>
             <button
@@ -518,30 +518,30 @@ export function ComparePage() {
                   ];
                 })
               }
-              className="rounded-full border border-zinc-300 px-2.5 py-0.5 text-[11px] hover:bg-zinc-50"
+              className="rounded-full border border-border-default px-2.5 py-0.5 text-[11px] hover:bg-surface-hover"
             >
               + scenario
             </button>
             </div>
 
-            <div className="flex h-48 flex-col gap-2 overflow-y-auto rounded border border-zinc-300 bg-white p-2">
+            <div className="flex h-48 flex-col gap-2 overflow-y-auto rounded border border-border-default bg-surface-panel p-2">
             {scenarios.map((s, i) => (
               <div key={s.id}>
                 <div className="mb-1 flex items-center gap-2">
                   <input
                     value={s.name}
                     onChange={(e) => updateScenario(i, { name: e.target.value })}
-                    className="flex-1 rounded border border-zinc-200 px-1.5 py-0.5 text-[11px]"
+                    className="flex-1 rounded border border-border-default px-1.5 py-0.5 text-[11px]"
                   />
                   <input
                     value={s.language}
                     onChange={(e) => updateScenario(i, { language: e.target.value })}
-                    className="w-10 rounded border border-zinc-200 px-1.5 py-0.5 text-center text-[11px]"
+                    className="w-10 rounded border border-border-default px-1.5 py-0.5 text-center text-[11px]"
                     title="language code"
                   />
                   <button
                     onClick={() => setScenarios((prev) => prev.filter((_, j) => j !== i))}
-                    className="text-[11px] text-zinc-400 hover:text-red-600"
+                    className="text-[11px] text-text-disabled hover:text-state-error-fg"
                   >
                     ✕
                   </button>
@@ -551,7 +551,7 @@ export function ComparePage() {
                   onChange={(e) =>
                     updateScenario(i, { turns: e.target.value.split("\n") })
                   }
-                  className="h-16 w-full resize-y rounded border border-zinc-200 p-1.5 text-[11px]"
+                  className="h-16 w-full resize-y rounded border border-border-default p-1.5 text-[11px]"
                 />
               </div>
             ))}
@@ -563,17 +563,17 @@ export function ComparePage() {
       {!prompt && scenarios.length === 0 && !hasResults ? (
         <div className="flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-3 text-center">
-            <div className="text-sm text-zinc-500">
+            <div className="text-sm text-text-tertiary">
               Paste a system prompt above, upload a study, or start from the example.
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => void loadExample()}
-                className="rounded-full border border-zinc-300 bg-white px-4 py-1.5 text-xs font-medium hover:bg-zinc-50"
+                className="rounded-full border border-border-default bg-surface-panel px-4 py-1.5 text-xs font-medium hover:bg-surface-hover"
               >
                 load example (clinic agent)
               </button>
-              <label className="cursor-pointer rounded-full border border-zinc-300 bg-white px-4 py-1.5 text-xs font-medium hover:bg-zinc-50">
+              <label className="cursor-pointer rounded-full border border-border-default bg-surface-panel px-4 py-1.5 text-xs font-medium hover:bg-surface-hover">
                 upload .flowstore.json
                 <input
                   type="file"
@@ -587,14 +587,14 @@ export function ComparePage() {
         </div>
       ) : (
       <main className="flex flex-1 min-h-0">
-        <aside className="w-72 shrink-0 overflow-y-auto border-r border-zinc-200 bg-white">
+        <aside className="w-72 shrink-0 overflow-y-auto border-r border-border-default bg-surface-panel">
           <table className="w-full border-collapse text-[11px]">
-            <thead className="sticky top-0 z-10 bg-zinc-50">
+            <thead className="sticky top-0 z-10 bg-surface-sunken">
               <tr>
-                <th className="h-10 border-b border-zinc-200 px-2 text-left align-middle font-medium">
+                <th className="h-10 border-b border-border-default px-2 text-left align-middle font-medium">
                   scenario
                 </th>
-                <th className="h-10 w-8 border-b border-l border-zinc-200 px-1 align-middle" />
+                <th className="h-10 w-8 border-b border-l border-border-default px-1 align-middle" />
 
               </tr>
             </thead>
@@ -606,15 +606,15 @@ export function ComparePage() {
                 <tr
                   key={s.id}
                   onClick={() => setSelected(s.id)}
-                  className={`group cursor-pointer hover:bg-zinc-50 ${selected === s.id ? "bg-zinc-100" : ""}`}
+                  className={`group cursor-pointer hover:bg-surface-hover ${selected === s.id ? "bg-surface-selected" : ""}`}
                 >
-                  <td className="border-b border-zinc-100 px-2 py-1.5">
+                  <td className="border-b border-border-subtle px-2 py-1.5">
                     <div className="flex items-center gap-1">
                       <span className="min-w-0 flex-1 truncate">
-                        {s.name} <span className="text-zinc-400">{s.language}</span>
+                        {s.name} <span className="text-text-disabled">{s.language}</span>
                         {golds[s.id] && golds[s.id].column === undefined && (
                           <span
-                            className="ml-1 text-[9px] text-amber-700"
+                            className="ml-1 text-[9px] text-state-warning-fg"
                             title="An imported blessed gold transcript exists for this scenario"
                           >
                             gold ✓
@@ -627,7 +627,7 @@ export function ComparePage() {
                           void runScenario(s);
                         }}
                         disabled={busy || !prompt.trim() || models.length === 0}
-                        className="invisible shrink-0 rounded-md border border-zinc-200 px-1.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-100 disabled:opacity-40 group-hover:visible"
+                        className="invisible shrink-0 rounded-md border border-border-default px-1.5 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover disabled:opacity-40 group-hover:visible"
                         title="Run this scenario on all models"
                         aria-label={`Run scenario ${s.name}`}
                       >
@@ -635,7 +635,7 @@ export function ComparePage() {
                       </button>
                     </div>
                   </td>
-                  <td className="border-b border-l border-zinc-100 px-1 py-1.5 text-center">
+                  <td className="border-b border-l border-border-subtle px-1 py-1.5 text-center">
                     <ScenarioChip cells={models.map((_, i) => cells[cellKey(s.id, i)])} />
                   </td>
                 </tr>
@@ -644,7 +644,7 @@ export function ComparePage() {
           </table>
         </aside>
 
-        <section className="flex flex-1 min-w-0 divide-x divide-zinc-200 overflow-x-auto">
+        <section className="flex flex-1 min-w-0 divide-x divide-border-default overflow-x-auto">
           {selected &&
             models.map((m, i) => {
               const key = cellKey(selected, i);
@@ -659,8 +659,8 @@ export function ComparePage() {
                     : "translate";
               return (
                 <div key={i} className="flex min-w-[280px] flex-1 flex-col">
-                  <div className="flex h-10 items-center gap-1.5 border-b border-zinc-200 bg-white px-3">
-                    {i === 0 && <span className="shrink-0 text-[10px] text-zinc-400">current</span>}
+                  <div className="flex h-10 items-center gap-1.5 border-b border-border-default bg-surface-panel px-3">
+                    {i === 0 && <span className="shrink-0 text-[10px] text-text-disabled">current</span>}
                     <ModelPicker
                       value={m}
                       onChange={(v) => setModels((prev) => prev.map((x, j) => (j === i ? v : x)))}
@@ -672,14 +672,14 @@ export function ComparePage() {
                       <button
                         onClick={() => setModels((prev) => prev.filter((_, j) => j !== i))}
                         disabled={busy}
-                        className="shrink-0 rounded-md border border-zinc-200 px-1.5 py-0.5 text-[11px] text-zinc-500 hover:bg-red-50 hover:text-red-600"
+                        className="shrink-0 rounded-md border border-border-default px-1.5 py-0.5 text-[11px] text-text-tertiary hover:bg-state-error-bg hover:text-state-error-fg"
                         title="Remove column"
                       >
                         ✕
                       </button>
                     )}
                     {c?.divergent && (
-                      <span className="rounded-full bg-amber-100 px-1.5 text-[9px] text-amber-800">
+                      <span className="rounded-full bg-state-warning-bg px-1.5 text-[9px] text-state-warning-fg">
                         diverges
                       </span>
                     )}
@@ -689,7 +689,7 @@ export function ComparePage() {
                         onClick={() => void translateColumn(key, colTurns)}
                         disabled={translating !== null}
                         title="Translate this conversation to English. Press again to refresh after new turns; press once more to show originals."
-                        className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-100 disabled:opacity-40"
+                        className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
                       >
                         🌐 {translateLabel}
                       </button>
@@ -700,7 +700,7 @@ export function ComparePage() {
                         unaffected.
                     {c?.status === "done" && selected && (
                       golds[selected]?.column === i ? (
-                        <span className="shrink-0 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700" title="This transcript is the blessed gold for this scenario">
+                        <span className="shrink-0 rounded-md bg-state-warning-bg px-1.5 py-0.5 text-[10px] text-state-warning-fg" title="This transcript is the blessed gold for this scenario">
                           gold ✓
                         </span>
                       ) : (
@@ -719,7 +719,7 @@ export function ComparePage() {
                               },
                             }));
                           }}
-                          className="shrink-0 rounded-md border border-zinc-200 px-1.5 py-0.5 text-[10px] text-zinc-500 hover:bg-amber-50 hover:text-amber-700"
+                          className="shrink-0 rounded-md border border-border-default px-1.5 py-0.5 text-[10px] text-text-tertiary hover:bg-state-warning-bg hover:text-state-warning-fg"
                           title="Capture this transcript as the gold (blessed reference) for this scenario"
                         >
                           capture gold
@@ -731,7 +731,7 @@ export function ComparePage() {
                       <button
                         onClick={() => setModels((prev) => [...prev, DEFAULT_MODEL_ID])}
                         disabled={busy}
-                        className="shrink-0 rounded-md border border-zinc-200 px-2 py-0.5 text-[12px] font-medium text-zinc-600 hover:bg-zinc-100"
+                        className="shrink-0 rounded-md border border-border-default px-2 py-0.5 text-[12px] font-medium text-text-secondary hover:bg-surface-hover"
                         title="Add model column"
                       >
                         +
@@ -741,7 +741,7 @@ export function ComparePage() {
                   </div>
                   <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
                     {translateErrors[key] && (
-                      <div className="text-[10px] text-red-600">{translateErrors[key]}</div>
+                      <div className="text-[10px] text-state-error-fg">{translateErrors[key]}</div>
                     )}
                     {colTurns.map((t, k) => (
                       <TurnBubble
@@ -751,12 +751,12 @@ export function ComparePage() {
                       />
                     ))}
                     {c?.status === "running" && (
-                      <div className="mr-8 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-400">
+                      <div className="mr-8 rounded-lg border border-dashed border-border-default px-3 py-2 text-xs text-text-disabled">
                         …
                       </div>
                     )}
                     {c?.status === "error" && (
-                      <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                      <div className="rounded-lg border border-state-error-line bg-state-error-bg px-3 py-2 text-xs text-state-error-fg">
                         {c.error}
                       </div>
                     )}
@@ -800,15 +800,15 @@ export function ComparePage() {
 // side-by-side view. Priority: running > error > diverged > clean.
 function ScenarioChip({ cells }: { cells: (CellState | undefined)[] }) {
   const live = cells.filter((c): c is CellState => !!c && c.status !== "idle");
-  if (live.length === 0) return <span className="text-zinc-300">·</span>;
-  if (live.some((c) => c.status === "running")) return <span className="text-zinc-400">…</span>;
-  if (live.some((c) => c.status === "error")) return <span className="text-red-600">✕</span>;
+  if (live.length === 0) return <span className="text-text-disabled">·</span>;
+  if (live.some((c) => c.status === "running")) return <span className="text-text-disabled">…</span>;
+  if (live.some((c) => c.status === "error")) return <span className="text-state-error-fg">✕</span>;
   return live.some((c) => c.divergent) ? (
-    <span className="text-amber-600" title="a model diverges from your current one here — read it">
+    <span className="text-state-warning-fg" title="a model diverges from your current one here — read it">
       ▲
     </span>
   ) : (
-    <span className="text-emerald-600" title="all models agree with your current one">✓</span>
+    <span className="text-state-success-fg" title="all models agree with your current one">✓</span>
   );
 }
 
@@ -832,7 +832,7 @@ function ColumnStats({ cell, rates }: { cell?: CellState; rates: VoiceRates }) {
   // (one indicator per fact — the LLM component lives in the tooltip). No
   // rates = text mode, measured LLM $ as before.
   return (
-    <span className="whitespace-nowrap text-[10px] text-zinc-500">
+    <span className="whitespace-nowrap text-[10px] text-text-tertiary">
       {`${u.inputTokens.toLocaleString()}/${u.outputTokens.toLocaleString()}`}
       {voice ? (
         <span title={voiceTitle}>{` · ≈${fmt(voice.total)} voice`}</span>
@@ -850,12 +850,12 @@ function ColumnStats({ cell, rates }: { cell?: CellState; rates: VoiceRates }) {
 function TurnBubble({ turn, displayText }: { turn: TranscriptTurn; displayText?: string }) {
   const shown = displayText ?? turn.text;
   return turn.role === "user" ? (
-    <div className="ml-8 rounded-lg bg-zinc-900 px-3 py-2 text-xs text-white">{shown}</div>
+    <div className="ml-8 rounded-lg bg-emphasis px-3 py-2 text-xs text-emphasis-fg">{shown}</div>
   ) : (
-    <div className="mr-8 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs">
+    <div className="mr-8 rounded-lg border border-border-default bg-surface-panel px-3 py-2 text-xs">
       {shown}
       {turn.latencyMs !== undefined && (
-        <div className="mt-1 text-[10px] text-zinc-400">{(turn.latencyMs / 1000).toFixed(1)}s</div>
+        <div className="mt-1 text-[10px] text-text-disabled">{(turn.latencyMs / 1000).toFixed(1)}s</div>
       )}
     </div>
   );
@@ -865,9 +865,9 @@ function TurnBubble({ turn, displayText }: { turn: TranscriptTurn; displayText?:
 // same icons, same order (export, clear, | settings). Icons duplicated for
 // now; extract a shared icon lib when a third consumer appears.
 const iconButtonClass =
-  "rounded-md border border-zinc-200 p-1.5 text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 disabled:hover:bg-transparent";
+  "rounded-md border border-border-default p-1.5 text-text-secondary hover:bg-surface-hover disabled:opacity-50 disabled:hover:bg-transparent";
 const menuItemClass =
-  "block w-full text-left px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100";
+  "block w-full text-left px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover";
 
 function GithubOpenIcon() {
   // Cloud with downward arrow — open from remote (same glyph as the editor).
