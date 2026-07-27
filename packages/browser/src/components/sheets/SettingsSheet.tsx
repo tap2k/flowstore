@@ -3,7 +3,7 @@ import { SheetShell } from "./SheetShell";
 import { useSettingsStore, DEFAULT_RUNNER_URL, DEFAULT_MODEL_ID } from "@/lib/store/settings";
 import { useThemeStore, type ThemePreference } from "@/lib/store/theme";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
-import { Select } from "@/components/ui";
+import { FieldRow, Select } from "@/components/ui";
 import { makeGitHubClient, testConnection } from "@flowstore/core/files/github";
 
 interface SettingsSheetProps {
@@ -101,12 +101,18 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           to find it. Three explicit options rather than the header's cycling
           toggle — a settings panel should show the states, not make you click
           through them to discover what they are. */}
-      <div className="space-y-2">
-        <label htmlFor="theme-preference" className="fs-label text-text-secondary">
-          Appearance
-        </label>
+      <FieldRow
+        label="Appearance"
+        hint={
+          <>
+            Applies immediately and is remembered on this device — unlike the fields below, it
+            isn&apos;t staged behind Save, and Clear leaves it alone.{" "}
+            <span className="font-medium">Match system</span> follows your OS setting as it
+            changes.
+          </>
+        }
+      >
         <Select
-          id="theme-preference"
           value={themePreference}
           onChange={(e) => setThemePreference(e.target.value as ThemePreference)}
           options={[
@@ -116,12 +122,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           ]}
           className="w-full"
         />
-        <p className="text-[11px] text-text-tertiary">
-          Applies immediately and is remembered on this device — unlike the fields below, it
-          isn&apos;t staged behind Save, and Clear leaves it alone.{" "}
-          <span className="font-medium">Match system</span> follows your OS setting as it changes.
-        </p>
-      </div>
+      </FieldRow>
 
       <ApiKeyRow
         label="Google API key"

@@ -12,6 +12,8 @@ export interface CheckboxProps {
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   /** Forwarded to the native input so an external <label> can target it. */
   id?: string;
+  /** Forwarded to the native input; FieldRow injects this for its hint/error. */
+  "aria-describedby"?: string;
   className?: string;
 }
 
@@ -30,6 +32,7 @@ export function Checkbox({
   hint,
   onChange,
   id,
+  "aria-describedby": ariaDescribedBy,
   className,
 }: CheckboxProps) {
   const on = checked || indeterminate;
@@ -53,6 +56,7 @@ export function Checkbox({
       <input
         ref={input}
         id={id}
+        aria-describedby={ariaDescribedBy}
         type="checkbox"
         checked={!!checked}
         disabled={disabled}

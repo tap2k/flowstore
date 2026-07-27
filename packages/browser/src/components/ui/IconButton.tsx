@@ -1,6 +1,7 @@
 import { forwardRef } from "react";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 import { Icon, type IconWeight } from "./Icon";
+import type { MenuTriggerProps } from "./DropdownMenu";
 
 export type IconButtonSize = "sm" | "md" | "lg" | "canvas";
 
@@ -13,7 +14,7 @@ const SIZES: Record<IconButtonSize, { box: string; icon: number }> = {
   canvas: { box: "size-9", icon: 20 },
 };
 
-export interface IconButtonProps {
+export interface IconButtonProps extends MenuTriggerProps {
   icon: PhosphorIcon;
   size?: IconButtonSize;
   /** Toggled-on state: selected fill + bold glyph (a second signal besides colour). */
@@ -25,9 +26,6 @@ export interface IconButtonProps {
   weight?: IconWeight;
   onClick?: (e: React.MouseEvent) => void;
   className?: string;
-  /** Set by DropdownMenu when this button is a menu trigger. */
-  "aria-expanded"?: boolean;
-  "aria-haspopup"?: "menu";
 }
 
 /**

@@ -7,6 +7,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
+
+/**
+ * The attributes DropdownMenu clones onto its trigger. Button and IconButton
+ * extend this so the contract lives in one place; any component that wants to
+ * act as a trigger extends it too.
+ */
+export interface MenuTriggerProps {
+  "aria-expanded"?: boolean;
+  "aria-haspopup"?: "menu";
+}
 import { Check } from "@phosphor-icons/react";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 import { Icon } from "./Icon";
@@ -41,6 +51,12 @@ export interface DropdownMenuProps {
   className?: string;
 }
 
+const HANDLED_KEYS = new Set(["Escape", "ArrowDown", "ArrowUp", "Home", "End", "Tab"]);
+
+function menuRows(root: HTMLElement | null) {
+  return Array.from(root?.querySelectorAll<HTMLElement>("[role=menuitem]") ?? []);
+}
+
 /** Level-2 dropdown. Rows are 28px, sentence case, shortcuts right-aligned. */
 export function DropdownMenu({
   trigger,
@@ -68,22 +84,18 @@ export function DropdownMenu({
     [isControlled, onOpenChange],
   );
 
-  const rows = useCallback(
-    () => Array.from(menu.current?.querySelectorAll<HTMLElement>("[role=menuitem]") ?? []),
-    [],
-  );
-
   // Opening with the keyboard should land on the first row; opening with the
   // mouse should not steal the pointer's target. Focusing on open covers both:
   // a mouse user's next action is a click, which moves focus anyway.
   useEffect(() => {
-    if (open) rows()[0]?.focus();
-  }, [open, rows]);
+    if (open) menuRows(menu.current)[0]?.focus();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      const items = rows();
+      if (!HANDLED_KEYS.has(e.key)) return;
+      const items = menuRows(menu.current);
       const i = items.indexOf(document.activeElement as HTMLElement);
       switch (e.key) {
         case "Escape":
@@ -117,18 +129,14 @@ export function DropdownMenu({
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, rows, setOpen]);
+  }, [open, setOpen]);
 
   return (
     <div
       ref={wrapper}
       className={`relative inline-flex${className ? ` ${className}` : ""}`}
     >
-      {isValidElement<{
-        onClick?: (e: React.MouseEvent) => void;
-        "aria-expanded"?: boolean;
-        "aria-haspopup"?: "menu";
-      }>(trigger)
+      {isValidElement<MenuTriggerProps & { onClick?: (e: React.MouseEvent) => void }>(trigger)
         ? cloneElement(trigger, {
             onClick: (e: React.MouseEvent) => {
               trigger.props.onClick?.(e);

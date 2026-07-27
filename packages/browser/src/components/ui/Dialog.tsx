@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "@phosphor-icons/react";
 import { IconButton } from "./IconButton";
@@ -35,6 +35,10 @@ const FOCUSABLE = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(",");
 
+function focusablesIn(root: HTMLElement | null) {
+  return Array.from(root?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []);
+}
+
 /** Level-3 modal over a scrim. Centred in the viewport, never in the canvas. */
 export function Dialog({
   open,
@@ -56,23 +60,18 @@ export function Dialog({
   // common ancestor in that case, so the origin of the press is what decides.
   const pressedScrim = useRef(false);
 
-  const focusables = useCallback(
-    () => Array.from(panel.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []),
-    [],
-  );
-
   // Move focus in on open, hand it back on close.
   useEffect(() => {
     if (!open) return;
     restoreTo.current = document.activeElement as HTMLElement | null;
     // The panel itself is the fallback target: a dialog with no controls (a
     // progress message, say) still has to take focus off the page behind it.
-    (focusables()[0] ?? panel.current)?.focus();
+    (focusablesIn(panel.current)[0] ?? panel.current)?.focus();
     return () => {
       restoreTo.current?.focus?.();
       restoreTo.current = null;
     };
-  }, [open, focusables]);
+  }, [open]);
 
   // Escape closes; Tab cycles within the panel. Registered on the document
   // rather than the panel so both work before anything inside has been clicked.
@@ -84,7 +83,7 @@ export function Dialog({
         return;
       }
       if (e.key !== "Tab") return;
-      const items = focusables();
+      const items = focusablesIn(panel.current);
       const inside = panel.current?.contains(document.activeElement);
       if (items.length === 0) {
         // Nothing to cycle between — hold focus on the panel rather than let
@@ -108,7 +107,7 @@ export function Dialog({
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose, focusables]);
+  }, [open, onClose]);
 
   if (!open) return null;
 

@@ -5,6 +5,8 @@ export interface SwitchProps {
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   /** Forwarded to the native input so an external <label> can target it. */
   id?: string;
+  /** Forwarded to the native input; FieldRow injects this for its hint/error. */
+  "aria-describedby"?: string;
   className?: string;
 }
 
@@ -12,7 +14,15 @@ export interface SwitchProps {
  * Binary switch for settings that take effect immediately. Use Checkbox for
  * changes that are staged until a save.
  */
-export function Switch({ checked, disabled, label, onChange, id, className }: SwitchProps) {
+export function Switch({
+  checked,
+  disabled,
+  label,
+  onChange,
+  id,
+  "aria-describedby": ariaDescribedBy,
+  className,
+}: SwitchProps) {
   return (
     <label
       className={[
@@ -28,6 +38,7 @@ export function Switch({ checked, disabled, label, onChange, id, className }: Sw
           checked/unchecked, which is what the visual promises. */}
       <input
         id={id}
+        aria-describedby={ariaDescribedBy}
         type="checkbox"
         role="switch"
         aria-checked={!!checked}

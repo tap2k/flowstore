@@ -5,7 +5,7 @@ import { Icon } from "./Icon";
 export interface FieldRowProps {
   label: string;
   /** Caption under the control. */
-  hint?: string;
+  hint?: ReactNode;
   /** Tooltip text on an info glyph beside the label. */
   help?: string;
   required?: boolean;
@@ -28,18 +28,21 @@ export function FieldRow({
   inline,
   className,
 }: FieldRowProps) {
-  const controlId = useId();
+  const generatedId = useId();
+  // A child that manages its own id keeps it — and the label must point at
+  // whichever id the control actually ends up carrying.
+  const controlId =
+    (isValidElement<{ id?: string }>(children) && children.props.id) || generatedId;
   const describedById = `${controlId}-desc`;
   const description = error || hint;
 
-  // Wire the label and the hint/error to the control. The child is given an
-  // `id` only if it doesn't already carry one, so a caller that manages its own
-  // ids keeps them. Clicking the label then focuses the control, and the hint is
-  // announced with it rather than being loose text nearby.
+  // Wire the label and the hint/error to the control. Clicking the label then
+  // focuses the control, and the hint is announced with it rather than being
+  // loose text nearby.
   const control =
     isValidElement<{ id?: string; "aria-describedby"?: string }>(children) ? (
       cloneElement(children, {
-        id: children.props.id ?? controlId,
+        id: controlId,
         "aria-describedby": description
           ? [children.props["aria-describedby"], describedById].filter(Boolean).join(" ")
           : children.props["aria-describedby"],

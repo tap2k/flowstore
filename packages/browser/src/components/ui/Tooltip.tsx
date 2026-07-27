@@ -73,7 +73,13 @@ export function Tooltip({
           the DOM leaves a dangling reference, and the tooltip is what supplies
           the description, not the trigger. */}
       {isValidElement<{ "aria-describedby"?: string }>(children) && open
-        ? cloneElement(children, { "aria-describedby": id })
+        ? cloneElement(children, {
+            // Merged, not clobbered: a FieldRow-wrapped trigger already carries
+            // a describedby pointing at its hint.
+            "aria-describedby": [children.props["aria-describedby"], id]
+              .filter(Boolean)
+              .join(" "),
+          })
         : children}
       {open && (
         <span

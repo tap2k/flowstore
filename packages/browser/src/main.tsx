@@ -12,7 +12,12 @@ import { initAnalytics } from "@/lib/analytics";
 const designSystem =
   import.meta.env.DEV && new URLSearchParams(window.location.search).has("ds");
 
-const Preview = lazy(() => import("@/components/ui/Preview").then((m) => ({ default: m.Preview })));
+// The DEV gate on the lazy() call itself (not just the flag) makes the dynamic
+// import statically dead in production, so the bundler never emits the gallery
+// chunk into the deploy artifact at all.
+const Preview = import.meta.env.DEV
+  ? lazy(() => import("@/components/ui/Preview").then((m) => ({ default: m.Preview })))
+  : () => null;
 
 if (!designSystem) initAnalytics();
 

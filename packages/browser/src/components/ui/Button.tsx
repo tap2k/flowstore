@@ -2,6 +2,7 @@ import { forwardRef, type ReactNode } from "react";
 import { SpinnerGap } from "@phosphor-icons/react";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 import { Icon } from "./Icon";
+import type { MenuTriggerProps } from "./DropdownMenu";
 
 // Labels are verb + object, sentence case, 3 words max: "Run test", "Publish
 // agent", "Add condition". Never "Submit", "OK", "Learn more".
@@ -36,7 +37,7 @@ const DISABLED: Record<ButtonVariant, string> = {
   destructive: "bg-transparent text-text-disabled border-state-disabled-line",
 };
 
-export interface ButtonProps {
+export interface ButtonProps extends MenuTriggerProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   /** Leading glyph, e.g. `import { Play } from "@phosphor-icons/react"`. */
@@ -52,9 +53,6 @@ export interface ButtonProps {
   type?: "button" | "submit" | "reset";
   title?: string;
   className?: string;
-  /** Set by DropdownMenu when this button is a menu trigger. */
-  "aria-expanded"?: boolean;
-  "aria-haspopup"?: "menu";
 }
 
 /** Text button. One primary per view. */

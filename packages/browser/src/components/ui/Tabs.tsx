@@ -20,33 +20,29 @@ export interface TabsProps {
  */
 export function Tabs({ items = [], value, onChange, className }: TabsProps) {
   const list = useRef<HTMLDivElement>(null);
-  const valueAt = (i: number) => {
-    const item = items[i];
-    return typeof item === "string" ? item : item?.value;
-  };
+  const values = items.map((item) => (typeof item === "string" ? item : item.value));
 
   // The ARIA tab pattern: arrows move between tabs (wrapping), Home/End jump to
   // the ends, and only the selected tab is in the page's tab order — Tab enters
   // and leaves the set rather than walking through every tab in it.
   function onKeyDown(e: React.KeyboardEvent) {
-    const delta =
-      e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-    let next: string | undefined;
+    if (values.length === 0) return;
+    const delta = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    let next: number;
     if (delta !== 0) {
-      const i = items.findIndex((item) => (typeof item === "string" ? item : item.value) === value);
-      next = valueAt((i + delta + items.length) % items.length);
+      next = (values.indexOf(value ?? "") + delta + values.length) % values.length;
     } else if (e.key === "Home") {
-      next = valueAt(0);
+      next = 0;
     } else if (e.key === "End") {
-      next = valueAt(items.length - 1);
+      next = values.length - 1;
     } else {
       return;
     }
-    if (next === undefined) return;
     e.preventDefault();
-    onChange?.(next);
-    // Selection follows focus in this pattern, so move focus with it.
-    list.current?.querySelector<HTMLElement>(`[data-tab="${CSS.escape(next)}"]`)?.focus();
+    onChange?.(values[next]);
+    // Selection follows focus in this pattern, so move focus with it. The tab
+    // buttons are the list's only children, so the index addresses them exactly.
+    (list.current?.children[next] as HTMLElement | undefined)?.focus();
   }
 
   return (
@@ -65,7 +61,6 @@ export function Tabs({ items = [], value, onChange, className }: TabsProps) {
             key={id}
             type="button"
             role="tab"
-            data-tab={id}
             aria-selected={on}
             tabIndex={on ? 0 : -1}
             onClick={() => onChange?.(id)}
