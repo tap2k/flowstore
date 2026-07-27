@@ -7,10 +7,9 @@ import fs from "node:fs";
 // ONE deployment, one origin (create.flowstore.org): editor at the root,
 // compare at /compare.html. Same origin means settings/keys/PAT and the
 // persisted study share between the two surfaces, so compare's "open in
-// editor" graduation (lib/compareHandoff.ts) needs no export.
-// compare.flowstore.org is a 301 to /compare.html here, configured at the
-// host — serving the files on a second domain would recreate two isolated
-// storage universes.
+// editor" graduation (lib/compareHandoff.ts) needs no export. There is no
+// second domain — serving the files on one would recreate two isolated
+// storage universes (compare.flowstore.org was retired for exactly that).
 
 // Repo root holds AGENT-SPEC-PROMPT.txt, which the app bundles as a raw string
 // (`@root/AGENT-SPEC-PROMPT.txt?raw`) so the in-editor parser and the
