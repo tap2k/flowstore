@@ -4,11 +4,9 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 import fs from "node:fs";
 
-// One deployment, one origin: editor at the root, compare at /compare.html.
-// Same origin means settings/keys/PAT and the persisted study share between
-// the two surfaces, so compare's "open in editor" graduation
-// (lib/compareHandoff.ts) needs no export. Never serve this on a second
-// domain — that would recreate two isolated storage universes.
+// Both entries must ship as ONE deployment on one origin: the compare →
+// editor graduation reads the study and keys straight out of shared
+// localStorage.
 
 // Repo root holds AGENT-SPEC-PROMPT.txt, which the app bundles as a raw string
 // (`@root/AGENT-SPEC-PROMPT.txt?raw`) so the in-editor parser and the
