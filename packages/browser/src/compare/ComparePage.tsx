@@ -148,6 +148,18 @@ export function ComparePage() {
     if (running || rowRunning) return;
     setRowRunning(s.id);
     setSelected(s.id);
+    // Fresh transcripts for this row: drop its translation cache/toggles so
+    // the columns can't show stale glosses over new turns.
+    setTranslations((prev) => {
+      const next = { ...prev };
+      for (let mi = 0; mi < models.length; mi++) delete next[cellKey(s.id, mi)];
+      return next;
+    });
+    setShowTranslated((prev) => {
+      const next = { ...prev };
+      for (let mi = 0; mi < models.length; mi++) delete next[cellKey(s.id, mi)];
+      return next;
+    });
     await runMatrix({
       systemPrompt: filledPrompt,
       scenarios: [s],
