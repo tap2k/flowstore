@@ -118,7 +118,7 @@ export function Shell({
 }: {
   children: React.ReactNode;
   onClose: () => void;
-  title: string;
+  title: React.ReactNode;
 }) {
   return (
     <div
