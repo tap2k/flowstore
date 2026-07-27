@@ -590,9 +590,10 @@ function CanvasInner({ spec }: { spec: Spec }) {
             <RelayoutIcon />
           </ControlButton>
         </Controls>
-        {/* Sits just right of the bottom-left controls, sharing their baseline.
-            marginLeft clears the controls column (left:15 + ~26 wide). */}
-        <Panel position="bottom-left" style={{ marginLeft: 52 }}>
+        {/* Beside the bottom-left zoom controls. Inline style, not a Tailwind
+            margin class: .react-flow__panel's own margin rule wins the
+            cascade over utility classes; inline always applies. */}
+        <Panel position="bottom-left" style={{ marginLeft: 64 }}>
           <BrandMark />
         </Panel>
         <MiniMap
