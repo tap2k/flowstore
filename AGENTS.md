@@ -51,6 +51,8 @@ The canvas is the canonical editing surface. Text views are entry and export onl
 - **Tailwind v4** (`@tailwindcss/vite` plugin, no config file)
 - **`@xyflow/react`** — canvas
 - **`zustand`** — shared editor state
+- **`@radix-ui/react-*`** — behavior primitives under the interactive ui atoms (dialog, dropdown-menu, tooltip, tabs); never imported outside `components/ui/` and `lib/githubUi.tsx`
+- **`@phosphor-icons/react`** + self-hosted Geist — icons and type for the design system
 - **`@sinclair/typebox` + `ajv` + `ajv-formats`** — schema-as-code + runtime validation
 - **localStorage** for autosave; local-first; no server persistence in MVP
 
@@ -101,6 +103,31 @@ npm workspaces monorepo. `@flowstore/core` is pure TS (files, schema, codegen, p
 ```
 
 To iterate on a codegen target: edit the generator under `packages/core/src/codegen/`, re-run `npm run preview-prompt -- <absolute-path-to-spec>.json`, diff against expected.
+
+## Design system — the two-layer rule
+
+All app chrome is built from the atoms in `packages/browser/src/components/ui/`
+and the tokens in `packages/browser/src/styles/tokens.css`. Read
+[packages/browser/src/components/ui/README.md](./packages/browser/src/components/ui/README.md)
+before touching UI. The short version:
+
+- **Look is ours, behavior is Radix.** Never hand-roll overlay/focus/keyboard
+  behavior (focus traps, Escape handling, outside-click dismissal, roving
+  tabindex, ARIA bookkeeping). Interactive atoms wrap Radix primitives; a new
+  interactive component starts from a Radix primitive too. App code never
+  imports Radix directly — it goes through the atoms.
+- **Style with tokens only.** `surface-*`, `text-text-*`, `state-*-{fg,line,bg}`,
+  `fs-*` type roles, `elev-*`. Raw palette classes (`zinc-*`, `red-600`,
+  `bg-white`) in app chrome are a bug. Exception: the canvas graph palette
+  (FlowNode/edges + `promptColors.ts` flow tints) is deliberately pinned until
+  its dark-mode retrofit.
+- **Modals** use the `Dialog` atom, or `Shell` in `lib/githubUi.tsx` for the
+  GitHub modals. Menus use `DropdownMenu`. Don't build fixed-overlay divs with
+  click-away handlers.
+- **Checkbox/Switch stay on native inputs** — the platform primitive is already
+  correct there; don't swap them for button-based re-implementations.
+- The `/?ds` gallery (dev only) renders every atom in both themes — check it in
+  light and dark when changing an atom.
 
 ## Design Principles
 

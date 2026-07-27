@@ -1,8 +1,7 @@
-import { forwardRef, type ReactNode } from "react";
+import { forwardRef } from "react";
 import { SpinnerGap } from "@phosphor-icons/react";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 import { Icon } from "./Icon";
-import type { MenuTriggerProps } from "./DropdownMenu";
 
 // Labels are verb + object, sentence case, 3 words max: "Run test", "Publish
 // agent", "Add condition". Never "Submit", "OK", "Learn more".
@@ -37,22 +36,19 @@ const DISABLED: Record<ButtonVariant, string> = {
   destructive: "bg-transparent text-text-disabled border-state-disabled-line",
 };
 
-export interface ButtonProps extends MenuTriggerProps {
+// Extends the native button attributes and spreads the rest through, so
+// composition wrappers (Radix `asChild` triggers, tooltips) can inject their
+// handlers and ARIA without this file having to know each one.
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   /** Leading glyph, e.g. `import { Play } from "@phosphor-icons/react"`. */
   icon?: PhosphorIcon;
   /** Trailing glyph. Use only for disclosure / overflow affordances. */
   iconRight?: PhosphorIcon;
-  disabled?: boolean;
   /** Swaps the leading glyph for a spinner and blocks interaction. */
   loading?: boolean;
   fullWidth?: boolean;
-  children?: ReactNode;
-  onClick?: (e: React.MouseEvent) => void;
-  type?: "button" | "submit" | "reset";
-  title?: string;
-  className?: string;
 }
 
 /** Text button. One primary per view. */
@@ -66,12 +62,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     loading,
     fullWidth,
     children,
-    onClick,
     type = "button",
-    title,
     className,
-    "aria-expanded": ariaExpanded,
-    "aria-haspopup": ariaHasPopup,
+    ...rest
   },
   ref,
 ) {
@@ -81,11 +74,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     <button
       ref={ref}
       type={type}
-      title={title}
       disabled={inert}
-      onClick={onClick}
-      aria-expanded={ariaExpanded}
-      aria-haspopup={ariaHasPopup}
+      {...rest}
       className={[
         "inline-flex items-center justify-center whitespace-nowrap rounded-2 border font-medium tracking-snug",
         "transition-[background-color,border-color,color,transform] duration-[90ms] ease-standard",

@@ -1,22 +1,8 @@
-import {
-  cloneElement,
-  isValidElement,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { isValidElement, type ReactNode } from "react";
+import * as RadixTooltip from "@radix-ui/react-tooltip";
 import { Kbd } from "./Kbd";
 
 export type TooltipSide = "top" | "bottom" | "left" | "right";
-
-const SIDE: Record<TooltipSide, string> = {
-  top: "bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2",
-  bottom: "top-[calc(100%+6px)] left-1/2 -translate-x-1/2",
-  left: "right-[calc(100%+6px)] top-1/2 -translate-y-1/2",
-  right: "left-[calc(100%+6px)] top-1/2 -translate-y-1/2",
-};
 
 export interface TooltipProps {
   /** Noun phrase or imperative. No article, no full stop. */
@@ -35,6 +21,10 @@ export interface TooltipProps {
  *
  * A tooltip never repeats a visible label — it adds the shortcut or the
  * constraint. If all it would say is what the button already says, drop it.
+ *
+ * Behavior comes from the Radix Tooltip primitive — open/close timing,
+ * positioning, and the trigger's aria-describedby wiring. This file owns
+ * only the visual layer.
  */
 export function Tooltip({
   label,
@@ -44,53 +34,27 @@ export function Tooltip({
   children,
   className,
 }: TooltipProps) {
-  const [open, setOpen] = useState(false);
-  const id = useId();
-  // A ref, not a local: a local timer id is re-created every render, so the
-  // clearTimeout on mouseleave would be clearing a stale handle and the tooltip
-  // could still appear after the pointer left.
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-  const show = () => {
-    timer.current = setTimeout(() => setOpen(true), delay);
-  };
-  const hide = () => {
-    clearTimeout(timer.current);
-    setOpen(false);
-  };
-
-  useEffect(() => () => clearTimeout(timer.current), []);
-
   return (
-    <span
-      className={`relative inline-flex${className ? ` ${className}` : ""}`}
-      onMouseEnter={show}
-      onMouseLeave={hide}
-      onFocus={() => setOpen(true)}
-      onBlur={hide}
-    >
-      {/* aria-describedby only while shown: pointing at an element that isn't in
-          the DOM leaves a dangling reference, and the tooltip is what supplies
-          the description, not the trigger. */}
-      {isValidElement<{ "aria-describedby"?: string }>(children) && open
-        ? cloneElement(children, {
-            // Merged, not clobbered: a FieldRow-wrapped trigger already carries
-            // a describedby pointing at its hint.
-            "aria-describedby": [children.props["aria-describedby"], id]
-              .filter(Boolean)
-              .join(" "),
-          })
-        : children}
-      {open && (
-        <span
-          id={id}
-          role="tooltip"
-          className={`fs-caption pointer-events-none absolute z-60 flex animate-fs-pop-in items-center gap-1.5 whitespace-nowrap rounded-2 border border-border-default bg-surface-raised px-[7px] py-1 text-text-primary shadow-elev-2 ${SIDE[side]}`}
-        >
-          {label}
-          {shortcut && <Kbd>{shortcut}</Kbd>}
-        </span>
-      )}
-    </span>
+    <RadixTooltip.Provider delayDuration={delay}>
+      <RadixTooltip.Root>
+        <RadixTooltip.Trigger asChild>
+          {/* The span keeps the trigger contract loose: children need not
+              forward refs or spread props themselves. */}
+          <span className={`inline-flex${className ? ` ${className}` : ""}`}>
+            {isValidElement(children) ? children : <span>{children}</span>}
+          </span>
+        </RadixTooltip.Trigger>
+        <RadixTooltip.Portal>
+          <RadixTooltip.Content
+            side={side}
+            sideOffset={6}
+            className="fs-caption z-60 flex animate-fs-pop-in items-center gap-1.5 whitespace-nowrap rounded-2 border border-border-default bg-surface-raised px-[7px] py-1 text-text-primary shadow-elev-2"
+          >
+            {label}
+            {shortcut && <Kbd>{shortcut}</Kbd>}
+          </RadixTooltip.Content>
+        </RadixTooltip.Portal>
+      </RadixTooltip.Root>
+    </RadixTooltip.Provider>
   );
 }

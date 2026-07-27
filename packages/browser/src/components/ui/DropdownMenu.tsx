@@ -1,22 +1,5 @@
-import {
-  cloneElement,
-  isValidElement,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
-
-/**
- * The attributes DropdownMenu clones onto its trigger. Button and IconButton
- * extend this so the contract lives in one place; any component that wants to
- * act as a trigger extends it too.
- */
-export interface MenuTriggerProps {
-  "aria-expanded"?: boolean;
-  "aria-haspopup"?: "menu";
-}
+import { isValidElement, type ReactNode } from "react";
+import * as RadixMenu from "@radix-ui/react-dropdown-menu";
 import { Check } from "@phosphor-icons/react";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 import { Icon } from "./Icon";
@@ -38,9 +21,9 @@ export interface MenuItemSpec {
 
 export interface DropdownMenuProps {
   /**
-   * The control that opens the menu. Cloned with the open/close handler and the
-   * menu ARIA attributes, so it must be a single element that forwards
-   * `onClick`, `aria-expanded` and `aria-haspopup` — Button and IconButton do.
+   * The control that opens the menu. Must be a single element that forwards a
+   * ref and spreads unknown props onto its root (Button and IconButton do) —
+   * the Radix trigger injects its open/close handlers and ARIA through it.
    */
   trigger: ReactNode;
   items: MenuItemSpec[];
@@ -51,157 +34,65 @@ export interface DropdownMenuProps {
   className?: string;
 }
 
-const HANDLED_KEYS = new Set(["Escape", "ArrowDown", "ArrowUp", "Home", "End", "Tab"]);
-
-function menuRows(root: HTMLElement | null) {
-  return Array.from(root?.querySelectorAll<HTMLElement>("[role=menuitem]") ?? []);
-}
-
-/** Level-2 dropdown. Rows are 28px, sentence case, shortcuts right-aligned. */
+/**
+ * Level-2 dropdown. Rows are 28px, sentence case, shortcuts right-aligned.
+ *
+ * Behavior comes from the Radix DropdownMenu primitive — keyboard navigation,
+ * Escape with focus return, outside-click dismissal, typeahead, and the ARIA
+ * menu contract. This file owns only the row vocabulary and the visual layer.
+ */
 export function DropdownMenu({
   trigger,
   items = [],
   align = "left",
-  open: openProp,
+  open,
   onOpenChange,
   className,
 }: DropdownMenuProps) {
-  const [openState, setOpenState] = useState(false);
-  // Controlled-ness keys off whether `open` was passed, not whether a callback
-  // was: a caller that wants to observe opens without owning the state passes
-  // only `onOpenChange`, and keying off the callback left that menu permanently
-  // closed because internal state was never written.
-  const isControlled = openProp !== undefined;
-  const open = isControlled ? openProp : openState;
-  const menu = useRef<HTMLDivElement>(null);
-  const wrapper = useRef<HTMLDivElement>(null);
-
-  const setOpen = useCallback(
-    (v: boolean) => {
-      if (!isControlled) setOpenState(v);
-      onOpenChange?.(v);
-    },
-    [isControlled, onOpenChange],
-  );
-
-  // Opening with the keyboard should land on the first row; opening with the
-  // mouse should not steal the pointer's target. Focusing on open covers both:
-  // a mouse user's next action is a click, which moves focus anyway.
-  useEffect(() => {
-    if (open) menuRows(menu.current)[0]?.focus();
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (!HANDLED_KEYS.has(e.key)) return;
-      const items = menuRows(menu.current);
-      const i = items.indexOf(document.activeElement as HTMLElement);
-      switch (e.key) {
-        case "Escape":
-          e.preventDefault();
-          setOpen(false);
-          // Hand focus back to the trigger, or Escape strands the keyboard user
-          // at the top of the document.
-          wrapper.current?.querySelector("button")?.focus();
-          break;
-        case "ArrowDown":
-          e.preventDefault();
-          items[(i + 1) % items.length]?.focus();
-          break;
-        case "ArrowUp":
-          e.preventDefault();
-          items[(i - 1 + items.length) % items.length]?.focus();
-          break;
-        case "Home":
-          e.preventDefault();
-          items[0]?.focus();
-          break;
-        case "End":
-          e.preventDefault();
-          items[items.length - 1]?.focus();
-          break;
-        case "Tab":
-          // Tabbing away is a dismissal, not a way to walk out of an open menu.
-          setOpen(false);
-          break;
-      }
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, setOpen]);
-
   return (
-    <div
-      ref={wrapper}
-      className={`relative inline-flex${className ? ` ${className}` : ""}`}
-    >
-      {isValidElement<MenuTriggerProps & { onClick?: (e: React.MouseEvent) => void }>(trigger)
-        ? cloneElement(trigger, {
-            onClick: (e: React.MouseEvent) => {
-              trigger.props.onClick?.(e);
-              setOpen(!open);
-            },
-            "aria-expanded": open,
-            "aria-haspopup": "menu",
-          })
-        : trigger}
-      {open && (
-        <>
-          {/* Full-viewport click catcher: closes on any outside click without a
-              document listener that would also have to be torn down. */}
-          <div className="fixed inset-0 z-70" onClick={() => setOpen(false)} />
-          <div
-            ref={menu}
-            role="menu"
-            className={`absolute top-[calc(100%+4px)] z-71 min-w-46 animate-fs-pop-in rounded-4 border border-border-default bg-surface-raised p-1 shadow-elev-2 ${
-              align === "left" ? "left-0" : "right-0"
-            }`}
-          >
-            {items.map((item, i) =>
-              item.separator ? (
-                <div key={i} className="my-1 h-px bg-border-subtle" />
-              ) : item.header ? (
-                <div
-                  key={i}
-                  className="fs-micro px-2 pb-1 pt-1.5 uppercase tracking-caps text-text-disabled"
-                >
-                  {item.header}
-                </div>
-              ) : (
-                <MenuItem
-                  key={i}
-                  item={item}
-                  onSelect={() => {
-                    if (item.disabled) return;
-                    item.onSelect?.();
-                    setOpen(false);
-                  }}
-                />
-              ),
-            )}
-          </div>
-        </>
-      )}
-    </div>
+    <RadixMenu.Root open={open} onOpenChange={onOpenChange} modal={false}>
+      <RadixMenu.Trigger asChild className={className}>
+        {isValidElement(trigger) ? trigger : <span>{trigger}</span>}
+      </RadixMenu.Trigger>
+      <RadixMenu.Portal>
+        <RadixMenu.Content
+          align={align === "left" ? "start" : "end"}
+          sideOffset={4}
+          className="z-71 min-w-46 animate-fs-pop-in rounded-4 border border-border-default bg-surface-raised p-1 shadow-elev-2"
+        >
+          {items.map((item, i) =>
+            item.separator ? (
+              <RadixMenu.Separator key={i} className="my-1 h-px bg-border-subtle" />
+            ) : item.header ? (
+              <RadixMenu.Label
+                key={i}
+                className="fs-micro px-2 pb-1 pt-1.5 uppercase tracking-caps text-text-disabled"
+              >
+                {item.header}
+              </RadixMenu.Label>
+            ) : (
+              <MenuItem key={i} item={item} />
+            ),
+          )}
+        </RadixMenu.Content>
+      </RadixMenu.Portal>
+    </RadixMenu.Root>
   );
 }
 
-function MenuItem({ item, onSelect }: { item: MenuItemSpec; onSelect: () => void }) {
+function MenuItem({ item }: { item: MenuItemSpec }) {
   const danger = item.tone === "destructive";
   return (
-    <button
-      type="button"
-      role="menuitem"
+    <RadixMenu.Item
       disabled={item.disabled}
-      onClick={onSelect}
+      onSelect={() => item.onSelect?.()}
       className={[
-        "fs-ui flex h-7 w-full items-center gap-2 rounded-2 border-none bg-transparent px-2 text-left",
+        "fs-ui flex h-7 w-full select-none items-center gap-2 rounded-2 border-none bg-transparent px-2 text-left outline-none",
         item.disabled
           ? "cursor-not-allowed text-text-disabled"
           : danger
-            ? "cursor-pointer text-state-error-fg hover:bg-state-error-bg focus:bg-state-error-bg"
-            : "cursor-pointer text-text-primary hover:bg-surface-hover focus:bg-surface-hover",
+            ? "cursor-pointer text-state-error-fg data-[highlighted]:bg-state-error-bg"
+            : "cursor-pointer text-text-primary data-[highlighted]:bg-surface-hover",
       ].join(" ")}
     >
       {item.icon && (
@@ -220,6 +111,6 @@ function MenuItem({ item, onSelect }: { item: MenuItemSpec; onSelect: () => void
       <span className="flex-1">{item.label}</span>
       {item.checked && <Icon icon={Check} weight="bold" size={12} />}
       {item.shortcut && <Kbd>{item.shortcut}</Kbd>}
-    </button>
+    </RadixMenu.Item>
   );
 }

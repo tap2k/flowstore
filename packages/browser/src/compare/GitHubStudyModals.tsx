@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button, Checkbox, FieldRow, Input, Select } from "@/components/ui";
 import { useSettingsStore } from "@/lib/store/settings";
 import {
   FLOWSTORE_TOPIC,
@@ -91,41 +92,34 @@ export function GitHubStudyOpenModal({
     <Shell title="Open study from GitHub" onClose={onClose}>
       <div className="space-y-3">
         {pat ? (
-          <div>
-            <label className="text-xs font-medium text-text-secondary">Repository</label>
+          <FieldRow label="Repository">
             {loadingRepos ? (
-              <div className="mt-1 text-xs text-text-tertiary">Loading…</div>
+              <div className="fs-caption text-text-tertiary">Loading…</div>
             ) : (
-              <select
-                value={selectedIdx}
+              <Select
+                value={String(selectedIdx)}
                 onChange={(e) => {
                   setSelectedIdx(Number(e.target.value));
                   setError(null);
                 }}
-                className="mt-1 w-full rounded border border-border-default px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-focus-ring"
-              >
-                <option value={-1}>— select —</option>
-                {(repos ?? [])
-                  .map((r, i) => ({ r, i }))
-                  .filter(({ r }) => r.topics.includes(FLOWSTORE_TOPIC))
-                  .map(({ r, i }) => (
-                    <option key={r.full_name} value={i}>
-                      {r.full_name}
-                    </option>
-                  ))}
-              </select>
+                options={[
+                  { value: "-1", label: "— select —" },
+                  ...(repos ?? [])
+                    .map((r, i) => ({ r, i }))
+                    .filter(({ r }) => r.topics.includes(FLOWSTORE_TOPIC))
+                    .map(({ r, i }) => ({ value: String(i), label: r.full_name })),
+                ]}
+                className="w-full"
+              />
             )}
-          </div>
+          </FieldRow>
         ) : (
-          <div className="text-xs text-text-tertiary">
+          <div className="fs-caption text-text-tertiary">
             Add a GitHub PAT in settings to list your repos; public repos open by URL below.
           </div>
         )}
-        <div>
-          <label className="text-xs font-medium text-text-secondary">
-            {pat ? "or paste a URL" : "Public repo URL"}
-          </label>
-          <input
+        <FieldRow label={pat ? "or paste a URL" : "Public repo URL"}>
+          <Input
             type="text"
             value={urlInput}
             onChange={(e) => {
@@ -136,9 +130,9 @@ export function GitHubStudyOpenModal({
               if (e.key === "Enter") void openSelection();
             }}
             placeholder="https://github.com/owner/repo"
-            className="mt-1 w-full rounded border border-border-default px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-focus-ring"
+            className="w-full"
           />
-        </div>
+        </FieldRow>
         {(error ?? listError) && (
           <div className="rounded border border-state-error-line bg-state-error-bg px-2 py-1.5 text-xs text-state-error-fg">
             {error ?? listError}
@@ -146,27 +140,16 @@ export function GitHubStudyOpenModal({
         )}
       </div>
       <div className="flex justify-end gap-2 pt-3">
-        <button
-          onClick={onClose}
-          className="rounded-md border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover"
-        >
-          Cancel
-        </button>
-        {!pat && (
-          <button
-            onClick={onOpenSettings}
-            className="rounded-md border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover"
-          >
-            Open Settings
-          </button>
-        )}
-        <button
+        <Button onClick={onClose}>Cancel</Button>
+        {!pat && <Button onClick={onOpenSettings}>Open Settings</Button>}
+        <Button
+          variant="primary"
+          loading={opening}
           onClick={() => void openSelection()}
-          disabled={opening || (!urlInput.trim() && selectedIdx < 0)}
-          className="rounded-md bg-emphasis px-3 py-1.5 text-xs font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-50"
+          disabled={!urlInput.trim() && selectedIdx < 0}
         >
           {opening ? "Opening…" : "Open"}
-        </button>
+        </Button>
       </div>
     </Shell>
   );
@@ -267,22 +250,12 @@ export function GitHubStudySaveModal({
   if (!pat) {
     return (
       <Shell title="Save study to GitHub" onClose={onClose}>
-        <div className="text-xs text-text-tertiary">
+        <div className="fs-caption text-text-tertiary">
           Saving to GitHub needs a personal access token. Add one in settings.
         </div>
         <div className="flex justify-end gap-2 pt-3">
-          <button
-            onClick={onClose}
-            className="rounded-md border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onOpenSettings}
-            className="rounded-md border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover"
-          >
-            Open Settings
-          </button>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button onClick={onOpenSettings}>Open Settings</Button>
         </div>
       </Shell>
     );
@@ -305,12 +278,9 @@ export function GitHubStudySaveModal({
           </div>
         </div>
         <div className="flex justify-end pt-3">
-          <button
-            onClick={onClose}
-            className="rounded-md bg-emphasis px-3 py-1.5 text-xs font-medium text-emphasis-fg hover:bg-emphasis-hover"
-          >
+          <Button variant="primary" onClick={onClose}>
             Done
-          </button>
+          </Button>
         </div>
       </Shell>
     );
@@ -334,59 +304,50 @@ export function GitHubStudySaveModal({
           ))}
         </div>
         {mode === "existing" ? (
-          <div>
-            <label className="text-xs font-medium text-text-secondary">Repository (writable)</label>
+          <FieldRow
+            label="Repository (writable)"
+            hint="Writes to the default branch. If the repo is already a flowstore project, only tests/ and runs are added."
+          >
             {loadingRepos ? (
-              <div className="mt-1 text-xs text-text-tertiary">Loading…</div>
+              <div className="fs-caption text-text-tertiary">Loading…</div>
             ) : (
-              <select
-                value={selectedIdx}
+              <Select
+                value={String(selectedIdx)}
                 onChange={(e) => {
                   setSelectedIdx(Number(e.target.value));
                   setError(null);
                 }}
-                className="mt-1 w-full rounded border border-border-default px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-focus-ring"
-              >
-                <option value={-1}>— select —</option>
-                {(repos ?? [])
-                  .map((r, i) => ({ r, i }))
-                  .filter(({ r }) => r.canWrite)
-                  .sort(
-                    (a, b) =>
-                      Number(b.r.topics.includes(FLOWSTORE_TOPIC)) -
-                      Number(a.r.topics.includes(FLOWSTORE_TOPIC)),
-                  )
-                  .map(({ r, i }) => (
-                    <option key={r.full_name} value={i}>
-                      {r.full_name}
-                    </option>
-                  ))}
-              </select>
+                options={[
+                  { value: "-1", label: "— select —" },
+                  ...(repos ?? [])
+                    .map((r, i) => ({ r, i }))
+                    .filter(({ r }) => r.canWrite)
+                    .sort(
+                      (a, b) =>
+                        Number(b.r.topics.includes(FLOWSTORE_TOPIC)) -
+                        Number(a.r.topics.includes(FLOWSTORE_TOPIC)),
+                    )
+                    .map(({ r, i }) => ({ value: String(i), label: r.full_name })),
+                ]}
+                className="w-full"
+              />
             )}
-            <div className="mt-1 text-[10px] text-text-tertiary">
-              Writes to the default branch. If the repo is already a flowstore project, only
-              tests/ and runs are added.
-            </div>
-          </div>
+          </FieldRow>
         ) : (
           <div className="space-y-2">
-            <div>
-              <label className="text-xs font-medium text-text-secondary">Repository name</label>
-              <input
+            <FieldRow label="Repository name">
+              <Input
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                className="mt-1 w-full rounded border border-border-default px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-focus-ring"
+                className="w-full"
               />
-            </div>
-            <label className="flex items-center gap-1.5 text-xs text-text-secondary">
-              <input
-                type="checkbox"
-                checked={isPrivate}
-                onChange={(e) => setIsPrivate(e.target.checked)}
-              />
-              private repo
-            </label>
+            </FieldRow>
+            <Checkbox
+              checked={isPrivate}
+              onChange={(e) => setIsPrivate(e.target.checked)}
+              label="private repo"
+            />
           </div>
         )}
         {(error ?? listError) && (
@@ -396,19 +357,15 @@ export function GitHubStudySaveModal({
         )}
       </div>
       <div className="flex justify-end gap-2 pt-3">
-        <button
-          onClick={onClose}
-          className="rounded-md border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover"
-        >
-          Cancel
-        </button>
-        <button
+        <Button onClick={onClose}>Cancel</Button>
+        <Button
+          variant="primary"
+          loading={saving}
           onClick={() => void (mode === "existing" ? saveExisting() : saveNew())}
-          disabled={saving || (mode === "existing" ? selectedIdx < 0 : !newName.trim())}
-          className="rounded-md bg-emphasis px-3 py-1.5 text-xs font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-50"
+          disabled={mode === "existing" ? selectedIdx < 0 : !newName.trim()}
         >
           {saving ? "Saving…" : "Save"}
-        </button>
+        </Button>
       </div>
     </Shell>
   );

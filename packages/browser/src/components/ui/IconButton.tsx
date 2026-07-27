@@ -1,7 +1,6 @@
 import { forwardRef } from "react";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 import { Icon, type IconWeight } from "./Icon";
-import type { MenuTriggerProps } from "./DropdownMenu";
 
 export type IconButtonSize = "sm" | "md" | "lg" | "canvas";
 
@@ -14,18 +13,18 @@ const SIZES: Record<IconButtonSize, { box: string; icon: number }> = {
   canvas: { box: "size-9", icon: 20 },
 };
 
-export interface IconButtonProps extends MenuTriggerProps {
+// Extends the native button attributes and spreads the rest through, so
+// composition wrappers (Radix `asChild` triggers, tooltips) can inject their
+// handlers and ARIA without this file having to know each one.
+export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   icon: PhosphorIcon;
   size?: IconButtonSize;
   /** Toggled-on state: selected fill + bold glyph (a second signal besides colour). */
   active?: boolean;
-  disabled?: boolean;
   /** Required — serves as both the tooltip and the accessible name. */
   label: string;
   /** Leave unset. The component picks regular, or bold when `active`. */
   weight?: IconWeight;
-  onClick?: (e: React.MouseEvent) => void;
-  className?: string;
 }
 
 /**
@@ -33,32 +32,19 @@ export interface IconButtonProps extends MenuTriggerProps {
  * stays quiet — no control may outweigh an idle node border.
  */
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  {
-    icon,
-    size = "md",
-    active,
-    disabled,
-    label,
-    weight,
-    onClick,
-    className,
-    "aria-expanded": ariaExpanded,
-    "aria-haspopup": ariaHasPopup,
-  },
+  { icon, size = "md", active, disabled, label, weight, className, type = "button", ...rest },
   ref,
 ) {
   const s = SIZES[size];
   return (
     <button
       ref={ref}
-      type="button"
+      type={type}
       aria-label={label}
       aria-pressed={active}
-      aria-expanded={ariaExpanded}
-      aria-haspopup={ariaHasPopup}
       title={label}
       disabled={disabled}
-      onClick={onClick}
+      {...rest}
       className={[
         "inline-flex items-center justify-center rounded-2 border",
         "transition-[background-color,border-color,color] duration-[90ms] ease-standard",

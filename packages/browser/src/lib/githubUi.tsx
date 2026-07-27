@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import * as RadixDialog from "@radix-ui/react-dialog";
 import type { Octokit } from "@flowstore/core/files/github";
 
 // Shared chrome for the GitHub modals — editor (GitHubOpenModal,
@@ -110,7 +111,9 @@ export function useRepoList(client: Octokit | null, cacheKey: string) {
   return { repos, loading, error };
 }
 
-// The modal shell both surfaces' GitHub dialogs render.
+// The modal shell both surfaces' GitHub dialogs render. Built on the Radix
+// Dialog primitive so every GitHub modal gets focus trap/restore, Escape, and
+// press-origin-aware outside dismissal from one place.
 export function Shell({
   children,
   onClose,
@@ -121,17 +124,19 @@ export function Shell({
   title: React.ReactNode;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-50 bg-surface-scrim flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-surface-panel rounded-lg shadow-lg w-full max-w-md p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-lg font-semibold text-text-primary mb-3">{title}</h2>
-        {children}
-      </div>
-    </div>
+    <RadixDialog.Root open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <RadixDialog.Portal>
+        <RadixDialog.Overlay className="fixed inset-0 z-50 animate-fs-fade-in bg-surface-scrim" />
+        <RadixDialog.Content
+          aria-describedby={undefined}
+          className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 animate-fs-pop-in rounded-lg bg-surface-panel p-5 shadow-lg"
+        >
+          <RadixDialog.Title className="text-lg font-semibold text-text-primary mb-3">
+            {title}
+          </RadixDialog.Title>
+          {children}
+        </RadixDialog.Content>
+      </RadixDialog.Portal>
+    </RadixDialog.Root>
   );
 }

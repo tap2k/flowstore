@@ -15,6 +15,20 @@ import {
   runMatrix,
 } from "@flowstore/studies";
 import type { CellState, Scenario, VoiceRates } from "@flowstore/studies";
+import {
+  CloudArrowDown,
+  CloudArrowUp,
+  DownloadSimple,
+  FileCode,
+  Gear,
+  Package,
+  Play,
+  Plus,
+  Trash,
+  UploadSimple,
+  X,
+} from "@phosphor-icons/react";
+import { Button, DropdownMenu, Icon, IconButton, Input, Textarea } from "@/components/ui";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
 import { DEFAULT_MODEL_ID, resolveDispatch, useSettingsStore } from "@/lib/store/settings";
@@ -315,11 +329,11 @@ export function ComparePage() {
             title="Your speech-to-text rate, dollars per minute of caller audio — prices the ASR line of the voice estimate (caller speech time modeled at ~150 wpm)"
           >
             asr $/min
-            <input
+            <Input
               value={asrPerMin}
               onChange={(e) => setAsrPerMin(e.target.value)}
               placeholder="0.008"
-              className="w-16 rounded border border-border-default px-1.5 py-1 text-[11px]"
+              className="w-16"
             />
           </label>
           <label
@@ -327,49 +341,47 @@ export function ComparePage() {
             title="Your text-to-speech rate, dollars per million characters — priced over the agent's actual transcript characters"
           >
             tts $/1M chars
-            <input
+            <Input
               value={ttsPerMChars}
               onChange={(e) => setTtsPerMChars(e.target.value)}
               placeholder="8.00"
-              className="w-16 rounded border border-border-default px-1.5 py-1 text-[11px]"
+              className="w-16"
             />
           </label>
-          <span className="h-5 w-px bg-border-default" />
-          <button
-            onClick={() => setSetupOpen((v) => !v)}
-            className="rounded-full border border-border-default bg-surface-panel px-4 py-1.5 text-xs font-medium hover:bg-surface-hover"
-          >
+          <Divider />
+          <Button size="sm" onClick={() => setSetupOpen((v) => !v)}>
             {setupOpen ? "hide prompt" : "edit prompt"}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
             onClick={run}
             disabled={busy || !prompt.trim() || scenarios.length === 0 || models.length === 0}
-            className="rounded-full bg-emphasis px-4 py-1.5 text-xs font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-40"
           >
             {running ? `running ${settledCells}/${totalCells}…` : "run all"}
-          </button>
-          <span className="h-5 w-px bg-border-default" />
-          <button
+          </Button>
+          <Divider />
+          <IconButton
+            icon={CloudArrowDown}
+            label="Open a study from GitHub"
             onClick={() => setGithubOpenOpen(true)}
             disabled={busy}
-            className={iconButtonClass}
-            title="Open a study from GitHub"
-            aria-label="Open from GitHub"
-          >
-            <GithubOpenIcon />
-          </button>
-          <button
+          />
+          <IconButton
+            icon={CloudArrowUp}
+            label="Save study to GitHub"
             onClick={() => setGithubSaveOpen(true)}
             disabled={busy || (!prompt && scenarios.length === 0)}
-            className={iconButtonClass}
-            title="Save study to GitHub"
-            aria-label="Save to GitHub"
+          />
+          <Divider />
+          {/* A label, not an IconButton: it has to wrap the file input to keep
+              the native picker one click away. Styled to match IconButton. */}
+          <label
+            className="inline-flex size-7 cursor-pointer items-center justify-center rounded-2 border border-transparent text-text-secondary hover:border-border-default hover:bg-surface-hover"
+            title="Upload study (.flowstore.json)"
+            aria-label="Upload study"
           >
-            <GithubSaveIcon />
-          </button>
-          <span className="h-5 w-px bg-border-default" />
-          <label className={iconButtonClass + " cursor-pointer"} title="Upload study (.flowstore.json)" aria-label="Upload study">
-            <ImportIcon />
+            <Icon icon={UploadSimple} size={16} />
             <input
               type="file"
               accept=".json,application/json"
@@ -377,44 +389,39 @@ export function ComparePage() {
               onChange={(e) => e.target.files?.[0] && uploadBundle(e.target.files[0])}
             />
           </label>
-          <div className="relative">
-            <button
-              onClick={() => setExportOpen((o) => !o)}
-              disabled={!hasResults || running}
-              className={iconButtonClass}
-              title="Export"
-              aria-label="Export"
-            >
-              <ExportIcon />
-            </button>
-            {exportOpen && (
-              <div className="absolute right-0 top-full z-20 mt-1 min-w-[14rem] rounded-md border border-border-default bg-surface-raised py-1 shadow-md">
-                <button
-                  onClick={() => {
-                    setExportOpen(false);
-                    downloadBlob("compare-report.html", buildReportHtml(study, BROWSER_REPORT_OPTS), "text/html");
-                  }}
-                  className={menuItemClass}
-                >
-                  Download report <span className="text-text-disabled">(HTML)</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setExportOpen(false);
-                    downloadBlob(
-                      "compare-study.flowstore.json",
-                      JSON.stringify(buildStudyBundle(study), null, 2),
-                      "application/json",
-                    );
-                  }}
-                  className={menuItemClass}
-                >
-                  Export study <span className="text-text-disabled">(flowstore project)</span>
-                </button>
-              </div>
-            )}
-          </div>
-          <button
+          <DropdownMenu
+            align="right"
+            open={exportOpen}
+            onOpenChange={setExportOpen}
+            trigger={
+              <IconButton icon={DownloadSimple} label="Export" disabled={!hasResults || running} />
+            }
+            items={[
+              {
+                label: "Download report (HTML)",
+                icon: FileCode,
+                onSelect: () =>
+                  downloadBlob(
+                    "compare-report.html",
+                    buildReportHtml(study, BROWSER_REPORT_OPTS),
+                    "text/html",
+                  ),
+              },
+              {
+                label: "Export study (flowstore project)",
+                icon: Package,
+                onSelect: () =>
+                  downloadBlob(
+                    "compare-study.flowstore.json",
+                    JSON.stringify(buildStudyBundle(study), null, 2),
+                    "application/json",
+                  ),
+              },
+            ]}
+          />
+          <IconButton
+            icon={Trash}
+            label="Clear study"
             onClick={() => {
               setPrompt("");
               setScenarios([]);
@@ -429,21 +436,9 @@ export function ComparePage() {
               setSetupOpen(true);
             }}
             disabled={busy || (!prompt && scenarios.length === 0 && !hasResults)}
-            className={iconButtonClass}
-            title="Clear study"
-            aria-label="Clear study"
-          >
-            <ClearIcon />
-          </button>
-          <span className="h-5 w-px bg-border-default" />
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className={iconButtonClass}
-            title="Settings"
-            aria-label="Settings"
-          >
-            <SettingsIcon />
-          </button>
+          />
+          <Divider />
+          <IconButton icon={Gear} label="Settings" onClick={() => setSettingsOpen(true)} />
         </div>
       </header>
 
@@ -455,10 +450,11 @@ export function ComparePage() {
                 system prompt (run verbatim on every model)
               </label>
             </div>
-            <textarea
+            <Textarea
+              code
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              className="h-48 w-full resize-y rounded border border-border-default p-2 font-mono text-[11px]"
+              className="h-48 w-full resize-y"
             />
             {placeholders.length > 0 && (
               <div className="mt-2">
@@ -466,13 +462,14 @@ export function ComparePage() {
                   <span className="text-[11px] font-medium text-text-tertiary">
                     placeholders (filled at send time — the prompt text stays verbatim)
                   </span>
-                  <button
+                  <Button
+                    size="sm"
+                    loading={suggesting}
                     onClick={() => void suggestVars()}
-                    disabled={suggesting || placeholders.every((n) => (vars[n] ?? "").trim())}
-                    className="rounded-full border border-border-default px-2.5 py-0.5 text-[11px] hover:bg-surface-hover disabled:opacity-40"
+                    disabled={placeholders.every((n) => (vars[n] ?? "").trim())}
                   >
                     {suggesting ? "suggesting…" : "suggest values"}
-                  </button>
+                  </Button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {placeholders.map((name) => (
@@ -481,11 +478,11 @@ export function ComparePage() {
                       className="flex items-center gap-1.5 rounded border border-border-default py-0.5 pl-1.5 pr-0.5 text-[11px]"
                     >
                       <span className="font-mono text-text-tertiary">{`{{${name}}}`}</span>
-                      <input
+                      <Input
                         value={vars[name] ?? ""}
                         onChange={(e) => setVars((p) => ({ ...p, [name]: e.target.value }))}
                         placeholder="value"
-                        className="w-32 rounded border border-border-default px-1.5 py-0.5 text-[11px]"
+                        className="w-32"
                       />
                     </label>
                   ))}
@@ -501,7 +498,7 @@ export function ComparePage() {
               <label className="text-[11px] font-medium text-text-tertiary">
                 scenarios (one user turn per line)
               </label>
-            <button
+            <Button
               onClick={() =>
                 setScenarios((prev) => {
                   const id = genId("scenario");
@@ -518,40 +515,41 @@ export function ComparePage() {
                   ];
                 })
               }
-              className="rounded-full border border-border-default px-2.5 py-0.5 text-[11px] hover:bg-surface-hover"
+              size="sm"
+              icon={Plus}
             >
-              + scenario
-            </button>
+              scenario
+            </Button>
             </div>
 
             <div className="flex h-48 flex-col gap-2 overflow-y-auto rounded border border-border-default bg-surface-panel p-2">
             {scenarios.map((s, i) => (
               <div key={s.id}>
                 <div className="mb-1 flex items-center gap-2">
-                  <input
+                  <Input
                     value={s.name}
                     onChange={(e) => updateScenario(i, { name: e.target.value })}
-                    className="flex-1 rounded border border-border-default px-1.5 py-0.5 text-[11px]"
+                    className="flex-1"
                   />
-                  <input
+                  <Input
                     value={s.language}
                     onChange={(e) => updateScenario(i, { language: e.target.value })}
-                    className="w-10 rounded border border-border-default px-1.5 py-0.5 text-center text-[11px]"
+                    className="w-12"
                     title="language code"
                   />
-                  <button
+                  <IconButton
+                    icon={X}
+                    size="sm"
+                    label="Delete scenario"
                     onClick={() => setScenarios((prev) => prev.filter((_, j) => j !== i))}
-                    className="text-[11px] text-text-disabled hover:text-state-error-fg"
-                  >
-                    ✕
-                  </button>
+                  />
                 </div>
-                <textarea
+                <Textarea
                   value={s.turns.join("\n")}
                   onChange={(e) =>
                     updateScenario(i, { turns: e.target.value.split("\n") })
                   }
-                  className="h-16 w-full resize-y rounded border border-border-default p-1.5 text-[11px]"
+                  className="h-16 w-full resize-y"
                 />
               </div>
             ))}
@@ -567,13 +565,10 @@ export function ComparePage() {
               Paste a system prompt above, upload a study, or start from the example.
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => void loadExample()}
-                className="rounded-full border border-border-default bg-surface-panel px-4 py-1.5 text-xs font-medium hover:bg-surface-hover"
-              >
-                load example (clinic agent)
-              </button>
-              <label className="cursor-pointer rounded-full border border-border-default bg-surface-panel px-4 py-1.5 text-xs font-medium hover:bg-surface-hover">
+              <Button onClick={() => void loadExample()}>load example (clinic agent)</Button>
+              {/* A label, not a Button: it wraps the file input so the native
+                  picker stays one click away. Styled to match Button md. */}
+              <label className="inline-flex h-7 cursor-pointer items-center rounded-2 border border-border-default bg-surface-panel px-2.5 text-13 font-medium text-text-primary tracking-snug hover:bg-surface-hover hover:border-border-strong">
                 upload .flowstore.json
                 <input
                   type="file"
@@ -621,18 +616,17 @@ export function ComparePage() {
                           </span>
                         )}
                       </span>
-                      <button
+                      <IconButton
+                        icon={Play}
+                        size="sm"
+                        label={`Run scenario ${s.name} on all models`}
                         onClick={(e) => {
                           e.stopPropagation();
                           void runScenario(s);
                         }}
                         disabled={busy || !prompt.trim() || models.length === 0}
-                        className="invisible shrink-0 rounded-md border border-border-default px-1.5 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover disabled:opacity-40 group-hover:visible"
-                        title="Run this scenario on all models"
-                        aria-label={`Run scenario ${s.name}`}
-                      >
-                        ▶
-                      </button>
+                        className="invisible shrink-0 group-hover:visible"
+                      />
                     </div>
                   </td>
                   <td className="border-b border-l border-border-subtle px-1 py-1.5 text-center">
@@ -669,14 +663,14 @@ export function ComparePage() {
                       className="min-w-0 text-[11px]"
                     />
                     {i > 0 && (
-                      <button
+                      <IconButton
+                        icon={X}
+                        size="sm"
+                        label="Remove column"
                         onClick={() => setModels((prev) => prev.filter((_, j) => j !== i))}
                         disabled={busy}
-                        className="shrink-0 rounded-md border border-border-default px-1.5 py-0.5 text-[11px] text-text-tertiary hover:bg-state-error-bg hover:text-state-error-fg"
-                        title="Remove column"
-                      >
-                        ✕
-                      </button>
+                        className="shrink-0"
+                      />
                     )}
                     {c?.divergent && (
                       <span className="rounded-full bg-state-warning-bg px-1.5 text-[9px] text-state-warning-fg">
@@ -685,14 +679,16 @@ export function ComparePage() {
                     )}
                     <div className="ml-auto flex shrink-0 items-center gap-1.5">
                     {translateReady && colTurns.some((t) => t.text) && (
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => void translateColumn(key, colTurns)}
                         disabled={translating !== null}
                         title="Translate this conversation to English. Press again to refresh after new turns; press once more to show originals."
-                        className="shrink-0 rounded px-1.5 py-0.5 text-[10px] text-text-secondary hover:bg-surface-hover disabled:opacity-40"
+                        className="shrink-0"
                       >
                         🌐 {translateLabel}
-                      </button>
+                      </Button>
                     )}
                     <ColumnStats cell={c} rates={voiceRates} />
                     {/* capture-gold disabled for now (Tapan 2026-07-26) — uncomment
@@ -728,14 +724,14 @@ export function ComparePage() {
                     )}
                     */}
                     {i === models.length - 1 && models.length < 6 && (
-                      <button
+                      <IconButton
+                        icon={Plus}
+                        size="sm"
+                        label="Add model column"
                         onClick={() => setModels((prev) => [...prev, DEFAULT_MODEL_ID])}
                         disabled={busy}
-                        className="shrink-0 rounded-md border border-border-default px-2 py-0.5 text-[12px] font-medium text-text-secondary hover:bg-surface-hover"
-                        title="Add model column"
-                      >
-                        +
-                      </button>
+                        className="shrink-0"
+                      />
                     )}
                     </div>
                   </div>
@@ -861,73 +857,8 @@ function TurnBubble({ turn, displayText }: { turn: TranscriptTurn; displayText?:
   );
 }
 
-// Icon buttons mirror the editor toolbar (ImportExport.tsx) — same classes,
-// same icons, same order (export, clear, | settings). Icons duplicated for
-// now; extract a shared icon lib when a third consumer appears.
-const iconButtonClass =
-  "rounded-md border border-border-default p-1.5 text-text-secondary hover:bg-surface-hover disabled:opacity-50 disabled:hover:bg-transparent";
-const menuItemClass =
-  "block w-full text-left px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover";
-
-function GithubOpenIcon() {
-  // Cloud with downward arrow — open from remote (same glyph as the editor).
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
-      <polyline points="8 17 12 21 16 17" />
-      <line x1="12" y1="12" x2="12" y2="21" />
-    </svg>
-  );
-}
-
-function GithubSaveIcon() {
-  // Cloud with upward arrow — push to remote (same glyph as the editor).
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
-      <polyline points="16 16 12 12 8 16" />
-      <line x1="12" y1="12" x2="12" y2="21" />
-    </svg>
-  );
-}
-
-function ImportIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="17 8 12 3 7 8" />
-      <line x1="12" y1="3" x2="12" y2="15" />
-    </svg>
-  );
-}
-
-function ExportIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
-    </svg>
-  );
-}
-
-function ClearIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <path d="M10 11v6M14 11v6" />
-      <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
-}
-
-function SettingsIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  );
+// Toolbar group separator, matching the editor toolbar's Divider.
+function Divider() {
+  return <span className="h-5 w-px bg-border-subtle" aria-hidden="true" />;
 }
 
