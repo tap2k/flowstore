@@ -15,9 +15,7 @@ import {
   FileCode,
   Gear,
   Package,
-  Play,
   Plus,
-  Stop,
   Trash,
   UploadSimple,
   X,
@@ -429,24 +427,35 @@ export function ComparePage() {
                           </span>
                         )}
                       </span>
-                      <IconButton
-                        icon={s.rowRunning === sc.id ? Stop : Play}
-                        size="sm"
-                        label={
-                          s.rowRunning === sc.id
-                            ? "Stop this run"
-                            : `Run scenario ${sc.name} on all models`
-                        }
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (s.rowRunning === sc.id) s.stopRun();
-                          else void s.runScenario(sc);
-                        }}
-                        disabled={
-                          s.rowRunning !== sc.id && (busy || !s.prompt.trim() || s.models.length === 0)
-                        }
-                        className={`shrink-0 ${s.rowRunning === sc.id ? "" : "invisible group-hover:visible"}`}
-                      />
+                      {/* Same ▶/■ pair as the header and the simulate strip. */}
+                      {s.rowRunning === sc.id ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            s.stopRun();
+                          }}
+                          aria-label="Stop run"
+                          title="Stop. Any in-flight LLM call still completes; finished conversations are kept."
+                          className="shrink-0 rounded border border-state-error-line bg-state-error-bg px-1.5 text-[11px] font-medium leading-5 text-state-error-fg hover:bg-state-error-bg-hover"
+                        >
+                          ■
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void s.runScenario(sc);
+                          }}
+                          disabled={busy || !s.prompt.trim() || s.models.length === 0}
+                          aria-label={`Run scenario ${sc.name} on all models`}
+                          title={`Run scenario ${sc.name} on all models`}
+                          className="invisible shrink-0 rounded bg-emphasis px-1.5 text-[11px] font-medium leading-5 text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-40 group-hover:visible"
+                        >
+                          ▶
+                        </button>
+                      )}
                     </div>
                   </td>
                   <td className="border-b border-l border-border-subtle px-1 py-1.5 text-center">
