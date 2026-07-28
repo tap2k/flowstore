@@ -10,20 +10,28 @@ import { IDLE_CELL, cellKey } from "./types";
 export type ResolveDispatch = (model: string) => ModelDispatch | null;
 
 // Run one scenario against one model, reporting progress after every turn.
+// Stop (signal) follows the simulate panel's semantics: cooperative, checked
+// at turn boundaries — the in-flight LLM call completes but its result is
+// dropped — and a stopped cell reverts to idle, so partial transcripts never
+// masquerade as results.
 export async function runCell(args: {
   systemPrompt: string;
   scenario: Scenario;
   dispatch: ModelDispatch;
   onUpdate: (patch: Partial<CellState>) => void;
+  signal?: AbortSignal;
 }): Promise<void> {
-  const { systemPrompt, scenario, dispatch, onUpdate } = args;
+  const { systemPrompt, scenario, dispatch, onUpdate, signal } = args;
   onUpdate({ status: "running", turns: [], usage: undefined, totalMs: 0, error: undefined });
+  const revert = () =>
+    onUpdate({ status: "idle", turns: [], usage: undefined, totalMs: 0, error: undefined });
 
   const history: TranscriptTurn[] = [];
   let usage: ChatUsage | undefined;
   let totalMs = 0;
   try {
     for (const userText of scenario.turns) {
+      if (signal?.aborted) return revert();
       const userTurn: TranscriptTurn = { role: "user", text: userText, ts: Date.now(), events: [] };
       onUpdate({ turns: [...history, userTurn] });
       const started = Date.now();
@@ -36,6 +44,7 @@ export async function runCell(args: {
         provider: dispatch.provider,
         baseUrl: dispatch.baseUrl,
       });
+      if (signal?.aborted) return revert();
       const latencyMs = Date.now() - started;
       totalMs += latencyMs;
       usage = addUsage(usage, res.usage);
@@ -59,8 +68,9 @@ export async function runMatrix(args: {
   models: string[];
   resolveDispatch: ResolveDispatch;
   onCell: (key: string, patch: Partial<CellState>) => void;
+  signal?: AbortSignal;
 }): Promise<Record<string, CellState>> {
-  const { systemPrompt, scenarios, models, resolveDispatch, onCell } = args;
+  const { systemPrompt, scenarios, models, resolveDispatch, onCell, signal } = args;
   const cells: Record<string, CellState> = {};
   const emit = (key: string, patch: Partial<CellState>) => {
     cells[key] = { ...(cells[key] ?? IDLE_CELL), ...patch };
@@ -70,6 +80,7 @@ export async function runMatrix(args: {
   await Promise.all(
     models.map(async (model, mi) => {
       for (const s of scenarios) {
+        if (signal?.aborted) break;
         const key = cellKey(s.id, mi);
         // Resolved per cell on purpose: a key entered mid-run is picked up
         // by the remaining scenarios in the column.
@@ -78,7 +89,7 @@ export async function runMatrix(args: {
           emit(key, { status: "error", error: `No API key for ${model}.` });
           continue;
         }
-        await runCell({ systemPrompt, scenario: s, dispatch, onUpdate: (p) => emit(key, p) });
+        await runCell({ systemPrompt, scenario: s, dispatch, onUpdate: (p) => emit(key, p), signal });
       }
     }),
   );

@@ -17,6 +17,7 @@ import {
   Package,
   Play,
   Plus,
+  Stop,
   Trash,
   UploadSimple,
   X,
@@ -147,14 +148,20 @@ export function ComparePage() {
           <Button size="sm" onClick={() => s.clearConversations()} disabled={busy || !hasResults}>
             clear
           </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => void s.run()}
-            disabled={busy || !s.prompt.trim() || s.scenarios.length === 0 || s.models.length === 0}
-          >
-            {s.running ? `running ${settledCells}/${totalCells}…` : "run all"}
-          </Button>
+          {busy ? (
+            <Button variant="primary" size="sm" onClick={() => s.stopRun()}>
+              {s.running ? `stop ${settledCells}/${totalCells}` : "stop"}
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => void s.run()}
+              disabled={!s.prompt.trim() || s.scenarios.length === 0 || s.models.length === 0}
+            >
+              run all
+            </Button>
+          )}
           <Divider />
           {/* Graduation: same-origin jump to the editor, which imports this
               study from localStorage on boot (lib/compareHandoff.ts). */}
@@ -241,7 +248,7 @@ export function ComparePage() {
           <div className="flex flex-col pr-4">
             <div className="mb-1 flex h-6 items-center">
               <label className="text-[11px] font-medium text-text-tertiary">
-                system prompt (run verbatim on every model)
+                system prompt
               </label>
             </div>
             <Textarea
@@ -406,15 +413,22 @@ export function ComparePage() {
                         )}
                       </span>
                       <IconButton
-                        icon={Play}
+                        icon={s.rowRunning === sc.id ? Stop : Play}
                         size="sm"
-                        label={`Run scenario ${sc.name} on all models`}
+                        label={
+                          s.rowRunning === sc.id
+                            ? "Stop this run"
+                            : `Run scenario ${sc.name} on all models`
+                        }
                         onClick={(e) => {
                           e.stopPropagation();
-                          void s.runScenario(sc);
+                          if (s.rowRunning === sc.id) s.stopRun();
+                          else void s.runScenario(sc);
                         }}
-                        disabled={busy || !s.prompt.trim() || s.models.length === 0}
-                        className="invisible shrink-0 group-hover:visible"
+                        disabled={
+                          s.rowRunning !== sc.id && (busy || !s.prompt.trim() || s.models.length === 0)
+                        }
+                        className={`shrink-0 ${s.rowRunning === sc.id ? "" : "invisible group-hover:visible"}`}
                       />
                     </div>
                   </td>

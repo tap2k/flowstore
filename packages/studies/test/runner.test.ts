@@ -158,6 +158,27 @@ describe("runCell", () => {
     expect(state.cell.status).toBe("error");
     expect(state.cell.error).toBe("rate limited");
   });
+
+  it("stop mid-turn drops the in-flight result, sends nothing further, reverts to idle", async () => {
+    const ctrl = new AbortController();
+    mockSend.mockImplementation(async () => {
+      // Stop lands while the first turn is in flight.
+      ctrl.abort();
+      return { text: "late reply", usage: { inputTokens: 1, outputTokens: 1 }, invocations: [] };
+    });
+    const { state, onUpdate } = collector();
+    await runCell({
+      systemPrompt: "SP",
+      scenario: scenario("s1", ["one", "two"]),
+      dispatch: dispatch("m"),
+      onUpdate,
+      signal: ctrl.signal,
+    });
+    expect(mockSend).toHaveBeenCalledTimes(1); // "two" never sent
+    expect(state.cell.status).toBe("idle");
+    expect(state.cell.turns).toEqual([]); // late reply dropped, partial transcript gone
+    expect(state.cell.usage).toBeUndefined();
+  });
 });
 
 describe("runMatrix", () => {

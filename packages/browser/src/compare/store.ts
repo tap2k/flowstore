@@ -106,6 +106,7 @@ interface CompareState {
   uploadBundle: (file: File) => void;
   run: () => Promise<void>;
   runScenario: (s: Scenario) => Promise<void>;
+  stopRun: () => void;
   translateColumn: (key: string, turns: TranscriptTurn[]) => Promise<void>;
   generateVars: () => Promise<void>;
   generateScenarios: () => Promise<void>;
@@ -114,6 +115,11 @@ interface CompareState {
 }
 
 const initial = loadStudy();
+
+// Abort handle for the in-flight run (full matrix or single row — they're
+// mutually exclusive). Module-level, not state: an AbortController isn't
+// serializable and no view renders it.
+let runAbort: AbortController | null = null;
 
 export const useCompareStore = create<CompareState>((set, get) => ({
   agentId: initial.agentId,
@@ -248,13 +254,16 @@ export const useCompareStore = create<CompareState>((set, get) => ({
     });
     // The engine owns the matrix policy (parallelism, divergence); the store
     // only supplies credentials and mirrors patches into state.
+    runAbort = new AbortController();
     await runMatrix({
       systemPrompt: filledPromptOf(prompt, vars),
       scenarios,
       models,
       resolveDispatch: resolveForEngine,
       onCell: patchCell(set),
+      signal: runAbort.signal,
     });
+    runAbort = null;
     set({ running: false });
   },
 
@@ -278,15 +287,22 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       showTranslated: dropRow(s.showTranslated),
       translateErrors: dropRow(s.translateErrors),
     }));
+    runAbort = new AbortController();
     await runMatrix({
       systemPrompt: filledPromptOf(prompt, vars),
       scenarios: [sc],
       models,
       resolveDispatch: resolveForEngine,
       onCell: patchCell(set),
+      signal: runAbort.signal,
     });
+    runAbort = null;
     set({ rowRunning: null });
   },
+
+  // Cooperative stop: the engine checks at turn boundaries, drops the
+  // in-flight result, and reverts unfinished cells to idle.
+  stopRun: () => runAbort?.abort(),
 
   // Translate one column's conversation (or toggle back to originals when
   // everything is already cached). Same semantics as the editor's
