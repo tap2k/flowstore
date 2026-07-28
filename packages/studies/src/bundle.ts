@@ -1,3 +1,5 @@
+import { ALL_LANGUAGES, generateSystemPrompt } from "@flowstore/core/codegen/promptGenerator";
+import { loadProject } from "@flowstore/core/files/load";
 import type { CellState, Scenario } from "./types";
 import { cellKey } from "./types";
 
@@ -246,8 +248,25 @@ export function parseStudyBundle(files: Record<string, string>): ParsedStudyBund
     }
   }
 
+  // The prompt is whatever the compiler says the agent runs on — same answer
+  // every other surface gives. A pure override is used byte-verbatim WITHOUT
+  // a compile round-trip (compileSystemPrompt normalizes whitespace, which
+  // would break override byte-identity); only when the field is absent (a
+  // spec'd project) or a {{generated}} template does the compiler produce
+  // the text shown and run.
+  let prompt = agent.system_prompt ?? "";
+  if (!agent.system_prompt || agent.system_prompt.includes("{{generated}}")) {
+    try {
+      const { spec } = loadProject(files);
+      if (spec) prompt = generateSystemPrompt(spec, undefined, { language: ALL_LANGUAGES });
+    } catch {
+      // Not a loadable project (e.g. a bare prompt+cases FileMap) — the raw
+      // agent.system_prompt stands.
+    }
+  }
+
   return {
-    prompt: agent.system_prompt ?? "",
+    prompt,
     agentId: typeof agent.id === "string" && agent.id ? agent.id : null,
     scenarios,
     golds,
