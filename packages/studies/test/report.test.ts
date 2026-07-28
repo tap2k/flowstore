@@ -50,7 +50,7 @@ describe("buildReportHtml", () => {
 
   it("never inlines the prompt text — only its length", () => {
     expect(html).not.toContain("You are Asha.");
-    expect(html).toContain("prompt run verbatim");
+    expect(html).toContain("prompt 13 chars");
   });
 
   it("surface opts override the default copy", () => {
