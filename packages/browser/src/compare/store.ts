@@ -99,6 +99,7 @@ interface CompareState {
   removeModel: (i: number) => void;
   setVar: (name: string, value: string) => void;
   setGithubLocation: (loc: StudyGithubLocation | null) => void;
+  clearConversations: () => void;
   clearStudy: () => void;
   applyBundle: (files: Record<string, string>) => void;
   loadExample: () => Promise<void>;
@@ -173,6 +174,11 @@ export const useCompareStore = create<CompareState>((set, get) => ({
   setVar: (name, value) => set((s) => ({ vars: { ...s.vars, [name]: value } })),
 
   setGithubLocation: (loc) => set({ github: loc }),
+
+  // Drop the transcripts (and their translation caches/toggles/errors) while
+  // keeping the study itself — prompt, scenarios, models, golds, vars.
+  clearConversations: () =>
+    set({ cells: {}, translations: {}, showTranslated: {}, translateErrors: {} }),
 
   clearStudy: () =>
     set({

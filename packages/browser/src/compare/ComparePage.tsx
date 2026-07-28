@@ -144,6 +144,9 @@ export function ComparePage() {
           <Button size="sm" onClick={() => s.setSetupOpen(!s.setupOpen)}>
             {s.setupOpen ? "hide prompt" : "edit prompt"}
           </Button>
+          <Button size="sm" onClick={() => s.clearConversations()} disabled={busy || !hasResults}>
+            clear
+          </Button>
           <Button
             variant="primary"
             size="sm"
