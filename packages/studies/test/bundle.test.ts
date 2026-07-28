@@ -187,6 +187,31 @@ describe("buildStudyBundle", () => {
     expect(parsed.golds.s1?.turns).toEqual(golds.s1.turns);
   });
 
+  it("compiles the prompt from the spec when a project has no manual system_prompt", () => {
+    const specProject = {
+      "agent.json": JSON.stringify({
+        $schema: "flowstore://spec/agent/v0",
+        id: "agent_spec",
+        name: "spec-agent",
+        meta: { identity: "Asha", purpose: "Remind patients about appointments.", modality: "voice" },
+        chatbot_initiates: true,
+        entry_flow_id: "greet",
+      }),
+      "flows/greet.flow.json": JSON.stringify({
+        $schema: "flowstore://spec/flow/v0",
+        id: "greet",
+        name: "Greet",
+        type: "happy",
+        instructions: "Greet the caller and confirm the appointment.",
+        exit_paths: [{ id: "xp_done", goto: "END", condition: { expression: "true", method: "direct" } }],
+      }),
+    };
+    const parsed = parseStudyBundle(specProject);
+    expect(parsed.prompt).toContain("Asha");
+    expect(parsed.prompt).toContain("Greet the caller and confirm the appointment.");
+    expect(parsed.agentId).toBe("agent_spec");
+  });
+
   it("derives scenarios from golds' user turns when a project has no cases", () => {
     const goldOnly = {
       "agent.json": JSON.stringify({ system_prompt: "p" }),
