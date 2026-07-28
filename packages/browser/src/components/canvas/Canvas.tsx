@@ -575,6 +575,9 @@ function CanvasInner({ spec }: { spec: Spec }) {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
+        // Cap the mount-time fit at 1:1 like the spec-swap refit below —
+        // uncapped, a two-node graph fills the viewport at 2x.
+        fitViewOptions={{ padding: 0.2, maxZoom: 1.0 }}
         minZoom={0.2}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
