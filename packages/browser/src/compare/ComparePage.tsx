@@ -173,7 +173,7 @@ export function ComparePage() {
               size="sm"
               onClick={() => void s.run()}
               disabled={!s.prompt.trim() || s.scenarios.length === 0 || s.models.length === 0}
-              title="Runs missing and failed conversations; finished ones are kept. Use clear for a fresh start."
+              title="Continues stopped conversations and runs missing or failed ones; finished conversations are kept. Use clear for a fresh start."
             >
               ▶ run all
             </Button>

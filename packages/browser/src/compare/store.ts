@@ -286,23 +286,29 @@ export const useCompareStore = create<CompareState>((set, get) => ({
 
   // Run one scenario row across every model column — a single-scenario
   // matrix, so the engine's column parallelism and divergence pass apply
-  // unchanged.
+  // unchanged. Same pause semantics as run: a stopped conversation
+  // continues; done and errored cells re-run (clicking the row's ▶ IS the
+  // explicit re-request). Caches drop only for cells starting over.
   runScenario: async (sc) => {
-    const { running, rowRunning, prompt, vars, models } = get();
+    const { running, rowRunning, prompt, vars, models, cells } = get();
     if (running || rowRunning) return;
-    // Fresh transcripts for this row: drop its translation cache, toggles,
-    // and errors so the columns can't show stale glosses over new turns.
-    const dropRow = <T,>(rec: Record<string, T>): Record<string, T> => {
+    const rowKeys = models.map((_, mi) => cellKey(sc.id, mi));
+    const resume: Record<string, CellState> = {};
+    for (const k of rowKeys) {
+      const c = cells[k];
+      if (c && c.status === "idle" && c.turns.length > 0) resume[k] = c;
+    }
+    const dropRestarting = <T,>(rec: Record<string, T>): Record<string, T> => {
       const next = { ...rec };
-      for (let mi = 0; mi < models.length; mi++) delete next[cellKey(sc.id, mi)];
+      for (const k of rowKeys) if (!(k in resume)) delete next[k];
       return next;
     };
     set((s) => ({
       rowRunning: sc.id,
       selected: sc.id,
-      translations: dropRow(s.translations),
-      showTranslated: dropRow(s.showTranslated),
-      translateErrors: dropRow(s.translateErrors),
+      translations: dropRestarting(s.translations),
+      showTranslated: dropRestarting(s.showTranslated),
+      translateErrors: dropRestarting(s.translateErrors),
     }));
     runAbort = new AbortController();
     await runMatrix({
@@ -312,6 +318,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       resolveDispatch: resolveForEngine,
       onCell: patchCell(set),
       signal: runAbort.signal,
+      resumeFrom: Object.keys(resume).length > 0 ? resume : undefined,
     });
     runAbort = null;
     set({ rowRunning: null });
