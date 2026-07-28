@@ -511,8 +511,10 @@ the source warrants it.
   rules ("always confirm before
   placing the order", "one or two sentences") → `guardrails`.
   Per-stage behavior → flow `instructions`. Facts → `knowledge`
-  (FAQ, glossary, tables). Tools → `capabilities`. There is no
-  agent-level free-text prompt field — the compiler synthesizes the
+  (FAQ, glossary, tables). Tools → `capabilities`. The schema's
+  `agent.system_prompt` field is runtime-owned — never emit it, even
+  when the input IS a system prompt (copying or paraphrasing the input
+  into it breaks verbatim preservation). The compiler synthesizes the
   role line from `meta.identity`, and the rendered prompt is built from the
   structured fields. The test for tone vs. guardrail: is the clause
   describing how the agent *sounds* (tone), or what the agent must
