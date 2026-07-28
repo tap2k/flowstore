@@ -220,16 +220,6 @@ export function ComparePage() {
             }
             items={[
               {
-                label: "Download report (HTML)",
-                icon: FileCode,
-                onSelect: () =>
-                  downloadBlob(
-                    "compare-report.html",
-                    buildReportHtml(study, BROWSER_REPORT_OPTS),
-                    "text/html",
-                  ),
-              },
-              {
                 label: "Export project (.flowstore.json)",
                 icon: Package,
                 onSelect: () =>
@@ -237,6 +227,16 @@ export function ComparePage() {
                     "compare-study.flowstore.json",
                     JSON.stringify(buildStudyBundle(study), null, 2),
                     "application/json",
+                  ),
+              },
+              {
+                label: "Download report (HTML)",
+                icon: FileCode,
+                onSelect: () =>
+                  downloadBlob(
+                    "compare-report.html",
+                    buildReportHtml(study, BROWSER_REPORT_OPTS),
+                    "text/html",
                   ),
               },
             ]}
