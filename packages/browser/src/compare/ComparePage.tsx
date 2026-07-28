@@ -149,9 +149,26 @@ export function ComparePage() {
             clear
           </Button>
           {busy ? (
-            <Button variant="primary" size="sm" onClick={() => s.stopRun()}>
-              {s.running ? `stop ${settledCells}/${totalCells}` : "stop"}
-            </Button>
+            <>
+              {s.running && (
+                <span
+                  className="text-[10px] tabular-nums text-text-tertiary"
+                  title={`${settledCells} of ${totalCells} conversations finished (scenarios × models)`}
+                >
+                  {settledCells}/{totalCells} conversations
+                </span>
+              )}
+              {/* Same stop affordance as the simulate panel's case strip. */}
+              <button
+                type="button"
+                onClick={() => s.stopRun()}
+                aria-label="Stop run"
+                title="Stop. Any in-flight LLM call still completes; finished conversations are kept."
+                className="rounded border border-state-error-line bg-state-error-bg px-2 py-1 text-[12px] font-medium text-state-error-fg hover:bg-state-error-bg-hover"
+              >
+                ■
+              </button>
+            </>
           ) : (
             <Button
               variant="primary"
@@ -159,7 +176,7 @@ export function ComparePage() {
               onClick={() => void s.run()}
               disabled={!s.prompt.trim() || s.scenarios.length === 0 || s.models.length === 0}
             >
-              run all
+              ▶ run all
             </Button>
           )}
           <Divider />
