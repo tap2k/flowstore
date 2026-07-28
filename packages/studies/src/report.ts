@@ -4,9 +4,8 @@ import { SPEECH_WPM, estimateVoiceCost } from "./voiceCost";
 
 // Self-contained HTML report — the forwardable artifact. Audience: the
 // agency's client/buyer, not the person who ran the study. Contents: summary
-// (per-model latency, tokens, measured cost, projection at volume), then
-// per-scenario side-by-side transcripts. Inline CSS only; no external
-// requests; prints cleanly.
+// (per-model latency, tokens, measured cost), then per-scenario side-by-side
+// transcripts. Inline CSS only; no external requests; prints cleanly.
 
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -125,7 +124,7 @@ export function buildReportHtml(
   @media print{.cols{overflow:visible}}
 </style></head><body><div class="page">
 <h1>${esc(study.title)}</h1>
-<div class="meta">${date} · ${models.length} models · ${scenarios.length} scenarios · prompt run verbatim (${study.prompt.length.toLocaleString()} chars)</div>
+<div class="meta">${date} · ${models.length} models · ${scenarios.length} scenarios · prompt ${study.prompt.length.toLocaleString()} chars</div>
 <h2>Summary</h2>
 <table><thead><tr><th>Model</th><th>Completed</th><th>Divergence vs current</th><th>Avg latency/reply</th><th>Tokens in/out</th><th>Cost/conversation</th>${withVoice ? "<th>Est. voice cost/conv</th>" : ""}</tr></thead>
 <tbody>${summaryRows}</tbody></table>
