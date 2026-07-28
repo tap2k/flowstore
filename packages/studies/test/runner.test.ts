@@ -208,6 +208,28 @@ describe("runCell", () => {
     expect(state.cell.usage?.inputTokens).toBe(2); // accumulated across the stop
   });
 
+  it("an errored cell never resumes, even with complete pairs kept", async () => {
+    mockSend.mockResolvedValue({ text: "r", usage: { inputTokens: 1, outputTokens: 1 }, invocations: [] });
+    // Even pairs can land on an error cell (e.g. a dispatch error patched onto
+    // a previously paused cell) — the failure must retry, not continue.
+    const errored: CellState = {
+      status: "error",
+      error: "boom",
+      turns: [turn("user", "one"), turn("agent", "old reply")],
+      totalMs: 1,
+    };
+    const { state, onUpdate } = collector();
+    await runCell({
+      systemPrompt: "SP",
+      scenario: scenario("s1", ["one", "two"]),
+      dispatch: dispatch("m"),
+      onUpdate,
+      resume: errored,
+    });
+    expect(mockSend).toHaveBeenCalledTimes(2); // full restart
+    expect(state.cell.status).toBe("done");
+  });
+
   it("an edited script invalidates the kept prefix — the conversation restarts", async () => {
     mockSend.mockResolvedValue({ text: "r", usage: { inputTokens: 1, outputTokens: 1 }, invocations: [] });
     const stopped: CellState = {

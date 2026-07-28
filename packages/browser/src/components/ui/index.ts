@@ -20,6 +20,7 @@
 export { DisclosureCaret } from "./DisclosureCaret";
 export { Icon, type IconProps, type IconSize, type IconWeight } from "./Icon";
 export { StatusIcon, type StatusIconProps, type Status } from "./StatusIcon";
+export { StopButton, type StopButtonProps } from "./StopButton";
 export { ThemeToggle } from "./ThemeToggle";
 
 export { Button, type ButtonProps, type ButtonVariant, type ButtonSize } from "./Button";

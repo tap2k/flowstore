@@ -9,21 +9,23 @@ import { IDLE_CELL, cellKey } from "./types";
 // node CLI env) — the engine never reads config itself.
 export type ResolveDispatch = (model: string) => ModelDispatch | null;
 
-// A stopped conversation resumes only if its kept turns are complete
-// user/agent pairs whose user side is a prefix of the current script — an
-// edited scenario invalidates the prefix and the conversation restarts.
+// Only a PAUSED conversation resumes (status idle — errored cells restart so
+// the failure isn't silently swallowed into a continuation), and only if its
+// kept turns are complete user/agent pairs whose user side is a prefix of
+// the current script — an edited scenario invalidates the prefix and the
+// conversation restarts.
 function resumablePrefix(
   prior: CellState | undefined,
   scenario: Scenario,
 ): TranscriptTurn[] | null {
-  const t = prior?.turns ?? [];
+  if (prior?.status !== "idle") return null;
+  const t = prior.turns;
   if (t.length === 0 || t.length % 2 !== 0) return null;
-  for (let i = 0; i < t.length; i++) {
-    if (t[i].role !== (i % 2 === 0 ? "user" : "agent")) return null;
+  if (t.length / 2 >= scenario.turns.length) return null;
+  for (let i = 0; i < t.length; i += 2) {
+    if (t[i].role !== "user" || t[i].text !== scenario.turns[i / 2]) return null;
+    if (t[i + 1].role !== "agent") return null;
   }
-  const users = t.filter((_, i) => i % 2 === 0);
-  if (users.length >= scenario.turns.length) return null;
-  if (!users.every((u, i) => u.text === scenario.turns[i])) return null;
   return t;
 }
 

@@ -183,8 +183,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
 
   // Drop the transcripts (and their translation caches/toggles/errors) while
   // keeping the study itself — prompt, scenarios, models, golds, vars.
-  clearConversations: () =>
-    set({ cells: {}, translations: {}, showTranslated: {}, translateErrors: {} }),
+  clearConversations: () => set((st) => ({ cells: {}, ...cellCaches(st, () => false) })),
 
   clearStudy: () =>
     set({
@@ -249,25 +248,24 @@ export const useCompareStore = create<CompareState>((set, get) => ({
   // start over partial results is the clear button.
   run: async () => {
     const { prompt, vars, scenarios, models, cells } = get();
-    const keys = scenarios.flatMap((sc) => models.map((_, mi) => cellKey(sc.id, mi)));
-    const progressed = keys.filter((k) => {
-      const c = cells[k];
-      return !!c && (c.status === "done" || c.turns.length > 0);
-    });
-    const doneCount = keys.filter((k) => cells[k]?.status === "done").length;
-    const resuming = progressed.length > 0 && doneCount < keys.length;
-    const kept = Object.fromEntries(progressed.map((k) => [k, cells[k]]));
-    // Kept conversations keep their translation caches/toggles; everything
-    // about to re-run drops them so new turns can't show stale glosses.
-    const keepKept = <T,>(rec: Record<string, T>): Record<string, T> =>
-      resuming ? Object.fromEntries(Object.entries(rec).filter(([k]) => k in kept)) : {};
-    set((st) => ({
-      running: true,
-      cells: resuming ? kept : {},
-      translations: keepKept(st.translations),
-      showTranslated: keepKept(st.showTranslated),
-      translateErrors: keepKept(st.translateErrors),
-    }));
+    // One pass over the matrix: cells with progress (done, or paused with
+    // turns) are kept; resume unless nothing has run or everything has.
+    const kept: Record<string, CellState> = {};
+    let total = 0;
+    let done = 0;
+    for (const sc of scenarios) {
+      for (let mi = 0; mi < models.length; mi++) {
+        total++;
+        const k = cellKey(sc.id, mi);
+        const c = cells[k];
+        if (!c) continue;
+        if (c.status === "done") done++;
+        if (c.status === "done" || c.turns.length > 0) kept[k] = c;
+      }
+    }
+    const resuming = Object.keys(kept).length > 0 && done < total;
+    const seed = resuming ? kept : {};
+    set((st) => ({ running: true, cells: seed, ...cellCaches(st, (k) => k in seed) }));
     // The engine owns the matrix policy (parallelism, divergence); the store
     // only supplies credentials and mirrors patches into state.
     runAbort = new AbortController();
@@ -298,17 +296,10 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       const c = cells[k];
       if (c && c.status === "idle" && c.turns.length > 0) resume[k] = c;
     }
-    const dropRestarting = <T,>(rec: Record<string, T>): Record<string, T> => {
-      const next = { ...rec };
-      for (const k of rowKeys) if (!(k in resume)) delete next[k];
-      return next;
-    };
-    set((s) => ({
+    set((st) => ({
       rowRunning: sc.id,
       selected: sc.id,
-      translations: dropRestarting(s.translations),
-      showTranslated: dropRestarting(s.showTranslated),
-      translateErrors: dropRestarting(s.translateErrors),
+      ...cellCaches(st, (k) => !rowKeys.includes(k) || k in resume),
     }));
     runAbort = new AbortController();
     await runMatrix({
@@ -448,6 +439,19 @@ export const useCompareStore = create<CompareState>((set, get) => ({
     }));
   },
 }));
+
+// The per-cell translation caches/toggles/errors, filtered to the keys the
+// predicate keeps — the one spelling of "drop caches for cells that re-run"
+// shared by clearConversations, run, and runScenario.
+function cellCaches(st: CompareState, keep: (key: string) => boolean) {
+  const f = <T,>(rec: Record<string, T>): Record<string, T> =>
+    Object.fromEntries(Object.entries(rec).filter(([k]) => keep(k)));
+  return {
+    translations: f(st.translations),
+    showTranslated: f(st.showTranslated),
+    translateErrors: f(st.translateErrors),
+  };
+}
 
 function patchCell(set: (fn: (s: CompareState) => Partial<CompareState>) => void) {
   return (key: string, patch: Partial<CellState>) =>

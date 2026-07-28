@@ -15,12 +15,13 @@ import {
   FileCode,
   Gear,
   Package,
+  Play,
   Plus,
   Trash,
   UploadSimple,
   X,
 } from "@phosphor-icons/react";
-import { Button, DropdownMenu, Icon, IconButton, Input, Textarea } from "@/components/ui";
+import { Button, DropdownMenu, Icon, IconButton, Input, StopButton, Textarea } from "@/components/ui";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
 import { useSettingsStore } from "@/lib/store/settings";
@@ -156,26 +157,18 @@ export function ComparePage() {
                   {settledCells}/{totalCells} conversations
                 </span>
               )}
-              {/* Same stop affordance as the simulate panel's case strip. */}
-              <button
-                type="button"
-                onClick={() => s.stopRun()}
-                aria-label="Stop run"
-                title="Stop. Any in-flight LLM call still completes; finished conversations are kept."
-                className="rounded border border-state-error-line bg-state-error-bg px-2 py-1 text-[12px] font-medium text-state-error-fg hover:bg-state-error-bg-hover"
-              >
-                ■
-              </button>
+              <StopButton size="sm" onClick={() => s.stopRun()} />
             </>
           ) : (
             <Button
               variant="primary"
               size="sm"
+              icon={Play}
               onClick={() => void s.run()}
               disabled={!s.prompt.trim() || s.scenarios.length === 0 || s.models.length === 0}
               title="Continues stopped conversations and runs missing or failed ones; finished conversations are kept. Use clear for a fresh start."
             >
-              ▶ run all
+              run all
             </Button>
           )}
           <Divider />
@@ -430,32 +423,26 @@ export function ComparePage() {
                       </span>
                       {/* Same ▶/■ pair as the header and the simulate strip. */}
                       {s.rowRunning === sc.id ? (
-                        <button
-                          type="button"
+                        <StopButton
+                          size="sm"
+                          className="shrink-0"
                           onClick={(e) => {
                             e.stopPropagation();
                             s.stopRun();
                           }}
-                          aria-label="Stop run"
-                          title="Stop. Any in-flight LLM call still completes; finished conversations are kept."
-                          className="shrink-0 rounded border border-state-error-line bg-state-error-bg px-1.5 text-[11px] font-medium leading-5 text-state-error-fg hover:bg-state-error-bg-hover"
-                        >
-                          ■
-                        </button>
+                        />
                       ) : (
-                        <button
-                          type="button"
+                        <IconButton
+                          icon={Play}
+                          size="sm"
+                          label={`Run scenario ${sc.name} on all models`}
                           onClick={(e) => {
                             e.stopPropagation();
                             void s.runScenario(sc);
                           }}
                           disabled={busy || !s.prompt.trim() || s.models.length === 0}
-                          aria-label={`Run scenario ${sc.name} on all models`}
-                          title={`Run scenario ${sc.name} on all models`}
-                          className="invisible shrink-0 rounded bg-emphasis px-1.5 text-[11px] font-medium leading-5 text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-40 group-hover:visible"
-                        >
-                          ▶
-                        </button>
+                          className="invisible shrink-0 group-hover:visible"
+                        />
                       )}
                     </div>
                   </td>
