@@ -4,9 +4,9 @@ import { genId } from "@flowstore/core/ids";
 import type { Capability, CapabilityKind } from "@flowstore/core/schema/v0";
 import { ListEditor } from "@/components/inspector/ListEditor";
 import { inputClass, StringListEditor } from "@/components/inspector/primitives";
-import { SheetShell } from "./SheetShell";
+import { SheetShell, type SectionSheetProps } from "./SheetShell";
 
-export function CapabilitiesSheet({ onClose }: { onClose: () => void }) {
+export function CapabilitiesSheet({ onClose, docked }: SectionSheetProps) {
   const capabilities = useSpecStore((s) => s.spec?.agent.capabilities) ?? [];
   const updateAgent = useSpecStore((s) => s.updateAgent);
   const runnerUrl = useSettingsStore((s) => s.runnerUrl);
@@ -22,6 +22,7 @@ export function CapabilitiesSheet({ onClose }: { onClose: () => void }) {
       title="Capabilities"
       subtitle="Catalog of external integrations the agent dispatches."
       onClose={onClose}
+      docked={docked}
     >
       <ListEditor<Capability>
         items={capabilities}
@@ -63,7 +64,11 @@ export function CapabilitiesSheet({ onClose }: { onClose: () => void }) {
               onChange={(e) => update({ ...c, description: e.target.value })}
               placeholder="when/why this is used"
             />
-            <div className="grid grid-cols-2 gap-3">
+            {/* auto-fit rather than a fixed 2-up: this renders both as a modal
+                and in the ~320px docked panel, where two columns of variable
+                names would be unreadable. Collapses to one column on its own,
+                with no breakpoint to keep in sync. */}
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">
               <div>
                 <span className="block text-[10px] text-text-tertiary mb-1">inputs</span>
                 <StringListEditor

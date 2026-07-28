@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import type { Agent, ExitPath, Flow, Spec } from "@flowstore/core/schema/v0";
+import type { Agent, ExitPath, Flow, FlowType, Spec } from "@flowstore/core/schema/v0";
 import { GOTO_END } from "@flowstore/core/schema/v0";
 import { genId } from "@flowstore/core/ids";
 import { validateSpec } from "@flowstore/core/validation/ajv";
@@ -44,7 +44,7 @@ interface SpecState {
   updateFlow: (id: string, patch: Partial<Flow>) => void;
   updateAgent: (patch: Partial<Agent>) => void;
   updateExitPath: (flowId: string, exitPathId: string, patch: Partial<ExitPath>) => void;
-  addFlow: (select?: boolean, seed?: string) => string;
+  addFlow: (select?: boolean, seed?: string, type?: FlowType) => string;
   removeFlow: (id: string) => void;
   addExitPath: (
     sourceFlowId: string,
@@ -54,11 +54,14 @@ interface SpecState {
   removeExitPath: (flowId: string, exitPathId: string) => void;
 }
 
-function blankFlow(id: string): Flow {
+// "happy" is the default for callers with no opinion (the assistant's add_flow
+// tool). The canvas action bar always passes an explicit type — picking one is
+// the whole point of having five buttons.
+function blankFlow(id: string, type: FlowType = "happy"): Flow {
   return {
     id,
     name: "New flow",
-    type: "happy",
+    type,
     exit_paths: [],
   };
 }
@@ -129,10 +132,10 @@ export const useSpecStore = create<SpecState>()(
             },
           };
         }),
-      addFlow: (select = false, seed) => {
+      addFlow: (select = false, seed, type) => {
         const newId = genId("flow", seed);
         set((state) => {
-          const flow = blankFlow(newId);
+          const flow = blankFlow(newId, type);
           const nextSelection: Selection = select ? { kind: "flow", id: newId } : state.selection;
           const focusBump = select
             ? { kind: "flow" as const, id: newId, nonce: (state.focusRequest?.nonce ?? 0) + 1 }

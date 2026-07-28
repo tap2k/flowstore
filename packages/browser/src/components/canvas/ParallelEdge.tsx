@@ -57,16 +57,18 @@ export function ParallelEdge({
       <BaseEdge id={id} path={path} style={style} markerEnd={markerEnd} />
       {label ? (
         <EdgeLabelRenderer>
+          {/* The label chip sits on the canvas PLANE rather than on a node, so
+              it follows the plane's tokens — matching the .react-flow__edge-text
+              rules in globals.css that style the built-in edges' labels. */}
           <div
-            className="nodrag nopan"
+            className="nodrag nopan fs-micro"
             style={{
               position: "absolute",
               transform: `translate(-50%, -50%) translate(${offX}px, ${offY}px)`,
-              fontSize: 11,
-              color: "#52525b",
-              background: "#fafafa",
-              padding: "0 3px",
-              borderRadius: 3,
+              color: "var(--text-secondary)",
+              background: "var(--edge-label-bg)",
+              padding: "0 var(--sp-05)",
+              borderRadius: "var(--r-1)",
               pointerEvents: "all",
               ...(labelStyle as Record<string, unknown>),
               ...(labelBgStyle as Record<string, unknown>),

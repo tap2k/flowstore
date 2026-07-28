@@ -1,10 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  ClockCounterClockwise,
-  Play,
-  Sparkle,
-  TextAlignLeft,
-} from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
+import { Play } from "@phosphor-icons/react";
 import { Canvas } from "@/components/canvas/Canvas";
 import { FlowInspector } from "@/components/inspector/FlowInspector";
 import { EdgeInspector } from "@/components/inspector/EdgeInspector";
@@ -12,18 +7,19 @@ import { ImportExportToolbar } from "@/components/toolbar/ImportExport";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
 import { ChatPanel } from "@/components/runtime/ChatPanel";
 import { SimulatePanel } from "@/components/runtime/SimulatePanel";
-import { SystemPromptPanel } from "@/components/runtime/SystemPromptPanel";
 import { SaveToNewRepoModal } from "@/components/toolbar/SaveToNewRepoModal";
 import { ShareModal } from "@/components/toolbar/ShareModal";
-import { SpecChangesModal } from "@/components/toolbar/SpecChangesModal";
 import { HistoryPanel } from "@/components/toolbar/HistoryPanel";
-import { Badge, Button, IconButton } from "@/components/ui";
+import { AppShell } from "@/components/shell/AppShell";
+import { LeftRail } from "@/components/shell/LeftRail";
+import { LeftPanel } from "@/components/shell/LeftPanel";
+import { TopBar } from "@/components/shell/TopBar";
+import { Button } from "@/components/ui";
 import { useSpecStore } from "@/lib/store/spec";
 import { useUiStore } from "@/lib/store/ui";
 import { useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
 import { startDirtyTracking, useDirtyStore } from "@/lib/store/dirty";
-import { computeDiagnostics, diagnosticCounts } from "@/lib/diagnostics";
 
 export function App() {
   const spec = useSpecStore((s) => s.spec);
@@ -34,21 +30,24 @@ export function App() {
     (s) => !!(s.googleApiKey || s.openaiApiKey || s.openrouterApiKey),
   );
   const runnerUrl = useSettingsStore((s) => s.runnerUrl);
-  const githubLocation = useGithubProjectStore((s) => s.location);
-  const githubCanWrite = useGithubProjectStore((s) => s.canWrite);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
+  const selection = useSpecStore((s) => s.selection);
+  const leftTab = useUiStore((s) => s.leftTab);
   const simulateOpen = useUiStore((s) => s.simulateOpen);
   const setSimulateOpen = useUiStore((s) => s.setSimulateOpen);
+  const chatOpen = useUiStore((s) => s.chatOpen);
+  const setChatOpen = useUiStore((s) => s.setChatOpen);
   const historyOpen = useUiStore((s) => s.historyOpen);
   const setHistoryOpen = useUiStore((s) => s.setHistoryOpen);
-  const [promptOpen, setPromptOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [saveRepoOpen, setSaveRepoOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const { errors: diagErrors, warnings: diagWarnings } = useMemo(
-    () => diagnosticCounts(spec ? computeDiagnostics(spec) : []),
-    [spec],
-  );
+
+  // Node controls are selection-driven — there is no separate open state, the
+  // selection IS the open state. Counted here with the other three because the
+  // canvas-collapse rule cares about how much width is spoken for, not why.
+  const nodeControlsOpen = selection !== null;
+  const panelCount =
+    (leftTab ? 1 : 0) + (nodeControlsOpen ? 1 : 0) + (chatOpen ? 1 : 0) + (simulateOpen ? 1 : 0);
 
   // Each store hydrates itself from localStorage at module-creation time (spec
   // / tests / ui via persist middleware, simulate's active-case binding inline,
@@ -123,110 +122,42 @@ export function App() {
   }, []);
 
   return (
-    <>
-      <div className="fs-root flex flex-col h-screen bg-surface-canvas">
-        <header className="flex items-center gap-4 border-b border-border-default bg-surface-panel px-6 py-3">
-          {/* Project identity stays top-left; the flowstore wordmark lives on
-              the canvas bottom-left (see BrandMark in Canvas). */}
-          {spec ? (
-            <div className="flex min-w-0 flex-col">
-              <h1 className="fs-sectionTitle truncate text-text-primary">{spec.agent.name}</h1>
-              {githubLocation ? (
-                <div className="flex items-center gap-1 leading-tight">
-                  <a
-                    href={`https://github.com/${githubLocation.owner}/${githubLocation.repo}/tree/${githubLocation.ref}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={`${githubLocation.owner}/${githubLocation.repo}@${githubLocation.ref}`}
-                    className="fs-data truncate text-text-tertiary no-underline hover:text-text-primary"
-                  >
-                    {githubLocation.owner}/{githubLocation.repo}@{githubLocation.ref}
-                  </a>
-                  {!githubCanWrite && (
-                    <span className="fs-micro shrink-0 text-text-tertiary">· read-only</span>
-                  )}
-                </div>
-              ) : (
-                <div className="fs-micro text-text-tertiary">runs locally in your browser</div>
-              )}
-            </div>
-          ) : null}
-          <div className="ml-auto flex items-center gap-3">
-            <SaveStatePill />
-            {/* Theme lives in the Settings sheet, not here: it is a
-                set-once-and-forget preference, and the toolbar is for actions
-                on the open project. */}
+    <AppShell
+      panelCount={panelCount}
+      topBar={
+        <TopBar
+          actions={
             <ImportExportToolbar
               onOpenSettings={() => setSettingsOpen(true)}
               onSaveToGitHub={() => setSaveRepoOpen(true)}
               onShare={() => setShareOpen(true)}
             />
-          </div>
-        </header>
-        <main className="flex flex-1 min-h-0">
-          <div className="relative flex-1 min-w-0">
-            <Canvas />
-            <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
-              {/* These float over the canvas but are app actions, not canvas
-                  controls — design-system buttons, not the canvas control set. */}
-              {spec && !promptOpen && (
-                <Button
-                  icon={TextAlignLeft}
-                  onClick={() => setPromptOpen(true)}
-                  title="Prompt — inspect the compiled system prompt"
-                  className="shadow-elev-1"
-                >
-                  Prompt
-                  {diagErrors > 0 ? (
-                    <Badge tone="error" className="ml-0.5">
-                      {diagErrors}
-                    </Badge>
-                  ) : diagWarnings > 0 ? (
-                    <Badge tone="warning" className="ml-0.5">
-                      {diagWarnings}
-                    </Badge>
-                  ) : null}
-                </Button>
-              )}
-              {spec && (hasLlmKey || runnerUrl) && !simulateOpen && (
-                <Button icon={Play} onClick={() => setSimulateOpen(true)} className="shadow-elev-1">
-                  Run
-                </Button>
-              )}
-              {import.meta.env.VITE_DEV === "1" && githubLocation && !historyOpen && (
-                <Button
-                  icon={ClockCounterClockwise}
-                  onClick={() => setHistoryOpen(true)}
-                  title="Revision history"
-                  className="shadow-elev-1"
-                >
-                  History
-                </Button>
-              )}
-              {hasLlmKey && !chatOpen && (
-                <IconButton
-                  icon={Sparkle}
-                  label="Assistant — describe a spec change in natural language"
-                  size="lg"
-                  variant="primary"
-                  onClick={() => setChatOpen(true)}
-                  className="shadow-elev-2"
-                />
-              )}
+          }
+        />
+      }
+      rail={<LeftRail />}
+      leftPanel={<LeftPanel />}
+      canvas={
+        <>
+          <Canvas />
+          {/* The one floating app action left on the canvas. Everything else
+              that used to sit up here is a rail tab or lives in the bottom
+              action bar now. */}
+          {spec && (hasLlmKey || runnerUrl) && !simulateOpen && (
+            <div className="absolute right-3 top-3 z-10">
+              <Button icon={Play} onClick={() => setSimulateOpen(true)} className="shadow-elev-1">
+                Simulate
+              </Button>
             </div>
-          </div>
+          )}
+        </>
+      }
+      // DOM order is the layout: simulate is last, so it lands against the
+      // right edge, then the assistant, with node controls nearest the graph.
+      rightPanels={
+        <>
           <FlowInspector />
           <EdgeInspector />
-          <SystemPromptPanel open={promptOpen} onClose={() => setPromptOpen(false)} />
-          <SimulatePanel
-            open={simulateOpen}
-            onClose={() => setSimulateOpen(false)}
-            onOpenSettings={() => {
-              setSimulateOpen(false);
-              setSettingsOpen(true);
-            }}
-          />
-          <HistoryPanel open={historyOpen} onClose={() => setHistoryOpen(false)} />
           <ChatPanel
             open={chatOpen}
             onClose={() => setChatOpen(false)}
@@ -235,81 +166,32 @@ export function App() {
               setSettingsOpen(true);
             }}
           />
-        </main>
-      </div>
-      {settingsOpen && <SettingsSheet onClose={() => setSettingsOpen(false)} />}
-      {saveRepoOpen && (
-        <SaveToNewRepoModal
-          onClose={() => setSaveRepoOpen(false)}
-          onOpenSettings={() => {
-            setSaveRepoOpen(false);
-            setSettingsOpen(true);
-          }}
-        />
-      )}
-      {shareOpen && <ShareModal onClose={() => setShareOpen(false)} />}
-    </>
+          <SimulatePanel
+            open={simulateOpen}
+            onClose={() => setSimulateOpen(false)}
+            onOpenSettings={() => {
+              setSimulateOpen(false);
+              setSettingsOpen(true);
+            }}
+          />
+        </>
+      }
+      overlays={
+        <>
+          <HistoryPanel open={historyOpen} onClose={() => setHistoryOpen(false)} />
+          {settingsOpen && <SettingsSheet onClose={() => setSettingsOpen(false)} />}
+          {saveRepoOpen && (
+            <SaveToNewRepoModal
+              onClose={() => setSaveRepoOpen(false)}
+              onOpenSettings={() => {
+                setSaveRepoOpen(false);
+                setSettingsOpen(true);
+              }}
+            />
+          )}
+          {shareOpen && <ShareModal onClose={() => setShareOpen(false)} />}
+        </>
+      }
+    />
   );
-}
-
-// Header pill — amber dot + "Unsaved changes" when there's pending work,
-// muted "Saved · 12s ago" otherwise. Tick re-renders every 15s so the
-// relative time stays roughly fresh without per-frame work. The dirty pill
-// is a button: clicking it opens a diff of the working copy vs the saved
-// version on GitHub.
-function SaveStatePill() {
-  const spec = useSpecStore((s) => s.spec);
-  const isDirty = useDirtyStore((s) => s.isDirty);
-  const lastSavedAt = useDirtyStore((s) => s.lastSavedAt);
-  const hasProject = useGithubProjectStore((s) => s.location !== null);
-  const githubPat = useSettingsStore((s) => s.githubPat);
-  const [showChanges, setShowChanges] = useState(false);
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    if (!lastSavedAt) return;
-    const id = setInterval(() => setTick((t) => t + 1), 15_000);
-    return () => clearInterval(id);
-  }, [lastSavedAt]);
-
-  if (!spec) return null;
-  // Without a PAT there is nowhere to save to — "Unsaved changes" would nag
-  // about an action the user can't take (localStorage autosave covers local).
-  if (isDirty && !githubPat.trim()) return null;
-  if (isDirty) {
-    // Only offer the diff when there's a GitHub project to compare against;
-    // otherwise the pill is just a status indicator.
-    const badge = <Badge status="warning">Unsaved changes</Badge>;
-    return (
-      <>
-        {hasProject ? (
-          <button
-            type="button"
-            onClick={() => setShowChanges(true)}
-            title="Compare with the saved version on GitHub"
-            className="cursor-pointer border-none bg-transparent p-0"
-          >
-            {badge}
-          </button>
-        ) : (
-          badge
-        )}
-        {showChanges && <SpecChangesModal onClose={() => setShowChanges(false)} />}
-      </>
-    );
-  }
-  if (lastSavedAt) {
-    return <span className="fs-caption text-text-tertiary">Saved · {timeAgo(lastSavedAt)}</span>;
-  }
-  return null;
-}
-
-function timeAgo(t: number): string {
-  const s = Math.floor((Date.now() - t) / 1000);
-  if (s < 5) return "just now";
-  if (s < 60) return `${s}s ago`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return new Date(t).toLocaleDateString();
 }

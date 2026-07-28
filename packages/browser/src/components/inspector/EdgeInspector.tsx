@@ -80,7 +80,7 @@ export function EdgeInspector() {
   const assignRows = rowsFromAssigns(exitPath.assigns);
 
   return (
-    <aside className="w-[380px] shrink-0 border-l border-border-default bg-surface-panel overflow-y-auto">
+    <aside className="fs-dock overflow-y-auto border-l border-border-default bg-surface-panel">
       <div className="sticky top-0 bg-surface-panel border-b border-border-default px-4 py-3 flex items-center gap-2">
         <span className="text-[10px] uppercase tracking-wide text-text-tertiary">Exit path</span>
         <span className="fs-data text-text-tertiary truncate">{exitPath.id}</span>

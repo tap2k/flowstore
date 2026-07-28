@@ -666,7 +666,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   })();
 
   return (
-    <aside className="flex flex-col h-full w-[380px] border-l border-border-default bg-surface-panel">
+    <aside className="fs-dock flex h-full flex-col border-l border-border-default bg-surface-panel">
       {/* items-start: the action row tracks the "Run" title line, not the
           two-line block's center, so the buttons don't drift down when the
           subtitle wraps in status/usage states. */}

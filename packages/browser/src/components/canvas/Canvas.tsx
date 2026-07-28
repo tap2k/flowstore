@@ -16,6 +16,7 @@ import {
 import type { Spec } from "@flowstore/core/schema/v0";
 import { isFlowGoto } from "@flowstore/core/schema/v0";
 import { FlowNode, type FlowNodeData } from "./FlowNode";
+import { NodeActionBar } from "./NodeActionBar";
 import { ParallelEdge } from "./ParallelEdge";
 import { isCalcRouteJunction } from "@flowstore/core/schema/flowJunction";
 import { autoLayout } from "./layout";
@@ -23,6 +24,7 @@ import { resolvePositions } from "./placement";
 import { loadPositions, savePositions, type Positions } from "./positions";
 import { useSpecStore } from "@/lib/store/spec";
 import { useThemeStore } from "@/lib/store/theme";
+import { useUiStore } from "@/lib/store/ui";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useAssistantChangesStore } from "@/lib/store/assistantChanges";
 import { validateGraph, groupIssuesByFlow, groupIssuesByEdge, isImportedFlowless } from "@flowstore/core/validation/graphRules";
@@ -33,22 +35,20 @@ import { parseSourceToSpec } from "@/lib/chat/specParse";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { Button } from "@/components/ui";
 
-const ACTIVE_EDGE_STROKE = "#0284c7"; // sky-600 — the live transition
-const TRAVERSED_EDGE_STROKE = "#bae6fd"; // sky-200 — a faded already-taken edge
-// zinc-900 — matches the node selection ring, so a selected edge reads the
-// same as a selected node. ParallelEdge ignores React Flow's `selected` flag
-// (it only renders the style we pass), so selection has to be styled here.
-const SELECTED_EDGE_STROKE = "#18181b";
-
 // A traversed edge. `live` = the transition just taken this turn: thick, bright,
 // glowing, animated so the eye lands on it. Prior traversed edges fade to a thin
 // pale trail so history doesn't compete with the current step.
-function withTraversed(edge: Edge, live: boolean): Edge {
-  const stroke = live ? ACTIVE_EDGE_STROKE : TRAVERSED_EDGE_STROKE;
+function withTraversed(edge: Edge, live: boolean, t: CanvasTokens): Edge {
+  const stroke = live ? t.edgeActive : t.edgeTraversed;
   return {
     ...edge,
     style: live
-      ? { ...edge.style, stroke, strokeWidth: 4, filter: "drop-shadow(0 0 6px rgba(2,132,199,0.9))" }
+      ? {
+          ...edge.style,
+          stroke,
+          strokeWidth: 4,
+          filter: `drop-shadow(0 0 6px ${t.edgeActiveGlow})`,
+        }
       : { ...edge.style, stroke, strokeWidth: 2 },
     markerEnd: {
       type: MarkerType.ArrowClosed,
@@ -61,29 +61,37 @@ function withTraversed(edge: Edge, live: boolean): Edge {
 }
 
 // An edge the ASSISTANT just added or re-routed (see assistantChanges.ts).
-// Purple to match the node glow (the "AI did this" hue — deliberately not
+// Violet to match the node halo (the "AI did this" hue — deliberately not
 // red-ish, which reads as an error); steady (no marching ants — `animated`
 // is the sim's live-transition signature).
-const ASSISTANT_EDGE_STROKE = "#a855f7"; // purple-500
-function withAssistantGlow(edge: Edge): Edge {
+function withAssistantGlow(edge: Edge, t: CanvasTokens): Edge {
   return {
     ...edge,
     style: {
       ...edge.style,
-      stroke: ASSISTANT_EDGE_STROKE,
+      stroke: t.edgeAssistant,
       strokeWidth: 3,
-      filter: "drop-shadow(0 0 5px rgba(168,85,247,0.7))",
+      filter: `drop-shadow(0 0 5px ${t.edgeAssistantGlow})`,
     },
-    markerEnd: { type: MarkerType.ArrowClosed, color: ASSISTANT_EDGE_STROKE, width: 20, height: 20 },
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      color: t.edgeAssistant,
+      width: 20,
+      height: 20,
+    },
   };
 }
 
-function withSelected(edge: Edge): Edge {
+// Matches the node selection ring (achromatic, --select-ring), so a selected
+// edge reads the same as a selected node. ParallelEdge ignores React Flow's
+// `selected` flag (it only renders the style we pass), so selection has to be
+// styled here.
+function withSelected(edge: Edge, t: CanvasTokens): Edge {
   return {
     ...edge,
     selected: true,
-    style: { ...edge.style, stroke: SELECTED_EDGE_STROKE, strokeWidth: 2.5 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: SELECTED_EDGE_STROKE, width: 18, height: 18 },
+    style: { ...edge.style, stroke: t.edgeSelected, strokeWidth: 2.5 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: t.edgeSelected, width: 18, height: 18 },
   };
 }
 
@@ -120,16 +128,18 @@ function BrandMark() {
   );
 }
 
+export type CanvasTokens = ReturnType<typeof useCanvasTokens>;
+
 /**
- * The canvas plane and its two floating chrome pieces (controls, minimap) take
+ * The canvas plane, its floating chrome (controls, minimap) and every edge take
  * colours as JS strings, not classes, so they can't use the Tailwind token
  * utilities. Reading the custom properties off the root keeps tokens.css the
  * single source of truth rather than duplicating hexes here; re-reading is keyed
  * on the resolved theme, which the store writes to `data-theme` *before* it
  * updates state, so the values are current by the time this recomputes.
  *
- * Nodes and edges are deliberately not themed yet — they keep their light
- * palette until the node retrofit.
+ * Only the FlowNode escapes this — it renders real DOM, so it uses the Tailwind
+ * token utilities directly and never appears here.
  */
 function useCanvasTokens() {
   const resolved = useThemeStore((s) => s.resolved);
@@ -142,6 +152,24 @@ function useCanvasTokens() {
       minimapBg: v("--minimap-bg"),
       minimapNode: v("--minimap-node"),
       minimapMask: v("--minimap-mask"),
+      // Edge strokes. `byFlowType` mirrors the FlowNode border palette so an
+      // edge visually inherits the node it points at.
+      edgeByFlowType: {
+        happy: v("--flow-happy-line"),
+        sad: v("--flow-sad-line"),
+        off: v("--flow-off-line"),
+        utility: v("--flow-utility-line"),
+        interrupt: v("--flow-interrupt-line"),
+      } as Record<string, string>,
+      edgeDefault: v("--edge-default"),
+      edgeSelected: v("--edge-selected"),
+      edgeError: v("--edge-error"),
+      edgeWarning: v("--edge-warning"),
+      edgeActive: v("--edge-active"),
+      edgeActiveGlow: v("--edge-active-glow"),
+      edgeTraversed: v("--edge-traversed"),
+      edgeAssistant: v("--edge-assistant"),
+      edgeAssistantGlow: v("--edge-assistant-glow"),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolved]);
@@ -153,17 +181,7 @@ function truncate(s: string, n: number) {
   return s.length <= n ? s : s.slice(0, n - 1) + "…";
 }
 
-// Edge color follows the destination flow's type. Matches the FlowNode
-// border palette so an edge visually inherits the node it points at.
-const EDGE_STROKE_BY_TYPE: Record<string, string> = {
-  happy:     "#34d399", // emerald-400
-  sad:       "#fbbf24", // amber-400
-  off:       "#a1a1aa", // zinc-400
-  utility:   "#38bdf8", // sky-400
-  interrupt: "#a78bfa", // violet-400
-};
-
-function buildGraph(spec: Spec): { nodes: Node[]; edges: Edge[] } {
+function buildGraph(spec: Spec, t: CanvasTokens): { nodes: Node[]; edges: Edge[] } {
   const flowIds = new Set(spec.flows.map((f) => f.id));
   const flowsById = new Map(spec.flows.map((f) => [f.id, f]));
   const entryId = spec.agent.entry_flow_id;
@@ -193,12 +211,14 @@ function buildGraph(spec: Spec): { nodes: Node[]; edges: Edge[] } {
       const edgeIssues = issuesByEdge.get(edgeId);
       const targetType = flowsById.get(xp.goto)?.type;
       const edgeLevel = worstSeverity(edgeIssues ?? []);
+      // Edge colour follows the destination flow's type, unless the edge itself
+      // has something to report — an issue outranks the taxonomy.
       const stroke =
         edgeLevel === "error"
-          ? "#ef4444"
+          ? t.edgeError
           : edgeLevel === "warning"
-          ? "#f59e0b"
-          : EDGE_STROKE_BY_TYPE[targetType ?? ""] ?? "#a1a1aa";
+            ? t.edgeWarning
+            : (t.edgeByFlowType[targetType ?? ""] ?? t.edgeDefault);
       const label = xp.condition?.expression
         ? truncate(xp.condition.expression, 32)
         : undefined;
@@ -215,7 +235,12 @@ function buildGraph(spec: Spec): { nodes: Node[]; edges: Edge[] } {
         // themed rules in globals.css, and the label chip sits on the canvas
         // plane, so it has to follow the plane between light and dark.
         labelStyle: { fontSize: 11 },
-        style: { stroke, strokeWidth: 1.5 },
+        // --edge-w is the resting weight; an edge carrying an issue steps up to
+        // --edge-w-active so severity is not colour-alone here either.
+        style: {
+          stroke,
+          strokeWidth: edgeLevel ? "var(--edge-w-active)" : "var(--edge-w)",
+        },
         markerEnd: { type: MarkerType.ArrowClosed, color: stroke, width: 18, height: 18 },
       });
     }
@@ -292,9 +317,6 @@ function EmptyCanvas() {
       >
         <Background gap={20} size={1} color={t.dot} bgColor={t.bg} />
         <Panel position="top-left">
-          <NewFlowButton />
-        </Panel>
-        <Panel position="bottom-left">
           <BrandMark />
         </Panel>
       </ReactFlow>
@@ -312,6 +334,7 @@ function EmptyCanvas() {
           {error && <div className="text-xs text-state-error-fg">{error}</div>}
         </div>
       </div>
+      <NodeActionBar />
     </div>
   );
 }
@@ -434,36 +457,19 @@ function FitOnSpecChange({ specId }: { specId: string }) {
   return null;
 }
 
-function NewFlowButton() {
-  const addFlow = useSpecStore((s) => s.addFlow);
-  return (
-    <button
-      type="button"
-      onClick={() => addFlow(true)}
-      title="Add a new flow"
-      // Primary canvas action — sized and shaped distinctly from the
-      // Run/Assistant pills in the top-right so it reads as "the entry
-      // point," not a third pill in the same family. Always enabled:
-      // addFlow scaffolds a blank agent automatically when no spec is
-      // loaded, so the first click both creates the spec and adds the
-      // first flow.
-      className="flex h-11 w-11 items-center justify-center rounded-full bg-emphasis text-2xl font-light text-emphasis-fg shadow-elev-2 ring-1 ring-border-subtle transition hover:scale-105 hover:bg-emphasis-hover"
-      aria-label="Add a new flow"
-    >
-      +
-    </button>
-  );
-}
-
 function CanvasInner({ spec }: { spec: Spec }) {
   const specId = spec.agent.id;
   const t = useCanvasTokens();
+  const minimapVisible = useUiStore((s) => s.minimapVisible);
 
+  // `t` is memoized on the resolved theme, so this rebuilds on a theme switch —
+  // which is exactly what repaints the edge strokes. Node positions survive it:
+  // resolvePositions reads them back from the debounced save.
   const initial = useMemo(() => {
-    const g = buildGraph(spec);
+    const g = buildGraph(spec, t);
     const saved = loadPositions(specId);
     return { nodes: resolvePositions(g.nodes, g.edges, saved), edges: g.edges };
-  }, [spec, specId]);
+  }, [spec, specId, t]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
@@ -520,14 +526,14 @@ function CanvasInner({ spec }: { spec: Spec }) {
         // Selection outranks everything, matching node rings.
         const hasIssue = Boolean((e.data as { issueLevel?: "error" | "warning" })?.issueLevel);
         const styled = traversed.has(e.id)
-          ? withTraversed(e, e.id === lastId && isLive)
+          ? withTraversed(e, e.id === lastId && isLive, t)
           : assistantGlow.has(e.id) && !hasIssue
-          ? withAssistantGlow(e)
-          : e;
-        return e.id === selectedEdgeId ? withSelected(styled) : styled;
+            ? withAssistantGlow(e, t)
+            : e;
+        return e.id === selectedEdgeId ? withSelected(styled, t) : styled;
       }),
     );
-  }, [initial, traversedEdgeIds, simulateStatus, assistantEdgeIds, selection, setEdges]);
+  }, [initial, traversedEdgeIds, simulateStatus, assistantEdgeIds, selection, setEdges, t]);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -583,8 +589,11 @@ function CanvasInner({ spec }: { spec: Spec }) {
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={20} size={1} color={t.dot} bgColor={t.bg} />
+        {/* The wordmark moves to the top-left corner the "+" vacated: the
+            bottom-left is now the navigation cluster (zoom controls + minimap
+            side by side), and a brand mark has no business inside it. */}
         <Panel position="top-left">
-          <NewFlowButton />
+          <BrandMark />
         </Panel>
         <FocusOnRequest nodes={nodes} />
         <FitOnSpecChange specId={specId} />
@@ -593,20 +602,26 @@ function CanvasInner({ spec }: { spec: Spec }) {
             <RelayoutIcon />
           </ControlButton>
         </Controls>
-        {/* Beside the bottom-left zoom controls. Inline style, not a Tailwind
-            margin class: .react-flow__panel's own margin rule wins the
-            cascade over utility classes; inline always applies. */}
-        <Panel position="bottom-left" style={{ marginLeft: 64 }}>
-          <BrandMark />
-        </Panel>
-        <MiniMap
-          pannable
-          zoomable
-          bgColor={t.minimapBg}
-          nodeColor={t.minimapNode}
-          maskColor={t.minimapMask}
-        />
+        {/* Minimap joins the controls rather than sitting in the opposite
+            corner — both answer "where am I", so they belong to each other.
+            The inline marginLeft overrides (not adds to) the panel class's
+            `margin: 15px`, so it has to account for the controls' own 15px
+            left offset itself: 15 + 30 wide + an 8px gap = 53.
+            height matches the controls stack (4 buttons × --hit-canvas) so
+            the two sit flush along the bottom edge. */}
+        {minimapVisible && (
+          <MiniMap
+            position="bottom-left"
+            style={{ marginLeft: 53, width: 160, height: 120 }}
+            pannable
+            zoomable
+            bgColor={t.minimapBg}
+            nodeColor={t.minimapNode}
+            maskColor={t.minimapMask}
+          />
+        )}
       </ReactFlow>
+      <NodeActionBar />
     </div>
   );
 }

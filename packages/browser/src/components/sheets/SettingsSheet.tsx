@@ -2,9 +2,12 @@ import { useState } from "react";
 import { SheetShell } from "./SheetShell";
 import { useSettingsStore, DEFAULT_RUNNER_URL, DEFAULT_MODEL_ID } from "@/lib/store/settings";
 import { useThemeStore, type ThemePreference } from "@/lib/store/theme";
+import { useUiStore } from "@/lib/store/ui";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
-import { FieldRow, Select } from "@/components/ui";
+import { FieldRow, Select, Switch, Tabs } from "@/components/ui";
 import { makeGitHubClient, testConnection } from "@flowstore/core/files/github";
+
+type SettingsTab = "connections" | "preferences";
 
 interface SettingsSheetProps {
   onClose: () => void;
@@ -33,7 +36,10 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   // the Appearance row below.
   const themePreference = useThemeStore((s) => s.preference);
   const setThemePreference = useThemeStore((s) => s.setPreference);
+  const minimapVisible = useUiStore((s) => s.minimapVisible);
+  const setMinimapVisible = useUiStore((s) => s.setMinimapVisible);
 
+  const [tab, setTab] = useState<SettingsTab>("connections");
   const [google, setGoogle] = useState(storedGoogle);
   const [openai, setOpenai] = useState(storedOpenai);
   const [openrouter, setOpenrouter] = useState(storedOpenrouter);
@@ -94,36 +100,135 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
       title="Settings"
       onClose={onClose}
       maxWidth="max-w-lg"
-      bodyClass="flex-1 overflow-auto px-5 py-4 space-y-4"
+      bodyClass="min-h-0 flex-1 overflow-auto"
     >
-      {/* Appearance leads: it is the only row here that isn't a credential, and
-          burying a display preference under three API keys is how people fail
-          to find it. Three explicit options rather than the header's cycling
-          toggle — a settings panel should show the states, not make you click
-          through them to discover what they are. */}
-      <FieldRow
-        label="Appearance"
-        hint={
-          <>
-            Applies immediately and is remembered on this device — unlike the fields below, it
-            isn&apos;t staged behind Save, and Clear leaves it alone.{" "}
-            <span className="font-medium">Match system</span> follows your OS setting as it
-            changes.
-          </>
-        }
-      >
-        <Select
-          value={themePreference}
-          onChange={(e) => setThemePreference(e.target.value as ThemePreference)}
-          options={[
-            { value: "light", label: "Light" },
-            { value: "dark", label: "Dark" },
-            { value: "system", label: "Match system" },
-          ]}
-          className="w-full"
-        />
-      </FieldRow>
+      <Tabs
+        items={[
+          { value: "connections", label: "Connections" },
+          { value: "preferences", label: "Preferences" },
+        ]}
+        value={tab}
+        onChange={(v) => setTab(v as SettingsTab)}
+        className="px-5"
+      />
+      {/* Both tabs stay mounted, stacked in the same grid cell — the grid
+          track sizes to the taller one (Connections), so the shorter one
+          (Preferences) doesn't collapse the dialog's height when it's
+          active. `inert` on the hidden panel keeps it out of tab order and
+          unclickable without removing it from layout (display:none would
+          drop its contribution to the track height entirely). */}
+      <div className="grid px-5 py-4">
+        <div
+          className={`col-start-1 row-start-1 space-y-4 ${tab === "connections" ? "" : "invisible"}`}
+          inert={tab !== "connections"}
+        >
+          <ConnectionsTab
+            google={google}
+            setGoogle={setGoogle}
+            openai={openai}
+            setOpenai={setOpenai}
+            openrouter={openrouter}
+            setOpenrouter={setOpenrouter}
+            defaultModel={defaultModel}
+            setGenerateModel={setGenerateModel}
+            pat={pat}
+            setPat={setPat}
+            patReveal={patReveal}
+            setPatReveal={setPatReveal}
+            ghStatus={ghStatus}
+            setGhStatus={setGhStatus}
+            testGithub={testGithub}
+            runnerUrl={runnerUrl}
+            setRunnerUrlInput={setRunnerUrlInput}
+            storedRunnerUrl={storedRunnerUrl}
+          />
+        </div>
+        <div
+          className={`col-start-1 row-start-1 space-y-4 ${tab === "preferences" ? "" : "invisible"}`}
+          inert={tab !== "preferences"}
+        >
+          <PreferencesTab
+            themePreference={themePreference}
+            setThemePreference={setThemePreference}
+            minimapVisible={minimapVisible}
+            setMinimapVisible={setMinimapVisible}
+          />
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-2 px-5 pb-4">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => (clearArmed ? clearAll() : setClearArmed(true))}
+            className="rounded-md border border-state-error-line px-3 py-1.5 fs-label text-state-error-fg hover:bg-state-error-bg"
+          >
+            {clearArmed ? "Confirm clear" : "Clear"}
+          </button>
+          {clearArmed && (
+            <button
+              onClick={() => setClearArmed(false)}
+              className="fs-caption text-text-tertiary hover:text-text-primary"
+            >
+              cancel
+            </button>
+          )}
+        </div>
+        <button
+          onClick={save}
+          className="rounded-md bg-emphasis px-3 py-1.5 fs-label text-emphasis-fg hover:bg-emphasis-hover"
+        >
+          Save
+        </button>
+      </div>
+    </SheetShell>
+  );
+}
 
+interface ConnectionsTabProps {
+  google: string;
+  setGoogle: (v: string) => void;
+  openai: string;
+  setOpenai: (v: string) => void;
+  openrouter: string;
+  setOpenrouter: (v: string) => void;
+  defaultModel: string;
+  setGenerateModel: (v: string) => void;
+  pat: string;
+  setPat: (v: string) => void;
+  patReveal: boolean;
+  setPatReveal: (fn: (r: boolean) => boolean) => void;
+  ghStatus: GhTestStatus;
+  setGhStatus: (s: GhTestStatus) => void;
+  testGithub: () => void;
+  runnerUrl: string;
+  setRunnerUrlInput: (v: string) => void;
+  storedRunnerUrl: string;
+}
+
+// The API, GitHub and model settings — everything this app talks to over the
+// network. Split from Preferences (display-only, applies immediately) so the
+// two don't compete for attention in one long scroll.
+function ConnectionsTab({
+  google,
+  setGoogle,
+  openai,
+  setOpenai,
+  openrouter,
+  setOpenrouter,
+  defaultModel,
+  setGenerateModel,
+  pat,
+  setPat,
+  patReveal,
+  setPatReveal,
+  ghStatus,
+  setGhStatus,
+  testGithub,
+  runnerUrl,
+  setRunnerUrlInput,
+  storedRunnerUrl,
+}: ConnectionsTabProps) {
+  return (
+    <>
       <ApiKeyRow
         label="Google API key"
         placeholder="AIza…"
@@ -276,32 +381,65 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           </p>
         </div>
       )}
+    </>
+  );
+}
+
+interface PreferencesTabProps {
+  themePreference: ThemePreference;
+  setThemePreference: (v: ThemePreference) => void;
+  minimapVisible: boolean;
+  setMinimapVisible: (v: boolean) => void;
+}
+
+// Display-only preferences — both take effect immediately and aren't staged
+// behind Save, unlike the Connections tab's credentials.
+function PreferencesTab({
+  themePreference,
+  setThemePreference,
+  minimapVisible,
+  setMinimapVisible,
+}: PreferencesTabProps) {
+  return (
+    <>
+      <FieldRow
+        label="Appearance"
+        hint={
+          <>
+            Applies immediately and is remembered on this device.{" "}
+            <span className="font-medium">Match system</span> follows your OS setting as it
+            changes.
+          </>
+        }
+      >
+        <Select
+          value={themePreference}
+          onChange={(e) => setThemePreference(e.target.value as ThemePreference)}
+          options={[
+            { value: "light", label: "Light" },
+            { value: "dark", label: "Dark" },
+            { value: "system", label: "Match system" },
+          ]}
+          className="w-full"
+        />
+      </FieldRow>
 
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => (clearArmed ? clearAll() : setClearArmed(true))}
-            className="rounded-md border border-state-error-line px-3 py-1.5 fs-label text-state-error-fg hover:bg-state-error-bg"
-          >
-            {clearArmed ? "Confirm clear" : "Clear"}
-          </button>
-          {clearArmed && (
-            <button
-              onClick={() => setClearArmed(false)}
-              className="fs-caption text-text-tertiary hover:text-text-primary"
-            >
-              cancel
-            </button>
-          )}
+        <div className="space-y-0.5">
+          <label htmlFor="minimap-visible" className="fs-label text-text-secondary">
+            Show minimap
+          </label>
+          <p className="text-[11px] text-text-tertiary">
+            The navigation thumbnail in the canvas&apos;s bottom-left corner.
+          </p>
         </div>
-        <button
-          onClick={save}
-          className="rounded-md bg-emphasis px-3 py-1.5 fs-label text-emphasis-fg hover:bg-emphasis-hover"
-        >
-          Save
-        </button>
+        <Switch
+          id="minimap-visible"
+          checked={minimapVisible}
+          onChange={(e) => setMinimapVisible(e.target.checked)}
+        />
       </div>
-    </SheetShell>
+    </>
   );
 }
 

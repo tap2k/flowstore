@@ -1,6 +1,9 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { ChatCircle } from "@phosphor-icons/react";
 import type { FlowType } from "@flowstore/core/schema/v0";
 import type { ResolvedAttribution } from "@flowstore/core/runtime/flowWatcher";
+import { Icon } from "@/components/ui/Icon";
+import { StatusIcon } from "@/components/ui/StatusIcon";
 import { useSimulateStore } from "@/lib/store/simulate";
 import { useAssistantChangesStore } from "@/lib/store/assistantChanges";
 import { useCommentsStore } from "@/lib/store/comments";
@@ -15,42 +18,89 @@ export interface FlowNodeData {
   issueLevel?: "error" | "warning";
 }
 
-// Border + ring classes for a node carrying issues (red = error, amber = warning).
+// Flow type styling. Each type owns a header tint, a border and an ink; the
+// three come from the --flow-* token trio so they stay in step across themes
+// and with the functional-state palette they alias (see tokens.css). Type is
+// never colour-alone — the header spells the label out beside the swatch.
+const typeStyles: Record<FlowType, { border: string; header: string; ink: string; label: string }> = {
+  happy: {
+    border: "border-flow-happy-line",
+    header: "bg-flow-happy-bg",
+    ink: "text-flow-happy-fg",
+    label: "happy",
+  },
+  sad: {
+    border: "border-flow-sad-line",
+    header: "bg-flow-sad-bg",
+    ink: "text-flow-sad-fg",
+    label: "sad",
+  },
+  off: {
+    border: "border-flow-off-line",
+    header: "bg-flow-off-bg",
+    ink: "text-flow-off-fg",
+    label: "off",
+  },
+  utility: {
+    border: "border-flow-utility-line",
+    header: "bg-flow-utility-bg",
+    ink: "text-flow-utility-fg",
+    label: "utility",
+  },
+  interrupt: {
+    border: "border-flow-interrupt-line",
+    header: "bg-flow-interrupt-bg",
+    ink: "text-flow-interrupt-fg",
+    label: "interrupt",
+  },
+};
+
+// A node carrying issues drops its type border for a state border. The severity
+// also shows as a StatusIcon in the header, so the state survives greyscale.
 function issueBorder(level: "error" | "warning" | undefined, fallback: string): string {
-  return level === "error" ? "border-red-500" : level === "warning" ? "border-amber-500" : fallback;
+  return level === "error"
+    ? "border-state-error-line"
+    : level === "warning"
+      ? "border-state-warning-line"
+      : fallback;
 }
 function issueRing(level: "error" | "warning" | undefined): string | null {
-  return level === "error" ? "ring-1 ring-red-300 shadow-sm" : level === "warning" ? "ring-1 ring-amber-300 shadow-sm" : null;
+  if (level === "error") return "ring-1 ring-state-error-line shadow-elev-node";
+  if (level === "warning") return "ring-1 ring-state-warning-line shadow-elev-node";
+  return null;
 }
 
 // The halo for the flow the sim is currently in. A thick ring competes with the
 // node's own colored border, so the active state leans on a bright colored GLOW
 // (a large soft box-shadow) that reads at a glance from across the canvas. In
 // runner mode (or before the first attributed prompt-mode turn) `attr` is null →
-// the full-strength sky glow. In prompt mode the flow watcher supplies a
+// the full-strength active glow. In prompt mode the flow watcher supplies a
 // confidence + status:
-//  - illegal jump → red glow, pulsing: the agent behaved like a flow the spec
+//  - illegal jump → alert glow, pulsing: the agent behaved like a flow the spec
 //    can't reach from the previous one (off-spec, or a missing edge).
 //  - otherwise confidence is rendered as texture, NOT a number — the glow fades
 //    and the ring thins as certainty drops, and a genuine close call pulses. The
 //    shimmer is the OBSERVER's uncertainty ("we're not sure it's here"), not a
 //    claim about the model.
-const GLOW_SKY_STRONG = "shadow-[0_0_22px_4px_rgba(2,132,199,0.7)]";
-const GLOW_SKY_SOFT = "shadow-[0_0_16px_2px_rgba(2,132,199,0.45)]";
-const GLOW_RED = "shadow-[0_0_22px_4px_rgba(239,68,68,0.7)]";
+// The glows are box-shadows built from tokens, so they follow the theme; a
+// glow's alpha is tuned per mode (the same rgba reads far dimmer on near-black).
+const GLOW_ACTIVE = "shadow-[var(--signal-active-glow)]";
+const GLOW_ACTIVE_SOFT = "shadow-[var(--signal-active-glow-soft)]";
+const GLOW_ALERT = "shadow-[var(--signal-alert-glow)]";
 
 function activeRingClass(attr: ResolvedAttribution | null): string {
-  if (!attr)
-    return `ring-4 ring-sky-500 ring-offset-2 ${GLOW_SKY_STRONG}`;
+  const strong = `ring-4 ring-signal-active-ring ring-offset-2 ring-offset-surface-canvas ${GLOW_ACTIVE}`;
+  if (!attr) return strong;
   if (attr.status === "illegal")
-    return `ring-4 ring-red-500 ring-offset-2 ${GLOW_RED} animate-pulse motion-reduce:animate-none`;
+    return `ring-4 ring-signal-alert-ring ring-offset-2 ring-offset-surface-canvas ${GLOW_ALERT} animate-pulse motion-reduce:animate-none`;
   const c = attr.confidence;
-  if (c >= 0.66) return `ring-4 ring-sky-500 ring-offset-2 ${GLOW_SKY_STRONG}`;
-  if (c >= 0.33) return `ring-4 ring-sky-400 ring-offset-2 ${GLOW_SKY_SOFT}`;
-  return `ring-2 ring-sky-300 ring-offset-1 ${GLOW_SKY_SOFT} animate-pulse motion-reduce:animate-none`;
+  if (c >= 0.66) return strong;
+  if (c >= 0.33)
+    return `ring-4 ring-signal-active-ring/70 ring-offset-2 ring-offset-surface-canvas ${GLOW_ACTIVE_SOFT}`;
+  return `ring-2 ring-signal-active-ring/50 ring-offset-1 ring-offset-surface-canvas ${GLOW_ACTIVE_SOFT} animate-pulse motion-reduce:animate-none`;
 }
 
-// A human-readable reason for a red/shimmer glow, appended to the node tooltip.
+// A human-readable reason for an alert/shimmer glow, appended to the node tooltip.
 function attributionHint(attr: ResolvedAttribution | null): string | undefined {
   if (!attr) return undefined;
   if (attr.status === "illegal")
@@ -61,23 +111,19 @@ function attributionHint(attr: ResolvedAttribution | null): string | undefined {
 }
 
 // The halo for a flow the ASSISTANT just changed (see assistantChanges.ts).
-// Purple: the established "AI did this" hue (sparkles), and — unlike red-ish
+// Violet: the established "AI did this" hue (sparkles), and — unlike red-ish
 // hues — carries no error/danger reading. It doesn't fight the canvas
-// palette: sky glow is the sim's active flow, zinc is selection, red/amber
-// are issues; interrupt nodes use violet but as a thin BORDER, a different
-// element from this soft outer halo. Steady (no pulse): in this app's
-// vocabulary pulsing means live uncertainty, and "recently edited" is a
-// fact, not a guess.
+// palette: the active glow is the sim's live flow, selection is achromatic,
+// error/warning are issues; interrupt flows use the same violet but as a thin
+// BORDER, a different element from this soft outer halo. Steady (no pulse): in
+// this app's vocabulary pulsing means live uncertainty, and "recently edited"
+// is a fact, not a guess.
 const ASSISTANT_GLOW =
-  "ring-2 ring-purple-400 ring-offset-1 shadow-[0_0_16px_2px_rgba(168,85,247,0.45)]";
+  "ring-2 ring-signal-assistant-ring ring-offset-1 ring-offset-surface-canvas shadow-[var(--signal-assistant-glow)]";
 
-const typeStyles: Record<FlowType, { border: string; badge: string; label: string }> = {
-  happy:     { border: "border-emerald-400", badge: "bg-emerald-100 text-emerald-800", label: "happy" },
-  sad:       { border: "border-amber-400",   badge: "bg-amber-100 text-amber-800",     label: "sad" },
-  off:       { border: "border-zinc-400",    badge: "bg-zinc-100 text-zinc-800",       label: "off" },
-  utility:   { border: "border-sky-400",     badge: "bg-sky-100 text-sky-800",         label: "utility" },
-  interrupt: { border: "border-violet-400",  badge: "bg-violet-100 text-violet-800",   label: "interrupt" },
-};
+// Selection is ACHROMATIC by design-system rule: colour is reserved for
+// machine-reported state, so selecting a node never competes with a failing one.
+const SELECTED_RING = "ring-2 ring-select-ring ring-offset-1 ring-offset-surface-canvas shadow-elev-2";
 
 export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeData }) {
   const style = typeStyles[data.flowType];
@@ -107,6 +153,7 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
         activeRing={activeRing}
         assistantGlow={assistantGlow}
         selected={selected}
+        unresolvedComments={unresolvedComments}
       />
     );
   }
@@ -114,34 +161,56 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
   return (
     <div
       title={title}
-      className={`relative rounded-md border-2 ${issueBorder(level, style.border)} bg-white px-3.5 py-2.5 min-w-[200px] max-w-[260px] text-left ${
+      // fs-node is the hook globals.css uses to draw the keyboard focus ring on
+      // the visible card rather than on React Flow's wrapper.
+      // Deliberately not overflow-hidden — the comment badge and both handles
+      // sit outside the card. The header rounds its own top corners instead.
+      className={`fs-node relative w-[var(--node-w)] rounded-3 border bg-surface-node text-left transition-shadow duration-[var(--dur-1)] ease-standard ${issueBorder(
+        level,
+        style.border,
+      )} ${
         selected
-          ? "ring-2 ring-zinc-900 ring-offset-1 shadow-md"
+          ? SELECTED_RING
           : isActive
-          ? activeRing
-          : assistantGlow
-          ? ASSISTANT_GLOW
-          : issueRing(level) ?? "shadow-sm"
+            ? activeRing
+            : assistantGlow
+              ? ASSISTANT_GLOW
+              : (issueRing(level) ?? "shadow-elev-node hover:shadow-elev-node-hover")
       }`}
     >
       {unresolvedComments > 0 && <CommentBadge count={unresolvedComments} />}
-      <Handle type="target" position={Position.Left} className="!bg-zinc-400" />
-      <div className="flex items-center justify-between gap-2 mb-1">
-        <span className={`text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 ${style.badge}`}>
-          {style.label}
+      <Handle type="target" position={Position.Left} />
+      {/* Header: what KIND of flow this is, plus anything the machine has to
+          report about it. The body below carries only the name, so the node
+          title is never crowded by badges. */}
+      <div
+        // The inner radius is the card's minus its 1px border, so the tint
+        // meets the border cleanly instead of leaving a hairline at the corner.
+        className={`flex h-[var(--node-h-header)] items-center gap-[var(--gap-inline)] rounded-t-[calc(var(--r-3)-1px)] px-[var(--node-pad-x)] ${style.header}`}
+      >
+        <span className={`fs-micro uppercase ${style.ink}`}>{style.label}</span>
+        <span className="ml-auto flex items-center gap-[var(--gap-inline)]">
+          {data.isEntry && (
+            <span className="fs-micro rounded-1 bg-emphasis px-1 uppercase text-emphasis-fg">
+              entry
+            </span>
+          )}
+          {level && (
+            <StatusIcon
+              status={level}
+              size={13}
+              title={level === "error" ? "Has errors" : "Has warnings"}
+            />
+          )}
         </span>
-        {data.isEntry && (
-          <span className="text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 bg-black text-white">
-            entry
-          </span>
-        )}
       </div>
-      <div className="text-sm font-medium text-zinc-900 leading-tight">{data.name}</div>
+      <div className="px-[var(--node-pad-x)] py-[var(--node-pad-body)]">
+        <div className="fs-nodeTitle text-text-primary">{data.name}</div>
+      </div>
       <Handle
         type="source"
         position={Position.Right}
         title="Drag to connect this flow to another"
-        className="!h-3.5 !w-3.5 !border-2 !border-zinc-400 !bg-white cursor-crosshair shadow-sm transition-transform hover:!scale-125 hover:!border-zinc-600"
       />
     </div>
   );
@@ -155,6 +224,7 @@ function JunctionNode({
   activeRing,
   assistantGlow,
   selected,
+  unresolvedComments,
 }: {
   id: string;
   name: string;
@@ -164,6 +234,7 @@ function JunctionNode({
   activeRing: string;
   assistantGlow: boolean;
   selected: boolean;
+  unresolvedComments: number;
 }) {
   // Rotated square renders as a diamond. The label sits in a counter-rotated
   // wrapper above so it stays upright. Width/height are equal so the bounding
@@ -172,18 +243,21 @@ function JunctionNode({
   const ring =
     issueRing(issueLevel) ??
     (selected
-      ? "ring-2 ring-zinc-900 ring-offset-1 shadow-md"
+      ? SELECTED_RING
       : isActive
         ? activeRing
         : assistantGlow
           ? ASSISTANT_GLOW
-          : "shadow-sm");
-  const border = issueBorder(issueLevel, "border-sky-400");
+          : "shadow-elev-node");
+  // A junction is a routing decision, so it wears the utility palette rather
+  // than the type of any flow it routes to.
+  const border = issueBorder(issueLevel, "border-flow-utility-line");
 
   return (
-    <div className="relative" title={issueTitle} style={{ width: 96, height: 96 }}>
+    <div className="fs-node relative" title={issueTitle} style={{ width: 96, height: 96 }}>
+      {unresolvedComments > 0 && <CommentBadge count={unresolvedComments} />}
       <div
-        className={`absolute border-2 ${border} bg-white ${ring}`}
+        className={`absolute rounded-1 border bg-flow-utility-bg ${border} ${ring}`}
         // 68 ≈ 96/√2 — sized so the rotated square's tips land exactly on the
         // 96px box edge midpoints, where the left/right handles attach.
         style={{
@@ -195,21 +269,15 @@ function JunctionNode({
         }}
         aria-hidden
       />
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="!bg-zinc-400"
-        style={{ top: "50%" }}
-      />
+      <Handle type="target" position={Position.Left} style={{ top: "50%" }} />
       <Handle
         type="source"
         position={Position.Right}
         title="Drag to connect this flow to another"
-        className="!h-3.5 !w-3.5 !border-2 !border-zinc-400 !bg-white cursor-crosshair shadow-sm transition-transform hover:!scale-125 hover:!border-zinc-600"
         style={{ top: "50%" }}
       />
-      <div className="absolute inset-0 flex items-center justify-center px-2 text-center">
-        <span className="text-[10px] font-medium leading-tight text-zinc-700">{name}</span>
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-3 text-center">
+        <span className="fs-micro text-text-secondary">{name}</span>
       </div>
     </div>
   );
@@ -219,8 +287,11 @@ function CommentBadge({ count }: { count: number }) {
   return (
     <span
       title={`${count} unresolved comment${count === 1 ? "" : "s"}`}
-      className="absolute -top-2 -right-2 z-10 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-amber-500 px-1.5 text-[10px] font-medium text-white shadow"
+      // Speech-bubble glyph, not colour alone — a comment count is a fact about
+      // the node, not a severity, so it reads neutral rather than as a warning.
+      className="fs-micro absolute -right-2 -top-2 z-10 inline-flex h-[18px] items-center gap-0.5 rounded-full border border-border-default bg-surface-raised pl-1 pr-1.5 tabular text-text-secondary shadow-elev-1"
     >
+      <Icon icon={ChatCircle} weight="fill" size={11} />
       {count > 99 ? "99+" : count}
     </span>
   );

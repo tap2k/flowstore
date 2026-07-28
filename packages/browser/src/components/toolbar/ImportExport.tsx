@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   CaretDown,
+  ClockCounterClockwise,
   CloudArrowDown,
   DownloadSimple,
   FileZip,
@@ -13,13 +14,6 @@ import { parse as parseYaml } from "yaml";
 import { useSpecStore } from "@/lib/store/spec";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
 import { validateSpec, formatErrors } from "@flowstore/core/validation/ajv";
-import { AgentSheet } from "@/components/sheets/AgentSheet";
-import { VariablesSheet } from "@/components/sheets/VariablesSheet";
-import { GuardrailsSheet } from "@/components/sheets/GuardrailsSheet";
-import { BusinessGoalsSheet } from "@/components/sheets/BusinessGoalsSheet";
-import { CapabilitiesSheet } from "@/components/sheets/CapabilitiesSheet";
-import { KnowledgeSheet } from "@/components/sheets/KnowledgeSheet";
-import { EndpointsSheet } from "@/components/sheets/EndpointsSheet";
 import { GitHubOpenModal } from "@/components/toolbar/GitHubOpenModal";
 import { GitHubProjectControls } from "@/components/toolbar/GitHubProjectControls";
 import {
@@ -149,9 +143,8 @@ export function ImportExportToolbar({
   const clearGithubProject = useGithubProjectStore((s) => s.clear);
   const [importOpen, setImportOpen] = useState(false);
   const [githubOpen, setGithubOpen] = useState(false);
-  // Sheet-open state lives in the ui store so the Prompt panel can open sheets too.
-  const openSheet = useUiStore((s) => s.openSheet);
-  const setOpenSheet = useUiStore((s) => s.setOpenSheet);
+  const githubLocation = useGithubProjectStore((s) => s.location);
+  const setHistoryOpen = useUiStore((s) => s.setHistoryOpen);
   const [error, setError] = useState<string | null>(null);
 
   // --- Export dropdown -----------------------------------------------------
@@ -253,33 +246,9 @@ export function ImportExportToolbar({
   return (
     <>
       <div className="flex items-center gap-1">
-        {/* Spec sections. Ghost, because none of them is the primary action —
-            they open editors, they don't commit anything. */}
-        <Button variant="ghost" onClick={() => setOpenSheet("agent")} disabled={!spec}>
-          Agent
-        </Button>
-        <Button variant="ghost" onClick={() => setOpenSheet("variables")} disabled={!spec}>
-          Variables
-        </Button>
-        <Button variant="ghost" onClick={() => setOpenSheet("guardrails")} disabled={!spec}>
-          Guardrails
-        </Button>
-        {import.meta.env.VITE_DEV === "1" && (
-          <Button variant="ghost" onClick={() => setOpenSheet("business_goals")} disabled={!spec}>
-            Goals
-          </Button>
-        )}
-        <Button variant="ghost" onClick={() => setOpenSheet("capabilities")} disabled={!spec}>
-          Capabilities
-        </Button>
-        <Button variant="ghost" onClick={() => setOpenSheet("knowledge")} disabled={!spec}>
-          Knowledge
-        </Button>
-        {import.meta.env.VITE_DEV === "1" && (
-          <Button variant="ghost" onClick={() => setOpenSheet("endpoints")}>
-            Endpoints
-          </Button>
-        )}
+        {/* The spec SECTIONS (Agent, Variables, Guardrails, …) used to live here.
+            They are now rail tabs — this bar acts on the file, the rail acts on
+            its contents. */}
 
         {/* Translations dropdown — CSV round-trip for translatable strings. */}
         <DropdownMenu
@@ -291,8 +260,8 @@ export function ImportExportToolbar({
             </Button>
           }
           items={[
-            { label: "Import CSV…", icon: UploadSimple, onSelect: startTranslationsImport },
-            { label: "Export CSV", icon: DownloadSimple, onSelect: exportTranslationsCsv },
+            { label: "Import CSV", icon: DownloadSimple, onSelect: startTranslationsImport },
+            { label: "Export CSV", icon: UploadSimple, onSelect: exportTranslationsCsv },
           ]}
         />
         {translationsImport.input}
@@ -309,7 +278,7 @@ export function ImportExportToolbar({
         <GitHubProjectControls onSaveToGitHub={onSaveToGitHub} onShare={onShare} />
         <Divider />
         <IconButton
-          icon={UploadSimple}
+          icon={DownloadSimple}
           label="Import"
           onClick={() => {
             setError(null);
@@ -322,13 +291,23 @@ export function ImportExportToolbar({
           align="right"
           open={exportOpen}
           onOpenChange={setExportOpen}
-          trigger={<IconButton icon={DownloadSimple} label="Export" disabled={!spec} />}
+          trigger={<IconButton icon={UploadSimple} label="Export" disabled={!spec} />}
           items={[
             { label: "Export project (.flowstore.json)", icon: Package, onSelect: exportBundle },
             { label: "Export ZIP", icon: FileZip, onSelect: exportZip },
           ]}
         />
 
+        {/* History sits beside Clear: both reach for a version of the project
+            other than the one in front of you. Dev-only, and only meaningful
+            once there's a repo with commits behind it. */}
+        {import.meta.env.VITE_DEV === "1" && githubLocation && (
+          <IconButton
+            icon={ClockCounterClockwise}
+            label="Revision history"
+            onClick={() => setHistoryOpen(true)}
+          />
+        )}
         <IconButton icon={Trash} label="Clear current spec" disabled={!spec} onClick={clearSpec} />
 
         <Divider />
@@ -365,13 +344,6 @@ export function ImportExportToolbar({
           onApply={applyTranslationsPreview}
         />
       )}
-      {openSheet === "agent" && <AgentSheet onClose={() => setOpenSheet(null)} />}
-      {openSheet === "variables" && <VariablesSheet onClose={() => setOpenSheet(null)} />}
-      {openSheet === "guardrails" && <GuardrailsSheet onClose={() => setOpenSheet(null)} />}
-      {openSheet === "business_goals" && <BusinessGoalsSheet onClose={() => setOpenSheet(null)} />}
-      {openSheet === "capabilities" && <CapabilitiesSheet onClose={() => setOpenSheet(null)} />}
-      {openSheet === "knowledge" && <KnowledgeSheet onClose={() => setOpenSheet(null)} />}
-      {openSheet === "endpoints" && <EndpointsSheet onClose={() => setOpenSheet(null)} />}
     </>
   );
 }

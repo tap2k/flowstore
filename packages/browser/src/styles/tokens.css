@@ -93,6 +93,46 @@
   --state-disabled-fg: var(--n-8);
   --state-disabled-line: var(--n-4);
   --state-disabled-bg: var(--n-1);
+
+  /* Flow type: the node TAXONOMY, not state. Same three-part shape as the
+     functional states (fg/line/bg) so a node is assembled the same way
+     whichever palette it draws from. Where a type's meaning coincides with a
+     state's — happy/success, sad/warning, utility/running — the values are
+     literally the state tokens, so a "sad" node and a warning never disagree
+     about what amber is. Type is never carried by colour alone: the header
+     always spells the type out. */
+  --flow-happy-fg: var(--state-success-fg);
+  --flow-happy-line: var(--state-success-line);
+  --flow-happy-bg: var(--state-success-bg);
+  --flow-sad-fg: var(--state-warning-fg);
+  --flow-sad-line: var(--state-warning-line);
+  --flow-sad-bg: var(--state-warning-bg);
+  --flow-off-fg: var(--state-idle-fg);
+  --flow-off-line: var(--n-6);
+  --flow-off-bg: var(--state-idle-bg);
+  --flow-utility-fg: var(--state-running-fg);
+  --flow-utility-line: var(--state-running-line);
+  --flow-utility-bg: var(--state-running-bg);
+  /* Violet has no state counterpart — picked to the same contrast targets. */
+  --flow-interrupt-fg: #6d28d9; /* 6.8:1 */
+  --flow-interrupt-line: #8b5cf6;
+  --flow-interrupt-bg: #f5f2fe;
+
+  /* ---- Canvas signals: halos a node wears TEMPORARILY, over its type colour.
+     Each is a ring + a soft outer glow; the glow is what reads from across a
+     zoomed-out graph, where a 2px ring has disappeared. Kept distinct from
+     --select-* on purpose: selection is achromatic (something the user did),
+     these are chromatic (something the system observed). */
+  --signal-active-ring: var(--state-running-line);
+  --signal-active-glow: 0 0 22px 4px rgba(59, 130, 246, 0.45);
+  --signal-active-glow-soft: 0 0 16px 2px rgba(59, 130, 246, 0.28);
+  --signal-alert-ring: var(--state-error-line);
+  --signal-alert-glow: 0 0 22px 4px rgba(229, 72, 77, 0.45);
+  /* Assistant edits. Violet: the established "AI did this" hue, and the one
+     signal here that is NOT an error reading. Matches --flow-interrupt-line;
+     they never collide because interrupt is a 1px border and this is a halo. */
+  --signal-assistant-ring: #8b5cf6;
+  --signal-assistant-glow: 0 0 16px 2px rgba(139, 92, 246, 0.4);
 }
 
 [data-theme="dark"] {
@@ -170,6 +210,34 @@
   --state-disabled-fg: var(--n-8);
   --state-disabled-line: var(--n-4);
   --state-disabled-bg: var(--n-1);
+
+  /* Flow type. Same aliasing onto the state palette as light — which is what
+     keeps the two modes true parallels rather than one being a tinted copy. */
+  --flow-happy-fg: var(--state-success-fg);
+  --flow-happy-line: var(--state-success-line);
+  --flow-happy-bg: var(--state-success-bg);
+  --flow-sad-fg: var(--state-warning-fg);
+  --flow-sad-line: var(--state-warning-line);
+  --flow-sad-bg: var(--state-warning-bg);
+  --flow-off-fg: var(--state-idle-fg);
+  --flow-off-line: var(--n-6);
+  --flow-off-bg: var(--state-idle-bg);
+  --flow-utility-fg: var(--state-running-fg);
+  --flow-utility-line: var(--state-running-line);
+  --flow-utility-bg: var(--state-running-bg);
+  --flow-interrupt-fg: #c4b1fb; /* 9.6:1 */
+  --flow-interrupt-line: #7c5cf0;
+  --flow-interrupt-bg: #16101f;
+
+  /* Glows carry MORE alpha on a near-black plane than on grey: the same
+     rgba over #0a0a0a reads roughly half as bright as it does over #f4f4f4. */
+  --signal-active-ring: var(--state-running-line);
+  --signal-active-glow: 0 0 22px 4px rgba(76, 125, 240, 0.6);
+  --signal-active-glow-soft: 0 0 16px 2px rgba(76, 125, 240, 0.4);
+  --signal-alert-ring: var(--state-error-line);
+  --signal-alert-glow: 0 0 22px 4px rgba(229, 72, 77, 0.6);
+  --signal-assistant-ring: #7c5cf0;
+  --signal-assistant-glow: 0 0 16px 2px rgba(124, 92, 240, 0.55);
 }
 
 /* ============================================================ TYPOGRAPHY */
@@ -251,7 +319,19 @@
   --h-row: 32px;
   --w-sidebar: 248px;
   --w-inspector: 304px;
-  --w-rail: 44px;
+  /* The icon rail. Wider than a bare icon strip because each item carries its
+     label underneath — these are destinations, and an unlabelled icon rail
+     makes people hunt. */
+  --w-rail: 72px;
+  /* Every docked panel — left tabbed panel, node controls, assistant, simulate
+     — is exactly this wide. One width is what makes the collapse rule in
+     globals.css a function of panel COUNT rather than of which combination
+     happens to be open. */
+  --w-panel: 320px;
+  --w-panel-min: 280px;
+  /* Below this the canvas is a useless strip, so it is hidden outright and the
+     panels take the space instead. */
+  --w-canvas-min: 360px;
 
   --node-w: 232px;
   --node-w-wide: 280px;
@@ -262,7 +342,7 @@
   --node-gap-x: 64px;
   --node-gap-y: 48px;
   --hit-min: 28px;
-  --hit-canvas: 36px;
+  --hit-canvas: 30px;
 
   /* ========================================================== SHAPE */
   /* Radii step UP with surface size, so a 2px chip inside a 6px node reads as a
@@ -328,6 +408,18 @@
   --edge-hover: #6b6b6b;
   --edge-selected: #111111;
   --edge-label-bg: #ffffff;
+  /* Edge strokes for the signals above. An edge has ONE stroke, so unlike a
+     node (which can hold a type border and a halo at once) these are mutually
+     exclusive — the precedence order lives in Canvas.tsx. --edge-traversed is
+     the faded trail of an already-taken transition and is the only value here
+     allowed to sit below the contrast of an idle node border. */
+  --edge-active: var(--state-running-line);
+  --edge-active-glow: rgba(59, 130, 246, 0.85);
+  --edge-traversed: #bcd4fb;
+  --edge-assistant: #8b5cf6;
+  --edge-assistant-glow: rgba(139, 92, 246, 0.65);
+  --edge-error: var(--state-error-line);
+  --edge-warning: var(--state-warning-line);
   --minimap-bg: rgba(255, 255, 255, 0.86);
   --minimap-node: #c6c6c6;
   --minimap-mask: rgba(17, 17, 17, 0.06);
@@ -340,6 +432,13 @@
   --edge-hover: #8e8e8e;
   --edge-selected: #f2f2f2;
   --edge-label-bg: #181818;
+  --edge-active: var(--state-running-line);
+  --edge-active-glow: rgba(76, 125, 240, 0.95);
+  --edge-traversed: #26375c;
+  --edge-assistant: #7c5cf0;
+  --edge-assistant-glow: rgba(124, 92, 240, 0.8);
+  --edge-error: var(--state-error-line);
+  --edge-warning: var(--state-warning-line);
   --minimap-bg: rgba(10, 10, 10, 0.86);
   --minimap-node: #3d3d3d;
   --minimap-mask: rgba(242, 242, 242, 0.06);

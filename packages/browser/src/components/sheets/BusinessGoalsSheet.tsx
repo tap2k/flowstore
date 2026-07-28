@@ -3,11 +3,11 @@ import { genId } from "@flowstore/core/ids";
 import type { BusinessGoal, Method } from "@flowstore/core/schema/v0";
 import { ListEditor } from "@/components/inspector/ListEditor";
 import { inputClass } from "@/components/inspector/primitives";
-import { SheetShell } from "./SheetShell";
+import { SheetShell, type SectionSheetProps } from "./SheetShell";
 
 const METHODS: Method[] = ["llm", "calculation", "direct"];
 
-export function BusinessGoalsSheet({ onClose }: { onClose: () => void }) {
+export function BusinessGoalsSheet({ onClose, docked }: SectionSheetProps) {
   const goals = useSpecStore((s) => s.spec?.agent.business_goals) ?? [];
   const updateAgent = useSpecStore((s) => s.updateAgent);
 
@@ -16,6 +16,7 @@ export function BusinessGoalsSheet({ onClose }: { onClose: () => void }) {
       title="Business goals"
       subtitle="End-to-end outcomes the agent is judged against."
       onClose={onClose}
+      docked={docked}
       maxWidth="max-w-2xl"
     >
       <ListEditor<BusinessGoal>

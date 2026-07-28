@@ -4,9 +4,9 @@ import { genId } from "@flowstore/core/ids";
 import { useModelsStore } from "@/lib/store/models";
 import { useSpecStore } from "@/lib/store/spec";
 import { inputClass, Section, Field } from "@/components/inspector/primitives";
-import { SheetShell } from "./SheetShell";
+import { SheetShell, type SectionSheetProps } from "./SheetShell";
 
-export function EndpointsSheet({ onClose }: { onClose: () => void }) {
+export function EndpointsSheet({ onClose, docked }: SectionSheetProps) {
   const config = useModelsStore((s) => s.config);
   const setModelEntry = useModelsStore((s) => s.setModelEntry);
   const removeModelEntry = useModelsStore((s) => s.removeModelEntry);
@@ -22,6 +22,7 @@ export function EndpointsSheet({ onClose }: { onClose: () => void }) {
       title="Endpoints"
       subtitle="Project inference servers and live capability endpoints."
       onClose={onClose}
+      docked={docked}
     >
       <div className="space-y-6">
         <Section
@@ -153,7 +154,9 @@ function InferenceRow({
           placeholder="https://staging.example.com/v1"
         />
       </Field>
-      <div className="grid grid-cols-2 gap-2">
+      {/* auto-fit: collapses to one column in the docked panel, stays 2-up in
+          the modal, without a breakpoint that has to know which it is in. */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2">
         <Field label="model id (optional)">
           <input
             className={`${inputClass} font-mono`}

@@ -3,9 +3,9 @@ import { useSpecStore } from "@/lib/store/spec";
 import type { Agent, Modality } from "@flowstore/core/schema/v0";
 import { Field, inputClass } from "@/components/inspector/primitives";
 import { SingleFlowPicker } from "@/components/inspector/FlowPicker";
-import { SheetShell } from "./SheetShell";
+import { SheetShell, type SectionSheetProps } from "./SheetShell";
 
-export function AgentSheet({ onClose }: { onClose: () => void }) {
+export function AgentSheet({ onClose, docked }: SectionSheetProps) {
   const agent = useSpecStore((s) => s.spec?.agent ?? null);
   const updateAgent = useSpecStore((s) => s.updateAgent);
 
@@ -16,7 +16,7 @@ export function AgentSheet({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <SheetShell title="Agent" inlineMeta={agent.id} onClose={onClose}>
+    <SheetShell title="Agent" inlineMeta={agent.id} onClose={onClose} docked={docked}>
       <Field label="Name">
         <input
           className={inputClass}

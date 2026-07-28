@@ -283,7 +283,7 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
 
   return (
     <aside
-      className={`relative flex flex-col h-full w-[380px] border-l bg-surface-panel ${
+      className={`fs-dock relative flex h-full flex-col border-l bg-surface-panel ${
         dragOver ? "border-border-strong" : "border-border-default"
       }`}
       onDragOver={(e) => { e.preventDefault(); if (!working) setDragOver(true); }}

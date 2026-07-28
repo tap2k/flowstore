@@ -12,7 +12,6 @@ import { computeDiagnostics, diagnosticCounts, anchorLabel, type Diagnostic } fr
 import { DisclosureCaret } from "@/components/ui";
 
 interface SystemPromptPanelProps {
-  open: boolean;
   onClose: () => void;
 }
 
@@ -62,14 +61,16 @@ function bodyForDisplay(kind: PromptKind, text: string): string {
   }
 }
 
-export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
+// Mounted only while its rail tab is active (see LeftPanel), so there is no
+// `open` prop any more — the tab IS the open state.
+export function SystemPromptPanel({ onClose }: SystemPromptPanelProps) {
   const spec = useSpecStore((s) => s.spec);
   const requestFocus = useSpecStore((s) => s.requestFocus);
   const setSelection = useSpecStore((s) => s.setSelection);
   const promptOverride = useUiStore((s) => s.promptOverride);
   const setPromptOverride = useUiStore((s) => s.setPromptOverride);
   const promptOverrideSpecRef = useUiStore((s) => s.promptOverrideSpecRef);
-  const setOpenSheet = useUiStore((s) => s.setOpenSheet);
+  const setLeftTab = useUiStore((s) => s.setLeftTab);
 
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [problemsOpen, setProblemsOpen] = useState(true);
@@ -102,7 +103,7 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
 
   const diagnostics = useMemo(() => (spec ? computeDiagnostics(spec) : []), [spec]);
 
-  if (!open || !spec || !compiled) return null;
+  if (!spec || !compiled) return null;
 
   const compiledText = compiled.text;
   const editorValue = promptOverride ?? compiledText;
@@ -145,7 +146,7 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
       setSelection({ kind: "edge", flowId: d.at.flowId, exitPathId: d.at.exitPathId });
     } else if (d.source === "graph") {
       // entry-flow / system_prompt / global casing all live on the agent envelope.
-      setOpenSheet("agent");
+      setLeftTab("agent");
     }
   }
 
@@ -158,22 +159,24 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
         break;
       case "role":
       case "templateWrapper":
-        setOpenSheet("agent");
+        setLeftTab("agent");
         break;
       case "guardrails":
-        setOpenSheet("guardrails");
+        setLeftTab("guardrails");
         break;
       case "knowledge":
-        setOpenSheet("knowledge");
+        setLeftTab("knowledge");
         break;
       // runtimeContext has no editable source — not clickable.
     }
   }
 
   return (
-    <aside className="flex flex-col h-full w-[380px] border-l border-border-default bg-surface-panel">
-      <div className="flex items-center justify-between border-b border-border-default px-4 py-2">
-        <div className="text-sm font-semibold text-text-primary">System prompt</div>
+    // Fills the dock rather than sizing itself: the left panel owns the width
+    // and the border it sits against (see LeftPanel).
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex items-center justify-between border-b border-border-subtle px-3 py-2">
+        <div className="fs-sectionTitle text-text-primary">System prompt</div>
         <div className="flex items-center gap-1">
           <button
             onClick={() => copy(false)}
@@ -320,7 +323,7 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
           />
         </div>
       )}
-    </aside>
+    </div>
   );
 }
 

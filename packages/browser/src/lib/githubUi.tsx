@@ -129,7 +129,7 @@ export function Shell({
         <RadixDialog.Overlay className="fixed inset-0 z-50 animate-fs-fade-in bg-surface-scrim" />
         <RadixDialog.Content
           aria-describedby={undefined}
-          className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 animate-fs-pop-in rounded-lg bg-surface-panel p-5 shadow-lg"
+          className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 animate-fs-pop-in rounded-4 border border-border-default bg-surface-raised p-5 shadow-elev-3"
         >
           <RadixDialog.Title className="text-lg font-semibold text-text-primary mb-3">
             {title}

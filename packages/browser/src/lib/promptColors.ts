@@ -9,10 +9,10 @@ interface BlockStyle {
   hover: string; // hover background (clickable blocks)
   ring: string; // focus ring
   /**
-   * Body ink. Only the flow-typed styles set this: their tints are fixed light
-   * values (see below), so their text has to be pinned to a dark ink rather
-   * than following the theme's text token, which inverts. Neutral and runtime
-   * blocks leave it empty and inherit the token.
+   * Body ink. Every style now leaves this empty and inherits --text-primary:
+   * the flow tints are theme-aware tokens, so their text no longer has to be
+   * pinned to a fixed dark ink. Kept on the type because a future style may
+   * legitimately need to override the inherited token.
    */
   body?: string;
 }
@@ -36,47 +36,41 @@ const RUNTIME: BlockStyle = {
   ring: "",
 };
 
-// Hues mirror the canvas node styling in FlowNode.tsx (typeStyles) so the panel
-// and the graph agree on what each flow type looks like. These stay on the raw
-// palette rather than moving to state tokens: the canvas is deliberately out of
-// scope for the design-system retrofit, and the whole point of these five is
-// that a block in the prompt panel matches the node it came from. They convert
-// when the canvas does.
+// These are the same --flow-* tokens the canvas nodes use (FlowNode.tsx
+// typeStyles), which is the whole point: a colored block in the prompt panel
+// must read as "the node this came from," not merely as a similar green. The
+// header ink is the type's -fg (it clears 4.5:1 on the tint in both modes);
+// the body inherits --text-primary, since the tint is now theme-aware.
 export const FLOW_TYPE_STYLES: Record<FlowType, BlockStyle> = {
   happy: {
-    block: "bg-emerald-50",
-    header: "text-emerald-700",
-    hover: "hover:bg-emerald-100",
-    ring: "focus-visible:ring-emerald-400",
-    body: "text-zinc-900",
+    block: "bg-flow-happy-bg",
+    header: "text-flow-happy-fg",
+    hover: "hover:bg-surface-hover",
+    ring: "focus-visible:ring-flow-happy-line",
   },
   sad: {
-    block: "bg-amber-50",
-    header: "text-amber-700",
-    hover: "hover:bg-amber-100",
-    ring: "focus-visible:ring-amber-400",
-    body: "text-zinc-900",
+    block: "bg-flow-sad-bg",
+    header: "text-flow-sad-fg",
+    hover: "hover:bg-surface-hover",
+    ring: "focus-visible:ring-flow-sad-line",
   },
   off: {
-    block: "bg-zinc-50",
-    header: "text-zinc-700",
-    hover: "hover:bg-zinc-100",
-    ring: "focus-visible:ring-zinc-400",
-    body: "text-zinc-900",
+    block: "bg-flow-off-bg",
+    header: "text-flow-off-fg",
+    hover: "hover:bg-surface-hover",
+    ring: "focus-visible:ring-flow-off-line",
   },
   utility: {
-    block: "bg-sky-50",
-    header: "text-sky-700",
-    hover: "hover:bg-sky-100",
-    ring: "focus-visible:ring-sky-400",
-    body: "text-zinc-900",
+    block: "bg-flow-utility-bg",
+    header: "text-flow-utility-fg",
+    hover: "hover:bg-surface-hover",
+    ring: "focus-visible:ring-flow-utility-line",
   },
   interrupt: {
-    block: "bg-violet-50",
-    header: "text-violet-700",
-    hover: "hover:bg-violet-100",
-    ring: "focus-visible:ring-violet-400",
-    body: "text-zinc-900",
+    block: "bg-flow-interrupt-bg",
+    header: "text-flow-interrupt-fg",
+    hover: "hover:bg-surface-hover",
+    ring: "focus-visible:ring-flow-interrupt-line",
   },
 };
 

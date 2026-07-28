@@ -5,7 +5,7 @@ import { defaultLanguage } from "@flowstore/core/schema/v0";
 import { ListEditor } from "@/components/inspector/ListEditor";
 import { FaqListEditor } from "@/components/inspector/FaqListEditor";
 import { Field, Section, inputClass } from "@/components/inspector/primitives";
-import { SheetShell } from "./SheetShell";
+import { SheetShell, type SectionSheetProps } from "./SheetShell";
 import { downloadCsv, useCsvFileInput } from "./csvIO";
 import {
   faqToCsv,
@@ -16,7 +16,7 @@ import {
   tableToCsv,
 } from "@flowstore/core/codegen/knowledgeCsv";
 
-export function KnowledgeSheet({ onClose }: { onClose: () => void }) {
+export function KnowledgeSheet({ onClose, docked }: SectionSheetProps) {
   const knowledge = useSpecStore((s) => s.spec?.agent.knowledge ?? null);
   const languages = useSpecStore((s) => s.spec?.agent.meta.languages ?? ["EN"]);
   const updateAgent = useSpecStore((s) => s.updateAgent);
@@ -35,7 +35,7 @@ export function KnowledgeSheet({ onClose }: { onClose: () => void }) {
   const glossaryEntries = knowledge?.glossary ?? [];
 
   return (
-    <SheetShell title="Knowledge" onClose={onClose}>
+    <SheetShell title="Knowledge" onClose={onClose} docked={docked}>
       <Section
         title="FAQ"
         action={

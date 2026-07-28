@@ -58,7 +58,13 @@ export function DropdownMenu({
         <RadixMenu.Content
           align={align === "left" ? "start" : "end"}
           sideOffset={4}
-          className="z-71 min-w-46 animate-fs-pop-in rounded-4 border border-border-default bg-surface-raised p-1 shadow-elev-2"
+          // w-max lets the menu grow past min-w-46 to fit its widest row —
+          // the bug this fixes was the row wrapping instead: a shrink-to-fit
+          // box sizes off each flex child's own min-content unless that
+          // child's text is pinned to one line (see MenuItem's
+          // whitespace-nowrap), so a long label wrapped and blew out the
+          // fixed h-7 row height rather than widening the menu.
+          className="z-71 w-max min-w-46 max-w-72 animate-fs-pop-in rounded-4 border border-border-default bg-surface-raised p-1 shadow-elev-2"
         >
           {items.map((item, i) =>
             item.separator ? (
@@ -87,7 +93,7 @@ function MenuItem({ item }: { item: MenuItemSpec }) {
       disabled={item.disabled}
       onSelect={() => item.onSelect?.()}
       className={[
-        "fs-ui flex h-7 w-full select-none items-center gap-2 rounded-2 border-none bg-transparent px-2 text-left outline-none",
+        "fs-ui flex h-7 w-full select-none items-center gap-2 whitespace-nowrap rounded-2 border-none bg-transparent px-2 text-left outline-none",
         item.disabled
           ? "cursor-not-allowed text-text-disabled"
           : danger

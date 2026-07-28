@@ -3,9 +3,12 @@ import { autoLayout, NODE_WIDTH, NODE_HEIGHT } from "./layout";
 import type { Positions } from "./positions";
 
 // One rank right / one row down, matching autoLayout's dagre spacing
-// (ranksep 80 / nodesep 40) so anchored placement reads like the layout.
-const STEP_X = NODE_WIDTH + 80;
-const STEP_Y = NODE_HEIGHT + 40;
+// (ranksep 64 / nodesep 48, the design system's --node-gap-x/-y) so anchored
+// placement reads like the layout.
+// Exported so the tests assert against the real step rather than a copy that
+// silently drifts when the node metrics change.
+export const STEP_X = NODE_WIDTH + 64;
+export const STEP_Y = NODE_HEIGHT + 48;
 
 type XY = { x: number; y: number };
 

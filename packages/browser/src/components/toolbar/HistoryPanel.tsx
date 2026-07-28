@@ -3,6 +3,8 @@ import { useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
 import { useDirtyStore } from "@/lib/store/dirty";
 import { SpecChangesModal } from "./SpecChangesModal";
+import { SheetShell } from "@/components/sheets/SheetShell";
+import { Button } from "@/components/ui";
 import {
   makeGitHubClient,
   listCommits,
@@ -85,27 +87,38 @@ export function HistoryPanel({ open, onClose }: { open: boolean; onClose: () => 
 
   return (
     <>
-    <aside className="flex flex-col h-full w-[380px] shrink-0 border-l border-border-default bg-surface-panel">
-      <div className="flex items-start justify-between border-b border-border-default px-4 py-3">
-        <div>
-          <p className="text-sm font-semibold text-text-primary">Revision history</p>
-          <p className="font-mono text-[11px] text-text-tertiary">{branch}</p>
-        </div>
-        <div className="mt-0.5 flex items-center gap-3">
-          <button
-            onClick={() => void load({ cancelled: false })}
-            disabled={state.phase === "loading"}
-            className="fs-caption text-text-tertiary hover:text-text-primary disabled:opacity-40"
+    {/* A modal, not a docked panel: history is a lookup you do and dismiss,
+        and the four workspace panels are reserved for surfaces you work
+        alongside the canvas. */}
+    <SheetShell
+      title="Revision history"
+      inlineMeta={branch}
+      maxWidth="max-w-xl"
+      onClose={onClose}
+      bodyClass="flex-1 overflow-auto px-2 py-1"
+      headerActions={
+        <Button
+          size="sm"
+          onClick={() => void load({ cancelled: false })}
+          disabled={state.phase === "loading"}
+        >
+          Refresh
+        </Button>
+      }
+      footer={
+        location ? (
+          <a
+            href={`https://github.com/${location.owner}/${location.repo}/commits/${location.ref}`}
+            target="_blank"
+            rel="noreferrer"
+            className="fs-caption text-text-tertiary hover:text-text-primary"
           >
-            refresh
-          </button>
-          <button onClick={onClose} className="fs-caption text-text-tertiary hover:text-text-primary">
-            close
-          </button>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-auto px-2 py-1">
+            View on GitHub ↗
+          </a>
+        ) : undefined
+      }
+    >
+      <div>
         {state.phase === "loading" && (
           <p className="px-2 py-4 fs-body text-text-tertiary">Loading history…</p>
         )}
@@ -175,20 +188,7 @@ export function HistoryPanel({ open, onClose }: { open: boolean; onClose: () => 
           </ul>
         )}
       </div>
-
-      {location && (
-        <div className="border-t border-border-subtle px-4 py-2.5">
-          <a
-            href={`https://github.com/${location.owner}/${location.repo}/commits/${location.ref}`}
-            target="_blank"
-            rel="noreferrer"
-            className="fs-caption text-text-tertiary hover:text-text-primary"
-          >
-            View on GitHub ↗
-          </a>
-        </div>
-      )}
-    </aside>
+    </SheetShell>
 
     {showChanges && <SpecChangesModal onClose={() => setShowChanges(false)} />}
     </>

@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Edge, Node } from "@xyflow/react";
-import { resolvePositions } from "./placement";
-import { NODE_WIDTH, NODE_HEIGHT } from "./layout";
-
-const STEP_X = NODE_WIDTH + 80;
-const STEP_Y = NODE_HEIGHT + 40;
+import { resolvePositions, STEP_X, STEP_Y } from "./placement";
 
 function node(id: string): Node {
   return { id, position: { x: 0, y: 0 }, data: {} };

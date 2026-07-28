@@ -3,9 +3,9 @@ import { genId } from "@flowstore/core/ids";
 import type { Guardrail } from "@flowstore/core/schema/v0";
 import { ListEditor } from "@/components/inspector/ListEditor";
 import { inputClass } from "@/components/inspector/primitives";
-import { SheetShell } from "./SheetShell";
+import { SheetShell, type SectionSheetProps } from "./SheetShell";
 
-export function GuardrailsSheet({ onClose }: { onClose: () => void }) {
+export function GuardrailsSheet({ onClose, docked }: SectionSheetProps) {
   const guardrails = useSpecStore((s) => s.spec?.agent.guardrails) ?? [];
   const updateAgent = useSpecStore((s) => s.updateAgent);
 
@@ -14,6 +14,7 @@ export function GuardrailsSheet({ onClose }: { onClose: () => void }) {
       title="Guardrails"
       subtitle="Cross-cutting behavioral invariants applied to the full transcript."
       onClose={onClose}
+      docked={docked}
       maxWidth="max-w-2xl"
     >
       <ListEditor<Guardrail>

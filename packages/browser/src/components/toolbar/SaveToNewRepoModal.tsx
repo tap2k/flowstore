@@ -165,11 +165,11 @@ const secondaryBtn =
 function Shell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-50 bg-surface-scrim flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex animate-fs-fade-in items-center justify-center bg-surface-scrim p-4"
       onClick={onClose}
     >
       <div
-        className="bg-surface-panel rounded-lg shadow-lg w-full max-w-md p-5"
+        className="w-full max-w-md animate-fs-pop-in rounded-4 border border-border-default bg-surface-raised p-5 shadow-elev-3"
         onClick={(e) => e.stopPropagation()}
       >
         {children}

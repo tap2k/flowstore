@@ -95,6 +95,28 @@
   --color-state-disabled-line: var(--state-disabled-line);
   --color-state-disabled-bg: var(--state-disabled-bg);
 
+  /* Flow type. Named `flow-<type>-<part>` so the utility spells out the
+     taxonomy: `border-flow-happy-line`, `bg-flow-sad-bg`, `text-flow-off-fg`. */
+  --color-flow-happy-fg: var(--flow-happy-fg);
+  --color-flow-happy-line: var(--flow-happy-line);
+  --color-flow-happy-bg: var(--flow-happy-bg);
+  --color-flow-sad-fg: var(--flow-sad-fg);
+  --color-flow-sad-line: var(--flow-sad-line);
+  --color-flow-sad-bg: var(--flow-sad-bg);
+  --color-flow-off-fg: var(--flow-off-fg);
+  --color-flow-off-line: var(--flow-off-line);
+  --color-flow-off-bg: var(--flow-off-bg);
+  --color-flow-utility-fg: var(--flow-utility-fg);
+  --color-flow-utility-line: var(--flow-utility-line);
+  --color-flow-utility-bg: var(--flow-utility-bg);
+  --color-flow-interrupt-fg: var(--flow-interrupt-fg);
+  --color-flow-interrupt-line: var(--flow-interrupt-line);
+  --color-flow-interrupt-bg: var(--flow-interrupt-bg);
+
+  --color-signal-active-ring: var(--signal-active-ring);
+  --color-signal-alert-ring: var(--signal-alert-ring);
+  --color-signal-assistant-ring: var(--signal-assistant-ring);
+
   --color-edge-default: var(--edge-default);
   --color-edge-hover: var(--edge-hover);
   --color-edge-selected: var(--edge-selected);
@@ -209,12 +231,90 @@ body {
   background-clip: content-box;
 }
 
-/* ============================================ REACT FLOW FLOATING CHROME */
-/* The zoom/fit/relayout cluster and the minimap ship their own stylesheet with
-   hardcoded whites and near-blacks (see the @xyflow/react import at the top),
-   so they can't follow the theme through props alone — these override the
-   library's own rules. The graph itself (nodes, edges, handles) is deliberately
-   untouched: it keeps its light palette until the node retrofit. */
+/* ============================================================ APP SHELL */
+/* The workspace row: rail | left panel | canvas | node controls | assistant |
+   simulate. Everything after the canvas is laid out in DOM order, which is what
+   puts simulate hard against the right edge, then assistant, then node controls
+   nearest the graph.
+
+   NOTE: `container-type: inline-size` makes this element a containing block for
+   fixed-position descendants. Modals and sheets must therefore be rendered at
+   the AppShell root, OUTSIDE this row — putting one inside would silently
+   re-anchor its `fixed inset-0` scrim to the workspace instead of the viewport. */
+.fs-workspace {
+  container-type: inline-size;
+  container-name: shell;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  /* Last resort: four panels at their floor width plus the rail can still
+     exceed a small viewport. Scrolling beats crushing them below legibility. */
+  overflow-x: auto;
+}
+.fs-canvas-slot {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.fs-dock {
+  flex: 0 0 var(--w-panel);
+  min-width: 0;
+}
+
+/* Canvas collapse. A canvas narrower than --w-canvas-min is a strip that shows
+   nothing useful, so past that point it is dropped entirely and the open panels
+   divide the full width between them.
+
+   Each threshold is rail + n × panel + canvas-min, so the breakpoint depends
+   only on HOW MANY panels are open — which is only true because every panel
+   shares --w-panel. If panels ever take individual widths, this collapses into
+   one rule per combination and should become a measured layout instead.
+
+   Container query rather than a media query: the workspace, not the viewport,
+   is what the panels actually divide. Rather than JS + ResizeObserver because
+   that would flash the wrong layout on first paint, every paint. */
+@container shell (max-width: 751px) {
+  [data-panels="1"] .fs-canvas-slot {
+    display: none;
+  }
+  [data-panels="1"] .fs-dock {
+    flex: 1 1 0;
+    min-width: var(--w-panel-min);
+  }
+}
+@container shell (max-width: 1071px) {
+  [data-panels="2"] .fs-canvas-slot {
+    display: none;
+  }
+  [data-panels="2"] .fs-dock {
+    flex: 1 1 0;
+    min-width: var(--w-panel-min);
+  }
+}
+@container shell (max-width: 1391px) {
+  [data-panels="3"] .fs-canvas-slot {
+    display: none;
+  }
+  [data-panels="3"] .fs-dock {
+    flex: 1 1 0;
+    min-width: var(--w-panel-min);
+  }
+}
+@container shell (max-width: 1711px) {
+  [data-panels="4"] .fs-canvas-slot {
+    display: none;
+  }
+  [data-panels="4"] .fs-dock {
+    flex: 1 1 0;
+    min-width: var(--w-panel-min);
+  }
+}
+
+/* ============================================ REACT FLOW CHROME + GRAPH */
+/* @xyflow/react ships its own stylesheet (see the import at the top) with
+   hardcoded whites and near-blacks, so these parts can't follow the theme
+   through props alone — the rules below override the library's own. Node and
+   edge *content* is styled in the components; what has to live here is
+   anything the library sets on an element we don't render ourselves. */
 .react-flow__controls {
   box-shadow: var(--elev-2);
   border-radius: var(--r-3);
@@ -255,4 +355,65 @@ body {
 }
 .react-flow__edge-text {
   fill: var(--text-secondary);
+}
+
+/* Handles. The library hardcodes a 6px dark-navy dot; --handle-size is 9px so
+   the target is grabbable at the zoom levels this graph is actually read at.
+   The visible dot stays 9px while ::before widens the HIT AREA to --handle-hit
+   (20px) — enlarging the dot itself would crowd the node edge. */
+.react-flow__handle {
+  width: var(--handle-size);
+  height: var(--handle-size);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-panel);
+  border-radius: var(--r-full);
+  transition: transform var(--dur-1) var(--ease-standard),
+    border-color var(--dur-1) var(--ease-standard),
+    background-color var(--dur-1) var(--ease-standard);
+}
+.react-flow__handle::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--handle-hit);
+  height: var(--handle-hit);
+  transform: translate(-50%, -50%);
+}
+.react-flow__handle-right {
+  cursor: crosshair;
+}
+.react-flow__handle:hover {
+  border-color: var(--text-primary);
+  background: var(--surface-panel);
+  transform: scale(1.25);
+}
+/* React Flow composes the centring translate into `transform` on the left/right
+   handles, so the hover scale above has to be re-stated with it or the handle
+   jumps off the node edge on hover. */
+.react-flow__handle-left:hover {
+  transform: translate(-50%, -50%) scale(1.25);
+}
+.react-flow__handle-right:hover {
+  transform: translate(50%, -50%) scale(1.25);
+}
+/* While dragging a new connection, every valid target lights up. */
+.react-flow__handle.connectingfrom,
+.react-flow__handle.connectingto {
+  border-color: var(--signal-active-ring);
+  background: var(--signal-active-ring);
+}
+.react-flow__connectionline .react-flow__connection-path {
+  stroke: var(--signal-active-ring);
+  stroke-width: var(--edge-w-active);
+}
+/* Node focus ring: React Flow makes nodes tabbable and draws a default outline
+   that doesn't follow the theme. Selection styling lives on the node itself. */
+.react-flow__node:focus,
+.react-flow__node:focus-visible {
+  outline: none;
+}
+.react-flow__node:focus-visible .fs-node {
+  outline: var(--bw-select) solid var(--focus-ring);
+  outline-offset: 2px;
 }
