@@ -3,7 +3,6 @@ import {
   CaretDown,
   CloudArrowDown,
   DownloadSimple,
-  FileCode,
   FileZip,
   Gear,
   Package,
@@ -157,13 +156,6 @@ export function ImportExportToolbar({
 
   // --- Export dropdown -----------------------------------------------------
   const { open: exportOpen, setOpen: setExportOpen } = useDropdown();
-
-  function exportSpecJson() {
-    if (!spec) return;
-    const name = sanitizeFilename(spec.agent.id || "spec");
-    downloadBlob(`${name}.json`, JSON.stringify(spec, null, 2), "application/json");
-    setExportOpen(false);
-  }
 
   function projectFileMap(): FileMap {
     if (!spec) return {};
@@ -325,15 +317,14 @@ export function ImportExportToolbar({
           }}
         />
 
-        {/* Export dropdown — spec JSON + decomposed-project ZIP. */}
+        {/* Export dropdown — the project as one .flowstore.json or a ZIP. */}
         <DropdownMenu
           align="right"
           open={exportOpen}
           onOpenChange={setExportOpen}
           trigger={<IconButton icon={DownloadSimple} label="Export" disabled={!spec} />}
           items={[
-            { label: "Export JSON (spec only)", icon: FileCode, onSelect: exportSpecJson },
-            { label: "Export bundle (.flowstore.json)", icon: Package, onSelect: exportBundle },
+            { label: "Export project (.flowstore.json)", icon: Package, onSelect: exportBundle },
             { label: "Export ZIP", icon: FileZip, onSelect: exportZip },
           ]}
         />

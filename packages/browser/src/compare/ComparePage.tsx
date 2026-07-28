@@ -230,7 +230,7 @@ export function ComparePage() {
                   ),
               },
               {
-                label: "Export study (flowstore project)",
+                label: "Export study (.flowstore.json)",
                 icon: Package,
                 onSelect: () =>
                   downloadBlob(
