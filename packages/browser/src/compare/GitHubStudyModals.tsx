@@ -165,11 +165,15 @@ export function GitHubStudyOpenModal({
 // ---------------------------------------------------------------------------
 
 export function GitHubStudySaveModal({
+  mode,
   onClose,
   onOpenSettings,
   buildFiles,
   onSaved,
 }: {
+  /** Destination chosen in the toolbar dropdown (editor idiom) — the modal
+      renders one form, it never toggles. */
+  mode: "existing" | "new";
   onClose: () => void;
   onOpenSettings: () => void;
   buildFiles: () => Record<string, string>;
@@ -179,7 +183,6 @@ export function GitHubStudySaveModal({
   const pat = useSettingsStore((s) => s.githubPat);
   const [client] = useState<Octokit | null>(() => (pat ? makeGitHubClient(pat) : null));
   const { repos, loading: loadingRepos, error: listError } = useRepoList(client, pat);
-  const [mode, setMode] = useState<"existing" | "new">("existing");
   const [selectedIdx, setSelectedIdx] = useState(-1);
   const [newName, setNewName] = useState(
     `compare-study-${new Date().toISOString().slice(0, 10)}`,
@@ -298,20 +301,6 @@ export function GitHubStudySaveModal({
   return (
     <Shell title="Save study to GitHub" onClose={onClose}>
       <div className="space-y-3">
-        <div className="flex gap-1 rounded-md border border-border-default p-0.5 text-xs">
-          {(["existing", "new"] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => {
-                setMode(m);
-                setError(null);
-              }}
-              className={`flex-1 rounded px-2 py-1 ${mode === m ? "bg-emphasis text-emphasis-fg" : "text-text-secondary hover:bg-surface-hover"}`}
-            >
-              {m === "existing" ? "existing repo" : "new repo"}
-            </button>
-          ))}
-        </div>
         {mode === "existing" ? (
           <FieldRow
             label="Repository (writable)"
