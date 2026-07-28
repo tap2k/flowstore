@@ -48,7 +48,7 @@ export function ComparePage() {
   const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [githubOpenOpen, setGithubOpenOpen] = useState(false);
-  const [githubSaveOpen, setGithubSaveOpen] = useState(false);
+  const [githubSaveMode, setGithubSaveMode] = useState<"existing" | "new" | null>(null);
 
   // Parsed rates; a blank or non-numeric field contributes nothing, and with
   // both blank the voice estimate disappears everywhere.
@@ -189,11 +189,21 @@ export function ComparePage() {
             onClick={() => setGithubOpenOpen(true)}
             disabled={busy}
           />
-          <IconButton
-            icon={CloudArrowUp}
-            label="Save study to GitHub"
-            onClick={() => setGithubSaveOpen(true)}
-            disabled={busy || (!s.prompt && s.scenarios.length === 0)}
+          {/* Same shape as the editor's save cloud (GitHubProjectControls):
+              a dropdown of destinations, not a mode toggle inside the modal. */}
+          <DropdownMenu
+            align="right"
+            trigger={
+              <IconButton
+                icon={CloudArrowUp}
+                label="Save study to GitHub"
+                disabled={busy || (!s.prompt && s.scenarios.length === 0)}
+              />
+            }
+            items={[
+              { label: "Save to an existing repo…", onSelect: () => setGithubSaveMode("existing") },
+              { label: "Save to a new repo…", onSelect: () => setGithubSaveMode("new") },
+            ]}
           />
           <Divider />
           {/* A label, not an IconButton: it has to wrap the file input to keep
@@ -244,7 +254,11 @@ export function ComparePage() {
           <IconButton
             icon={Trash}
             label="Clear study"
-            onClick={() => s.clearStudy()}
+            onClick={() => {
+              if (window.confirm("Clear the whole study? Prompt, scenarios, results, and golds will be removed.")) {
+                s.clearStudy();
+              }
+            }}
             disabled={busy || (!s.prompt && s.scenarios.length === 0 && !hasResults)}
           />
           <Divider />
@@ -366,23 +380,18 @@ export function ComparePage() {
       {!s.prompt && s.scenarios.length === 0 && !hasResults ? (
         <div className="flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-3 text-center">
+            {/* Same face as the editor's empty canvas (Canvas.tsx) — one
+                message line + the pill example button; import lives in the
+                toolbar on both surfaces. */}
             <div className="text-sm text-text-tertiary">
-              Paste a system prompt above, upload a study, or start from the example.
+              Paste a system prompt above, import a project, or start from the example.
             </div>
-            <div className="flex items-center gap-2">
-              <Button onClick={() => void s.loadExample()}>load example (clinic agent)</Button>
-              {/* A label, not a Button: it wraps the file input so the native
-                  picker stays one click away. Styled to match Button md. */}
-              <label className="inline-flex h-7 cursor-pointer items-center rounded-2 border border-border-default bg-surface-panel px-2.5 text-13 font-medium text-text-primary tracking-snug hover:bg-surface-hover hover:border-border-strong">
-                upload .flowstore.json
-                <input
-                  type="file"
-                  accept=".json,application/json"
-                  className="hidden"
-                  onChange={(e) => e.target.files?.[0] && s.uploadBundle(e.target.files[0])}
-                />
-              </label>
-            </div>
+            <button
+              onClick={() => void s.loadExample()}
+              className="rounded-full border border-border-default bg-surface-panel px-4 py-1.5 text-xs font-medium text-text-primary hover:bg-surface-hover"
+            >
+              load example (clinic agent)
+            </button>
           </div>
         </div>
       ) : (
@@ -579,11 +588,12 @@ export function ComparePage() {
           onOpened={s.setGithubLocation}
         />
       )}
-      {githubSaveOpen && (
+      {githubSaveMode && (
         <GitHubStudySaveModal
-          onClose={() => setGithubSaveOpen(false)}
+          mode={githubSaveMode}
+          onClose={() => setGithubSaveMode(null)}
           onOpenSettings={() => {
-            setGithubSaveOpen(false);
+            setGithubSaveMode(null);
             setSettingsOpen(true);
           }}
           buildFiles={() => buildStudyBundle(study)}
