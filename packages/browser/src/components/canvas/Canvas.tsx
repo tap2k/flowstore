@@ -31,6 +31,7 @@ import { loadProject } from "@flowstore/core/files";
 import { loadPortableSpec } from "@/lib/store/loadSpec";
 import { parseSourceToSpec } from "@/lib/chat/specParse";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
+import { Button } from "@/components/ui";
 
 const ACTIVE_EDGE_STROKE = "#0284c7"; // sky-600 — the live transition
 const TRAVERSED_EDGE_STROKE = "#bae6fd"; // sky-200 — a faded already-taken edge
@@ -371,15 +372,11 @@ function GenerateFlowsOverlay({ spec }: { spec: Spec }) {
       <div className="pointer-events-auto flex max-w-md flex-col items-center gap-3 text-center">
         <div className="text-sm text-text-tertiary">
           This project has an imported prompt and no flows yet. Generate the flow graph from
-          the prompt — the prompt itself keeps running verbatim.
+          the prompt.
         </div>
-        <button
-          onClick={() => void generate()}
-          disabled={busy}
-          className="rounded-full bg-emphasis px-4 py-1.5 text-xs font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-40"
-        >
+        <Button variant="primary" onClick={() => void generate()} loading={busy}>
           {busy ? "generating flows…" : "generate flows"}
-        </button>
+        </Button>
         {error && <div className="text-xs text-state-error-fg">{error}</div>}
       </div>
     </div>
