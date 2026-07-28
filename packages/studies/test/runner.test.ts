@@ -179,6 +179,28 @@ describe("runCell", () => {
     expect(state.cell.turns).toEqual([]); // late reply dropped, partial transcript gone
     expect(state.cell.usage).toBeUndefined();
   });
+
+  it("resumeFrom keeps done cells and only runs the rest", async () => {
+    mockSend.mockResolvedValue({ text: "fresh", usage: { inputTokens: 1, outputTokens: 1 }, invocations: [] });
+    const doneCell: CellState = {
+      status: "done",
+      turns: [turn("user", "hi"), turn("agent", "kept reply")],
+      totalMs: 5,
+    };
+    const scenarios = [scenario("s1"), scenario("s2")];
+    const key1 = cellKey("s1", 0);
+    const cells = await runMatrix({
+      systemPrompt: "SP",
+      scenarios,
+      models: ["m"],
+      resolveDispatch: () => dispatch("m"),
+      onCell: () => {},
+      resumeFrom: { [key1]: doneCell },
+    });
+    expect(mockSend).toHaveBeenCalledTimes(1); // only s2 ran
+    expect(cells[key1].turns[1].text).toBe("kept reply"); // s1 untouched
+    expect(cells[cellKey("s2", 0)].status).toBe("done");
+  });
 });
 
 describe("runMatrix", () => {

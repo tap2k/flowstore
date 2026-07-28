@@ -242,16 +242,27 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       .then((text) => get().applyBundle(JSON.parse(text) as Record<string, string>));
   },
 
+  // Run = fill the gaps: after a stop (or errors), done conversations are
+  // kept and skipped, only the rest run. A fully-done or untouched matrix
+  // runs fresh; an explicit fresh start over partial results is the clear
+  // button.
   run: async () => {
-    const { prompt, vars, scenarios, models } = get();
-    set({
+    const { prompt, vars, scenarios, models, cells } = get();
+    const keys = scenarios.flatMap((sc) => models.map((_, mi) => cellKey(sc.id, mi)));
+    const doneKeys = keys.filter((k) => cells[k]?.status === "done");
+    const resuming = doneKeys.length > 0 && doneKeys.length < keys.length;
+    const kept = Object.fromEntries(doneKeys.map((k) => [k, cells[k]]));
+    // Kept conversations keep their translation caches/toggles; everything
+    // about to re-run drops them so new turns can't show stale glosses.
+    const keepKept = <T,>(rec: Record<string, T>): Record<string, T> =>
+      resuming ? Object.fromEntries(Object.entries(rec).filter(([k]) => k in kept)) : {};
+    set((st) => ({
       running: true,
-      cells: {},
-      // Fresh transcripts: drop the old translation cache and toggles.
-      translations: {},
-      showTranslated: {},
-      translateErrors: {},
-    });
+      cells: resuming ? kept : {},
+      translations: keepKept(st.translations),
+      showTranslated: keepKept(st.showTranslated),
+      translateErrors: keepKept(st.translateErrors),
+    }));
     // The engine owns the matrix policy (parallelism, divergence); the store
     // only supplies credentials and mirrors patches into state.
     runAbort = new AbortController();
@@ -262,6 +273,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       resolveDispatch: resolveForEngine,
       onCell: patchCell(set),
       signal: runAbort.signal,
+      resumeFrom: resuming ? kept : undefined,
     });
     runAbort = null;
     set({ running: false });

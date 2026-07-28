@@ -69,9 +69,15 @@ export async function runMatrix(args: {
   resolveDispatch: ResolveDispatch;
   onCell: (key: string, patch: Partial<CellState>) => void;
   signal?: AbortSignal;
+  // Resume after a stop: done cells seed the matrix and are skipped, so only
+  // missing/failed conversations run. Divergence recomputes over the union.
+  resumeFrom?: Record<string, CellState>;
 }): Promise<Record<string, CellState>> {
   const { systemPrompt, scenarios, models, resolveDispatch, onCell, signal } = args;
   const cells: Record<string, CellState> = {};
+  for (const [k, c] of Object.entries(args.resumeFrom ?? {})) {
+    if (c.status === "done") cells[k] = c;
+  }
   const emit = (key: string, patch: Partial<CellState>) => {
     cells[key] = { ...(cells[key] ?? IDLE_CELL), ...patch };
     onCell(key, patch);
@@ -82,6 +88,7 @@ export async function runMatrix(args: {
       for (const s of scenarios) {
         if (signal?.aborted) break;
         const key = cellKey(s.id, mi);
+        if (cells[key]?.status === "done") continue;
         // Resolved per cell on purpose: a key entered mid-run is picked up
         // by the remaining scenarios in the column.
         const dispatch = resolveDispatch(model);
