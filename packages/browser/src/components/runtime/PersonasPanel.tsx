@@ -13,6 +13,7 @@ import { personaToRuntime } from "@flowstore/core/runtime/personaRuntime";
 import { VarsEditor } from "./persona/VarsEditor";
 import { MocksEditor } from "./persona/MocksEditor";
 import { TagChips, TagsField } from "./TagsUI";
+import { DisclosureCaret } from "@/components/ui";
 
 // Saved-persona library for the Run pill's Personas tab. Each row expands
 // inline to edit name + notes + tags + system_prompt (the actor's voice) +
@@ -390,7 +391,7 @@ function PersonaRow({
           </div>
           <TagChips tags={persona.tags} />
         </div>
-        <span className="ml-2 text-text-tertiary">{expanded ? "▾" : "▸"}</span>
+        <DisclosureCaret open={expanded} className="ml-2" />
       </button>
 
       {expanded && (

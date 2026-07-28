@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { DeclaredVariable } from "@flowstore/core/runtime/contextVars";
 import { TypedValueInput } from "../TypedValueInput";
+import { DisclosureCaret } from "@/components/ui";
 
 // Collapsible vars editor for a persona/case world. Shape-agnostic of
 // where state lives: the caller passes values + an onChange that
@@ -38,7 +39,7 @@ export function VarsEditor({ declared, values, disabled, onChange }: Props) {
         <span className="text-[10px] uppercase tracking-wide text-text-tertiary">
           vars ({filledCount}/{declared.length} filled · {providedCount} provided)
         </span>
-        <span className="text-text-tertiary">{open ? "▾" : "▸"}</span>
+        <DisclosureCaret open={open} />
       </button>
       {open && (
         <div className="space-y-1 border-t border-border-subtle px-2 py-2">

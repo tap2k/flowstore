@@ -9,6 +9,7 @@ import {
 import { type Spec } from "@flowstore/core/schema/v0";
 import { styleForSource, isClickable, labelFor, type PromptKind } from "@/lib/promptColors";
 import { computeDiagnostics, diagnosticCounts, anchorLabel, type Diagnostic } from "@/lib/diagnostics";
+import { DisclosureCaret } from "@/components/ui";
 
 interface SystemPromptPanelProps {
   open: boolean;
@@ -350,9 +351,7 @@ function ProblemsSection({
         <span className="font-semibold text-text-primary">Problems</span>
         {errors > 0 && <Count tone="error" n={errors} />}
         {warnings > 0 && <Count tone="warning" n={warnings} />}
-        <span className="ml-auto text-text-tertiary" aria-hidden>
-          {open ? "▾" : "▸"}
-        </span>
+        <DisclosureCaret open={open} className="ml-auto" />
       </button>
       {open && (
         <ul className="max-h-48 overflow-auto px-2 pb-2">

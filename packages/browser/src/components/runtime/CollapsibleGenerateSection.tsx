@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import { DisclosureCaret } from "@/components/ui";
 
 interface Props {
   title: string;
@@ -36,7 +37,7 @@ export function CollapsibleGenerateSection({
           onClick={onToggle}
           className="flex flex-1 items-center text-left hover:text-text-primary"
         >
-          <span className="mr-1 text-text-tertiary">{open ? "▾" : "▸"}</span>
+          <DisclosureCaret open={open} className="mr-1" />
           {title}
           <span className="ml-1 text-text-tertiary">{countLabel}</span>
         </button>

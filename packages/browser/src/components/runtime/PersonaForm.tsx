@@ -15,6 +15,7 @@ import { collectMockableCapabilities } from "@flowstore/core/runtime/capabilityM
 import { ModelPicker } from "./ModelPicker";
 import { VarsEditor } from "./persona/VarsEditor";
 import { MocksEditor } from "./persona/MocksEditor";
+import { DisclosureCaret } from "@/components/ui";
 
 // Run-pill "Persona" section. Live view onto the simulate-store buffer:
 // system_prompt + vars + mocks editors mutate the buffer directly. Load /
@@ -306,7 +307,7 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
           onClick={() => setOpen((o) => !o)}
           className="flex flex-1 items-center text-left hover:text-text-primary"
         >
-          <span className="mr-1 text-text-tertiary">{open ? "▾" : "▸"}</span>
+          <DisclosureCaret open={open} className="mr-1" />
           Persona
           <span className="ml-1 text-text-tertiary">
             {configured ? "configured" : "empty"}

@@ -11,6 +11,7 @@ import { caseWorldToRuntime } from "@flowstore/core/runtime/personaRuntime";
 import { VarsEditor } from "./persona/VarsEditor";
 import { MocksEditor } from "./persona/MocksEditor";
 import { TagChips, TagsField } from "./TagsUI";
+import { DisclosureCaret } from "@/components/ui";
 
 // Saved-gold library for the Run pill's Golds tab. Same vertical
 // list-with-inline-expand pattern as Personas. Golds are file-backed
@@ -272,7 +273,7 @@ function GoldRow({ gold, expanded, declared, mockableCaps, tagSuggestions, onTog
           <div className="truncate font-mono text-[10px] text-text-tertiary">{gold.id}</div>
           <TagChips tags={gold.tags} />
         </div>
-        <span className="ml-2 text-text-tertiary">{expanded ? "▾" : "▸"}</span>
+        <DisclosureCaret open={expanded} className="ml-2" />
       </button>
 
       {expanded && (

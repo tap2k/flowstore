@@ -12,6 +12,7 @@ import { collectMockableCapabilities } from "@flowstore/core/runtime/capabilityM
 import { VarsEditor } from "./persona/VarsEditor";
 import { MocksEditor } from "./persona/MocksEditor";
 import { TagChips, TagsField } from "./TagsUI";
+import { DisclosureCaret } from "@/components/ui";
 
 // Authoring picks one actor. The model/runners also support a persona + inline
 // `system_prompt` overlay on the SAME case (the inline prompt appends to the
@@ -144,7 +145,7 @@ function CaseList({
                     </div>
                     <TagChips tags={c.tags} />
                   </div>
-                  <span className="ml-2 text-text-tertiary">▸</span>
+                  <DisclosureCaret open={false} className="ml-2" />
                 </button>
               </li>
             ))}
@@ -412,7 +413,7 @@ function CaseEditor({ testCase, onBack, onNew }: CaseEditorProps) {
             {testCase.id} | {actorOf(testCase)}
           </div>
         </div>
-        <span className="ml-2 text-text-tertiary">▾</span>
+        <DisclosureCaret open className="ml-2" />
       </button>
 
       <div className="flex-1 overflow-auto px-3 py-3 space-y-5 text-[11px]">
@@ -661,7 +662,7 @@ function PersonaFixtureView({
         <span className="text-[10px] uppercase tracking-wide text-text-tertiary">
           from persona · {varEntries.length} vars · {mockEntries.length} mocks
         </span>
-        <span className="text-text-tertiary">{open ? "▾" : "▸"}</span>
+        <DisclosureCaret open={open} />
       </button>
       {open && (
         <div className="space-y-1.5 border-t border-border-subtle px-2 py-2 font-mono text-[10px] text-text-secondary">
@@ -1251,9 +1252,7 @@ function EvaluatorsList({
                 >
                   <div className="flex items-center gap-1">
                     {rubric && (
-                      <span className="text-text-tertiary text-[10px]">
-                        {isExpanded ? "▾" : "▸"}
-                      </span>
+                      <DisclosureCaret open={isExpanded} />
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">

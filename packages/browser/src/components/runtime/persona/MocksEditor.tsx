@@ -4,6 +4,7 @@ import type {
 } from "@flowstore/core/runtime/capabilityMocks";
 import type { MockBehavior } from "@flowstore/core/schema/files/mockBehavior";
 import { TypedValueInput } from "../TypedValueInput";
+import { DisclosureCaret } from "@/components/ui";
 
 // Collapsible mocks editor. Behavior per capability is the unified
 // MockBehavior union — both callers (run-pill PersonaForm and
@@ -36,7 +37,7 @@ export function MocksEditor({ caps, behaviors, disabled, keyOf, onChange }: Prop
         <span className="text-[10px] uppercase tracking-wide text-text-tertiary">
           mocks ({setCount}/{caps.length} set)
         </span>
-        <span className="text-text-tertiary">{open ? "▾" : "▸"}</span>
+        <DisclosureCaret open={open} />
       </button>
       {open && (
         <div className="space-y-1.5 border-t border-border-subtle px-2 py-2">
@@ -125,7 +126,7 @@ function CapMockRow({ cap, behavior, disabled, onChange }: CapMockRowProps) {
           className="text-text-tertiary hover:text-text-primary"
           title={open ? "Collapse" : "Expand"}
         >
-          {open ? "▾" : "▸"}
+          <DisclosureCaret open={open} />
         </button>
       </div>
       {open && behavior && (

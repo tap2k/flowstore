@@ -17,6 +17,7 @@
 // written brief; the real canvas models flow *types* instead. See
 // components/canvas/FlowNode.tsx.
 
+export { DisclosureCaret } from "./DisclosureCaret";
 export { Icon, type IconProps, type IconSize, type IconWeight } from "./Icon";
 export { StatusIcon, type StatusIconProps, type Status } from "./StatusIcon";
 export { ThemeToggle } from "./ThemeToggle";
