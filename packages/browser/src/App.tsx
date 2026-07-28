@@ -128,29 +128,33 @@ export function App() {
         <header className="flex items-center gap-4 border-b border-border-default bg-surface-panel px-6 py-3">
           {/* Project identity stays top-left; the flowstore wordmark lives on
               the canvas bottom-left (see BrandMark in Canvas). */}
-          {spec ? (
+          {spec && githubLocation ? (
             <div className="flex min-w-0 flex-col">
               <h1 className="fs-sectionTitle truncate text-text-primary">{spec.agent.name}</h1>
-              {githubLocation ? (
-                <div className="flex items-center gap-1 leading-tight">
-                  <a
-                    href={`https://github.com/${githubLocation.owner}/${githubLocation.repo}/tree/${githubLocation.ref}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={`${githubLocation.owner}/${githubLocation.repo}@${githubLocation.ref}`}
-                    className="fs-data truncate text-text-tertiary no-underline hover:text-text-primary"
-                  >
-                    {githubLocation.owner}/{githubLocation.repo}@{githubLocation.ref}
-                  </a>
-                  {!githubCanWrite && (
-                    <span className="fs-micro shrink-0 text-text-tertiary">· read-only</span>
-                  )}
-                </div>
-              ) : (
-                <div className="fs-micro text-text-tertiary">runs locally in your browser</div>
-              )}
+              <div className="flex items-center gap-1 leading-tight">
+                <a
+                  href={`https://github.com/${githubLocation.owner}/${githubLocation.repo}/tree/${githubLocation.ref}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={`${githubLocation.owner}/${githubLocation.repo}@${githubLocation.ref}`}
+                  className="fs-data truncate text-text-tertiary no-underline hover:text-text-primary"
+                >
+                  {githubLocation.owner}/{githubLocation.repo}@{githubLocation.ref}
+                </a>
+                {!githubCanWrite && (
+                  <span className="fs-micro shrink-0 text-text-tertiary">· read-only</span>
+                )}
+              </div>
             </div>
-          ) : null}
+          ) : (
+            /* No repo loaded — same brand block as compare's header, exactly. */
+            <div className="flex min-w-0 flex-col">
+              <h1 className="fs-sectionTitle truncate text-text-primary">flowstore</h1>
+              <div className="text-[11px] leading-tight text-text-tertiary">
+                runs locally in your browser
+              </div>
+            </div>
+          )}
           <div className="ml-auto flex items-center gap-3">
             <SaveStatePill />
             {/* Theme lives in the Settings sheet, not here: it is a
