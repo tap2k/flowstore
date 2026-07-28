@@ -17,6 +17,8 @@ import { formatErrors, validateSpec } from "@flowstore/core/validation/ajv";
 import type { RuntimeEvent } from "@flowstore/core/runtime/eventTypes";
 import { formatEvent, formatValueTruncated } from "@flowstore/core/runtime/formatEvent";
 import { translateBatch } from "@flowstore/core/runtime/translate";
+import { IconButton, StopButton } from "@/components/ui";
+import { ArrowClockwise, Play } from "@phosphor-icons/react";
 import { ModelPicker } from "./ModelPicker";
 import { PersonaForm } from "./PersonaForm";
 import { PersonasPanel } from "./PersonasPanel";
@@ -1186,30 +1188,24 @@ function ActiveCaseStrip({
         </div>
         <div className="flex items-center gap-1">
           {isRunning ? (
-            <button
-              type="button"
+            <StopButton
+              size="sm"
               onClick={onStop}
-              aria-label="Stop case"
-              className="rounded border border-state-error-line bg-state-error-bg px-2 py-1 text-[12px] font-medium text-state-error-fg hover:bg-state-error-bg-hover"
-              title="Stop. Any in-flight LLM call still completes; the loop halts on the next turn."
-            >
-              ■
-            </button>
+              label="Stop. Any in-flight LLM call still completes; the loop halts on the next turn."
+            />
           ) : (
-            <button
-              type="button"
+            <IconButton
+              icon={hasSession ? ArrowClockwise : Play}
+              size="sm"
+              variant="primary"
               onClick={onRun}
               disabled={busy}
-              aria-label={hasSession ? "Re-run case" : "Run case"}
-              className="rounded bg-emphasis px-2 py-1 text-[12px] font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-40"
-              title={
+              label={
                 hasSession
                   ? "Re-run case against the current spec."
                   : "Run case against the current spec."
               }
-            >
-              {hasSession ? "↻" : "▶"}
-            </button>
+            />
           )}
           <button
             type="button"
@@ -1260,30 +1256,24 @@ function ActiveGoldStrip({
         </div>
         <div className="flex items-center gap-1">
           {isRunning ? (
-            <button
-              type="button"
+            <StopButton
+              size="sm"
               onClick={onStop}
-              aria-label="Stop gold run"
-              className="rounded border border-state-error-line bg-state-error-bg px-2 py-1 text-[12px] font-medium text-state-error-fg hover:bg-state-error-bg-hover"
-              title="Stop. Any in-flight LLM call still completes; the loop halts on the next turn."
-            >
-              ■
-            </button>
+              label="Stop. Any in-flight LLM call still completes; the loop halts on the next turn."
+            />
           ) : (
-            <button
-              type="button"
+            <IconButton
+              icon={hasSession ? ArrowClockwise : Play}
+              size="sm"
+              variant="primary"
               onClick={onRun}
               disabled={busy || userTurns === 0}
-              aria-label={hasSession ? "Re-run gold" : "Run gold"}
-              className="rounded bg-emphasis px-2 py-1 text-[12px] font-medium text-emphasis-fg hover:bg-emphasis-hover disabled:opacity-40"
-              title={
+              label={
                 hasSession
                   ? "Re-replay this gold's user turns against the current spec."
                   : "Replay this gold's user turns against the current spec."
               }
-            >
-              {hasSession ? "↻" : "▶"}
-            </button>
+            />
           )}
           <button
             type="button"
