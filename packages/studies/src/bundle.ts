@@ -117,6 +117,8 @@ export function buildStudyBundle(args: {
         usage: {
           text_in: c.usage?.inputTokens,
           text_out: c.usage?.outputTokens,
+          audio_in: c.usage?.audioInputTokens,
+          audio_out: c.usage?.audioOutputTokens,
           cost: c.usage?.cost,
         },
         transcript: c.turns.map((t) => ({

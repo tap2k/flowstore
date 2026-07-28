@@ -1,6 +1,7 @@
 import type { CellState, Study } from "./types";
 import { cellKey } from "./types";
 import { SPEECH_WPM, estimateVoiceCost } from "./voiceCost";
+import { estimateLiveCost } from "./liveRates";
 
 // Self-contained HTML report — the forwardable artifact. Audience: the
 // agency's client/buyer, not the person who ran the study. Contents: summary
@@ -44,10 +45,21 @@ export function buildReportHtml(
         : undefined;
     const tokensIn = modelCells.reduce((a, c) => a + (c.usage?.inputTokens ?? 0), 0);
     const tokensOut = modelCells.reduce((a, c) => a + (c.usage?.outputTokens ?? 0), 0);
+    const audioIn = modelCells.reduce((a, c) => a + (c.usage?.audioInputTokens ?? 0), 0);
+    const audioOut = modelCells.reduce((a, c) => a + (c.usage?.audioOutputTokens ?? 0), 0);
     const costs = modelCells.map((c) => c.usage?.cost).filter((x): x is number => x !== undefined);
     const costPerConv =
       costs.length === modelCells.length && modelCells.length > 0
         ? costs.reduce((a, b) => a + b, 0) / modelCells.length
+        : undefined;
+    // S2S columns: no provider-reported dollars — estimate from measured
+    // tokens × Live rates, shown with "~" to keep measured/modeled apart.
+    const liveEsts = modelCells
+      .map((c) => estimateLiveCost(c.usage, m))
+      .filter((x): x is number => x !== null);
+    const liveEstPerConv =
+      costPerConv === undefined && liveEsts.length === modelCells.length && modelCells.length > 0
+        ? liveEsts.reduce((a, b) => a + b, 0) / modelCells.length
         : undefined;
     const divergent = scenarios.filter((s) => cells[cellKey(s.id, mi)]?.divergent).length;
     // Estimated cascade voice cost per conversation, averaged over done cells.
@@ -60,8 +72,9 @@ export function buildReportHtml(
       voiceEstimates.length > 0
         ? voiceEstimates.reduce((a, e) => a + e.total, 0) / voiceEstimates.length
         : undefined;
-    return { model: m, mi, avgLatency, tokensIn, tokensOut, costPerConv, voicePerConv, divergent, n: modelCells.length };
+    return { model: m, mi, avgLatency, tokensIn, tokensOut, audioIn, audioOut, costPerConv, liveEstPerConv, voicePerConv, divergent, n: modelCells.length };
   });
+  const withLiveEst = perModel.some((r) => r.liveEstPerConv !== undefined);
 
   const summaryRows = perModel
     .map((r) => {
@@ -71,8 +84,8 @@ export function buildReportHtml(
         <td>${r.n}/${scenarios.length}</td>
         <td>${isInc ? "—" : r.divergent > 0 ? `${r.divergent} scenario${r.divergent > 1 ? "s" : ""}` : "none flagged"}</td>
         <td>${r.avgLatency !== undefined ? r.avgLatency.toFixed(1) + "s" : "—"}</td>
-        <td>${r.tokensIn.toLocaleString()} / ${r.tokensOut.toLocaleString()}</td>
-        <td>${r.costPerConv !== undefined ? fmtMoney(r.costPerConv) : "n/a*"}</td>
+        <td>${r.tokensIn.toLocaleString()} / ${r.tokensOut.toLocaleString()}${r.audioIn + r.audioOut > 0 ? `<span class="sub">audio ${r.audioIn.toLocaleString()} / ${r.audioOut.toLocaleString()}</span>` : ""}</td>
+        <td>${r.costPerConv !== undefined ? fmtMoney(r.costPerConv) : r.liveEstPerConv !== undefined ? "~" + fmtMoney(r.liveEstPerConv) : "n/a*"}</td>
         ${withVoice ? `<td>${r.voicePerConv !== undefined ? "≈" + fmtMoney(r.voicePerConv) : "n/a*"}</td>` : ""}
       </tr>`;
     })
@@ -117,6 +130,7 @@ export function buildReportHtml(
   .u{background:#18181b;color:#fff;border-radius:8px;padding:6px 9px;margin:6px 0 6px 24px}
   .a{border:1px solid #e4e4e7;border-radius:8px;padding:6px 9px;margin:6px 24px 6px 0;position:relative}
   .lat{display:block;color:#a1a1aa;font-size:10px;margin-top:3px}
+  .sub{display:block;color:#a1a1aa;font-size:10px}
   .none{color:#a1a1aa;font-style:italic}
   .note{color:#71717a;font-size:11px;margin-top:6px}
   footer{margin-top:36px;border-top:1px solid #e4e4e7;padding-top:14px;font-size:12px;color:#52525b}
@@ -129,6 +143,10 @@ export function buildReportHtml(
 <table><thead><tr><th>Model</th><th>Completed</th><th>Divergence vs current</th><th>Avg latency/reply</th><th>Tokens in/out</th><th>Cost/conversation</th>${withVoice ? "<th>Est. voice cost/conv</th>" : ""}</tr></thead>
 <tbody>${summaryRows}</tbody></table>
 <div class="note">*Measured dollar cost is reported by OpenRouter-routed models; direct-provider runs show tokens only. ${latencyNote} Divergence is a lexical signal marking where to read — it is not a pass/fail verdict; read the transcripts.${
+    withLiveEst
+      ? " S2S cost (~) is estimated: measured audio/text tokens × published Gemini Live rates — the provider reports tokens, not dollars."
+      : ""
+  }${
     withVoice
       ? ` Voice estimate (≈): measured LLM cost${rates.ttsPerMChars !== undefined ? ` + TTS at $${rates.ttsPerMChars}/1M characters over the agent's transcript characters` : ""}${rates.asrPerMin !== undefined ? ` + ASR at $${rates.asrPerMin}/min over caller speech time` : ""}; speech time is modeled at ~${SPEECH_WPM} wpm. ASR billed on session duration (rather than caller speech) runs higher.`
       : ""
