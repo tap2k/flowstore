@@ -242,16 +242,21 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       .then((text) => get().applyBundle(JSON.parse(text) as Record<string, string>));
   },
 
-  // Run = fill the gaps: after a stop (or errors), done conversations are
-  // kept and skipped, only the rest run. A fully-done or untouched matrix
-  // runs fresh; an explicit fresh start over partial results is the clear
-  // button.
+  // Run = pick up where things stand: done conversations are kept and
+  // skipped, stopped ones continue mid-conversation (engine-validated
+  // against the current script), errored/missing ones run fresh. A
+  // fully-done or untouched matrix runs from scratch; an explicit fresh
+  // start over partial results is the clear button.
   run: async () => {
     const { prompt, vars, scenarios, models, cells } = get();
     const keys = scenarios.flatMap((sc) => models.map((_, mi) => cellKey(sc.id, mi)));
-    const doneKeys = keys.filter((k) => cells[k]?.status === "done");
-    const resuming = doneKeys.length > 0 && doneKeys.length < keys.length;
-    const kept = Object.fromEntries(doneKeys.map((k) => [k, cells[k]]));
+    const progressed = keys.filter((k) => {
+      const c = cells[k];
+      return !!c && (c.status === "done" || c.turns.length > 0);
+    });
+    const doneCount = keys.filter((k) => cells[k]?.status === "done").length;
+    const resuming = progressed.length > 0 && doneCount < keys.length;
+    const kept = Object.fromEntries(progressed.map((k) => [k, cells[k]]));
     // Kept conversations keep their translation caches/toggles; everything
     // about to re-run drops them so new turns can't show stale glosses.
     const keepKept = <T,>(rec: Record<string, T>): Record<string, T> =>

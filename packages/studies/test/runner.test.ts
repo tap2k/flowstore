@@ -176,8 +176,55 @@ describe("runCell", () => {
     });
     expect(mockSend).toHaveBeenCalledTimes(1); // "two" never sent
     expect(state.cell.status).toBe("idle");
-    expect(state.cell.turns).toEqual([]); // late reply dropped, partial transcript gone
+    expect(state.cell.turns).toEqual([]); // late reply dropped, nothing was complete yet
     expect(state.cell.usage).toBeUndefined();
+  });
+
+  it("stop mid-conversation keeps the completed pairs, and resume continues from them", async () => {
+    const ctrl = new AbortController();
+    mockSend
+      .mockResolvedValueOnce({ text: "first reply", usage: { inputTokens: 1, outputTokens: 1 }, invocations: [] })
+      .mockImplementationOnce(async () => {
+        ctrl.abort();
+        return { text: "late", usage: { inputTokens: 1, outputTokens: 1 }, invocations: [] };
+      });
+    const { state, onUpdate } = collector();
+    const sc = scenario("s1", ["one", "two"]);
+    await runCell({ systemPrompt: "SP", scenario: sc, dispatch: dispatch("m"), onUpdate, signal: ctrl.signal });
+    expect(state.cell.status).toBe("idle");
+    expect(state.cell.turns.map((t) => t.text)).toEqual(["one", "first reply"]); // pair kept, late reply dropped
+    expect(state.cell.usage?.inputTokens).toBe(1);
+
+    // Resume: only "two" is sent, with the kept pair as history.
+    mockSend.mockClear();
+    mockSend.mockImplementation(async ({ history }) => {
+      expect(history.map((t: { text: string }) => t.text)).toEqual(["one", "first reply"]);
+      return { text: "second reply", usage: { inputTokens: 1, outputTokens: 1 }, invocations: [] };
+    });
+    await runCell({ systemPrompt: "SP", scenario: sc, dispatch: dispatch("m"), onUpdate, resume: state.cell });
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(state.cell.status).toBe("done");
+    expect(state.cell.turns.map((t) => t.text)).toEqual(["one", "first reply", "two", "second reply"]);
+    expect(state.cell.usage?.inputTokens).toBe(2); // accumulated across the stop
+  });
+
+  it("an edited script invalidates the kept prefix — the conversation restarts", async () => {
+    mockSend.mockResolvedValue({ text: "r", usage: { inputTokens: 1, outputTokens: 1 }, invocations: [] });
+    const stopped: CellState = {
+      status: "idle",
+      turns: [turn("user", "old first"), turn("agent", "old reply")],
+      totalMs: 5,
+    };
+    const { state, onUpdate } = collector();
+    await runCell({
+      systemPrompt: "SP",
+      scenario: scenario("s1", ["new first", "two"]),
+      dispatch: dispatch("m"),
+      onUpdate,
+      resume: stopped,
+    });
+    expect(mockSend).toHaveBeenCalledTimes(2); // full restart, nothing reused
+    expect(state.cell.turns.map((t) => t.text)).toEqual(["new first", "r", "two", "r"]);
   });
 
   it("resumeFrom keeps done cells and only runs the rest", async () => {

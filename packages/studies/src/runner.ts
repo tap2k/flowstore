@@ -9,29 +9,49 @@ import { IDLE_CELL, cellKey } from "./types";
 // node CLI env) — the engine never reads config itself.
 export type ResolveDispatch = (model: string) => ModelDispatch | null;
 
+// A stopped conversation resumes only if its kept turns are complete
+// user/agent pairs whose user side is a prefix of the current script — an
+// edited scenario invalidates the prefix and the conversation restarts.
+function resumablePrefix(
+  prior: CellState | undefined,
+  scenario: Scenario,
+): TranscriptTurn[] | null {
+  const t = prior?.turns ?? [];
+  if (t.length === 0 || t.length % 2 !== 0) return null;
+  for (let i = 0; i < t.length; i++) {
+    if (t[i].role !== (i % 2 === 0 ? "user" : "agent")) return null;
+  }
+  const users = t.filter((_, i) => i % 2 === 0);
+  if (users.length >= scenario.turns.length) return null;
+  if (!users.every((u, i) => u.text === scenario.turns[i])) return null;
+  return t;
+}
+
 // Run one scenario against one model, reporting progress after every turn.
 // Stop (signal) follows the simulate panel's semantics: cooperative, checked
-// at turn boundaries — the in-flight LLM call completes but its result is
-// dropped — and a stopped cell reverts to idle, so partial transcripts never
-// masquerade as results.
+// at turn boundaries, the in-flight LLM call completes but its result is
+// dropped — and, like simulate, the transcript so far is KEPT (status idle,
+// completed pairs only), so the next run picks up mid-conversation via
+// `resume`.
 export async function runCell(args: {
   systemPrompt: string;
   scenario: Scenario;
   dispatch: ModelDispatch;
   onUpdate: (patch: Partial<CellState>) => void;
   signal?: AbortSignal;
+  resume?: CellState;
 }): Promise<void> {
   const { systemPrompt, scenario, dispatch, onUpdate, signal } = args;
-  onUpdate({ status: "running", turns: [], usage: undefined, totalMs: 0, error: undefined });
-  const revert = () =>
-    onUpdate({ status: "idle", turns: [], usage: undefined, totalMs: 0, error: undefined });
+  const prior = resumablePrefix(args.resume, scenario);
+  const history: TranscriptTurn[] = prior ? [...prior] : [];
+  let usage: ChatUsage | undefined = prior ? args.resume?.usage : undefined;
+  let totalMs = prior ? (args.resume?.totalMs ?? 0) : 0;
+  onUpdate({ status: "running", turns: [...history], usage, totalMs, error: undefined });
+  const settle = () => onUpdate({ status: "idle", turns: [...history], usage, totalMs });
 
-  const history: TranscriptTurn[] = [];
-  let usage: ChatUsage | undefined;
-  let totalMs = 0;
   try {
-    for (const userText of scenario.turns) {
-      if (signal?.aborted) return revert();
+    for (const userText of scenario.turns.slice(history.length / 2)) {
+      if (signal?.aborted) return settle();
       const userTurn: TranscriptTurn = { role: "user", text: userText, ts: Date.now(), events: [] };
       onUpdate({ turns: [...history, userTurn] });
       const started = Date.now();
@@ -44,7 +64,7 @@ export async function runCell(args: {
         provider: dispatch.provider,
         baseUrl: dispatch.baseUrl,
       });
-      if (signal?.aborted) return revert();
+      if (signal?.aborted) return settle();
       const latencyMs = Date.now() - started;
       totalMs += latencyMs;
       usage = addUsage(usage, res.usage);
@@ -69,8 +89,9 @@ export async function runMatrix(args: {
   resolveDispatch: ResolveDispatch;
   onCell: (key: string, patch: Partial<CellState>) => void;
   signal?: AbortSignal;
-  // Resume after a stop: done cells seed the matrix and are skipped, so only
-  // missing/failed conversations run. Divergence recomputes over the union.
+  // Resume after a stop: done cells seed the matrix and are skipped;
+  // partially-run cells continue mid-conversation (see runCell's resume).
+  // Divergence recomputes over the union.
   resumeFrom?: Record<string, CellState>;
 }): Promise<Record<string, CellState>> {
   const { systemPrompt, scenarios, models, resolveDispatch, onCell, signal } = args;
@@ -96,7 +117,14 @@ export async function runMatrix(args: {
           emit(key, { status: "error", error: `No API key for ${model}.` });
           continue;
         }
-        await runCell({ systemPrompt, scenario: s, dispatch, onUpdate: (p) => emit(key, p), signal });
+        await runCell({
+          systemPrompt,
+          scenario: s,
+          dispatch,
+          onUpdate: (p) => emit(key, p),
+          signal,
+          resume: args.resumeFrom?.[key],
+        });
       }
     }),
   );
