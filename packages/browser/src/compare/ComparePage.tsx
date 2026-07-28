@@ -83,7 +83,7 @@ export function ComparePage() {
   const BROWSER_REPORT_OPTS = {
     latencyNote: "Latency measured from the browser; production latency depends on deployment.",
     footer:
-      'Do you want to run studies like this on your own prompts and agents? Try out the tool — <a href="https://create.flowstore.org/compare.html">create.flowstore.org</a>. Free, open source, runs in your browser; your prompt never leaves your machine.',
+      'Do you want to run studies like this on your own prompts and agents? Try out the tool — <a href="https://create.flowstore.org/compare">create.flowstore.org/compare</a>. Free, open source, runs in your browser; your prompt never leaves your machine.',
   };
 
   return (
