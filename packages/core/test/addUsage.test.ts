@@ -51,4 +51,15 @@ describe("addUsage", () => {
     const neither = addUsage({ inputTokens: 1, outputTokens: 1 }, { inputTokens: 1, outputTokens: 1 });
     expect(neither && "cachedInputTokens" in neither).toBe(false);
   });
+
+  it("applies the same either-side rule to audio tokens (s2s turns)", () => {
+    const sum = addUsage(
+      { inputTokens: 1, outputTokens: 1, audioInputTokens: 100, audioOutputTokens: 400 },
+      { inputTokens: 1, outputTokens: 1, audioOutputTokens: 600 },
+    );
+    expect(sum?.audioInputTokens).toBe(100);
+    expect(sum?.audioOutputTokens).toBe(1000);
+    const neither = addUsage({ inputTokens: 1, outputTokens: 1 }, { inputTokens: 1, outputTokens: 1 });
+    expect(neither && "audioInputTokens" in neither).toBe(false);
+  });
 });

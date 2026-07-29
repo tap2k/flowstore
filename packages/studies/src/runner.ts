@@ -44,6 +44,12 @@ export async function runCell(args: {
   resume?: CellState;
 }): Promise<void> {
   const { systemPrompt, scenario, dispatch, onUpdate, signal } = args;
+  // S2S columns route to the Live driver (same onUpdate contract, no resume —
+  // a closed Live session can't be re-seeded, so stopped cells restart).
+  if (dispatch.live) {
+    const { runLiveCell } = await import("./liveCell");
+    return runLiveCell({ systemPrompt, scenario, dispatch, onUpdate, signal });
+  }
   const prior = resumablePrefix(args.resume, scenario);
   const history: TranscriptTurn[] = prior ? [...prior] : [];
   let usage: ChatUsage | undefined = prior ? args.resume?.usage : undefined;

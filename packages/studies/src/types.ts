@@ -20,6 +20,9 @@ export type ModelDispatch = {
   apiKey: string;
   baseUrl?: string;
   wireModel: string;
+  // Speech-to-speech column: dispatch over the Gemini Live socket (text turns
+  // in, audio + transcription out) instead of chat completions.
+  live?: boolean;
 };
 
 export type CellStatus = "idle" | "running" | "done" | "error";

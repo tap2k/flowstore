@@ -33,6 +33,11 @@ export type ChatUsage = {
   inputTokens: number;
   outputTokens: number;
   cachedInputTokens?: number;
+  // Audio-modality tokens, reported by speech-to-speech models (Gemini Live).
+  // Kept beside the text counts — inputTokens/outputTokens stay text-only —
+  // so S2S and text columns stay comparable in one shape.
+  audioInputTokens?: number;
+  audioOutputTokens?: number;
   // Dollar cost of the call as reported by the provider. Only OpenRouter
   // returns this (and only when the request opts in via usage.include);
   // absent everywhere else — price locally from a rate table if needed.
