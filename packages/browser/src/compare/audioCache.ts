@@ -86,6 +86,31 @@ export function getTurnAudioUrl(cellKey: string, turnTs: number): string | undef
   return e.url;
 }
 
+// Cache-miss fill with in-flight dedupe: two quick clicks (or the same turn
+// rendered twice) must cost ONE synthesis call on the user's key — the
+// dedupe has to live per entry, here, not in per-component React state.
+const inFlight = new Map<string, Promise<string | undefined>>();
+
+export function getOrSynthesizeTurnAudio(
+  cellKey: string,
+  turnTs: number,
+  synth: () => Promise<string[]>,
+): Promise<string | undefined> {
+  const k = keyOf(cellKey, turnTs);
+  const existing = getTurnAudioUrl(cellKey, turnTs);
+  if (existing) return Promise.resolve(existing);
+  const pending = inFlight.get(k);
+  if (pending) return pending;
+  const p = synth()
+    .then((chunks) => {
+      putTurnAudio(cellKey, turnTs, chunks);
+      return getTurnAudioUrl(cellKey, turnTs);
+    })
+    .finally(() => inFlight.delete(k));
+  inFlight.set(k, p);
+  return p;
+}
+
 export function clearTurnAudio(): void {
   for (const e of entries.values()) {
     if (e.url) URL.revokeObjectURL(e.url);

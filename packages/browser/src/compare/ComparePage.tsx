@@ -16,30 +16,27 @@ import {
   FileCode,
   Gear,
   Package,
-  Play,
   Plus,
-  SpinnerGap,
   Trash,
   UploadSimple,
   X,
 } from "@phosphor-icons/react";
-import { Button, DropdownMenu, Icon, IconButton, Input, RunButton, StopButton, Textarea } from "@/components/ui";
+import { Button, DropdownMenu, Icon, IconButton, Input, RunButton, StatusIcon, StopButton, Textarea } from "@/components/ui";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
-import { useSettingsStore } from "@/lib/store/settings";
+import { resolveTts, useSettingsStore } from "@/lib/store/settings";
 import { downloadBlob } from "@/lib/download";
 import { MAX_MODEL_COLUMNS, activeVarsOf, resolveForEngine, useCompareStore } from "./store";
 import { isStudyEmpty } from "./studyStorage";
 import {
-  getTurnAudioUrl,
+  getOrSynthesizeTurnAudio,
   hasTurnAudio,
   peekTurnAudioUrl,
   subscribeTurnAudio,
   turnAudioVersion,
 } from "./audioCache";
 import { GitHubStudyOpenModal, GitHubStudySaveModal } from "./GitHubStudyModals";
-import { synthesizeSpeech, ttsKeyFor, type TtsConfig } from "@/lib/runtime/tts";
-import { putTurnAudio } from "./audioCache";
+import { synthesizeSpeech, type ResolvedTts } from "@/lib/runtime/tts";
 
 // The compare tool: paste a prompt, edit scenarios, pick models, run the
 // small-N matrix, read the side-by-sides. The engine lives in
@@ -53,15 +50,14 @@ export function ComparePage() {
   const asrPerMin = useSettingsStore((st) => st.voiceAsrPerMin);
   const ttsPerMChars = useSettingsStore((st) => st.voiceTtsPerMChars);
   const defaultModel = useSettingsStore((st) => st.defaultModel);
-  const googleApiKey = useSettingsStore((st) => st.googleApiKey);
-  const openaiApiKey = useSettingsStore((st) => st.openaiApiKey);
-  const ttsProvider = useSettingsStore((st) => st.ttsProvider);
-  const ttsVoice = useSettingsStore((st) => st.ttsVoice);
-  const elevenlabsApiKey = useSettingsStore((st) => st.elevenlabsApiKey);
-  const ttsConfig = useMemo<TtsConfig>(
-    () => ({ provider: ttsProvider, voice: ttsVoice, googleApiKey, openaiApiKey, elevenlabsApiKey }),
-    [ttsProvider, ttsVoice, googleApiKey, openaiApiKey, elevenlabsApiKey],
-  );
+  // Subscribed only for reactivity; the resolved dispatch comes from
+  // resolveTts() (the store's imperative read, resolveDispatch's sibling).
+  useSettingsStore((st) => st.googleApiKey);
+  useSettingsStore((st) => st.openaiApiKey);
+  useSettingsStore((st) => st.elevenlabsApiKey);
+  useSettingsStore((st) => st.ttsProvider);
+  useSettingsStore((st) => st.ttsVoice);
+  const tts = resolveTts();
 
   const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -84,12 +80,20 @@ export function ComparePage() {
   const placeholders = useMemo(() => detectPlaceholders(s.prompt), [s.prompt]);
   const translateReady = resolveForEngine(defaultModel) !== null;
 
-  const busy = s.running || s.rowRunning !== null || s.colRunning !== null;
+  const busy = s.runMode !== null;
   const hasResults = Object.keys(s.cells).length > 0;
   const totalCells = s.scenarios.length * s.models.length;
-  const settledCells = Object.values(s.cells).filter(
-    (c) => c.status === "done" || c.status === "error",
-  ).length;
+  // Counted over the grid, not the raw cells bag — the bag is pruned on
+  // removal now, but the grid is the truth the denominator uses.
+  const settledCells = s.scenarios.reduce((acc, sc) => {
+    return (
+      acc +
+      s.models.filter((_, mi) => {
+        const c = s.cells[cellKey(sc.id, mi)];
+        return c?.status === "done" || c?.status === "error";
+      }).length
+    );
+  }, 0);
   const study = {
     agentId: s.agentId,
     title: "Model comparison study",
@@ -217,7 +221,7 @@ export function ComparePage() {
             open={exportOpen}
             onOpenChange={setExportOpen}
             trigger={
-              <IconButton icon={DownloadSimple} label="Export" disabled={!hasResults || s.running} />
+              <IconButton icon={DownloadSimple} label="Export" disabled={!hasResults || busy} />
             }
             items={[
               {
@@ -422,7 +426,7 @@ export function ComparePage() {
                         )}
                       </span>
                       {/* Same ▶/■ pair as the header and the simulate strip. */}
-                      {s.rowRunning === sc.id ? (
+                      {s.runMode?.kind === "row" && s.runMode.id === sc.id ? (
                         <StopButton
                           size="sm"
                           className="shrink-0"
@@ -432,8 +436,7 @@ export function ComparePage() {
                           }}
                         />
                       ) : (
-                        <IconButton
-                          icon={Play}
+                        <RunButton
                           size="sm"
                           label={`Run scenario ${sc.name} on all models`}
                           onClick={(e) => {
@@ -493,11 +496,10 @@ export function ComparePage() {
                     )}
                     {/* Column ▶/■ — completes the trio with run-all and the
                         scenario rows' ▶: rerun one model across the suite. */}
-                    {s.colRunning === i ? (
+                    {s.runMode?.kind === "col" && s.runMode.index === i ? (
                       <StopButton size="sm" className="shrink-0" onClick={() => s.stopRun()} />
                     ) : (
-                      <IconButton
-                        icon={Play}
+                      <RunButton
                         size="sm"
                         label={`Run ${m} on all scenarios — stopped conversations continue; done and failed ones re-run`}
                         onClick={() => void s.runColumn(i)}
@@ -543,7 +545,7 @@ export function ComparePage() {
                       )
                     )}
                     */}
-                    {i === s.models.length - 1 && s.models.length < 6 && (
+                    {i === s.models.length - 1 && (
                       <IconButton
                         icon={Plus}
                         size="sm"
@@ -568,7 +570,7 @@ export function ComparePage() {
                         key={k}
                         turn={t}
                         displayText={s.showTranslated[key] ? s.translations[key]?.get(t.ts) : undefined}
-                        audio={audioFor(colLive, t, key, ttsConfig)}
+                        audio={audioFor(colLive, t, key, tts)}
                       />
                     ))}
                     {c?.status === "running" && (
@@ -700,18 +702,18 @@ function ColumnStats({
 // audioCache) adds an inline replay control; the WAV builds on first click.
 // Which replay control an agent bubble gets: s2s columns replay the run's
 // real audio (present in the cache); text columns offer lazy TTS synthesis —
-// the cascade side of the ear test — when a Google key is available.
+// the cascade side of the ear test — when the chosen vendor's key is set.
 function audioFor(
   colLive: boolean,
   t: TranscriptTurn,
   cellKey: string,
-  tts: TtsConfig,
+  tts: ResolvedTts | null,
 ): TurnAudio | undefined {
   if (t.role !== "agent") return undefined;
   if (colLive) {
     return hasTurnAudio(cellKey, t.ts) ? { cellKey, ts: t.ts } : undefined;
   }
-  if (!t.text || !ttsKeyFor(tts)) return undefined;
+  if (!t.text || !tts) return undefined;
   const text = t.text;
   return { cellKey, ts: t.ts, synth: () => synthesizeSpeech(text, tts) };
 }
@@ -784,12 +786,17 @@ function ReplayButton({
 }: {
   cellKey: string;
   ts: number;
-  // Text columns only: synthesize the reply (Gemini TTS, the user's key) on
-  // first click and cache it like an s2s recording. s2s columns replay the
-  // run's real audio and never synthesize.
+  // Text columns only: synthesize the reply (the user's ear-test TTS vendor)
+  // on first click and cache it like an s2s recording. s2s columns replay
+  // the run's real audio and never synthesize. In-flight dedupe lives in the
+  // cache (getOrSynthesize), not here — a second click or a second render of
+  // the same turn must never double-bill.
   synth?: () => Promise<string[]>;
 }) {
   const playingUrl = useSyncExternalStore(replay.subscribe, replay.playingUrl);
+  // Self-sufficient cache subscription (don't rely on the page's) — memoize
+  // a column and this still updates.
+  useSyncExternalStore(subscribeTurnAudio, turnAudioVersion);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // peek never builds — the WAV encode happens on click only.
@@ -799,50 +806,42 @@ function ReplayButton({
   const cached = hasTurnAudio(cellKey, ts);
   const onClick = async () => {
     if (busy) return;
-    let u = getTurnAudioUrl(cellKey, ts);
-    if (!u && synth) {
-      setBusy(true);
-      setError(null);
-      try {
-        putTurnAudio(cellKey, ts, await synth());
-        u = getTurnAudioUrl(cellKey, ts);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "TTS failed.");
-      } finally {
-        setBusy(false);
-      }
+    setError(null);
+    setBusy(true);
+    try {
+      const u = await getOrSynthesizeTurnAudio(cellKey, ts, synth ?? (() => Promise.reject(new Error("No audio for this reply."))));
+      if (u) replay.toggle(u);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "TTS failed.");
+    } finally {
+      setBusy(false);
     }
-    if (u) replay.toggle(u);
   };
+  const state = busy ? "synth" : playing ? "playing" : error ? "error" : cached ? "cached" : "new";
+  const TITLES = {
+    synth: "Synthesizing…",
+    playing: "Stop",
+    error: error ?? "TTS failed.",
+    cached: "Hear this reply (already generated — free to replay)",
+    new: "Synthesize and hear this reply — your ear-test TTS vendor (settings), then kept for this session",
+  } as const;
   return (
     <button
       type="button"
       onClick={() => void onClick()}
-      title={
-        error ??
-        (playing
-          ? "Stop"
-          : cached
-            ? "Hear this reply (already generated — free to replay)"
-            : "Synthesize and hear this reply — your ear-test TTS vendor (settings), then kept for this session")
-      }
-      className={`cursor-pointer ${error ? "text-state-error-fg" : "text-text-tertiary hover:text-text-primary"}`}
+      title={TITLES[state]}
+      className={`cursor-pointer ${state === "error" ? "text-state-error-fg" : "text-text-tertiary hover:text-text-primary"}`}
     >
-      {busy ? (
+      {state === "synth" ? (
         <span className="inline-flex items-center gap-1">
-          <Icon
-            icon={SpinnerGap}
-            size={11}
-            weight="bold"
-            className="animate-fs-spin motion-reduce:animate-none"
-          />
+          <StatusIcon status="running" size={11} />
           tts…
         </span>
-      ) : playing ? (
+      ) : state === "playing" ? (
         "◼ stop"
-      ) : error ? (
+      ) : state === "error" ? (
         "✕ tts"
-      ) : cached ? (
+      ) : state === "cached" ? (
         "▶ hear"
       ) : (
         "▶ tts"

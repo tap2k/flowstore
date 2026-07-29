@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { SheetShell } from "./SheetShell";
 import { useSettingsStore, DEFAULT_RUNNER_URL, DEFAULT_MODEL_ID, type TtsProvider } from "@/lib/store/settings";
-import { useThemeStore, type ThemePreference } from "@/lib/store/theme";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
-import { FieldRow, Select } from "@/components/ui";
+import { Input, Select } from "@/components/ui";
 import { makeGitHubClient, testConnection } from "@flowstore/core/files/github";
 
 interface SettingsSheetProps {
@@ -39,10 +38,6 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   const setVoiceAsrPerMin = useSettingsStore((s) => s.setVoiceAsrPerMin);
   const storedTtsPerMChars = useSettingsStore((s) => s.voiceTtsPerMChars);
   const setVoiceTtsPerMChars = useSettingsStore((s) => s.setVoiceTtsPerMChars);
-  // Theme is not part of the settings store and not staged behind Save — see
-  // the Appearance row below.
-  const themePreference = useThemeStore((s) => s.preference);
-  const setThemePreference = useThemeStore((s) => s.setPreference);
 
   const [google, setGoogle] = useState(storedGoogle);
   const [openai, setOpenai] = useState(storedOpenai);
@@ -126,12 +121,11 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
       maxWidth="max-w-lg"
       bodyClass="flex-1 overflow-auto px-5 py-4 space-y-4"
     >
-      {/* Appearance row commented out for now (Tapan 2026-07-29) — the header
-          theme toggle covers it. Restore by uncommenting.
-      <FieldRow
-        label="Appearance"
-        hint="Applies immediately; not staged behind Save."
-      >
+      {/* Appearance row parked (Tapan 2026-07-29) — the header theme toggle
+          covers it. To restore: re-import useThemeStore/ThemePreference from
+          @/lib/store/theme, re-import FieldRow, subscribe preference/
+          setPreference, and render:
+      <FieldRow label="Appearance" hint="Applies immediately; not staged behind Save.">
         <Select
           value={themePreference}
           onChange={(e) => setThemePreference(e.target.value as ThemePreference)}
@@ -227,22 +221,20 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         <div className="flex gap-2">
           <label className="flex flex-1 items-center gap-1.5 text-[11px] text-text-tertiary">
             asr $/min
-            <input
-              type="text"
+            <Input
               value={asrPerMin}
               onChange={(e) => setAsrPerMin(e.target.value)}
               placeholder="0.008"
-              className="w-full rounded border border-border-default px-2 py-1.5 fs-data focus:outline-none focus:ring-1 focus:ring-focus-ring"
+              className="w-full"
             />
           </label>
           <label className="flex flex-1 items-center gap-1.5 text-[11px] text-text-tertiary">
             tts $/1M chars
-            <input
-              type="text"
+            <Input
               value={ttsPerMChars}
               onChange={(e) => setTtsPerMChars(e.target.value)}
               placeholder="8.00"
-              className="w-full rounded border border-border-default px-2 py-1.5 fs-data focus:outline-none focus:ring-1 focus:ring-focus-ring"
+              className="w-full"
             />
           </label>
         </div>
@@ -264,8 +256,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
             ]}
             className="w-44"
           />
-          <input
-            type="text"
+          <Input
             value={ttsVoice}
             onChange={(e) => setTtsVoiceDraft(e.target.value)}
             placeholder={
@@ -275,22 +266,22 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
                   ? "voice (default: alloy)"
                   : "voice (default: Kore)"
             }
-            className="flex-1 rounded border border-border-default px-2 py-1.5 fs-data focus:outline-none focus:ring-1 focus:ring-focus-ring"
+            className="flex-1"
           />
         </div>
-        {ttsProvider === "elevenlabs" && (
-          <input
-            type="password"
-            value={elevenlabs}
-            onChange={(e) => setElevenlabs(e.target.value)}
-            placeholder="ElevenLabs API key (xi-…)"
-            className="w-full rounded border border-border-default px-2 py-1.5 fs-data focus:outline-none focus:ring-1 focus:ring-focus-ring"
-          />
-        )}
         <p className="text-[11px] text-text-tertiary">
           Voices ▶ hear on text columns. Synthesized on click, on your key.
         </p>
       </div>
+      {ttsProvider === "elevenlabs" && (
+        <ApiKeyRow
+          label="ElevenLabs API key"
+          placeholder="xi-…"
+          value={elevenlabs}
+          onChange={setElevenlabs}
+          help={<>Only used for ear-test TTS.</>}
+        />
+      )}
 
       <div className="space-y-2">
         <label className="fs-label text-text-secondary">GitHub PAT</label>

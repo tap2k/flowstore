@@ -39,14 +39,17 @@ function downsample(samples: Float32Array, fromRate: number, toRate: number): Fl
   return out;
 }
 
-function int16ToBase64(pcm: Int16Array): string {
-  const bytes = new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+export function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
   const CHUNK = 0x8000; // avoid String.fromCharCode arg-count limits
   for (let i = 0; i < bytes.length; i += CHUNK) {
     binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
   }
   return btoa(binary);
+}
+
+function int16ToBase64(pcm: Int16Array): string {
+  return bytesToBase64(new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength));
 }
 
 export function base64ToBytes(b64: string): Uint8Array {

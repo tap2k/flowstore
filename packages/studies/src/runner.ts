@@ -127,10 +127,14 @@ export async function runMatrix(args: {
   resumeFrom?: Record<string, CellState>;
   // Restrict execution to these column indexes (the column ▶). Other
   // columns don't run — but their done cells still seed via resumeFrom, so
-  // the divergence pass compares against the standing incumbent.
+  // the divergence pass compares against the standing incumbent. columns is
+  // the EXECUTION filter, resumeFrom the STATE filter — independent on
+  // purpose (models can't be narrowed instead: mi is load-bearing in
+  // cellKey, so a shorter array would renumber every cell).
   columns?: number[];
 }): Promise<Record<string, CellState>> {
   const { systemPrompt, scenarios, models, resolveDispatch, onCell, onAudio, signal } = args;
+  const only = args.columns && new Set(args.columns);
   const cells: Record<string, CellState> = {};
   for (const [k, c] of Object.entries(args.resumeFrom ?? {})) {
     if (c.status === "done") cells[k] = c;
@@ -142,7 +146,7 @@ export async function runMatrix(args: {
 
   await Promise.all(
     models.map(async (model, mi) => {
-      if (args.columns && !args.columns.includes(mi)) return;
+      if (only && !only.has(mi)) return;
       const one = async (s: Scenario): Promise<void> => {
         const key = cellKey(s.id, mi);
         if (cells[key]?.status === "done") return;
@@ -189,7 +193,10 @@ export async function runMatrix(args: {
       const key = cellKey(s.id, mi);
       const c = cells[key];
       if (!c || c.status !== "done") continue;
-      emit(key, { divergent: divergence(inc.turns, c.turns) > DIVERGENCE_THRESHOLD });
+      // Only on change: partial runs seed standing cells whose divergence
+      // is already right — re-emitting them is a store patch + render each.
+      const divergent = divergence(inc.turns, c.turns) > DIVERGENCE_THRESHOLD;
+      if (c.divergent !== divergent) emit(key, { divergent });
     }
   }
   return cells;

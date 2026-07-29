@@ -1,4 +1,4 @@
-import type { TtsProvider } from "@/lib/store/settings";
+import { bytesToBase64 } from "./audio";
 
 // Browser-direct TTS for compare's cascade-column ear test: text columns
 // synthesize a reply on demand so the cascade candidate is audible next to
@@ -9,29 +9,19 @@ import type { TtsProvider } from "@/lib/store/settings";
 // existing replay cache/WAV path unchanged.
 //
 // Synthesis is lazy (first click) and billed to the user's own key; nothing
-// here runs during a matrix run.
+// here runs during a matrix run. This module owns the provider vocabulary —
+// the settings store consumes it (never the other way around).
 
-export type TtsConfig = {
+export type TtsProvider = "gemini" | "openai" | "elevenlabs";
+
+// The store-resolved dispatch for one synthesis call: provider, its ONE key,
+// and the voice. Mirrors resolveDispatch's shape discipline — callers never
+// juggle every vendor's key.
+export type ResolvedTts = {
   provider: TtsProvider;
-  // Vendor voice name/id. Blank picks a vendor default where one exists;
-  // ElevenLabs requires a voice id.
   voice: string;
-  googleApiKey: string;
-  openaiApiKey: string;
-  elevenlabsApiKey: string;
+  apiKey: string;
 };
-
-// The key the chosen provider needs — the ▶ hear affordance is gated on it.
-export function ttsKeyFor(cfg: TtsConfig): string {
-  switch (cfg.provider) {
-    case "gemini":
-      return cfg.googleApiKey.trim();
-    case "openai":
-      return cfg.openaiApiKey.trim();
-    case "elevenlabs":
-      return cfg.elevenlabsApiKey.trim();
-  }
-}
 
 const GEMINI_TTS_MODEL = "gemini-2.5-flash-preview-tts";
 
@@ -49,13 +39,13 @@ export function extractPcmChunks(resp: GenerateResponse): string[] {
     .filter((d): d is string => Boolean(d));
 }
 
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = "";
-  const CHUNK = 0x8000; // avoid String.fromCharCode arg-count limits
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-  }
-  return btoa(binary);
+async function ttsError(
+  res: Response,
+  vendor: string,
+  pick: (body: unknown) => string | undefined,
+): Promise<Error> {
+  const body: unknown = await res.json().catch(() => ({}));
+  return new Error(pick(body) || `${vendor} TTS failed (${res.status}).`);
 }
 
 async function synthesizeGemini(text: string, voice: string, apiKey: string): Promise<string[]> {
@@ -73,62 +63,79 @@ async function synthesizeGemini(text: string, voice: string, apiKey: string): Pr
       },
     }),
   });
-  const body = (await res.json().catch(() => ({}))) as GenerateResponse;
-  if (!res.ok) throw new Error(body.error?.message || `TTS failed (${res.status}).`);
-  const chunks = extractPcmChunks(body);
-  if (chunks.length === 0) throw new Error("TTS returned no audio.");
+  if (!res.ok) {
+    throw await ttsError(res, "Gemini", (b) => (b as GenerateResponse).error?.message);
+  }
+  const chunks = extractPcmChunks((await res.json()) as GenerateResponse);
+  if (chunks.length === 0) throw new Error("Gemini TTS returned no audio.");
   return chunks;
 }
 
-async function synthesizeOpenai(text: string, voice: string, apiKey: string): Promise<string[]> {
-  const res = await fetch("https://api.openai.com/v1/audio/speech", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: "gpt-4o-mini-tts",
-      voice: voice || "alloy",
-      input: text,
-      // Raw PCM16 @ 24kHz — the replay cache's native format.
-      response_format: "pcm",
-    }),
-  });
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-    throw new Error(body.error?.message || `TTS failed (${res.status}).`);
-  }
+// Shared shape for the vendors that return raw PCM bytes.
+async function fetchPcm(
+  url: string,
+  init: RequestInit,
+  vendor: string,
+  pickError: (body: unknown) => string | undefined,
+): Promise<string[]> {
+  const res = await fetch(url, init);
+  if (!res.ok) throw await ttsError(res, vendor, pickError);
   return [bytesToBase64(new Uint8Array(await res.arrayBuffer()))];
 }
 
-async function synthesizeElevenlabs(text: string, voice: string, apiKey: string): Promise<string[]> {
+function synthesizeOpenai(text: string, voice: string, apiKey: string): Promise<string[]> {
+  return fetchPcm(
+    "https://api.openai.com/v1/audio/speech",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4o-mini-tts",
+        voice: voice || "alloy",
+        input: text,
+        // Raw PCM16 @ 24kHz — the replay cache's native format.
+        response_format: "pcm",
+      }),
+    },
+    "OpenAI",
+    (b) => (b as { error?: { message?: string } }).error?.message,
+  );
+}
+
+function synthesizeElevenlabs(text: string, voice: string, apiKey: string): Promise<string[]> {
   if (!voice.trim()) {
-    throw new Error("ElevenLabs needs a voice id — set it in settings (ear-test TTS).");
+    return Promise.reject(
+      new Error("ElevenLabs needs a voice id — set it in settings (ear-test TTS)."),
+    );
   }
-  const res = await fetch(
+  return fetchPcm(
     `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice.trim())}?output_format=pcm_24000`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "xi-api-key": apiKey },
       body: JSON.stringify({ text, model_id: "eleven_multilingual_v2" }),
     },
+    "ElevenLabs",
+    (b) => {
+      const detail = (b as { detail?: { message?: string } | string }).detail;
+      return typeof detail === "string" ? detail : detail?.message;
+    },
   );
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as {
-      detail?: { message?: string } | string;
-    };
-    const detail = typeof body.detail === "string" ? body.detail : body.detail?.message;
-    throw new Error(detail || `TTS failed (${res.status}).`);
-  }
-  return [bytesToBase64(new Uint8Array(await res.arrayBuffer()))];
 }
 
-export async function synthesizeSpeech(text: string, cfg: TtsConfig): Promise<string[]> {
-  const key = ttsKeyFor(cfg);
-  switch (cfg.provider) {
-    case "gemini":
-      return synthesizeGemini(text, cfg.voice, key);
-    case "openai":
-      return synthesizeOpenai(text, cfg.voice, key);
-    case "elevenlabs":
-      return synthesizeElevenlabs(text, cfg.voice, key);
+// One table answers every per-vendor question: adding a vendor is one entry.
+const VENDORS: Record<
+  TtsProvider,
+  (text: string, voice: string, apiKey: string) => Promise<string[]>
+> = {
+  gemini: synthesizeGemini,
+  openai: synthesizeOpenai,
+  elevenlabs: synthesizeElevenlabs,
+};
+
+export function synthesizeSpeech(text: string, tts: ResolvedTts): Promise<string[]> {
+  if (!tts.apiKey.trim()) {
+    return Promise.reject(new Error(`No API key for ${tts.provider} TTS.`));
   }
+  return VENDORS[tts.provider](text, tts.voice, tts.apiKey);
 }

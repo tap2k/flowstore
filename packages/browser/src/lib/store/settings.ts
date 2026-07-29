@@ -3,6 +3,9 @@ import { BUILT_IN_MODELS, resolveEndpoint, wireModelId } from "@flowstore/core/f
 import type { EndpointId } from "@flowstore/core/files/models";
 import type { ProviderId } from "@flowstore/core/llm/types";
 import { useModelsStore } from "./models";
+import type { ResolvedTts, TtsProvider } from "@/lib/runtime/tts";
+
+export type { TtsProvider } from "@/lib/runtime/tts";
 
 const KEY = "flowstore:settings:google_api_key";
 const OPENAI_KEY = "flowstore:settings:openai_api_key";
@@ -36,8 +39,6 @@ export const DEFAULT_MODEL_ID = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
 export const DEFAULT_VOICE_MODEL_ID =
   Object.entries(BUILT_IN_MODELS.models).find(([, e]) => e.voice && e.endpoint === "google")?.[0] ??
   "gemini-3.1-flash-live-preview";
-
-export type TtsProvider = "gemini" | "openai" | "elevenlabs";
 
 interface SettingsState {
   googleApiKey: string;
@@ -326,6 +327,22 @@ export function resolveDispatch(modelId: string, keyOverrides?: KeyOverrides): R
     default:
       return { provider: null, apiKey: "", endpoint: null, wireModel };
   }
+}
+
+// The ear-test TTS dispatch: the chosen provider, its ONE key, the voice.
+// Null when the provider's key is absent — the ▶ hear affordance gates on
+// this, so no dead icons. Reads imperatively like resolveDispatch; callers
+// that need reactivity subscribe to the underlying fields.
+export function resolveTts(): ResolvedTts | null {
+  const s = useSettingsStore.getState();
+  const apiKey = (
+    s.ttsProvider === "gemini"
+      ? s.googleApiKey
+      : s.ttsProvider === "openai"
+        ? s.openaiApiKey
+        : s.elevenlabsApiKey
+  ).trim();
+  return apiKey ? { provider: s.ttsProvider, voice: s.ttsVoice, apiKey } : null;
 }
 
 // True iff the model can be dispatched (has an API key or is a project model

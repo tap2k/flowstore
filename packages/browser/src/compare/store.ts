@@ -23,20 +23,25 @@ import {
 } from "./studyStorage";
 import { clearTurnAudio, putTurnAudio } from "./audioCache";
 
+export type RunMode =
+  | { kind: "all" }
+  | { kind: "row"; id: string }
+  | { kind: "col"; index: number };
+
 // Compare's state and actions, in the editor's store idiom (zustand; the
 // page renders, the store owns behavior). Hydrates once from studyStorage at
 // module load; the subscription below writes changes back debounced — and
 // never mid-run, so a matrix run serializes to localStorage exactly once,
 // when it settles.
 
-// The engine's ResolveDispatch, backed by the shared settings store — and
-// the single "is this model dispatchable" predicate (run, translate, and the
-// generators all use it rather than respelling the provider/key check).
 // Compare is the small-N eyeball tool: three transcript columns is what
 // reads side by side. Caps the ADD action only — a bundle that arrives
 // wider still opens intact (never destroy imported data).
 export const MAX_MODEL_COLUMNS = 3;
 
+// The engine's ResolveDispatch, backed by the shared settings store — and
+// the single "is this model dispatchable" predicate (run, translate, and the
+// generators all use it rather than respelling the provider/key check).
 export function resolveForEngine(model: string) {
   const d = resolveDispatch(model);
   return d.provider && d.apiKey.trim()
@@ -77,13 +82,10 @@ interface CompareState {
   vars: Record<string, string>;
   // Repo the study came from / last landed in; null = local-only study.
   github: StudyGithubLocation | null;
-  running: boolean;
-  // Scenario id of an in-flight single-row run (the sidebar ▶); mutually
-  // exclusive with a full run.
-  rowRunning: string | null;
-  // Column index of an in-flight single-column run (the header ▶ on a model
-  // column); mutually exclusive with the other run modes.
-  colRunning: number | null;
+  // The one in-flight run, or null. A single discriminated field (not three
+  // flags) so mutual exclusion, the busy checks, and the persist guard are
+  // all `runMode` — and the column-0-is-falsy trap can't exist.
+  runMode: RunMode | null;
   setupOpen: boolean;
   generatingVars: boolean;
   generateVarsError: string | null;
@@ -131,7 +133,64 @@ const initial = loadStudy();
 // serializable and no view renders it.
 let runAbort: AbortController | null = null;
 
-export const useCompareStore = create<CompareState>((set, get) => ({
+// Standing state for a partial (row/column) run: paused cells INSIDE the
+// rerun scope continue mid-conversation; done cells OUTSIDE it seed the
+// engine solely so the divergence pass compares against the standing
+// incumbent (the engine skips done seeds, and the scope filter keeps them
+// from executing — resumeFrom is the state filter, scenarios/columns the
+// execution filter; deliberately independent).
+function seedFor(
+  cells: Record<string, CellState>,
+  rerun: (key: string) => boolean,
+): Record<string, CellState> {
+  const out: Record<string, CellState> = {};
+  for (const [k, c] of Object.entries(cells)) {
+    if (rerun(k)) {
+      if (c.status === "idle" && c.turns.length > 0) out[k] = c;
+    } else if (c.status === "done") {
+      out[k] = c;
+    }
+  }
+  return out;
+}
+
+export const useCompareStore = create<CompareState>((set, get) => {
+  // Shared run plumbing: mutual exclusion, cache policy, the abort handle,
+  // the engine call, mode cleanup. The three public actions differ only in
+  // scope and seed policy — exactly and only what they pass here.
+  const startRun = async (
+    mode: RunMode,
+    a: {
+      scenarios: Scenario[];
+      columns?: number[];
+      resumeFrom?: Record<string, CellState>;
+      keepCaches: (key: string) => boolean;
+      patch?: Partial<CompareState>;
+    },
+  ): Promise<void> => {
+    if (get().runMode) return;
+    const { prompt, vars, models } = get();
+    set((st) => ({ runMode: mode, ...(a.patch ?? {}), ...cellCaches(st, a.keepCaches) }));
+    // The engine owns the matrix policy (parallelism, divergence); the store
+    // only supplies credentials and mirrors patches into state.
+    runAbort = new AbortController();
+    await runMatrix({
+      systemPrompt: filledPromptOf(prompt, vars),
+      scenarios: a.scenarios,
+      models,
+      resolveDispatch: resolveForEngine,
+      onCell: patchCell(set),
+      onAudio: putTurnAudio,
+      signal: runAbort.signal,
+      resumeFrom:
+        a.resumeFrom && Object.keys(a.resumeFrom).length > 0 ? a.resumeFrom : undefined,
+      columns: a.columns,
+    });
+    runAbort = null;
+    set({ runMode: null });
+  };
+
+  return ({
   agentId: initial.agentId,
   prompt: initial.prompt,
   scenarios: initial.scenarios,
@@ -141,9 +200,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
   golds: initial.golds,
   vars: initial.vars,
   github: initial.github,
-  running: false,
-  rowRunning: null,
-  colRunning: null,
+  runMode: null,
   setupOpen: true,
   generatingVars: false,
   generateVarsError: null,
@@ -180,8 +237,16 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       scenarios: s.scenarios.map((sc, j) => (j === i ? { ...sc, ...patch } : sc)),
     })),
 
+  // Removal prunes the removed row's cells — the cells bag must track the
+  // grid or counters and exports drift (orphans once made 5/4 possible).
   removeScenario: (i) =>
-    set((s) => ({ scenarios: s.scenarios.filter((_, j) => j !== i) })),
+    set((s) => {
+      const sc = s.scenarios[i];
+      const cells = Object.fromEntries(
+        Object.entries(s.cells).filter(([k]) => !sc || !k.startsWith(`${sc.id}::`)),
+      );
+      return { scenarios: s.scenarios.filter((_, j) => j !== i), cells };
+    }),
 
   setModelAt: (i, id) =>
     set((s) => ({ models: s.models.map((m, j) => (j === i ? id : m)) })),
@@ -189,7 +254,35 @@ export const useCompareStore = create<CompareState>((set, get) => ({
     set((s) =>
       s.models.length >= MAX_MODEL_COLUMNS ? s : { models: [...s.models, DEFAULT_MODEL_ID] },
     ),
-  removeModel: (i) => set((s) => ({ models: s.models.filter((_, j) => j !== i) })),
+  // Column removal re-keys: cells are index-keyed, so surviving columns
+  // shift down (and captured-gold column pointers shift with them —
+  // a gold captured FROM the removed column keeps only its transcript).
+  removeModel: (i) =>
+    set((s) => {
+      const cells: Record<string, CellState> = {};
+      for (const [k, c] of Object.entries(s.cells)) {
+        const at = k.lastIndexOf("::");
+        const mi = Number(k.slice(at + 2));
+        if (mi === i) continue;
+        cells[cellKey(k.slice(0, at), mi > i ? mi - 1 : mi)] = c;
+      }
+      const golds = Object.fromEntries(
+        Object.entries(s.golds).map(([sid, g]) => [
+          sid,
+          g.column === undefined || g.column < i
+            ? g
+            : { ...g, column: g.column === i ? undefined : g.column - 1 },
+        ]),
+      );
+      return {
+        models: s.models.filter((_, j) => j !== i),
+        cells,
+        golds,
+        // Translation caches are cellKey-keyed; drop everything at or past
+        // the removed index rather than re-keying caches.
+        ...cellCaches(s, (k) => Number(k.slice(k.lastIndexOf("::") + 2)) < i),
+      };
+    }),
 
   setVar: (name, value) => set((s) => ({ vars: { ...s.vars, [name]: value } })),
 
@@ -266,7 +359,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
   // fully-done or untouched matrix runs from scratch; an explicit fresh
   // start over partial results is the clear button.
   run: async () => {
-    const { prompt, vars, scenarios, models, cells } = get();
+    const { scenarios, models, cells } = get();
     // One pass over the matrix: cells with progress (done, or paused with
     // turns) are kept; resume unless nothing has run or everything has.
     const kept: Record<string, CellState> = {};
@@ -284,22 +377,15 @@ export const useCompareStore = create<CompareState>((set, get) => ({
     }
     const resuming = Object.keys(kept).length > 0 && done < total;
     const seed = resuming ? kept : {};
-    set((st) => ({ running: true, cells: seed, ...cellCaches(st, (k) => k in seed) }));
-    // The engine owns the matrix policy (parallelism, divergence); the store
-    // only supplies credentials and mirrors patches into state.
-    runAbort = new AbortController();
-    await runMatrix({
-      systemPrompt: filledPromptOf(prompt, vars),
-      scenarios,
-      models,
-      resolveDispatch: resolveForEngine,
-      onCell: patchCell(set),
-      onAudio: putTurnAudio,
-      signal: runAbort.signal,
-      resumeFrom: resuming ? kept : undefined,
-    });
-    runAbort = null;
-    set({ running: false });
+    await startRun(
+      { kind: "all" },
+      {
+        scenarios,
+        resumeFrom: resuming ? kept : undefined,
+        keepCaches: (k) => k in seed,
+        patch: { cells: seed },
+      },
+    );
   },
 
   // Run one scenario row across every model column — a single-scenario
@@ -308,69 +394,33 @@ export const useCompareStore = create<CompareState>((set, get) => ({
   // continues; done and errored cells re-run (clicking the row's ▶ IS the
   // explicit re-request). Caches drop only for cells starting over.
   runScenario: async (sc) => {
-    const { running, rowRunning, colRunning, prompt, vars, models, cells } = get();
-    if (running || rowRunning || colRunning !== null) return;
-    const rowKeys = models.map((_, mi) => cellKey(sc.id, mi));
-    const resume: Record<string, CellState> = {};
-    for (const k of rowKeys) {
-      const c = cells[k];
-      if (c && c.status === "idle" && c.turns.length > 0) resume[k] = c;
-    }
-    set((st) => ({
-      rowRunning: sc.id,
-      selected: sc.id,
-      ...cellCaches(st, (k) => !rowKeys.includes(k) || k in resume),
-    }));
-    runAbort = new AbortController();
-    await runMatrix({
-      systemPrompt: filledPromptOf(prompt, vars),
-      scenarios: [sc],
-      models,
-      resolveDispatch: resolveForEngine,
-      onCell: patchCell(set),
-      onAudio: putTurnAudio,
-      signal: runAbort.signal,
-      resumeFrom: Object.keys(resume).length > 0 ? resume : undefined,
-    });
-    runAbort = null;
-    set({ rowRunning: null });
+    const inRow = new Set(get().models.map((_, mi) => cellKey(sc.id, mi)));
+    const resume = seedFor(get().cells, (k) => inRow.has(k));
+    await startRun(
+      { kind: "row", id: sc.id },
+      {
+        scenarios: [sc],
+        resumeFrom: resume,
+        keepCaches: (k) => !inRow.has(k) || k in resume,
+        patch: { selected: sc.id },
+      },
+    );
   },
 
   // Run one model column across every scenario — the column ▶. Same pause
-  // semantics as runScenario: stopped conversations continue; done and
-  // errored cells in the column re-run (the ▶ IS the explicit re-request).
-  // Other columns' done cells seed the matrix so divergence still compares
-  // against the standing incumbent.
+  // semantics as runScenario.
   runColumn: async (mi) => {
-    const { running, rowRunning, colRunning, prompt, vars, models, scenarios, cells } = get();
-    if (running || rowRunning || colRunning !== null) return;
-    const colKeys = new Set(scenarios.map((sc) => cellKey(sc.id, mi)));
-    const resume: Record<string, CellState> = {};
-    for (const [k, c] of Object.entries(cells)) {
-      if (colKeys.has(k)) {
-        if (c.status === "idle" && c.turns.length > 0) resume[k] = c;
-      } else if (c.status === "done") {
-        resume[k] = c;
-      }
-    }
-    set((st) => ({
-      colRunning: mi,
-      ...cellCaches(st, (k) => !colKeys.has(k) || k in resume),
-    }));
-    runAbort = new AbortController();
-    await runMatrix({
-      systemPrompt: filledPromptOf(prompt, vars),
-      scenarios,
-      models,
-      resolveDispatch: resolveForEngine,
-      onCell: patchCell(set),
-      onAudio: putTurnAudio,
-      signal: runAbort.signal,
-      resumeFrom: Object.keys(resume).length > 0 ? resume : undefined,
-      columns: [mi],
-    });
-    runAbort = null;
-    set({ colRunning: null });
+    const inCol = new Set(get().scenarios.map((sc) => cellKey(sc.id, mi)));
+    const resume = seedFor(get().cells, (k) => inCol.has(k));
+    await startRun(
+      { kind: "col", index: mi },
+      {
+        scenarios: get().scenarios,
+        columns: [mi],
+        resumeFrom: resume,
+        keepCaches: (k) => !inCol.has(k) || k in resume,
+      },
+    );
   },
 
   // Cooperative stop: the engine checks at turn boundaries, drops the
@@ -496,7 +546,8 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       },
     }));
   },
-}));
+});
+});
 
 // The per-cell translation caches/toggles/errors, filtered to the keys the
 // predicate keeps — the one spelling of "drop caches for cells that re-run"
@@ -532,7 +583,7 @@ function flushStudy() {
   saveStudy({ agentId, prompt, scenarios, models, cells, golds, vars, github });
 }
 useCompareStore.subscribe((s) => {
-  if (s.running || s.rowRunning !== null) return;
+  if (s.runMode) return;
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(flushStudy, 300);
 });
