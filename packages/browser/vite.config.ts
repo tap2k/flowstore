@@ -13,6 +13,31 @@ import fs from "node:fs";
 // doc-linked file are the same source. fs.allow lets the dev server read it.
 const repoRoot = path.resolve(__dirname, "../..");
 
+// Dev/preview convenience: the entries are path-shaped (/create/, /compare/)
+// so the app can overlay the brand site in production — locally there is no
+// site at /, so redirect the bare root to the editor.
+import type { Plugin, Connect } from "vite";
+function rootRedirect(): Plugin {
+  const handler: Connect.NextHandleFunction = (req, res, next) => {
+    if (req.url === "/" || req.url === "/index.html") {
+      res.statusCode = 302;
+      res.setHeader("Location", "/create/");
+      res.end();
+      return;
+    }
+    next();
+  };
+  return {
+    name: "root-redirect",
+    configureServer: (server) => {
+      server.middlewares.use(handler);
+    },
+    configurePreviewServer: (server) => {
+      server.middlewares.use(handler);
+    },
+  };
+}
+
 // `vite preview` serves the same response headers Cloudflare Pages will
 // (public/_headers), so CSP violations surface in build+preview instead of
 // only after a deploy. Parses the simple case we use: "Name: value" lines
@@ -28,7 +53,7 @@ function pagesHeaders(): Record<string, string> {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), rootRedirect()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
