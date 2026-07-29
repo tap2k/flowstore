@@ -18,6 +18,7 @@ import {
   Package,
   Play,
   Plus,
+  SpinnerGap,
   Trash,
   UploadSimple,
   X,
@@ -806,7 +807,23 @@ function ReplayButton({
       }
       className={`cursor-pointer ${error ? "text-state-error-fg" : "text-text-tertiary hover:text-text-primary"}`}
     >
-      {busy ? "…" : playing ? "◼ stop" : error ? "✕ tts" : "▶ hear"}
+      {busy ? (
+        <span className="inline-flex items-center gap-1">
+          <Icon
+            icon={SpinnerGap}
+            size={11}
+            weight="bold"
+            className="animate-fs-spin motion-reduce:animate-none"
+          />
+          tts…
+        </span>
+      ) : playing ? (
+        "◼ stop"
+      ) : error ? (
+        "✕ tts"
+      ) : (
+        "▶ hear"
+      )}
     </button>
   );
 }
