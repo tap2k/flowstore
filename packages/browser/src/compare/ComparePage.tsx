@@ -21,7 +21,7 @@ import {
   UploadSimple,
   X,
 } from "@phosphor-icons/react";
-import { Button, DropdownMenu, Icon, IconButton, Input, RunButton, StatusIcon, StopButton, Textarea } from "@/components/ui";
+import { Button, DisclosureCaret, DropdownMenu, Icon, IconButton, Input, RunButton, StatusIcon, StopButton, Textarea } from "@/components/ui";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
 import { resolveTts, useSettingsStore } from "@/lib/store/settings";
@@ -63,6 +63,9 @@ export function ComparePage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [githubOpenOpen, setGithubOpenOpen] = useState(false);
   const [githubSaveMode, setGithubSaveMode] = useState<"existing" | "new" | null>(null);
+  // Placeholder strip disclosure — session-local; collapsed shows the fill
+  // tally so the state stays truthful at a glance.
+  const [varsOpen, setVarsOpen] = useState(true);
 
   // Parsed rates; a blank or non-numeric field contributes nothing, and with
   // both blank the voice estimate disappears everywhere.
@@ -278,35 +281,51 @@ export function ComparePage() {
             {placeholders.length > 0 && (
               <div className="mt-2">
                 <div className="mb-1 flex h-6 items-center justify-between">
-                  <span className="text-[11px] font-medium text-text-tertiary">
-                    placeholders (filled at send time — the prompt text stays verbatim)
-                  </span>
-                  <Button
-                    size="sm"
-                    loading={s.generatingVars}
-                    onClick={() => void s.generateVars()}
-                    disabled={placeholders.every((n) => (s.vars[n] ?? "").trim())}
+                  <button
+                    type="button"
+                    onClick={() => setVarsOpen((o) => !o)}
+                    title="Values fill {{placeholders}} at send time; the prompt text stays verbatim."
+                    className="flex min-w-0 cursor-pointer items-center gap-1 text-[11px] font-medium text-text-tertiary hover:text-text-primary"
                   >
-                    {s.generatingVars ? "generating…" : "generate values"}
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {placeholders.map((name) => (
-                    <label
-                      key={name}
-                      className="flex items-center gap-1.5 rounded border border-border-default py-0.5 pl-1.5 pr-0.5 text-[11px]"
+                    <DisclosureCaret open={varsOpen} />
+                    placeholders
+                    {!varsOpen && (
+                      <span className="font-normal text-text-disabled">
+                        {placeholders.filter((n) => (s.vars[n] ?? "").trim()).length}/
+                        {placeholders.length} filled
+                      </span>
+                    )}
+                  </button>
+                  {varsOpen && (
+                    <Button
+                      size="sm"
+                      loading={s.generatingVars}
+                      onClick={() => void s.generateVars()}
+                      disabled={placeholders.every((n) => (s.vars[n] ?? "").trim())}
                     >
-                      <span className="font-mono text-text-tertiary">{`{{${name}}}`}</span>
-                      <Input
-                        value={s.vars[name] ?? ""}
-                        onChange={(e) => s.setVar(name, e.target.value)}
-                        placeholder="value"
-                        className="w-32"
-                      />
-                    </label>
-                  ))}
+                      {s.generatingVars ? "generating…" : "generate values"}
+                    </Button>
+                  )}
                 </div>
-                {s.generateVarsError && (
+                {varsOpen && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {placeholders.map((name) => (
+                      <label
+                        key={name}
+                        className="flex items-center gap-1.5 rounded border border-border-default py-0.5 pl-1.5 pr-0.5 text-[11px]"
+                      >
+                        <span className="font-mono text-text-tertiary">{`{{${name}}}`}</span>
+                        <Input
+                          value={s.vars[name] ?? ""}
+                          onChange={(e) => s.setVar(name, e.target.value)}
+                          placeholder="value"
+                          className="w-32"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {varsOpen && s.generateVarsError && (
                   <div className="mt-1 text-[10px] text-state-error-fg">{s.generateVarsError}</div>
                 )}
               </div>
