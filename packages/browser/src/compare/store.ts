@@ -81,6 +81,9 @@ interface CompareState {
   // Scenario id of an in-flight single-row run (the sidebar ▶); mutually
   // exclusive with a full run.
   rowRunning: string | null;
+  // Column index of an in-flight single-column run (the header ▶ on a model
+  // column); mutually exclusive with the other run modes.
+  colRunning: number | null;
   setupOpen: boolean;
   generatingVars: boolean;
   generateVarsError: string | null;
@@ -112,6 +115,7 @@ interface CompareState {
   uploadBundle: (file: File) => void;
   run: () => Promise<void>;
   runScenario: (s: Scenario) => Promise<void>;
+  runColumn: (mi: number) => Promise<void>;
   stopRun: () => void;
   translateColumn: (key: string, turns: TranscriptTurn[]) => Promise<void>;
   generateVars: () => Promise<void>;
@@ -139,6 +143,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
   github: initial.github,
   running: false,
   rowRunning: null,
+  colRunning: null,
   setupOpen: true,
   generatingVars: false,
   generateVarsError: null,
@@ -303,8 +308,8 @@ export const useCompareStore = create<CompareState>((set, get) => ({
   // continues; done and errored cells re-run (clicking the row's ▶ IS the
   // explicit re-request). Caches drop only for cells starting over.
   runScenario: async (sc) => {
-    const { running, rowRunning, prompt, vars, models, cells } = get();
-    if (running || rowRunning) return;
+    const { running, rowRunning, colRunning, prompt, vars, models, cells } = get();
+    if (running || rowRunning || colRunning !== null) return;
     const rowKeys = models.map((_, mi) => cellKey(sc.id, mi));
     const resume: Record<string, CellState> = {};
     for (const k of rowKeys) {
@@ -329,6 +334,43 @@ export const useCompareStore = create<CompareState>((set, get) => ({
     });
     runAbort = null;
     set({ rowRunning: null });
+  },
+
+  // Run one model column across every scenario — the column ▶. Same pause
+  // semantics as runScenario: stopped conversations continue; done and
+  // errored cells in the column re-run (the ▶ IS the explicit re-request).
+  // Other columns' done cells seed the matrix so divergence still compares
+  // against the standing incumbent.
+  runColumn: async (mi) => {
+    const { running, rowRunning, colRunning, prompt, vars, models, scenarios, cells } = get();
+    if (running || rowRunning || colRunning !== null) return;
+    const colKeys = new Set(scenarios.map((sc) => cellKey(sc.id, mi)));
+    const resume: Record<string, CellState> = {};
+    for (const [k, c] of Object.entries(cells)) {
+      if (colKeys.has(k)) {
+        if (c.status === "idle" && c.turns.length > 0) resume[k] = c;
+      } else if (c.status === "done") {
+        resume[k] = c;
+      }
+    }
+    set((st) => ({
+      colRunning: mi,
+      ...cellCaches(st, (k) => !colKeys.has(k) || k in resume),
+    }));
+    runAbort = new AbortController();
+    await runMatrix({
+      systemPrompt: filledPromptOf(prompt, vars),
+      scenarios,
+      models,
+      resolveDispatch: resolveForEngine,
+      onCell: patchCell(set),
+      onAudio: putTurnAudio,
+      signal: runAbort.signal,
+      resumeFrom: Object.keys(resume).length > 0 ? resume : undefined,
+      columns: [mi],
+    });
+    runAbort = null;
+    set({ colRunning: null });
   },
 
   // Cooperative stop: the engine checks at turn boundaries, drops the

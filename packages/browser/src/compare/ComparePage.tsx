@@ -84,7 +84,7 @@ export function ComparePage() {
   const placeholders = useMemo(() => detectPlaceholders(s.prompt), [s.prompt]);
   const translateReady = resolveForEngine(defaultModel) !== null;
 
-  const busy = s.running || s.rowRunning !== null;
+  const busy = s.running || s.rowRunning !== null || s.colRunning !== null;
   const hasResults = Object.keys(s.cells).length > 0;
   const totalCells = s.scenarios.length * s.models.length;
   const settledCells = Object.values(s.cells).filter(
@@ -488,6 +488,20 @@ export function ComparePage() {
                         label="Remove column"
                         onClick={() => s.removeModel(i)}
                         disabled={busy}
+                        className="shrink-0"
+                      />
+                    )}
+                    {/* Column ▶/■ — completes the trio with run-all and the
+                        scenario rows' ▶: rerun one model across the suite. */}
+                    {s.colRunning === i ? (
+                      <StopButton size="sm" className="shrink-0" onClick={() => s.stopRun()} />
+                    ) : (
+                      <IconButton
+                        icon={Play}
+                        size="sm"
+                        label={`Run ${m} on all scenarios — stopped conversations continue; done and failed ones re-run`}
+                        onClick={() => void s.runColumn(i)}
+                        disabled={busy || s.scenarios.length === 0}
                         className="shrink-0"
                       />
                     )}

@@ -57,6 +57,29 @@ describe("runMatrix s2s columns", () => {
     expect(peak).toBeLessThanOrEqual(3);
   });
 
+  it("columns filter runs only the requested column; others seed via resumeFrom", async () => {
+    calls.length = 0;
+    const done = { status: "done" as const, turns: [], totalMs: 5 };
+    const cells = await runMatrix({
+      systemPrompt: "SP",
+      scenarios: [scenario("s1")],
+      models: ["live-a", "live-b"],
+      resolveDispatch: () => ({
+        provider: "google",
+        apiKey: "k",
+        wireModel: "gemini-x-live",
+        live: true,
+      }),
+      onCell: () => {},
+      resumeFrom: { "s1::0": done },
+      columns: [1],
+    });
+    // Only column 1 executed; column 0's standing cell seeded untouched.
+    expect(calls).toEqual(["live"]);
+    expect(cells["s1::0"]).toEqual(done);
+    expect(cells["s1::1"].status).toBe("done");
+  });
+
   it("routes by provider: openai → realtime driver", async () => {
     calls.length = 0;
     const cells = await runMatrix({

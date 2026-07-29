@@ -125,6 +125,10 @@ export async function runMatrix(args: {
   // partially-run cells continue mid-conversation (see runCell's resume).
   // Divergence recomputes over the union.
   resumeFrom?: Record<string, CellState>;
+  // Restrict execution to these column indexes (the column ▶). Other
+  // columns don't run — but their done cells still seed via resumeFrom, so
+  // the divergence pass compares against the standing incumbent.
+  columns?: number[];
 }): Promise<Record<string, CellState>> {
   const { systemPrompt, scenarios, models, resolveDispatch, onCell, onAudio, signal } = args;
   const cells: Record<string, CellState> = {};
@@ -138,6 +142,7 @@ export async function runMatrix(args: {
 
   await Promise.all(
     models.map(async (model, mi) => {
+      if (args.columns && !args.columns.includes(mi)) return;
       const one = async (s: Scenario): Promise<void> => {
         const key = cellKey(s.id, mi);
         if (cells[key]?.status === "done") return;
