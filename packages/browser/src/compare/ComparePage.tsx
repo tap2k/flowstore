@@ -776,6 +776,9 @@ function ReplayButton({
   const [error, setError] = useState<string | null>(null);
   // peek never builds — the WAV encode happens on click only.
   const playing = playingUrl !== null && peekTurnAudioUrl(cellKey, ts) === playingUrl;
+  // Audio already in the cache → the click is free (replay). Otherwise the
+  // label says "tts" so the cost of the click is legible before clicking.
+  const cached = hasTurnAudio(cellKey, ts);
   const onClick = async () => {
     if (busy) return;
     let u = getTurnAudioUrl(cellKey, ts);
@@ -801,9 +804,9 @@ function ReplayButton({
         error ??
         (playing
           ? "Stop"
-          : synth && !hasTurnAudio(cellKey, ts)
-            ? "Hear this reply — synthesized with your ear-test TTS vendor (settings), then kept for this session"
-            : "Hear this reply (audio from the run, kept for this session)")
+          : cached
+            ? "Hear this reply (already generated — free to replay)"
+            : "Synthesize and hear this reply — your ear-test TTS vendor (settings), then kept for this session")
       }
       className={`cursor-pointer ${error ? "text-state-error-fg" : "text-text-tertiary hover:text-text-primary"}`}
     >
@@ -821,8 +824,10 @@ function ReplayButton({
         "◼ stop"
       ) : error ? (
         "✕ tts"
-      ) : (
+      ) : cached ? (
         "▶ hear"
+      ) : (
+        "▶ tts"
       )}
     </button>
   );
