@@ -7,9 +7,23 @@ import { LIVE_AUDIO_SAMPLE_RATE } from "@flowstore/studies";
 // localStorage quota instantly, so replay is for the session that ran it.
 // (Durable audio belongs in a future bundle export, not in state.)
 
-const urls = new Map<string, string>();
+// Insertion-ordered → oldest-first eviction. Budgeted by bytes, not entries:
+// PCM16@24kHz is ~48 KB/s, so 64 MB holds ~20 minutes of spoken replies —
+// a large study with headroom. Re-runs mint new turn timestamps (old entries
+// go stale, not replaced), so without the budget a long session would leak.
+const MAX_AUDIO_BYTES = 64 * 1024 * 1024;
+const urls = new Map<string, { url: string; bytes: number }>();
+let totalBytes = 0;
 
 const keyOf = (cellKey: string, turnTs: number) => `${cellKey}::${turnTs}`;
+
+function evict(k: string): void {
+  const e = urls.get(k);
+  if (!e) return;
+  URL.revokeObjectURL(e.url);
+  totalBytes -= e.bytes;
+  urls.delete(k);
+}
 
 // Wrap base64 PCM16 chunks (Live output: 24kHz mono) in a RIFF/WAV header so
 // a plain <audio>/Audio element can play them.
@@ -53,17 +67,25 @@ export function pcm16ChunksToWav(
 
 export function putTurnAudio(cellKey: string, turnTs: number, chunks: string[]): void {
   const k = keyOf(cellKey, turnTs);
-  const prior = urls.get(k);
-  if (prior) URL.revokeObjectURL(prior);
+  evict(k);
   const wav = pcm16ChunksToWav(chunks);
-  urls.set(k, URL.createObjectURL(new Blob([wav.buffer as ArrayBuffer], { type: "audio/wav" })));
+  urls.set(k, {
+    url: URL.createObjectURL(new Blob([wav.buffer as ArrayBuffer], { type: "audio/wav" })),
+    bytes: wav.length,
+  });
+  totalBytes += wav.length;
+  for (const oldest of urls.keys()) {
+    if (totalBytes <= MAX_AUDIO_BYTES || oldest === k) break;
+    evict(oldest);
+  }
 }
 
 export function getTurnAudio(cellKey: string, turnTs: number): string | undefined {
-  return urls.get(keyOf(cellKey, turnTs));
+  return urls.get(keyOf(cellKey, turnTs))?.url;
 }
 
 export function clearTurnAudio(): void {
-  for (const u of urls.values()) URL.revokeObjectURL(u);
+  for (const e of urls.values()) URL.revokeObjectURL(e.url);
   urls.clear();
+  totalBytes = 0;
 }
