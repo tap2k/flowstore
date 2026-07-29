@@ -744,7 +744,7 @@ function audioFor(
   return { cellKey, ts: t.ts, synth: () => synthesizeSpeech(text, tts) };
 }
 
-type TurnAudio = { cellKey: string; ts: number; synth?: () => Promise<string[]> };
+type TurnAudio = { cellKey: string; ts: number; synth?: () => Promise<Blob> };
 
 function TurnBubble({
   turn,
@@ -817,7 +817,7 @@ function ReplayButton({
   // the run's real audio and never synthesize. In-flight dedupe lives in the
   // cache (getOrSynthesize), not here — a second click or a second render of
   // the same turn must never double-bill.
-  synth?: () => Promise<string[]>;
+  synth?: () => Promise<Blob>;
 }) {
   const playingUrl = useSyncExternalStore(replay.subscribe, replay.playingUrl);
   // Self-sufficient cache subscription (don't rely on the page's) — memoize

@@ -17,7 +17,11 @@ import { pcm16ChunksToWav } from "@/lib/runtime/audio";
 // entries arrive or evict — the "hear" control appears with the turn and
 // disappears on eviction instead of silently breaking.
 
-type Entry = { chunks: string[]; bytes: number; url?: string };
+// Two entry shapes: raw PCM chunks (the live sockets emit containerless
+// audio — WAV-wrapped lazily on first play) or a ready-to-play Blob (TTS
+// vendors return real containers; an <audio> element plays them natively,
+// so transcoding would be pure waste).
+type Entry = { chunks?: string[]; blob?: Blob; bytes: number; url?: string };
 
 const MAX_AUDIO_BYTES = 64 * 1024 * 1024;
 const entries = new Map<string, Entry>();
@@ -80,8 +84,10 @@ export function getTurnAudioUrl(cellKey: string, turnTs: number): string | undef
   const e = entries.get(keyOf(cellKey, turnTs));
   if (!e) return undefined;
   if (!e.url) {
-    const wav = pcm16ChunksToWav(e.chunks);
-    e.url = URL.createObjectURL(new Blob([wav.buffer as ArrayBuffer], { type: "audio/wav" }));
+    const blob =
+      e.blob ??
+      new Blob([pcm16ChunksToWav(e.chunks ?? []).buffer as ArrayBuffer], { type: "audio/wav" });
+    e.url = URL.createObjectURL(blob);
   }
   return e.url;
 }
@@ -94,7 +100,7 @@ const inFlight = new Map<string, Promise<string | undefined>>();
 export function getOrSynthesizeTurnAudio(
   cellKey: string,
   turnTs: number,
-  synth: () => Promise<string[]>,
+  synth: () => Promise<Blob>,
 ): Promise<string | undefined> {
   const k = keyOf(cellKey, turnTs);
   const existing = getTurnAudioUrl(cellKey, turnTs);
@@ -102,8 +108,11 @@ export function getOrSynthesizeTurnAudio(
   const pending = inFlight.get(k);
   if (pending) return pending;
   const p = synth()
-    .then((chunks) => {
-      putTurnAudio(cellKey, turnTs, chunks);
+    .then((blob) => {
+      evict(k);
+      entries.set(k, { blob, bytes: blob.size });
+      totalBytes += blob.size;
+      bump();
       return getTurnAudioUrl(cellKey, turnTs);
     })
     .finally(() => inFlight.delete(k));

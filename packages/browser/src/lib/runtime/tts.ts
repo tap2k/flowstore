@@ -1,5 +1,4 @@
-import { bytesToBase64, floatTo16BitPCM } from "./audio";
-import { S2S_AUDIO_SAMPLE_RATE } from "@flowstore/studies";
+import { pcm16ChunksToWav } from "./audio";
 
 // Browser-direct TTS for compare's cascade-column ear test: text columns
 // synthesize a reply on demand so the cascade candidate is audible next to
@@ -10,8 +9,11 @@ import { S2S_AUDIO_SAMPLE_RATE } from "@flowstore/studies";
 // existing replay cache/WAV path unchanged.
 //
 // Synthesis is lazy (first click) and billed to the user's own key; nothing
-// here runs during a matrix run. This module owns the provider vocabulary —
-// the settings store consumes it (never the other way around).
+// here runs during a matrix run. Every vendor returns a ready-to-play Blob:
+// mp3 wherever the vendor can serve a container (every tier supports it, and
+// <audio> plays it natively — no transcoding); Gemini's TTS only emits raw
+// PCM, so it alone gets the WAV wrap. This module owns the provider
+// vocabulary — the settings store consumes it (never the other way around).
 
 export type TtsProvider = "gemini" | "openai" | "elevenlabs";
 
@@ -49,7 +51,7 @@ async function ttsError(
   return new Error(pick(body) || `${vendor} TTS failed (${res.status}).`);
 }
 
-async function synthesizeGemini(text: string, voice: string, apiKey: string): Promise<string[]> {
+async function synthesizeGemini(text: string, voice: string, apiKey: string): Promise<Blob> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TTS_MODEL}:generateContent`;
   const res = await fetch(`${url}?key=${encodeURIComponent(apiKey)}`, {
     method: "POST",
@@ -69,23 +71,24 @@ async function synthesizeGemini(text: string, voice: string, apiKey: string): Pr
   }
   const chunks = extractPcmChunks((await res.json()) as GenerateResponse);
   if (chunks.length === 0) throw new Error("Gemini TTS returned no audio.");
-  return chunks;
+  const wav = pcm16ChunksToWav(chunks);
+  return new Blob([wav.buffer as ArrayBuffer], { type: "audio/wav" });
 }
 
-// Shared shape for the vendors that return raw PCM bytes.
-async function fetchPcm(
+// Shared fetch for the vendors that return mp3 bytes directly.
+async function fetchMp3(
   url: string,
   init: RequestInit,
   vendor: string,
   pickError: (body: unknown) => string | undefined,
-): Promise<string[]> {
+): Promise<Blob> {
   const res = await fetch(url, init);
   if (!res.ok) throw await ttsError(res, vendor, pickError);
-  return [bytesToBase64(new Uint8Array(await res.arrayBuffer()))];
+  return new Blob([await res.arrayBuffer()], { type: "audio/mpeg" });
 }
 
-function synthesizeOpenai(text: string, voice: string, apiKey: string): Promise<string[]> {
-  return fetchPcm(
+function synthesizeOpenai(text: string, voice: string, apiKey: string): Promise<Blob> {
+  return fetchMp3(
     "https://api.openai.com/v1/audio/speech",
     {
       method: "POST",
@@ -94,8 +97,7 @@ function synthesizeOpenai(text: string, voice: string, apiKey: string): Promise<
         model: "gpt-4o-mini-tts",
         voice: voice || "alloy",
         input: text,
-        // Raw PCM16 @ 24kHz — the replay cache's native format.
-        response_format: "pcm",
+        response_format: "mp3",
       }),
     },
     "OpenAI",
@@ -103,62 +105,41 @@ function synthesizeOpenai(text: string, voice: string, apiKey: string): Promise<
   );
 }
 
-// ElevenLabs gates raw PCM output formats behind paid tiers — free accounts
-// get mp3. We take the mp3 and transcode to the cache's native PCM16@24k
-// locally (WebAudio decode + offline resample), so the tier difference never
-// reaches the replay pipeline.
-async function synthesizeElevenlabs(text: string, voice: string, apiKey: string): Promise<string[]> {
+// ElevenLabs gates raw PCM output behind paid tiers; mp3 is the every-tier
+// format (and the free tier also rejects LIBRARY voices via API — use a
+// voice from the account's own list).
+function synthesizeElevenlabs(text: string, voice: string, apiKey: string): Promise<Blob> {
   if (!voice.trim()) {
-    throw new Error("ElevenLabs needs a voice id — set it in settings (ear-test TTS).");
+    return Promise.reject(
+      new Error("ElevenLabs needs a voice id — set it in settings (ear-test TTS)."),
+    );
   }
-  const res = await fetch(
+  return fetchMp3(
     `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice.trim())}?output_format=mp3_44100_128`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "xi-api-key": apiKey },
       body: JSON.stringify({ text, model_id: "eleven_multilingual_v2" }),
     },
-  );
-  if (!res.ok) {
-    throw await ttsError(res, "ElevenLabs", (b) => {
+    "ElevenLabs",
+    (b) => {
       const detail = (b as { detail?: { message?: string } | string }).detail;
       return typeof detail === "string" ? detail : detail?.message;
-    });
-  }
-  return mp3ToPcmChunks(await res.arrayBuffer());
-}
-
-// Decode compressed audio and resample to the s2s wire format. Browser-only
-// (WebAudio) — which is where all synthesis happens anyway.
-async function mp3ToPcmChunks(buf: ArrayBuffer): Promise<string[]> {
-  const probe = new AudioContext();
-  const decoded = await probe.decodeAudioData(buf);
-  await probe.close();
-  const off = new OfflineAudioContext(
-    1,
-    Math.ceil(decoded.duration * S2S_AUDIO_SAMPLE_RATE),
-    S2S_AUDIO_SAMPLE_RATE,
+    },
   );
-  const src = off.createBufferSource();
-  src.buffer = decoded;
-  src.connect(off.destination);
-  src.start();
-  const rendered = await off.startRendering();
-  const pcm = floatTo16BitPCM(rendered.getChannelData(0));
-  return [bytesToBase64(new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength))];
 }
 
 // One table answers every per-vendor question: adding a vendor is one entry.
 const VENDORS: Record<
   TtsProvider,
-  (text: string, voice: string, apiKey: string) => Promise<string[]>
+  (text: string, voice: string, apiKey: string) => Promise<Blob>
 > = {
   gemini: synthesizeGemini,
   openai: synthesizeOpenai,
   elevenlabs: synthesizeElevenlabs,
 };
 
-export function synthesizeSpeech(text: string, tts: ResolvedTts): Promise<string[]> {
+export function synthesizeSpeech(text: string, tts: ResolvedTts): Promise<Blob> {
   if (!tts.apiKey.trim()) {
     return Promise.reject(new Error(`No API key for ${tts.provider} TTS.`));
   }
