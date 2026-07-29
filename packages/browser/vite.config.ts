@@ -19,9 +19,18 @@ const repoRoot = path.resolve(__dirname, "../..");
 import type { Plugin, Connect } from "vite";
 function rootRedirect(): Plugin {
   const handler: Connect.NextHandleFunction = (req, res, next) => {
-    if (req.url === "/" || req.url === "/index.html") {
+    // Bare root → editor; bare entry paths get their trailing slash (vite
+    // dev serves create/index.html only at /create/). Pages handles both
+    // in production.
+    const target =
+      req.url === "/" || req.url === "/index.html"
+        ? "/create/"
+        : req.url === "/create" || req.url === "/compare"
+          ? `${req.url}/`
+          : null;
+    if (target) {
       res.statusCode = 302;
-      res.setHeader("Location", "/create/");
+      res.setHeader("Location", target);
       res.end();
       return;
     }
