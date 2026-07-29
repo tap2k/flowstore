@@ -5,6 +5,15 @@ import type { CellState, ModelDispatch, Scenario } from "./types";
 import { IDLE_CELL, cellKey } from "./types";
 import { runLiveCell } from "./liveCell";
 import { runRealtimeCell } from "./realtimeCell";
+import type { RunS2sCellArgs } from "./s2sCell";
+
+// S2s driver registry, total over the providers that have one — anything
+// else must fail as a crisp cell error, not fall through to some default
+// vendor's SDK. Adding a vendor = adding an entry (plus its rates row).
+const S2S_DRIVERS: Partial<Record<string, (a: RunS2sCellArgs) => Promise<void>>> = {
+  google: runLiveCell,
+  openai: runRealtimeCell,
+};
 
 // Resolves a model id to dispatch credentials, or null when the model can't
 // be dispatched (no key). Injected by the surface (browser settings store,
@@ -49,11 +58,18 @@ export async function runCell(args: {
   resume?: CellState;
 }): Promise<void> {
   const { systemPrompt, scenario, dispatch, onUpdate, onAudio, signal } = args;
-  // S2S columns route to a live driver by provider (same onUpdate contract,
+  // S2S columns route to their provider's driver (same onUpdate contract,
   // no resume — a closed session can't be re-seeded, so stopped cells
   // restart). Static imports are cheap: SDK loads stay lazy inside drivers.
   if (dispatch.live) {
-    const run = dispatch.provider === "openai" ? runRealtimeCell : runLiveCell;
+    const run = S2S_DRIVERS[dispatch.provider];
+    if (!run) {
+      onUpdate({
+        status: "error",
+        error: `No speech-to-speech driver for provider "${dispatch.provider}".`,
+      });
+      return;
+    }
     return run({ systemPrompt, scenario, dispatch, onUpdate, onAudio, signal });
   }
   const prior = resumablePrefix(args.resume, scenario);
@@ -142,26 +158,22 @@ export async function runMatrix(args: {
           resume: args.resumeFrom?.[key],
         });
       };
-      // Live columns overlap scenarios (each is an independent session, and
-      // the socket paces audio at speech speed — serial live cells would cost
-      // the sum of the spoken durations). Bounded to stay inside Live
-      // concurrent-session quotas. Text columns stay sequential: completions
-      // are fast, and serial order keeps provider rate-limit pressure flat.
-      if (resolveDispatch(model)?.live) {
-        const queue = [...scenarios];
-        await Promise.all(
-          Array.from({ length: Math.min(LIVE_COLUMN_CONCURRENCY, queue.length) }, async () => {
-            for (let s = queue.shift(); s && !signal?.aborted; s = queue.shift()) {
-              await one(s);
-            }
-          }),
-        );
-      } else {
-        for (const s of scenarios) {
-          if (signal?.aborted) break;
-          await one(s);
-        }
-      }
+      // One worker pool per column; width 1 IS the sequential loop. S2s
+      // columns get width 3: each cell is an independent session and the
+      // socket paces audio at speech speed, so serial s2s cells would cost
+      // the sum of the spoken durations. Text columns stay at 1 —
+      // completions are fast, and serial order keeps rate-limit pressure
+      // flat. NOTE: the bound is per COLUMN; two s2s columns on one key run
+      // up to 2× it. Liveness is probed once at column start.
+      const width = resolveDispatch(model)?.live ? S2S_SESSION_CONCURRENCY : 1;
+      const queue = [...scenarios];
+      await Promise.all(
+        Array.from({ length: Math.min(width, queue.length) }, async () => {
+          for (let s = queue.shift(); s && !signal?.aborted; s = queue.shift()) {
+            await one(s);
+          }
+        }),
+      );
     }),
   );
 
@@ -202,7 +214,7 @@ export function divergence(a: TranscriptTurn[], b: TranscriptTurn[]): number {
 
 export const DIVERGENCE_THRESHOLD = 0.72;
 
-// Concurrent Live sessions per s2s column. Gemini Live session quotas are
-// modest (single digits on lower tiers) — 3 keeps a healthy margin while
-// cutting a column's wall time to ~ceil(n/3) spoken durations.
-export const LIVE_COLUMN_CONCURRENCY = 3;
+// Concurrent sessions per s2s column. Live-API session quotas are modest
+// (single digits on lower tiers for both vendors) — 3 keeps a healthy margin
+// while cutting a column's wall time to ~ceil(n/3) spoken durations.
+export const S2S_SESSION_CONCURRENCY = 3;

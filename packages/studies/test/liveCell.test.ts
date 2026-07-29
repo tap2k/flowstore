@@ -1,20 +1,14 @@
 import { describe, expect, it } from "vitest";
-import {
-  LiveTurnCollector,
-  usageFromLiveMetadata,
-  type LiveServerEvent,
-  type LiveTurnResult,
-} from "../src/liveCell";
-import { estimateLiveCost, liveRatesFor } from "../src/liveRates";
+import { feedLiveEvent, usageFromLiveMetadata, type LiveServerEvent } from "../src/liveCell";
+import { TurnAccumulator, type S2sTurn } from "../src/s2sCell";
+import { estimateS2sCost, s2sRatesFor } from "../src/s2sRates";
 
 describe("usageFromLiveMetadata", () => {
   it("splits modality details into text and audio fields", () => {
     const u = usageFromLiveMetadata({
       promptTokenCount: 130,
       responseTokenCount: 1250,
-      promptTokensDetails: [
-        { modality: "TEXT", tokenCount: 130 },
-      ],
+      promptTokensDetails: [{ modality: "TEXT", tokenCount: 130 }],
       responseTokensDetails: [
         { modality: "TEXT", tokenCount: 50 },
         { modality: "AUDIO", tokenCount: 1200 },
@@ -31,24 +25,41 @@ describe("usageFromLiveMetadata", () => {
     const u = usageFromLiveMetadata({ promptTokenCount: 10, responseTokenCount: 20 });
     expect(u).toEqual({ inputTokens: 10, outputTokens: 20 });
   });
+
+  it("maps cached content tokens", () => {
+    const u = usageFromLiveMetadata({
+      promptTokenCount: 10,
+      responseTokenCount: 20,
+      cachedContentTokenCount: 7,
+    });
+    expect(u.cachedInputTokens).toBe(7);
+  });
 });
 
-describe("LiveTurnCollector", () => {
+describe("feedLiveEvent", () => {
   const audioChunk: LiveServerEvent = {
     serverContent: { modelTurn: { parts: [{ inlineData: { data: "AAAA" } }] } },
   };
+  const collect = () => {
+    const turns: S2sTurn[] = [];
+    const acc = new TurnAccumulator((t) => turns.push(t));
+    return { turns, acc };
+  };
+
+  it("signals readiness on setupComplete", () => {
+    const { acc } = collect();
+    expect(feedLiveEvent(acc, { setupComplete: {} }, 0)).toBe(true);
+    expect(feedLiveEvent(acc, audioChunk, 1)).toBe(false);
+  });
 
   it("accumulates transcription across messages and flushes on turnComplete", () => {
-    const turns: LiveTurnResult[] = [];
-    const c = new LiveTurnCollector((t) => turns.push(t));
-    c.feed({ setupComplete: {} }, 0);
-    expect(c.ready).toBe(true);
-
-    c.markSent(1000);
-    c.feed(audioChunk, 1400);
-    c.feed({ serverContent: { outputTranscription: { text: "Namaste! " } } }, 1500);
-    c.feed({ serverContent: { outputTranscription: { text: "How can I help?" } } }, 1600);
-    c.feed(
+    const { turns, acc } = collect();
+    acc.markSent(1000);
+    feedLiveEvent(acc, audioChunk, 1400);
+    feedLiveEvent(acc, { serverContent: { outputTranscription: { text: "Namaste! " } } }, 1500);
+    feedLiveEvent(acc, { serverContent: { outputTranscription: { text: "How can I help?" } } }, 1600);
+    feedLiveEvent(
+      acc,
       {
         usageMetadata: {
           promptTokenCount: 20,
@@ -77,38 +88,29 @@ describe("LiveTurnCollector", () => {
   });
 
   it("audio chunks accumulate per turn and reset between turns", () => {
-    const turns: LiveTurnResult[] = [];
-    const c = new LiveTurnCollector((t) => turns.push(t));
-    c.feed(audioChunk, 0);
-    c.feed(audioChunk, 1);
-    c.feed({ serverContent: { turnComplete: true } }, 2);
-    c.feed({ serverContent: { outputTranscription: { text: "silent?" }, turnComplete: true } }, 3);
+    const { turns, acc } = collect();
+    feedLiveEvent(acc, audioChunk, 0);
+    feedLiveEvent(acc, audioChunk, 1);
+    feedLiveEvent(acc, { serverContent: { turnComplete: true } }, 2);
+    feedLiveEvent(
+      acc,
+      { serverContent: { outputTranscription: { text: "silent?" }, turnComplete: true } },
+      3,
+    );
     expect(turns[0].audioChunks).toEqual(["AAAA", "AAAA"]);
     expect(turns[1].audioChunks).toBeUndefined();
   });
-
-  it("resets state between turns", () => {
-    const turns: LiveTurnResult[] = [];
-    const c = new LiveTurnCollector((t) => turns.push(t));
-    c.markSent(0);
-    c.feed({ serverContent: { outputTranscription: { text: "one" }, turnComplete: true } }, 50);
-    c.markSent(100);
-    c.feed({ serverContent: { outputTranscription: { text: "two" }, turnComplete: true } }, 180);
-    expect(turns.map((t) => t.text)).toEqual(["one", "two"]);
-    expect(turns[1].latencyMs).toBe(80);
-    expect(turns[1].usage).toBeUndefined();
-  });
 });
 
-describe("liveRates", () => {
+describe("s2s rates (gemini)", () => {
   it("matches live and native-audio wire models only", () => {
-    expect(liveRatesFor("gemini-3.1-flash-live-preview")).not.toBeNull();
-    expect(liveRatesFor("gemini-2.5-flash-native-audio-preview-09-2025")).not.toBeNull();
-    expect(liveRatesFor("gemini-2.5-flash")).toBeNull();
+    expect(s2sRatesFor("gemini-3.1-flash-live-preview")).not.toBeNull();
+    expect(s2sRatesFor("gemini-2.5-flash-native-audio-preview-09-2025")).not.toBeNull();
+    expect(s2sRatesFor("gemini-2.5-flash")).toBeNull();
   });
 
   it("estimates dollars from mixed text/audio usage, and only for live usage", () => {
-    const est = estimateLiveCost(
+    const est = estimateS2sCost(
       { inputTokens: 1_000_000, outputTokens: 0, audioInputTokens: 0, audioOutputTokens: 1_000_000 },
       "gemini-3.1-flash-live-preview",
     );
@@ -116,8 +118,8 @@ describe("liveRates", () => {
     // No audio tokens → not a live run → no estimate (text columns keep the
     // measured-or-nothing discipline).
     expect(
-      estimateLiveCost({ inputTokens: 100, outputTokens: 100 }, "gemini-3.1-flash-live-preview"),
+      estimateS2sCost({ inputTokens: 100, outputTokens: 100 }, "gemini-3.1-flash-live-preview"),
     ).toBeNull();
-    expect(estimateLiveCost(undefined, "gemini-3.1-flash-live-preview")).toBeNull();
+    expect(estimateS2sCost(undefined, "gemini-3.1-flash-live-preview")).toBeNull();
   });
 });

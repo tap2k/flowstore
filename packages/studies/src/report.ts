@@ -1,7 +1,7 @@
 import type { CellState, Study } from "./types";
 import { cellKey } from "./types";
 import { SPEECH_WPM, estimateVoiceCost } from "./voiceCost";
-import { estimateLiveCost } from "./liveRates";
+import { estimateS2sCost } from "./s2sRates";
 
 // Self-contained HTML report — the forwardable artifact. Audience: the
 // agency's client/buyer, not the person who ran the study. Contents: summary
@@ -53,9 +53,9 @@ export function buildReportHtml(
         ? costs.reduce((a, b) => a + b, 0) / modelCells.length
         : undefined;
     // S2S columns: no provider-reported dollars — estimate from measured
-    // tokens × Live rates, shown with "~" to keep measured/modeled apart.
+    // tokens × published rates, shown with "~" to keep measured/modeled apart.
     const liveEsts = modelCells
-      .map((c) => estimateLiveCost(c.usage, m))
+      .map((c) => estimateS2sCost(c.usage, m))
       .filter((x): x is number => x !== null);
     const liveEstPerConv =
       costPerConv === undefined && liveEsts.length === modelCells.length && modelCells.length > 0

@@ -10,8 +10,8 @@ import type { CellState, ModelDispatch, Scenario } from "./types";
 // runCell produces. No mic, no playback — this is the compare cell, not the
 // simulate panel. Each vendor contributes only a parser (event stream →
 // TurnAccumulator calls) and a transport (connect/sendUserTurn/close); the
-// turn loop, timeouts, latency/wall bookkeeping, and CellState protocol live
-// here once.
+// turn loop, timeouts, latency/wall bookkeeping, fatal-error latching, abort
+// handling, and the CellState protocol live here once.
 
 // latencyMs = send→first audio (how fast the reply FEELS — the per-reply
 // chip and the report's latency column). wallMs = send→turn-complete (how
@@ -30,12 +30,14 @@ export type S2sTurn = {
 };
 
 // Output audio format shared by Gemini Live and OpenAI Realtime (pcm16).
-export const LIVE_AUDIO_SAMPLE_RATE = 24000;
+export const S2S_AUDIO_SAMPLE_RATE = 24000;
 
 // Accumulates one agent turn from a vendor parser's calls and flushes it as
 // an S2sTurn on complete(). Usage is read as per-generation (each turn's
 // final events carry that turn's counts) — the latest snapshot wins, summed
-// across turns by the cell loop.
+// across turns by the cell loop. Note the sum's meaning: both vendors bill
+// each generation's input over the whole conversation so far, exactly like
+// the text path's per-call usage — the summed dollars are what you'd pay.
 export class TurnAccumulator {
   private agentBuf = "";
   private turnUsage: ChatUsage | undefined;
@@ -45,8 +47,8 @@ export class TurnAccumulator {
 
   constructor(private onTurn: (turn: S2sTurn) => void) {}
 
-  // Stamp when a user turn is sent: first response marks latency; the stamp
-  // itself anchors wall time until the turn completes.
+  // Stamped by the cell loop when a user turn is sent: first response marks
+  // latency; the stamp itself anchors wall time until the turn completes.
   markSent(now: number): void {
     this.sentAt = now;
     this.latencyMs = undefined;
@@ -109,8 +111,8 @@ function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
   });
 }
 
-// What a vendor transport hands back: send a user turn (stamping the
-// accumulator's clock itself) and close.
+// What a vendor transport hands back: send a user turn and close. The cell
+// loop stamps the accumulator's clock itself, right before sendUserTurn.
 export type S2sSession = {
   sendUserTurn: (text: string) => void;
   close: () => void;
@@ -119,10 +121,12 @@ export type S2sSession = {
 export type S2sConnect = (args: {
   dispatch: ModelDispatch;
   systemPrompt: string;
-  // The transport builds its parser around these: completed turns, session
-  // readiness (safe to send), fatal errors (rejects the pending waiter).
-  onTurn: (turn: S2sTurn) => void;
+  // The transport parses its event stream into these accumulator calls.
+  acc: TurnAccumulator;
+  // Session readiness (safe to send). Idempotent — call freely.
   onReady: () => void;
+  // Fatal transport errors. Safe to call after intentional close (no-op) or
+  // repeatedly (first error wins) — transports may report close() naively.
   onFatal: (e: Error) => void;
 }) => Promise<S2sSession>;
 
@@ -138,10 +142,13 @@ export type RunS2sCellArgs = {
   signal?: AbortSignal;
 };
 
-// Same contract as runCell (status patches through onUpdate; cooperative
-// signal at turn boundaries). S2s cells never resume mid-conversation — a
-// closed session can't be re-seeded faithfully, so a stopped cell restarts
-// its scenario from the top.
+const ABORTED = new Error("aborted");
+
+// Same contract as runCell (status patches through onUpdate). Abort closes
+// the socket immediately — an s2s session streams (and bills) at speech
+// speed, so "stop" must actually hang up, not wait out the turn. S2s cells
+// never resume mid-conversation — a closed session can't be re-seeded
+// faithfully, so a stopped cell restarts its scenario from the top.
 export async function runS2sCell(
   args: RunS2sCellArgs,
   connect: S2sConnect,
@@ -153,47 +160,65 @@ export async function runS2sCell(
   let totalMs = 0;
   onUpdate({ status: "running", turns: [], usage, totalMs, error: undefined });
 
-  // Waiters bridge the callback stream to the sequential turn loop.
+  // Failure is LATCHED, not just thrown at the current waiter: a socket
+  // death that lands between two waiters (after setup resolves, between
+  // turns) would otherwise reject a settled promise and vanish — the loop
+  // would then send into a dead socket and stall out the full turn timeout
+  // instead of reporting the real cause.
+  let fatal: Error | null = null;
+  let closing = false;
+  let rejectCurrent: ((e: Error) => void) | null = null;
   let resolveTurn: ((t: S2sTurn) => void) | null = null;
   let resolveReady: (() => void) | null = null;
-  let failSession: ((e: Error) => void) | null = null;
+
+  const onFatal = (e: Error) => {
+    if (closing || fatal) return;
+    fatal = e;
+    rejectCurrent?.(e);
+    rejectCurrent = null;
+  };
+  const abort = () => onFatal(ABORTED);
+  signal?.addEventListener("abort", abort);
+
+  const acc = new TurnAccumulator((turn) => {
+    resolveTurn?.(turn);
+    resolveTurn = null;
+  });
 
   const ready = new Promise<void>((resolve, reject) => {
     resolveReady = resolve;
-    failSession = reject;
+    rejectCurrent = reject;
   });
 
   let session: S2sSession | null = null;
   try {
+    if (signal?.aborted) throw ABORTED;
     session = await connect({
       dispatch,
       systemPrompt,
-      onTurn: (turn) => {
-        resolveTurn?.(turn);
-        resolveTurn = null;
-      },
+      acc,
       onReady: () => {
         resolveReady?.();
         resolveReady = null;
       },
-      onFatal: (e) => failSession?.(e),
+      onFatal,
     });
     await withTimeout(ready, SETUP_TIMEOUT_MS, `${what} session setup`);
 
     for (const userText of scenario.turns) {
-      if (signal?.aborted) break;
+      if (fatal) throw fatal;
       const userTurn: TranscriptTurn = { role: "user", text: userText, ts: Date.now(), events: [] };
       onUpdate({ turns: [...history, userTurn] });
 
       const turnDone = new Promise<S2sTurn>((resolve, reject) => {
         resolveTurn = resolve;
-        failSession = reject;
+        rejectCurrent = reject;
       });
+      acc.markSent(Date.now());
       session.sendUserTurn(userText);
       const res = await withTimeout(turnDone, TURN_TIMEOUT_MS, `${what} turn`);
-      if (signal?.aborted) break;
 
-      totalMs += res.wallMs ?? res.latencyMs ?? 0;
+      totalMs += res.wallMs ?? 0;
       usage = addUsage(usage, res.usage);
       const agentTurn: TranscriptTurn = {
         role: "agent",
@@ -203,16 +228,24 @@ export async function runS2sCell(
         latencyMs: res.latencyMs,
       };
       history.push(userTurn, agentTurn);
+      // onAudio precedes onUpdate on purpose: the surface reads the audio
+      // cache during the render this patch triggers.
       if (res.audioChunks && onAudio) onAudio(agentTurn.ts, res.audioChunks);
       onUpdate({ turns: [...history], usage, totalMs });
     }
+    onUpdate({ status: "done" });
+  } catch (err) {
     // A stopped s2s cell reverts to idle with whatever completed; it will
     // rerun from scratch (no resume), so partial turns are display-only.
-    onUpdate(signal?.aborted ? { status: "idle", turns: [...history] } : { status: "done" });
-  } catch (err) {
-    onUpdate({ status: "error", error: err instanceof Error ? err.message : String(err) });
+    if (err === ABORTED || signal?.aborted) {
+      onUpdate({ status: "idle", turns: [...history], usage, totalMs });
+    } else {
+      onUpdate({ status: "error", error: err instanceof Error ? err.message : String(err) });
+    }
   } finally {
-    failSession = null;
+    signal?.removeEventListener("abort", abort);
+    closing = true;
+    rejectCurrent = null;
     resolveTurn = null;
     try {
       session?.close();

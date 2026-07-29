@@ -8,14 +8,14 @@ import type { ChatUsage } from "@flowstore/core/llm/types";
 // Extensible by adding a row: first regex match against the model id wins,
 // so keep narrower patterns (mini variants) above their parents. Rates are
 // $/1M tokens, published pricing as of 2026-07; update as vendors move.
-export type LiveRates = {
+export type S2sRates = {
   textInPerM: number;
   textOutPerM: number;
   audioInPerM: number;
   audioOutPerM: number;
 };
 
-const RATE_TABLE: { match: RegExp; rates: LiveRates }[] = [
+const RATE_TABLE: { match: RegExp; rates: S2sRates }[] = [
   // Gemini Live (half-cascade and native-audio flavors share pricing)
   {
     match: /gemini.*(live|native-audio)/i,
@@ -32,17 +32,17 @@ const RATE_TABLE: { match: RegExp; rates: LiveRates }[] = [
   },
 ];
 
-export function liveRatesFor(model: string): LiveRates | null {
+export function s2sRatesFor(model: string): S2sRates | null {
   return RATE_TABLE.find((r) => r.match.test(model))?.rates ?? null;
 }
 
 // Estimated dollars for an s2s cell's aggregate usage; null when the model
 // has no rate entry or the usage carries no audio tokens (i.e. not a live
 // run — text columns keep their measured-or-nothing cost discipline).
-export function estimateLiveCost(usage: ChatUsage | undefined, model: string): number | null {
+export function estimateS2sCost(usage: ChatUsage | undefined, model: string): number | null {
   if (!usage) return null;
   if (!usage.audioInputTokens && !usage.audioOutputTokens) return null;
-  const r = liveRatesFor(model);
+  const r = s2sRatesFor(model);
   if (!r) return null;
   return (
     (usage.inputTokens / 1e6) * r.textInPerM +

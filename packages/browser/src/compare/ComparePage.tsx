@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
 import {
   buildReportHtml,
   buildStudyBundle,
   cellKey,
   detectPlaceholders,
-  estimateLiveCost,
+  estimateS2sCost,
   estimateVoiceCost,
 } from "@flowstore/studies";
 import type { CellState, VoiceRates } from "@flowstore/studies";
@@ -29,7 +29,13 @@ import { useSettingsStore } from "@/lib/store/settings";
 import { downloadBlob } from "@/lib/download";
 import { activeVarsOf, resolveForEngine, useCompareStore } from "./store";
 import { isStudyEmpty } from "./studyStorage";
-import { getTurnAudio } from "./audioCache";
+import {
+  getTurnAudioUrl,
+  hasTurnAudio,
+  peekTurnAudioUrl,
+  subscribeTurnAudio,
+  turnAudioVersion,
+} from "./audioCache";
 import { GitHubStudyOpenModal, GitHubStudySaveModal } from "./GitHubStudyModals";
 
 // The compare tool: paste a prompt, edit scenarios, pick models, run the
@@ -62,6 +68,9 @@ export function ComparePage() {
     return { asrPerMin: num(asrPerMin), ttsPerMChars: num(ttsPerMChars) };
   }, [asrPerMin, ttsPerMChars]);
 
+  // Re-render when replay audio arrives or evicts — the cache is a module
+  // singleton, not store state (see audioCache.ts).
+  useSyncExternalStore(subscribeTurnAudio, turnAudioVersion);
   const placeholders = useMemo(() => detectPlaceholders(s.prompt), [s.prompt]);
   const translateReady = resolveForEngine(defaultModel) !== null;
 
@@ -471,6 +480,7 @@ export function ComparePage() {
             s.models.map((m, i) => {
               const key = cellKey(s.selected!, i);
               const c = s.cells[key];
+              const colLive = resolveForEngine(m)?.live === true;
               const colTurns = c?.turns ?? [];
               const hasUncached = colTurns.some((t) => t.text && !s.translations[key]?.has(t.ts));
               const translateLabel =
@@ -519,7 +529,7 @@ export function ComparePage() {
                         🌐 {translateLabel}
                       </Button>
                     )}
-                    <ColumnStats cell={c} rates={voiceRates} model={m} />
+                    <ColumnStats cell={c} rates={voiceRates} model={m} live={colLive} />
                     {/* capture-gold disabled for now (Tapan 2026-07-26) — uncomment
                         to restore (store.captureGold); import-side golds and
                         bundle round-trip are unaffected.
@@ -560,7 +570,7 @@ export function ComparePage() {
                         key={k}
                         turn={t}
                         displayText={s.showTranslated[key] ? s.translations[key]?.get(t.ts) : undefined}
-                        audioUrl={t.role === "agent" ? getTurnAudio(key, t.ts) : undefined}
+                        audio={colLive && t.role === "agent" && hasTurnAudio(key, t.ts) ? { cellKey: key, ts: t.ts } : undefined}
                       />
                     ))}
                     {c?.status === "running" && (
@@ -629,15 +639,27 @@ function ScenarioChip({ cells }: { cells: (CellState | undefined)[] }) {
   );
 }
 
-function ColumnStats({ cell, rates, model }: { cell?: CellState; rates: VoiceRates; model: string }) {
+function ColumnStats({
+  cell,
+  rates,
+  model,
+  live,
+}: {
+  cell?: CellState;
+  rates: VoiceRates;
+  model: string;
+  live: boolean;
+}) {
   if (!cell?.usage) return null;
   const u = cell.usage;
-  const isLive = (u.audioInputTokens ?? 0) + (u.audioOutputTokens ?? 0) > 0;
-  // S2S column: measured audio tokens × Live rates (~, modeled dollars). The
+  const hasAudioTokens = (u.audioInputTokens ?? 0) + (u.audioOutputTokens ?? 0) > 0;
+  // S2S column (known from dispatch, not inferred from usage — a live run
+  // whose vendor omits token details must not fall into the cascade branch):
+  // measured audio tokens × published rates (~, modeled dollars). The
   // cascade estimate never applies here — this column already IS speech.
-  const liveEst = isLive ? estimateLiveCost(u, model) : null;
+  const liveEst = live ? estimateS2sCost(u, model) : null;
   // ≈ marks the modeled figure; measured LLM $ stays unprefixed beside it.
-  const voice = isLive ? null : estimateVoiceCost(cell.turns, u.cost, rates);
+  const voice = live ? null : estimateVoiceCost(cell.turns, u.cost, rates);
   const fmt = (n: number) => `$${n.toFixed(n >= 0.01 ? 3 : 4)}`;
   const voiceTitle = voice
     ? [
@@ -655,7 +677,7 @@ function ColumnStats({ cell, rates, model }: { cell?: CellState; rates: VoiceRat
   return (
     <span className="whitespace-nowrap text-[10px] text-text-tertiary">
       {`${u.inputTokens.toLocaleString()}/${u.outputTokens.toLocaleString()}`}
-      {isLive && (
+      {hasAudioTokens && (
         <span title="audio tokens in/out (measured)">
           {` · audio ${(u.audioInputTokens ?? 0).toLocaleString()}/${(u.audioOutputTokens ?? 0).toLocaleString()}`}
         </span>
@@ -676,16 +698,16 @@ function ColumnStats({ cell, rates, model }: { cell?: CellState; rates: VoiceRat
 
 // displayText swaps in the English translation while the column's translate
 // toggle is on (same substitution the editor's TurnView does) — the stored
-// transcript stays verbatim. audioUrl (s2s replies, session-scoped — see
-// audioCache) adds an inline replay control.
+// transcript stays verbatim. audio (s2s replies, session-scoped — see
+// audioCache) adds an inline replay control; the WAV builds on first click.
 function TurnBubble({
   turn,
   displayText,
-  audioUrl,
+  audio,
 }: {
   turn: TranscriptTurn;
   displayText?: string;
-  audioUrl?: string;
+  audio?: { cellKey: string; ts: number };
 }) {
   const shown = displayText ?? turn.text;
   return turn.role === "user" ? (
@@ -693,39 +715,61 @@ function TurnBubble({
   ) : (
     <div className="mr-8 rounded-lg border border-border-default bg-surface-panel px-3 py-2 text-xs">
       {shown}
-      {(turn.latencyMs !== undefined || audioUrl) && (
+      {(turn.latencyMs !== undefined || audio) && (
         <div className="mt-1 flex items-center gap-2 text-[10px] text-text-disabled">
           {turn.latencyMs !== undefined && <span>{(turn.latencyMs / 1000).toFixed(1)}s</span>}
-          {audioUrl && <ReplayButton url={audioUrl} />}
+          {audio && <ReplayButton cellKey={audio.cellKey} ts={audio.ts} />}
         </div>
       )}
     </div>
   );
 }
 
-// Replay a spoken s2s reply. One shared Audio element module-wide so starting
-// a reply stops whichever one was playing (columns would cacophony otherwise).
-let replayEl: HTMLAudioElement | null = null;
-function ReplayButton({ url }: { url: string }) {
-  const [playing, setPlaying] = useState(false);
-  const toggle = () => {
-    if (playing) {
-      replayEl?.pause();
-      return; // onpause below clears state
-    }
-    replayEl?.pause();
-    const el = new Audio(url);
-    replayEl = el;
-    el.onended = el.onpause = () => {
-      if (replayEl === el) setPlaying(false);
-    };
-    setPlaying(true);
-    void el.play();
+// Replay a spoken s2s reply. One module-level element and one source of
+// truth for what's playing (the URL), published through a tiny external
+// store — every button derives its own playing state from it, so starting a
+// reply reliably flips the previous button back to "hear" (columns would
+// cacophony otherwise, and HTMLAudioElement pause events arrive async).
+const replay = (() => {
+  const el = typeof Audio !== "undefined" ? new Audio() : null;
+  let playingUrl: string | null = null;
+  const subs = new Set<() => void>();
+  const notify = () => subs.forEach((cb) => cb());
+  if (el) el.onended = el.onpause = () => {
+    playingUrl = null;
+    notify();
   };
+  return {
+    subscribe: (cb: () => void) => {
+      subs.add(cb);
+      return () => subs.delete(cb);
+    },
+    playingUrl: () => playingUrl,
+    toggle: (url: string) => {
+      if (!el) return;
+      if (playingUrl === url) {
+        el.pause();
+        return;
+      }
+      el.src = url;
+      playingUrl = url;
+      notify();
+      void el.play();
+    },
+  };
+})();
+
+function ReplayButton({ cellKey, ts }: { cellKey: string; ts: number }) {
+  const playingUrl = useSyncExternalStore(replay.subscribe, replay.playingUrl);
+  // peek never builds — the WAV encode happens on click only.
+  const playing = playingUrl !== null && peekTurnAudioUrl(cellKey, ts) === playingUrl;
   return (
     <button
       type="button"
-      onClick={toggle}
+      onClick={() => {
+        const u = getTurnAudioUrl(cellKey, ts);
+        if (u) replay.toggle(u);
+      }}
       title={playing ? "Stop" : "Hear this reply (audio from the run, kept for this session)"}
       className="cursor-pointer text-text-tertiary hover:text-text-primary"
     >

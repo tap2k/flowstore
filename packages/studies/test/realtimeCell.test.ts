@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { RealtimeTurnCollector, usageFromRealtimeUsage } from "../src/realtimeCell";
-import type { S2sTurn } from "../src/s2sCell";
-import { estimateLiveCost, liveRatesFor } from "../src/liveRates";
+import { feedRealtimeEvent, usageFromRealtimeUsage } from "../src/realtimeCell";
+import { TurnAccumulator, type S2sTurn } from "../src/s2sCell";
+import { estimateS2sCost, s2sRatesFor } from "../src/s2sRates";
 
 describe("usageFromRealtimeUsage", () => {
   it("splits token details into text/audio/cached fields", () => {
@@ -27,25 +27,50 @@ describe("usageFromRealtimeUsage", () => {
       outputTokens: 20,
     });
   });
+
+  it("derives text tokens from flat counts when details omit them", () => {
+    // Details present but text_tokens missing: tokens must not be dropped.
+    expect(
+      usageFromRealtimeUsage({
+        input_tokens: 500,
+        output_tokens: 300,
+        input_token_details: { audio_tokens: 100, cached_tokens: 50 },
+        output_token_details: { audio_tokens: 250 },
+      }),
+    ).toEqual({
+      inputTokens: 350,
+      outputTokens: 50,
+      cachedInputTokens: 50,
+      audioInputTokens: 100,
+      audioOutputTokens: 250,
+    });
+  });
 });
 
-describe("RealtimeTurnCollector", () => {
-  it("reduces GA-named events into a turn", () => {
+describe("feedRealtimeEvent", () => {
+  const collect = () => {
     const turns: S2sTurn[] = [];
-    const c = new RealtimeTurnCollector((t) => turns.push(t));
-    c.feed({ type: "session.created" }, 0);
-    expect(c.ready).toBe(true);
+    const acc = new TurnAccumulator((t) => turns.push(t));
+    return { turns, acc };
+  };
 
-    c.markSent(1000);
-    c.feed({ type: "response.output_audio.delta", delta: "AAAA" }, 1300);
-    c.feed({ type: "response.output_audio_transcript.delta", delta: "Sure — " }, 1350);
-    c.feed({ type: "response.output_audio_transcript.delta", delta: "done." }, 1400);
-    c.feed(
+  it("signals readiness on session.updated (config acknowledged), not created", () => {
+    const { acc } = collect();
+    expect(feedRealtimeEvent(acc, { type: "session.created" }, 0)).toBe(false);
+    expect(feedRealtimeEvent(acc, { type: "session.updated" }, 1)).toBe(true);
+  });
+
+  it("reduces GA-named events into a turn", () => {
+    const { turns, acc } = collect();
+    acc.markSent(1000);
+    feedRealtimeEvent(acc, { type: "response.output_audio.delta", delta: "AAAA" }, 1300);
+    feedRealtimeEvent(acc, { type: "response.output_audio_transcript.delta", delta: "Sure — " }, 1350);
+    feedRealtimeEvent(acc, { type: "response.output_audio_transcript.delta", delta: "done." }, 1400);
+    feedRealtimeEvent(
+      acc,
       {
         type: "response.done",
-        response: {
-          usage: { output_token_details: { text_tokens: 10, audio_tokens: 200 } },
-        },
+        response: { usage: { output_token_details: { text_tokens: 10, audio_tokens: 200 } } },
       },
       2500,
     );
@@ -63,28 +88,27 @@ describe("RealtimeTurnCollector", () => {
   });
 
   it("accepts beta-era event names too", () => {
-    const turns: S2sTurn[] = [];
-    const c = new RealtimeTurnCollector((t) => turns.push(t));
-    c.markSent(0);
-    c.feed({ type: "response.audio.delta", delta: "BBBB" }, 100);
-    c.feed({ type: "response.audio_transcript.delta", delta: "hi" }, 150);
-    c.feed({ type: "response.done", response: {} }, 200);
+    const { turns, acc } = collect();
+    acc.markSent(0);
+    feedRealtimeEvent(acc, { type: "response.audio.delta", delta: "BBBB" }, 100);
+    feedRealtimeEvent(acc, { type: "response.audio_transcript.delta", delta: "hi" }, 150);
+    feedRealtimeEvent(acc, { type: "response.done", response: {} }, 200);
     expect(turns[0].text).toBe("hi");
     expect(turns[0].audioChunks).toEqual(["BBBB"]);
     expect(turns[0].latencyMs).toBe(100);
   });
 });
 
-describe("realtime rates", () => {
+describe("s2s rates (realtime)", () => {
   it("matches realtime models, mini row before full", () => {
-    expect(liveRatesFor("gpt-realtime")?.audioOutPerM).toBe(64);
-    expect(liveRatesFor("gpt-realtime-mini")?.audioOutPerM).toBe(20);
-    expect(liveRatesFor("gpt-4o-realtime-preview")?.audioOutPerM).toBe(64);
-    expect(liveRatesFor("gpt-5.5")).toBeNull();
+    expect(s2sRatesFor("gpt-realtime")?.audioOutPerM).toBe(64);
+    expect(s2sRatesFor("gpt-realtime-mini")?.audioOutPerM).toBe(20);
+    expect(s2sRatesFor("gpt-4o-realtime-preview")?.audioOutPerM).toBe(64);
+    expect(s2sRatesFor("gpt-5.5")).toBeNull();
   });
 
   it("prices realtime usage", () => {
-    const est = estimateLiveCost(
+    const est = estimateS2sCost(
       { inputTokens: 0, outputTokens: 0, audioInputTokens: 1_000_000, audioOutputTokens: 0 },
       "gpt-realtime",
     );

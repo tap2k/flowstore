@@ -1,20 +1,9 @@
 import type { ChatUsage } from "@flowstore/core/llm/types";
-import {
-  TurnAccumulator,
-  runS2sCell,
-  type RunS2sCellArgs,
-  type S2sConnect,
-  type S2sTurn,
-} from "./s2sCell";
+import { runS2sCell, type RunS2sCellArgs, type S2sConnect, type TurnAccumulator } from "./s2sCell";
 
 // Gemini Live vendor half of the s2s cell: the parser (Live message stream →
 // TurnAccumulator) and the transport (ai.live.connect). The turn loop and
 // CellState protocol live in s2sCell.
-
-// Back-compat alias — the accumulator's flush type predates the shared
-// skeleton under this name.
-export type LiveTurnResult = S2sTurn;
-export { LIVE_AUDIO_SAMPLE_RATE } from "./s2sCell";
 
 // Structural mirror of @google/genai's LiveServerMessage, kept local so the
 // parser (and its tests) never import the SDK.
@@ -28,6 +17,7 @@ export type LiveServerEvent = {
   usageMetadata?: {
     promptTokenCount?: number;
     responseTokenCount?: number;
+    cachedContentTokenCount?: number;
     promptTokensDetails?: { modality?: string; tokenCount?: number }[];
     responseTokensDetails?: { modality?: string; tokenCount?: number }[];
   };
@@ -56,55 +46,39 @@ export function usageFromLiveMetadata(
   return {
     inputTokens: input ? input.text : (meta.promptTokenCount ?? 0),
     outputTokens: output ? output.text : (meta.responseTokenCount ?? 0),
+    ...(meta.cachedContentTokenCount ? { cachedInputTokens: meta.cachedContentTokenCount } : {}),
     ...(input && input.audio > 0 ? { audioInputTokens: input.audio } : {}),
     ...(output && output.audio > 0 ? { audioOutputTokens: output.audio } : {}),
   };
 }
 
-// Parses the interleaved Live message stream into TurnAccumulator calls.
-// One instance per session; feed() every message.
-export class LiveTurnCollector {
-  private acc: TurnAccumulator;
-  ready = false;
-
-  constructor(onTurn: (turn: LiveTurnResult) => void) {
-    this.acc = new TurnAccumulator(onTurn);
+// Parse one Live message into accumulator calls. Returns true when the
+// message signals session readiness (setupComplete).
+export function feedLiveEvent(acc: TurnAccumulator, msg: LiveServerEvent, now: number): boolean {
+  const content = msg.serverContent;
+  for (const p of content?.modelTurn?.parts ?? []) {
+    if (p.inlineData?.data) acc.addAudio(p.inlineData.data, now);
   }
-
-  markSent(now: number): void {
-    this.acc.markSent(now);
-  }
-
-  feed(msg: LiveServerEvent, now: number): void {
-    if (msg.setupComplete) this.ready = true;
-    const content = msg.serverContent;
-    for (const p of content?.modelTurn?.parts ?? []) {
-      if (p.inlineData?.data) this.acc.addAudio(p.inlineData.data, now);
-    }
-    this.acc.addText(content?.outputTranscription?.text ?? "", now);
-    if (msg.usageMetadata) this.acc.setUsage(usageFromLiveMetadata(msg.usageMetadata));
-    if (content?.turnComplete) this.acc.complete(now);
-  }
+  acc.addText(content?.outputTranscription?.text ?? "", now);
+  if (msg.usageMetadata) acc.setUsage(usageFromLiveMetadata(msg.usageMetadata));
+  if (content?.turnComplete) acc.complete(now);
+  return Boolean(msg.setupComplete);
 }
 
-const connectGeminiLive: S2sConnect = async ({
-  dispatch,
-  systemPrompt,
-  onTurn,
-  onReady,
-  onFatal,
-}) => {
-  const collector = new LiveTurnCollector(onTurn);
+const connectGeminiLive: S2sConnect = async ({ dispatch, systemPrompt, acc, onReady, onFatal }) => {
   // SDK loaded lazily: only a live run pays for it, and importing the engine
   // (runner → liveCell) stays side-effect-free for node tests.
   const { GoogleGenAI, Modality } = await import("@google/genai");
   const ai = new GoogleGenAI({ apiKey: dispatch.apiKey });
+  let readySent = false;
   const session = await ai.live.connect({
     model: dispatch.wireModel,
     callbacks: {
       onmessage: (msg: unknown) => {
-        collector.feed(msg as LiveServerEvent, Date.now());
-        if (collector.ready) onReady();
+        if (feedLiveEvent(acc, msg as LiveServerEvent, Date.now()) && !readySent) {
+          readySent = true;
+          onReady();
+        }
       },
       onerror: (e: { message?: string }) => {
         onFatal(new Error(e.message || "Live socket error."));
@@ -121,7 +95,6 @@ const connectGeminiLive: S2sConnect = async ({
   });
   return {
     sendUserTurn: (text: string) => {
-      collector.markSent(Date.now());
       session.sendClientContent({
         turns: [{ role: "user", parts: [{ text }] }],
         turnComplete: true,
