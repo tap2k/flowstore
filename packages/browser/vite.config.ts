@@ -49,11 +49,11 @@ export default defineConfig({
     assetsInlineLimit: 0,
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, "index.html"),
-        // The compare tool (/compare.html) — a separate entry, not a
-        // route: the app has no router, and a second HTML entry needs no SPA
-        // fallback on Pages.
-        compare: path.resolve(__dirname, "compare.html"),
+        // Path-shaped entries (/create/, /compare/) so the app overlays the
+        // brand site on one origin (flowstore.org) — separate entries, not
+        // routes: the app has no router, and each needs no SPA fallback.
+        create: path.resolve(__dirname, "create/index.html"),
+        compare: path.resolve(__dirname, "compare/index.html"),
       },
     },
   },

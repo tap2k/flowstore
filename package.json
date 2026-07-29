@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "dev:site": "npm -w @flowstore/site run dev",
     "build:site": "npm -w @flowstore/site run build",
+    "build:web": "npm run build && npm run build:site && node scripts/staple-web.mjs",
     "preview:site": "npm -w @flowstore/site run preview"
   },
   "devDependencies": {

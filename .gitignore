@@ -65,3 +65,4 @@ pip-delete-this-directory.txt
 # customer's per-agent repo where results accrue — any reference result
 # we intentionally ship lives here only via explicit `git add -f`.
 examples/*/tests/runs/
+dist-web

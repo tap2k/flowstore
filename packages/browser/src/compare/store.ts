@@ -571,7 +571,7 @@ export const useCompareStore = create<CompareState>((set, get) => {
   // (lib/compareHandoff.ts) looks for.
   openInEditor: () => {
     flushStudy();
-    window.location.href = "/?study=compare";
+    window.location.href = "/create/?study=compare";
   },
 
   captureGold: (scenarioId, column) => {

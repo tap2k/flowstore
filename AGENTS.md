@@ -43,7 +43,7 @@ The canvas is the canonical editing surface. Text views are entry and export onl
 - **Export as JSON** — the exported file is the same shape the declarative import accepts; round-trip preserves the spec.
 - **Export as system prompt** — deterministic codegen ([packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts)) that flattens the spec into a single monolithic system prompt. For copy-paste into runtimes that take a system prompt (OpenAI, Claude, Voiceflow, etc.); a graph-native runtime consumes the JSON directly.
 - **Simulate panel** — text chat against a paired runtime, BYOK (any configured provider; OpenRouter falls in when a native key is absent), against the spec currently being edited. Canvas highlights the active flow and last-traversed edge live during the run.
-- **Compare** (`compare.html`, deployed at compare.flowstore.org) — the evaluation entry point: paste a system prompt (run verbatim), edit scenarios, run a small-N model matrix on the user's key. Engine in `@flowstore/studies` (isomorphic; never reads stores); the page is a browser surface sharing the editor's settings store and chrome. Studies export as `.flowstore.json` bundles / GitHub repos the editor opens — git is the graduation bus.
+- **Compare** (`compare/index.html`, deployed at flowstore.org/compare) — the evaluation entry point: paste a system prompt (run verbatim), edit scenarios, run a small-N model matrix on the user's key. Engine in `@flowstore/studies` (isomorphic; never reads stores); the page is a browser surface sharing the editor's settings store and chrome. Studies export as `.flowstore.json` bundles / GitHub repos the editor opens — git is the graduation bus.
 - **Eval-on-canvas (post-MVP).** Findings from the testing surface (test cases, personas, rubrics, run results — all in flowstore per [FILE-MODEL.md](./FILE-MODEL.md)) overlay onto the same node and edge IDs the spec defines — guardrail-fail rates pinned to guardrail nodes, test coverage on flow nodes. The canvas is the eval view; there is no separate findings tab.
 
 ## Tech Stack
@@ -88,7 +88,8 @@ npm workspaces monorepo. `@flowstore/core` is pure TS (files, schema, codegen, p
 /packages/browser/                  @flowstore/browser (the Vite-built React SPA)
   /package.json
   /vite.config.ts                   @vitejs/plugin-react + @tailwindcss/vite; alias @/* -> ./src/*
-  /index.html                       editor entry; compare.html is the second entry
+  /create/index.html                editor entry; /compare/index.html the second
+                                    (path-shaped: the app overlays flowstore.org)
                                       (BUILD_TARGET=compare roots compare for the compare.flowstore.org deploy)
   /src/
     main.tsx                        mounts <App /> via createRoot
