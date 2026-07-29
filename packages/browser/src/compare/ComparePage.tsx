@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
 import {
   buildReportHtml,
   buildStudyBundle,
   cellKey,
   detectPlaceholders,
-  estimateLiveCost,
+  estimateS2sCost,
   estimateVoiceCost,
 } from "@flowstore/studies";
 import type { CellState, VoiceRates } from "@flowstore/studies";
@@ -18,18 +18,28 @@ import {
   Package,
   Play,
   Plus,
+  SpinnerGap,
   Trash,
   UploadSimple,
   X,
 } from "@phosphor-icons/react";
-import { Button, DropdownMenu, Icon, IconButton, Input, StopButton, Textarea } from "@/components/ui";
+import { Button, DropdownMenu, Icon, IconButton, Input, RunButton, StopButton, Textarea } from "@/components/ui";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
 import { useSettingsStore } from "@/lib/store/settings";
 import { downloadBlob } from "@/lib/download";
-import { activeVarsOf, resolveForEngine, useCompareStore } from "./store";
+import { MAX_MODEL_COLUMNS, activeVarsOf, resolveForEngine, useCompareStore } from "./store";
 import { isStudyEmpty } from "./studyStorage";
+import {
+  getTurnAudioUrl,
+  hasTurnAudio,
+  peekTurnAudioUrl,
+  subscribeTurnAudio,
+  turnAudioVersion,
+} from "./audioCache";
 import { GitHubStudyOpenModal, GitHubStudySaveModal } from "./GitHubStudyModals";
+import { synthesizeSpeech, ttsKeyFor, type TtsConfig } from "@/lib/runtime/tts";
+import { putTurnAudio } from "./audioCache";
 
 // The compare tool: paste a prompt, edit scenarios, pick models, run the
 // small-N matrix, read the side-by-sides. The engine lives in
@@ -41,10 +51,17 @@ export function ComparePage() {
   // Cascade voice rates live in the settings store — stack-level facts
   // like the API keys (they describe the user's vendors, not any one study).
   const asrPerMin = useSettingsStore((st) => st.voiceAsrPerMin);
-  const setAsrPerMin = useSettingsStore((st) => st.setVoiceAsrPerMin);
   const ttsPerMChars = useSettingsStore((st) => st.voiceTtsPerMChars);
-  const setTtsPerMChars = useSettingsStore((st) => st.setVoiceTtsPerMChars);
   const defaultModel = useSettingsStore((st) => st.defaultModel);
+  const googleApiKey = useSettingsStore((st) => st.googleApiKey);
+  const openaiApiKey = useSettingsStore((st) => st.openaiApiKey);
+  const ttsProvider = useSettingsStore((st) => st.ttsProvider);
+  const ttsVoice = useSettingsStore((st) => st.ttsVoice);
+  const elevenlabsApiKey = useSettingsStore((st) => st.elevenlabsApiKey);
+  const ttsConfig = useMemo<TtsConfig>(
+    () => ({ provider: ttsProvider, voice: ttsVoice, googleApiKey, openaiApiKey, elevenlabsApiKey }),
+    [ttsProvider, ttsVoice, googleApiKey, openaiApiKey, elevenlabsApiKey],
+  );
 
   const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -61,6 +78,9 @@ export function ComparePage() {
     return { asrPerMin: num(asrPerMin), ttsPerMChars: num(ttsPerMChars) };
   }, [asrPerMin, ttsPerMChars]);
 
+  // Re-render when replay audio arrives or evicts — the cache is a module
+  // singleton, not store state (see audioCache.ts).
+  useSyncExternalStore(subscribeTurnAudio, turnAudioVersion);
   const placeholders = useMemo(() => detectPlaceholders(s.prompt), [s.prompt]);
   const translateReady = resolveForEngine(defaultModel) !== null;
 
@@ -117,60 +137,30 @@ export function ComparePage() {
           )}
         </div>
         <div className="ml-auto flex items-center gap-1">
-          <label
-            className="flex items-center gap-1 text-[10px] text-text-tertiary"
-            title="Your speech-to-text rate, dollars per minute of caller audio — prices the ASR line of the voice estimate (caller speech time modeled at ~150 wpm)"
-          >
-            asr $/min
-            <Input
-              value={asrPerMin}
-              onChange={(e) => setAsrPerMin(e.target.value)}
-              placeholder="0.008"
-              className="w-16"
-            />
-          </label>
-          <label
-            className="flex items-center gap-1 text-[10px] text-text-tertiary"
-            title="Your text-to-speech rate, dollars per million characters — priced over the agent's actual transcript characters"
-          >
-            tts $/1M chars
-            <Input
-              value={ttsPerMChars}
-              onChange={(e) => setTtsPerMChars(e.target.value)}
-              placeholder="8.00"
-              className="w-16"
-            />
-          </label>
-          <Divider />
           <Button size="sm" onClick={() => s.setSetupOpen(!s.setupOpen)}>
             {s.setupOpen ? "hide prompt" : "edit prompt"}
           </Button>
           <Button size="sm" onClick={() => s.clearConversations()} disabled={busy || !hasResults}>
             clear
           </Button>
+          {totalCells > 0 && (
+            <span
+              className="text-[10px] tabular-nums text-text-tertiary"
+              title={`${settledCells} of ${totalCells} conversations finished (scenarios × models)`}
+            >
+              {settledCells}/{totalCells} conversations
+            </span>
+          )}
           {busy ? (
-            <>
-              {s.running && (
-                <span
-                  className="text-[10px] tabular-nums text-text-tertiary"
-                  title={`${settledCells} of ${totalCells} conversations finished (scenarios × models)`}
-                >
-                  {settledCells}/{totalCells} conversations
-                </span>
-              )}
-              <StopButton size="sm" onClick={() => s.stopRun()} />
-            </>
+            <StopButton size="sm" className="shrink-0" onClick={() => s.stopRun()} />
           ) : (
-            <Button
-              variant="primary"
+            <RunButton
               size="sm"
-              icon={Play}
+              label="Run all — continues stopped conversations and runs missing or failed ones; finished conversations are kept"
               onClick={() => void s.run()}
               disabled={!s.prompt.trim() || s.scenarios.length === 0 || s.models.length === 0}
-              title="Continues stopped conversations and runs missing or failed ones; finished conversations are kept. Use clear for a fresh start."
-            >
-              run all
-            </Button>
+              className="shrink-0"
+            />
           )}
           <Divider />
           {/* Graduation: same-origin jump to the editor, which imports this
@@ -470,6 +460,7 @@ export function ComparePage() {
             s.models.map((m, i) => {
               const key = cellKey(s.selected!, i);
               const c = s.cells[key];
+              const colLive = resolveForEngine(m)?.live === true;
               const colTurns = c?.turns ?? [];
               const hasUncached = colTurns.some((t) => t.text && !s.translations[key]?.has(t.ts));
               const translateLabel =
@@ -518,7 +509,7 @@ export function ComparePage() {
                         🌐 {translateLabel}
                       </Button>
                     )}
-                    <ColumnStats cell={c} rates={voiceRates} model={m} />
+                    <ColumnStats cell={c} rates={voiceRates} model={m} live={colLive} />
                     {/* capture-gold disabled for now (Tapan 2026-07-26) — uncomment
                         to restore (store.captureGold); import-side golds and
                         bundle round-trip are unaffected.
@@ -542,9 +533,13 @@ export function ComparePage() {
                       <IconButton
                         icon={Plus}
                         size="sm"
-                        label="Add model column"
+                        label={
+                          s.models.length >= MAX_MODEL_COLUMNS
+                            ? `${MAX_MODEL_COLUMNS} columns max — compare is the small-N eyeball tool; hand off to the harness for wider matrices`
+                            : "Add model column"
+                        }
                         onClick={() => s.addModel()}
-                        disabled={busy}
+                        disabled={busy || s.models.length >= MAX_MODEL_COLUMNS}
                         className="shrink-0"
                       />
                     )}
@@ -559,6 +554,7 @@ export function ComparePage() {
                         key={k}
                         turn={t}
                         displayText={s.showTranslated[key] ? s.translations[key]?.get(t.ts) : undefined}
+                        audio={audioFor(colLive, t, key, ttsConfig)}
                       />
                     ))}
                     {c?.status === "running" && (
@@ -627,15 +623,27 @@ function ScenarioChip({ cells }: { cells: (CellState | undefined)[] }) {
   );
 }
 
-function ColumnStats({ cell, rates, model }: { cell?: CellState; rates: VoiceRates; model: string }) {
+function ColumnStats({
+  cell,
+  rates,
+  model,
+  live,
+}: {
+  cell?: CellState;
+  rates: VoiceRates;
+  model: string;
+  live: boolean;
+}) {
   if (!cell?.usage) return null;
   const u = cell.usage;
-  const isLive = (u.audioInputTokens ?? 0) + (u.audioOutputTokens ?? 0) > 0;
-  // S2S column: measured audio tokens × Live rates (~, modeled dollars). The
+  const hasAudioTokens = (u.audioInputTokens ?? 0) + (u.audioOutputTokens ?? 0) > 0;
+  // S2S column (known from dispatch, not inferred from usage — a live run
+  // whose vendor omits token details must not fall into the cascade branch):
+  // measured audio tokens × published rates (~, modeled dollars). The
   // cascade estimate never applies here — this column already IS speech.
-  const liveEst = isLive ? estimateLiveCost(u, model) : null;
+  const liveEst = live ? estimateS2sCost(u, model) : null;
   // ≈ marks the modeled figure; measured LLM $ stays unprefixed beside it.
-  const voice = isLive ? null : estimateVoiceCost(cell.turns, u.cost, rates);
+  const voice = live ? null : estimateVoiceCost(cell.turns, u.cost, rates);
   const fmt = (n: number) => `$${n.toFixed(n >= 0.01 ? 3 : 4)}`;
   const voiceTitle = voice
     ? [
@@ -653,13 +661,13 @@ function ColumnStats({ cell, rates, model }: { cell?: CellState; rates: VoiceRat
   return (
     <span className="whitespace-nowrap text-[10px] text-text-tertiary">
       {`${u.inputTokens.toLocaleString()}/${u.outputTokens.toLocaleString()}`}
-      {isLive && (
+      {hasAudioTokens && (
         <span title="audio tokens in/out (measured)">
           {` · audio ${(u.audioInputTokens ?? 0).toLocaleString()}/${(u.audioOutputTokens ?? 0).toLocaleString()}`}
         </span>
       )}
       {liveEst !== null ? (
-        <span title="estimated: measured audio/text tokens × published Gemini Live rates">
+        <span title="estimated: measured audio/text tokens × the vendor's published live-API rates">
           {` · ≈${fmt(liveEst)}`}
         </span>
       ) : voice ? (
@@ -674,18 +682,158 @@ function ColumnStats({ cell, rates, model }: { cell?: CellState; rates: VoiceRat
 
 // displayText swaps in the English translation while the column's translate
 // toggle is on (same substitution the editor's TurnView does) — the stored
-// transcript stays verbatim.
-function TurnBubble({ turn, displayText }: { turn: TranscriptTurn; displayText?: string }) {
+// transcript stays verbatim. audio (s2s replies, session-scoped — see
+// audioCache) adds an inline replay control; the WAV builds on first click.
+// Which replay control an agent bubble gets: s2s columns replay the run's
+// real audio (present in the cache); text columns offer lazy TTS synthesis —
+// the cascade side of the ear test — when a Google key is available.
+function audioFor(
+  colLive: boolean,
+  t: TranscriptTurn,
+  cellKey: string,
+  tts: TtsConfig,
+): TurnAudio | undefined {
+  if (t.role !== "agent") return undefined;
+  if (colLive) {
+    return hasTurnAudio(cellKey, t.ts) ? { cellKey, ts: t.ts } : undefined;
+  }
+  if (!t.text || !ttsKeyFor(tts)) return undefined;
+  const text = t.text;
+  return { cellKey, ts: t.ts, synth: () => synthesizeSpeech(text, tts) };
+}
+
+type TurnAudio = { cellKey: string; ts: number; synth?: () => Promise<string[]> };
+
+function TurnBubble({
+  turn,
+  displayText,
+  audio,
+}: {
+  turn: TranscriptTurn;
+  displayText?: string;
+  audio?: TurnAudio;
+}) {
   const shown = displayText ?? turn.text;
   return turn.role === "user" ? (
     <div className="ml-8 rounded-lg bg-emphasis px-3 py-2 text-xs text-emphasis-fg">{shown}</div>
   ) : (
     <div className="mr-8 rounded-lg border border-border-default bg-surface-panel px-3 py-2 text-xs">
       {shown}
-      {turn.latencyMs !== undefined && (
-        <div className="mt-1 text-[10px] text-text-disabled">{(turn.latencyMs / 1000).toFixed(1)}s</div>
+      {(turn.latencyMs !== undefined || audio) && (
+        <div className="mt-1 flex items-center gap-2 text-[10px] text-text-disabled">
+          {turn.latencyMs !== undefined && <span>{(turn.latencyMs / 1000).toFixed(1)}s</span>}
+          {audio && <ReplayButton cellKey={audio.cellKey} ts={audio.ts} synth={audio.synth} />}
+        </div>
       )}
     </div>
+  );
+}
+
+// Replay a spoken s2s reply. One module-level element and one source of
+// truth for what's playing (the URL), published through a tiny external
+// store — every button derives its own playing state from it, so starting a
+// reply reliably flips the previous button back to "hear" (columns would
+// cacophony otherwise, and HTMLAudioElement pause events arrive async).
+const replay = (() => {
+  const el = typeof Audio !== "undefined" ? new Audio() : null;
+  let playingUrl: string | null = null;
+  const subs = new Set<() => void>();
+  const notify = () => subs.forEach((cb) => cb());
+  if (el) el.onended = el.onpause = () => {
+    playingUrl = null;
+    notify();
+  };
+  return {
+    subscribe: (cb: () => void) => {
+      subs.add(cb);
+      return () => subs.delete(cb);
+    },
+    playingUrl: () => playingUrl,
+    toggle: (url: string) => {
+      if (!el) return;
+      if (playingUrl === url) {
+        el.pause();
+        return;
+      }
+      el.src = url;
+      playingUrl = url;
+      notify();
+      void el.play();
+    },
+  };
+})();
+
+function ReplayButton({
+  cellKey,
+  ts,
+  synth,
+}: {
+  cellKey: string;
+  ts: number;
+  // Text columns only: synthesize the reply (Gemini TTS, the user's key) on
+  // first click and cache it like an s2s recording. s2s columns replay the
+  // run's real audio and never synthesize.
+  synth?: () => Promise<string[]>;
+}) {
+  const playingUrl = useSyncExternalStore(replay.subscribe, replay.playingUrl);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // peek never builds — the WAV encode happens on click only.
+  const playing = playingUrl !== null && peekTurnAudioUrl(cellKey, ts) === playingUrl;
+  // Audio already in the cache → the click is free (replay). Otherwise the
+  // label says "tts" so the cost of the click is legible before clicking.
+  const cached = hasTurnAudio(cellKey, ts);
+  const onClick = async () => {
+    if (busy) return;
+    let u = getTurnAudioUrl(cellKey, ts);
+    if (!u && synth) {
+      setBusy(true);
+      setError(null);
+      try {
+        putTurnAudio(cellKey, ts, await synth());
+        u = getTurnAudioUrl(cellKey, ts);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "TTS failed.");
+      } finally {
+        setBusy(false);
+      }
+    }
+    if (u) replay.toggle(u);
+  };
+  return (
+    <button
+      type="button"
+      onClick={() => void onClick()}
+      title={
+        error ??
+        (playing
+          ? "Stop"
+          : cached
+            ? "Hear this reply (already generated — free to replay)"
+            : "Synthesize and hear this reply — your ear-test TTS vendor (settings), then kept for this session")
+      }
+      className={`cursor-pointer ${error ? "text-state-error-fg" : "text-text-tertiary hover:text-text-primary"}`}
+    >
+      {busy ? (
+        <span className="inline-flex items-center gap-1">
+          <Icon
+            icon={SpinnerGap}
+            size={11}
+            weight="bold"
+            className="animate-fs-spin motion-reduce:animate-none"
+          />
+          tts…
+        </span>
+      ) : playing ? (
+        "◼ stop"
+      ) : error ? (
+        "✕ tts"
+      ) : cached ? (
+        "▶ hear"
+      ) : (
+        "▶ tts"
+      )}
+    </button>
   );
 }
 

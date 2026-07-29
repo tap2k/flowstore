@@ -21,6 +21,7 @@ import {
   type StudyGithubLocation,
   type StudyGold,
 } from "./studyStorage";
+import { clearTurnAudio, putTurnAudio } from "./audioCache";
 
 // Compare's state and actions, in the editor's store idiom (zustand; the
 // page renders, the store owns behavior). Hydrates once from studyStorage at
@@ -31,6 +32,11 @@ import {
 // The engine's ResolveDispatch, backed by the shared settings store — and
 // the single "is this model dispatchable" predicate (run, translate, and the
 // generators all use it rather than respelling the provider/key check).
+// Compare is the small-N eyeball tool: three transcript columns is what
+// reads side by side. Caps the ADD action only — a bundle that arrives
+// wider still opens intact (never destroy imported data).
+export const MAX_MODEL_COLUMNS = 3;
+
 export function resolveForEngine(model: string) {
   const d = resolveDispatch(model);
   return d.provider && d.apiKey.trim()
@@ -174,7 +180,10 @@ export const useCompareStore = create<CompareState>((set, get) => ({
 
   setModelAt: (i, id) =>
     set((s) => ({ models: s.models.map((m, j) => (j === i ? id : m)) })),
-  addModel: () => set((s) => ({ models: [...s.models, DEFAULT_MODEL_ID] })),
+  addModel: () =>
+    set((s) =>
+      s.models.length >= MAX_MODEL_COLUMNS ? s : { models: [...s.models, DEFAULT_MODEL_ID] },
+    ),
   removeModel: (i) => set((s) => ({ models: s.models.filter((_, j) => j !== i) })),
 
   setVar: (name, value) => set((s) => ({ vars: { ...s.vars, [name]: value } })),
@@ -183,9 +192,13 @@ export const useCompareStore = create<CompareState>((set, get) => ({
 
   // Drop the transcripts (and their translation caches/toggles/errors) while
   // keeping the study itself — prompt, scenarios, models, golds, vars.
-  clearConversations: () => set((st) => ({ cells: {}, ...cellCaches(st, () => false) })),
+  clearConversations: () => {
+    clearTurnAudio();
+    set((st) => ({ cells: {}, ...cellCaches(st, () => false) }));
+  },
 
-  clearStudy: () =>
+  clearStudy: () => {
+    clearTurnAudio();
     set({
       agentId: genId("agent"),
       prompt: "",
@@ -200,7 +213,8 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       translateErrors: {},
       selected: null,
       setupOpen: true,
-    }),
+    });
+  },
 
   applyBundle: (files) => {
     // Parsing (scenarios from cases or golds, gold rebinding, fixture vars)
@@ -275,6 +289,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       models,
       resolveDispatch: resolveForEngine,
       onCell: patchCell(set),
+      onAudio: putTurnAudio,
       signal: runAbort.signal,
       resumeFrom: resuming ? kept : undefined,
     });
@@ -308,6 +323,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       models,
       resolveDispatch: resolveForEngine,
       onCell: patchCell(set),
+      onAudio: putTurnAudio,
       signal: runAbort.signal,
       resumeFrom: Object.keys(resume).length > 0 ? resume : undefined,
     });

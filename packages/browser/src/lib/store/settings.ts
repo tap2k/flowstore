@@ -15,6 +15,9 @@ const GITHUB_LOGIN_KEY = "flowstore:settings:github_login";
 const GITHUB_NAME_KEY = "flowstore:settings:github_name";
 const VOICE_ASR_KEY = "flowstore:settings:voice_asr_per_min";
 const VOICE_TTS_KEY = "flowstore:settings:voice_tts_per_m_chars";
+const TTS_PROVIDER_KEY = "flowstore:settings:tts_provider";
+const TTS_VOICE_KEY = "flowstore:settings:tts_voice";
+const ELEVENLABS_KEY = "flowstore:settings:elevenlabs_api_key";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -24,12 +27,17 @@ const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
 export const DEFAULT_RUNNER_URL = "http://localhost:8000";
 export const DEFAULT_MODEL_ID = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
 
-// The voice (Live) model is provider-locked to Gemini Live, so unlike the
-// other per-location picks it is NOT seeded from defaultModel — it defaults
-// to the first voice-tagged catalog entry.
+// The simulate voice model is provider-locked to Gemini Live (VoiceSession
+// dispatches through @google/genai), so unlike the other per-location picks
+// it is NOT seeded from defaultModel — it defaults to the first GOOGLE
+// voice-tagged catalog entry. The endpoint filter matters: the catalog also
+// carries OpenAI Realtime voice entries (compare columns), and catalog
+// order must not decide whether simulate gets a model it can drive.
 export const DEFAULT_VOICE_MODEL_ID =
-  Object.entries(BUILT_IN_MODELS.models).find(([, e]) => e.voice)?.[0] ??
+  Object.entries(BUILT_IN_MODELS.models).find(([, e]) => e.voice && e.endpoint === "google")?.[0] ??
   "gemini-3.1-flash-live-preview";
+
+export type TtsProvider = "gemini" | "openai" | "elevenlabs";
 
 interface SettingsState {
   googleApiKey: string;
@@ -74,8 +82,18 @@ interface SettingsState {
   // keys — they describe the user's ASR/TTS vendors, not any one study.
   voiceAsrPerMin: string;
   voiceTtsPerMChars: string;
+  // Ear-test TTS: which vendor synthesizes text-column replies on ▶ hear,
+  // and which voice. Stack-level facts like the rates — the point is to
+  // sound like the USER'S cascade stack, not ours. Gemini/OpenAI reuse
+  // their key slots; ElevenLabs gets its own.
+  ttsProvider: TtsProvider;
+  ttsVoice: string;
+  elevenlabsApiKey: string;
   setVoiceAsrPerMin: (v: string) => void;
   setVoiceTtsPerMChars: (v: string) => void;
+  setTtsProvider: (p: TtsProvider) => void;
+  setTtsVoice: (v: string) => void;
+  setElevenlabsApiKey: (k: string) => void;
   setGoogleApiKey: (key: string) => void;
   setOpenaiApiKey: (key: string) => void;
   setOpenrouterApiKey: (key: string) => void;
@@ -103,8 +121,8 @@ export type ResolvedDispatch = {
   baseUrl?: string;
   endpoint: EndpointId | null;
   wireModel: string;
-  // Voice-tagged (Gemini Live) model — s2s columns dispatch over the Live
-  // socket instead of chat completions.
+  // Voice-tagged (s2s) model — dispatches over the provider's live socket
+  // instead of chat completions (the engine routes by provider).
   live?: boolean;
 };
 
@@ -135,6 +153,21 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   githubName: "",
   voiceAsrPerMin: "",
   voiceTtsPerMChars: "",
+  ttsProvider: "gemini",
+  ttsVoice: "",
+  elevenlabsApiKey: "",
+  setTtsProvider: (p) => {
+    persistString(TTS_PROVIDER_KEY, p === "gemini" ? "" : p);
+    set({ ttsProvider: p });
+  },
+  setTtsVoice: (v) => {
+    persistString(TTS_VOICE_KEY, v);
+    set({ ttsVoice: v });
+  },
+  setElevenlabsApiKey: (k) => {
+    persistString(ELEVENLABS_KEY, k);
+    set({ elevenlabsApiKey: k });
+  },
   setVoiceAsrPerMin: (v) => {
     persistString(VOICE_ASR_KEY, v);
     set({ voiceAsrPerMin: v });
@@ -241,13 +274,15 @@ export function resolveDispatch(modelId: string, keyOverrides?: KeyOverrides): R
   // Only when the native key is absent and an OpenRouter key exists does the
   // model dispatch there, under OpenRouter's vendor-prefixed id. Keeps "one
   // OpenRouter key covers the whole matrix" true (and those calls return
-  // measured $). Voice (Live) entries are excluded — they are Google-only,
-  // and a fallback would swap the crisp "needs a Google key" error for a
-  // confusing OpenRouter 404. Structured-output callers are unaffected:
-  // provider resolves to openai-compatible, which their gate already rejects.
+  // measured $). Voice (s2s) entries are excluded — they dispatch over their
+  // vendor's live socket, and a fallback would swap the crisp "needs a key"
+  // error for a confusing OpenRouter 404. Structured-output callers are
+  // unaffected: provider resolves to openai-compatible, which their gate
+  // already rejects.
+  const isVoice = entry?.voice === true;
   const openrouterFallback = (vendor: string): ResolvedDispatch | null => {
     const orKey = keyFor("openrouter", s.openrouterApiKey);
-    if (!orKey.trim() || (entry as { voice?: boolean } | undefined)?.voice) return null;
+    if (!orKey.trim() || isVoice) return null;
     return {
       provider: "openai-compatible",
       apiKey: orKey,
@@ -263,8 +298,7 @@ export function resolveDispatch(modelId: string, keyOverrides?: KeyOverrides): R
         const fb = openrouterFallback("google");
         if (fb) return fb;
       }
-      const live = (entry as { voice?: boolean } | undefined)?.voice === true;
-      return { provider: "google", apiKey, endpoint, wireModel, ...(live ? { live } : {}) };
+      return { provider: "google", apiKey, endpoint, wireModel, ...(isVoice ? { live: true } : {}) };
     }
     case "openai": {
       const apiKey = keyFor("openai", s.openaiApiKey);
@@ -272,7 +306,7 @@ export function resolveDispatch(modelId: string, keyOverrides?: KeyOverrides): R
         const fb = openrouterFallback("openai");
         if (fb) return fb;
       }
-      return { provider: "openai", apiKey, endpoint, wireModel };
+      return { provider: "openai", apiKey, endpoint, wireModel, ...(isVoice ? { live: true } : {}) };
     }
     case "openrouter":
       return {
@@ -341,6 +375,12 @@ export function loadSavedSettings(): void {
     const voiceTts = window.localStorage.getItem(VOICE_TTS_KEY);
     if (voiceAsr) patch.voiceAsrPerMin = voiceAsr;
     if (voiceTts) patch.voiceTtsPerMChars = voiceTts;
+    const ttsProvider = window.localStorage.getItem(TTS_PROVIDER_KEY);
+    if (ttsProvider === "openai" || ttsProvider === "elevenlabs") patch.ttsProvider = ttsProvider;
+    const ttsVoice = window.localStorage.getItem(TTS_VOICE_KEY);
+    if (ttsVoice) patch.ttsVoice = ttsVoice;
+    const elKey = window.localStorage.getItem(ELEVENLABS_KEY);
+    if (elKey) patch.elevenlabsApiKey = elKey;
     if (login) patch.githubLogin = login;
     if (name) patch.githubName = name;
     if (Object.keys(patch).length > 0) useSettingsStore.setState(patch);

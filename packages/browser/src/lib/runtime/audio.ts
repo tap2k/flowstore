@@ -10,9 +10,12 @@
 // mono out. These are the only two rates here; nothing else negotiates them.
 
 import workletUrl from "./capture-worklet.js?url";
+import { S2S_AUDIO_SAMPLE_RATE } from "@flowstore/studies";
 
 const INPUT_SAMPLE_RATE = 16000;
-const OUTPUT_SAMPLE_RATE = 24000;
+// Output rate is owned by the engine constant so live playback (here) and
+// replay WAVs (pcm16ChunksToWav) can never disagree about what 24 kHz means.
+const OUTPUT_SAMPLE_RATE = S2S_AUDIO_SAMPLE_RATE;
 
 function floatTo16BitPCM(samples: Float32Array): Int16Array {
   const out = new Int16Array(samples.length);
@@ -46,12 +49,50 @@ function int16ToBase64(pcm: Int16Array): string {
   return btoa(binary);
 }
 
-function base64ToInt16(b64: string): Int16Array {
+export function base64ToBytes(b64: string): Uint8Array {
   const binary = atob(b64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function base64ToInt16(b64: string): Int16Array {
+  const bytes = base64ToBytes(b64);
   // The model always sends an even byte count (16-bit samples); guard anyway.
   return new Int16Array(bytes.buffer, 0, bytes.length >> 1);
+}
+
+// Wrap base64 PCM16 chunks (s2s output: 24kHz mono) in a RIFF/WAV header so
+// a plain <audio>/Audio element can play them. Lives beside the player so
+// the two consumers of the wire format share one decoder and one rate.
+export function pcm16ChunksToWav(chunks: string[]): Uint8Array {
+  const bins = chunks.map(base64ToBytes);
+  const dataLen = bins.reduce((a, b) => a + b.length, 0);
+  const buf = new ArrayBuffer(44 + dataLen);
+  const v = new DataView(buf);
+  const ascii = (off: number, s: string) => {
+    for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i));
+  };
+  ascii(0, "RIFF");
+  v.setUint32(4, 36 + dataLen, true);
+  ascii(8, "WAVE");
+  ascii(12, "fmt ");
+  v.setUint32(16, 16, true); // fmt chunk size
+  v.setUint16(20, 1, true); // PCM
+  v.setUint16(22, 1, true); // mono
+  v.setUint32(24, OUTPUT_SAMPLE_RATE, true);
+  v.setUint32(28, OUTPUT_SAMPLE_RATE * 2, true); // byte rate (16-bit mono)
+  v.setUint16(32, 2, true); // block align
+  v.setUint16(34, 16, true); // bits per sample
+  ascii(36, "data");
+  v.setUint32(40, dataLen, true);
+  const out = new Uint8Array(buf);
+  let off = 44;
+  for (const b of bins) {
+    out.set(b, off);
+    off += b.length;
+  }
+  return out;
 }
 
 // Captures the mic as base64 PCM16 @ 16 kHz and pushes each frame to onChunk.

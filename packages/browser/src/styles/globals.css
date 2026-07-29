@@ -81,6 +81,7 @@
   --color-state-success-fg: var(--state-success-fg);
   --color-state-success-line: var(--state-success-line);
   --color-state-success-bg: var(--state-success-bg);
+  --color-state-success-bg-hover: var(--state-success-bg-hover);
   --color-state-error-fg: var(--state-error-fg);
   --color-state-error-fg-hover: var(--state-error-fg-hover);
   --color-state-error-line: var(--state-error-line);

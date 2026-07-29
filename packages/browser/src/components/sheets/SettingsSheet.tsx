@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { SheetShell } from "./SheetShell";
-import { useSettingsStore, DEFAULT_RUNNER_URL, DEFAULT_MODEL_ID } from "@/lib/store/settings";
+import { useSettingsStore, DEFAULT_RUNNER_URL, DEFAULT_MODEL_ID, type TtsProvider } from "@/lib/store/settings";
 import { useThemeStore, type ThemePreference } from "@/lib/store/theme";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { FieldRow, Select } from "@/components/ui";
@@ -29,6 +29,16 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   const setGithubPat = useSettingsStore((s) => s.setGithubPat);
   const defaultModel = useSettingsStore((s) => s.defaultModel);
   const setGenerateModel = useSettingsStore((s) => s.setGenerateModel);
+  const storedTtsProvider = useSettingsStore((s) => s.ttsProvider);
+  const setTtsProvider = useSettingsStore((s) => s.setTtsProvider);
+  const storedTtsVoice = useSettingsStore((s) => s.ttsVoice);
+  const setTtsVoice = useSettingsStore((s) => s.setTtsVoice);
+  const storedElevenlabs = useSettingsStore((s) => s.elevenlabsApiKey);
+  const setElevenlabsApiKey = useSettingsStore((s) => s.setElevenlabsApiKey);
+  const storedAsrPerMin = useSettingsStore((s) => s.voiceAsrPerMin);
+  const setVoiceAsrPerMin = useSettingsStore((s) => s.setVoiceAsrPerMin);
+  const storedTtsPerMChars = useSettingsStore((s) => s.voiceTtsPerMChars);
+  const setVoiceTtsPerMChars = useSettingsStore((s) => s.setVoiceTtsPerMChars);
   // Theme is not part of the settings store and not staged behind Save — see
   // the Appearance row below.
   const themePreference = useThemeStore((s) => s.preference);
@@ -39,6 +49,11 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   const [openrouter, setOpenrouter] = useState(storedOpenrouter);
   const [runnerUrl, setRunnerUrlInput] = useState(storedRunnerUrl);
   const [pat, setPat] = useState(storedGithubPat);
+  const [ttsProvider, setTtsProviderDraft] = useState<TtsProvider>(storedTtsProvider);
+  const [ttsVoice, setTtsVoiceDraft] = useState(storedTtsVoice);
+  const [elevenlabs, setElevenlabs] = useState(storedElevenlabs);
+  const [asrPerMin, setAsrPerMin] = useState(storedAsrPerMin);
+  const [ttsPerMChars, setTtsPerMChars] = useState(storedTtsPerMChars);
   const [patReveal, setPatReveal] = useState(false);
   const [ghStatus, setGhStatus] = useState<GhTestStatus>({ kind: "idle" });
   // Two-step guard: first click arms, second click wipes. Clearing erases
@@ -51,6 +66,11 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
     setOpenrouterApiKey(openrouter.trim());
     setRunnerUrl(runnerUrl);
     setGithubPat(pat);
+    setTtsProvider(ttsProvider);
+    setTtsVoice(ttsVoice.trim());
+    setElevenlabsApiKey(elevenlabs.trim());
+    setVoiceAsrPerMin(asrPerMin.trim());
+    setVoiceTtsPerMChars(ttsPerMChars.trim());
     onClose();
   }
 
@@ -64,6 +84,16 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
     setRunnerUrl("");
     setGithubPat("");
     setGenerateModel(DEFAULT_MODEL_ID);
+    setTtsProvider("gemini");
+    setTtsVoice("");
+    setElevenlabsApiKey("");
+    setTtsProviderDraft("gemini");
+    setTtsVoiceDraft("");
+    setElevenlabs("");
+    setVoiceAsrPerMin("");
+    setVoiceTtsPerMChars("");
+    setAsrPerMin("");
+    setTtsPerMChars("");
     setGoogle("");
     setOpenai("");
     setOpenrouter("");
@@ -96,21 +126,11 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
       maxWidth="max-w-lg"
       bodyClass="flex-1 overflow-auto px-5 py-4 space-y-4"
     >
-      {/* Appearance leads: it is the only row here that isn't a credential, and
-          burying a display preference under three API keys is how people fail
-          to find it. Three explicit options rather than the header's cycling
-          toggle — a settings panel should show the states, not make you click
-          through them to discover what they are. */}
+      {/* Appearance row commented out for now (Tapan 2026-07-29) — the header
+          theme toggle covers it. Restore by uncommenting.
       <FieldRow
         label="Appearance"
-        hint={
-          <>
-            Applies immediately and is remembered on this device — unlike the fields below, it
-            isn&apos;t staged behind Save, and Clear leaves it alone.{" "}
-            <span className="font-medium">Match system</span> follows your OS setting as it
-            changes.
-          </>
-        }
+        hint="Applies immediately; not staged behind Save."
       >
         <Select
           value={themePreference}
@@ -123,6 +143,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           className="w-full"
         />
       </FieldRow>
+      */}
 
       <ApiKeyRow
         label="Google API key"
@@ -198,6 +219,76 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         <p className="text-[11px] text-text-tertiary">
           Used wherever no explicit model is picked — generating personas,
           variables and mocks, and translating transcripts.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="fs-label text-text-secondary">Cascade rates</label>
+        <div className="flex gap-2">
+          <label className="flex flex-1 items-center gap-1.5 text-[11px] text-text-tertiary">
+            asr $/min
+            <input
+              type="text"
+              value={asrPerMin}
+              onChange={(e) => setAsrPerMin(e.target.value)}
+              placeholder="0.008"
+              className="w-full rounded border border-border-default px-2 py-1.5 fs-data focus:outline-none focus:ring-1 focus:ring-focus-ring"
+            />
+          </label>
+          <label className="flex flex-1 items-center gap-1.5 text-[11px] text-text-tertiary">
+            tts $/1M chars
+            <input
+              type="text"
+              value={ttsPerMChars}
+              onChange={(e) => setTtsPerMChars(e.target.value)}
+              placeholder="8.00"
+              className="w-full rounded border border-border-default px-2 py-1.5 fs-data focus:outline-none focus:ring-1 focus:ring-focus-ring"
+            />
+          </label>
+        </div>
+        <p className="text-[11px] text-text-tertiary">
+          Prices the voice estimate. Blank hides it.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="fs-label text-text-secondary">Ear-test TTS</label>
+        <div className="flex gap-2">
+          <Select
+            value={ttsProvider}
+            onChange={(e) => setTtsProviderDraft(e.target.value as TtsProvider)}
+            options={[
+              { value: "gemini", label: "Gemini (Google key)" },
+              { value: "openai", label: "OpenAI (OpenAI key)" },
+              { value: "elevenlabs", label: "ElevenLabs" },
+            ]}
+            className="w-44"
+          />
+          <input
+            type="text"
+            value={ttsVoice}
+            onChange={(e) => setTtsVoiceDraft(e.target.value)}
+            placeholder={
+              ttsProvider === "elevenlabs"
+                ? "voice id (required)"
+                : ttsProvider === "openai"
+                  ? "voice (default: alloy)"
+                  : "voice (default: Kore)"
+            }
+            className="flex-1 rounded border border-border-default px-2 py-1.5 fs-data focus:outline-none focus:ring-1 focus:ring-focus-ring"
+          />
+        </div>
+        {ttsProvider === "elevenlabs" && (
+          <input
+            type="password"
+            value={elevenlabs}
+            onChange={(e) => setElevenlabs(e.target.value)}
+            placeholder="ElevenLabs API key (xi-…)"
+            className="w-full rounded border border-border-default px-2 py-1.5 fs-data focus:outline-none focus:ring-1 focus:ring-focus-ring"
+          />
+        )}
+        <p className="text-[11px] text-text-tertiary">
+          Voices ▶ hear on text columns. Synthesized on click, on your key.
         </p>
       </div>
 

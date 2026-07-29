@@ -24,9 +24,11 @@ const ModelEntry = Type.Object(
     model_id: Type.Optional(Type.String()),
     base_url: Type.Optional(Type.String()),
     api_key: Type.Optional(Type.String()),
-    // True for models that back the bidi audio (Live) API — the only
-    // models the Simulation panel's voice mode can dispatch to. The voice
-    // model picker filters on this. Today only Gemini Live qualifies.
+    // True for speech-to-speech models (bidi audio over the provider's live
+    // socket: Gemini Live, OpenAI Realtime). Compare treats these as
+    // ordinary columns via their live drivers; the Simulation panel's voice
+    // mode additionally requires the google endpoint (its VoiceSession is
+    // @google/genai) — that narrower filter lives in the picker.
     voice: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: true },

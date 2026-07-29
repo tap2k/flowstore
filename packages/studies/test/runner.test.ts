@@ -292,8 +292,9 @@ describe("runMatrix", () => {
       onCell: () => {},
     });
 
-    // One resolution per cell (keys entered mid-run get picked up).
-    expect(resolve).toHaveBeenCalledTimes(4);
+    // One resolution per cell (keys entered mid-run get picked up), plus one
+    // liveness probe per column (live columns overlap their scenarios).
+    expect(resolve).toHaveBeenCalledTimes(6);
     expect(cells[cellKey("s1", 0)].status).toBe("done");
     expect(cells[cellKey("s1", 1)].status).toBe("error");
     expect(cells[cellKey("s1", 1)].error).toMatch(/No API key for b/);

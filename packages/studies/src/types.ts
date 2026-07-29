@@ -20,8 +20,9 @@ export type ModelDispatch = {
   apiKey: string;
   baseUrl?: string;
   wireModel: string;
-  // Speech-to-speech column: dispatch over the Gemini Live socket (text turns
-  // in, audio + transcription out) instead of chat completions.
+  // Speech-to-speech column: dispatch over the provider's live socket (text
+  // turns in, audio + transcription out) instead of chat completions. The
+  // runner picks the driver by provider (S2S_DRIVERS).
   live?: boolean;
 };
 
