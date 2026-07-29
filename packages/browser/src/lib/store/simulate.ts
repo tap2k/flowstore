@@ -30,6 +30,10 @@ import { asrShape, maybeBargeIn, type AsrLevel } from "@/lib/runtime/asrShape";
 // never bundle the Live SDK.
 import type { VoiceSession, VoicePhase } from "@/lib/runtime/voiceSession";
 import { generateSystemPrompt, ALL_LANGUAGES } from "@flowstore/core/codegen/promptGenerator";
+import { putTurnAudio } from "@/lib/runtime/audioCache";
+
+// Cache key namespace for simulate's spoken turns (turn ts disambiguates).
+export const SIMULATE_AUDIO_KEY = "simulate";
 import {
   buildCapabilityTools,
   cleanMockReturns,
@@ -920,14 +924,19 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
               ],
             });
           },
-          onAgentTurn: (text, caps, latencyMs) => {
+          onAgentTurn: (text, caps, latencyMs, audioChunks) => {
+            const ts = Date.now();
+            // Tee the spoken reply into the replay cache — the session
+            // played it live, and the transcript can now replay it (the
+            // same ▶ hear compare's s2s columns have).
+            if (audioChunks) putTurnAudio(SIMULATE_AUDIO_KEY, ts, audioChunks);
             set({
               transcript: [
                 ...get().transcript,
                 {
                   role: "agent",
                   text,
-                  ts: Date.now(),
+                  ts,
                   events: capabilityEvents(caps, sessionId),
                   ...(latencyMs !== undefined ? { latencyMs } : {}),
                 },

@@ -1,8 +1,10 @@
-import { pcm16ChunksToWav } from "@/lib/runtime/audio";
+import { pcm16ChunksToWav } from "./audio";
 
-// Session-scoped replay cache for s2s columns: the engine hands over each
-// spoken reply's PCM chunks (s2sCell onAudio); we keep the chunks and build
-// the WAV blob URL lazily on first replay — eagerly encoding every turn
+// Session-scoped replay cache for spoken turns — compare's s2s columns AND
+// simulate's voice/TTS turns share it (one budget, one replay UX). Sources:
+// the engine hands over each s2s reply's PCM chunks (s2sCell onAudio),
+// VoiceSession tees its live audio, and TTS synthesis stores ready blobs.
+// PCM is WAV-wrapped lazily on first replay — eagerly encoding every turn
 // would burn main-thread time and triple-copy audio nobody may ever click.
 // Deliberately NOT in the zustand store and never persisted — a study's
 // audio would blow the localStorage quota instantly, so replay is for the

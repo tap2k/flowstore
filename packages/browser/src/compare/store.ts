@@ -21,7 +21,7 @@ import {
   type StudyGithubLocation,
   type StudyGold,
 } from "./studyStorage";
-import { clearTurnAudio, putTurnAudio } from "./audioCache";
+import { clearTurnAudio, putTurnAudio } from "@/lib/runtime/audioCache";
 
 export type RunMode =
   | { kind: "all" }

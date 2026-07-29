@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pcm16ChunksToWav } from "@/lib/runtime/audio";
+import { pcm16ChunksToWav } from "./audio";
 
 const b64 = (bytes: number[]) => btoa(String.fromCharCode(...bytes));
 

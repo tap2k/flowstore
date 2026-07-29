@@ -31,8 +31,15 @@ export interface VoiceSessionConfig {
   // latencyMs: time from the user finishing their turn to the agent's first
   // response (audio or transcription) — the voice analog of text's
   // send→response latency. undefined when there's no preceding user turn to
-  // measure from (e.g. the chatbot_initiates opener).
-  onAgentTurn: (text: string, capabilities: CapabilityInvocation[], latencyMs?: number) => void;
+  // measure from (e.g. the chatbot_initiates opener). audioChunks: the
+  // turn's spoken audio (base64 PCM16@24k, stream order) — the session
+  // plays it live AND hands it over so the transcript can replay it.
+  onAgentTurn: (
+    text: string,
+    capabilities: CapabilityInvocation[],
+    latencyMs?: number,
+    audioChunks?: string[],
+  ) => void;
   onPhase: (phase: VoicePhase) => void;
   onStatus: (status: VoiceStatus) => void;
   onError: (message: string) => void;
@@ -49,6 +56,7 @@ export class VoiceSession {
   private userBuf = "";
   private agentBuf = "";
   private pendingCapabilities: CapabilityInvocation[] = [];
+  private audioChunks: string[] = [];
 
   // Latency tracking, reset each turn. lastInputAt marks the most recent user
   // speech (a proxy for "user stopped talking"); turnLatencyMs is captured the
@@ -177,6 +185,7 @@ export class VoiceSession {
       if (data) {
         this.markResponded();
         this.player?.enqueue(data);
+        this.audioChunks.push(data);
       }
     }
 
@@ -231,11 +240,14 @@ export class VoiceSession {
     const text = this.agentBuf.trim();
     const caps = this.pendingCapabilities;
     const latencyMs = this.turnLatencyMs;
+    const audio = this.audioChunks;
     this.agentBuf = "";
     this.pendingCapabilities = [];
+    this.audioChunks = [];
     // Emit if there's spoken text OR capabilities fired (a silent tool turn
     // still belongs in the timeline).
-    if (text || caps.length > 0) this.cfg.onAgentTurn(text, caps, latencyMs);
+    if (text || caps.length > 0)
+      this.cfg.onAgentTurn(text, caps, latencyMs, audio.length > 0 ? audio : undefined);
     // Reset latency tracking for the next exchange.
     this.lastInputAt = null;
     this.respondedThisTurn = false;
