@@ -35,6 +35,10 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   const setTtsVoice = useSettingsStore((s) => s.setTtsVoice);
   const storedElevenlabs = useSettingsStore((s) => s.elevenlabsApiKey);
   const setElevenlabsApiKey = useSettingsStore((s) => s.setElevenlabsApiKey);
+  const storedAsrPerMin = useSettingsStore((s) => s.voiceAsrPerMin);
+  const setVoiceAsrPerMin = useSettingsStore((s) => s.setVoiceAsrPerMin);
+  const storedTtsPerMChars = useSettingsStore((s) => s.voiceTtsPerMChars);
+  const setVoiceTtsPerMChars = useSettingsStore((s) => s.setVoiceTtsPerMChars);
   // Theme is not part of the settings store and not staged behind Save — see
   // the Appearance row below.
   const themePreference = useThemeStore((s) => s.preference);
@@ -48,6 +52,8 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   const [ttsProvider, setTtsProviderDraft] = useState<TtsProvider>(storedTtsProvider);
   const [ttsVoice, setTtsVoiceDraft] = useState(storedTtsVoice);
   const [elevenlabs, setElevenlabs] = useState(storedElevenlabs);
+  const [asrPerMin, setAsrPerMin] = useState(storedAsrPerMin);
+  const [ttsPerMChars, setTtsPerMChars] = useState(storedTtsPerMChars);
   const [patReveal, setPatReveal] = useState(false);
   const [ghStatus, setGhStatus] = useState<GhTestStatus>({ kind: "idle" });
   // Two-step guard: first click arms, second click wipes. Clearing erases
@@ -63,6 +69,8 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
     setTtsProvider(ttsProvider);
     setTtsVoice(ttsVoice.trim());
     setElevenlabsApiKey(elevenlabs.trim());
+    setVoiceAsrPerMin(asrPerMin.trim());
+    setVoiceTtsPerMChars(ttsPerMChars.trim());
     onClose();
   }
 
@@ -82,6 +90,10 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
     setTtsProviderDraft("gemini");
     setTtsVoiceDraft("");
     setElevenlabs("");
+    setVoiceAsrPerMin("");
+    setVoiceTtsPerMChars("");
+    setAsrPerMin("");
+    setTtsPerMChars("");
     setGoogle("");
     setOpenai("");
     setOpenrouter("");
@@ -207,6 +219,36 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         <p className="text-[11px] text-text-tertiary">
           Used wherever no explicit model is picked — generating personas,
           variables and mocks, and translating transcripts.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="fs-label text-text-secondary">Cascade rates</label>
+        <div className="flex gap-2">
+          <label className="flex flex-1 items-center gap-1.5 text-[11px] text-text-tertiary">
+            asr $/min
+            <input
+              type="text"
+              value={asrPerMin}
+              onChange={(e) => setAsrPerMin(e.target.value)}
+              placeholder="0.008"
+              className="w-full rounded border border-border-default px-2 py-1.5 fs-data focus:outline-none focus:ring-1 focus:ring-focus-ring"
+            />
+          </label>
+          <label className="flex flex-1 items-center gap-1.5 text-[11px] text-text-tertiary">
+            tts $/1M chars
+            <input
+              type="text"
+              value={ttsPerMChars}
+              onChange={(e) => setTtsPerMChars(e.target.value)}
+              placeholder="8.00"
+              className="w-full rounded border border-border-default px-2 py-1.5 fs-data focus:outline-none focus:ring-1 focus:ring-focus-ring"
+            />
+          </label>
+        </div>
+        <p className="text-[11px] text-text-tertiary">
+          Your ASR/TTS vendor rates — price compare&apos;s voice estimate on
+          text columns. Blank hides the estimate.
         </p>
       </div>
 

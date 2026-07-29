@@ -50,9 +50,7 @@ export function ComparePage() {
   // Cascade voice rates live in the settings store — stack-level facts
   // like the API keys (they describe the user's vendors, not any one study).
   const asrPerMin = useSettingsStore((st) => st.voiceAsrPerMin);
-  const setAsrPerMin = useSettingsStore((st) => st.setVoiceAsrPerMin);
   const ttsPerMChars = useSettingsStore((st) => st.voiceTtsPerMChars);
-  const setTtsPerMChars = useSettingsStore((st) => st.setVoiceTtsPerMChars);
   const defaultModel = useSettingsStore((st) => st.defaultModel);
   const googleApiKey = useSettingsStore((st) => st.googleApiKey);
   const openaiApiKey = useSettingsStore((st) => st.openaiApiKey);
@@ -138,31 +136,6 @@ export function ComparePage() {
           )}
         </div>
         <div className="ml-auto flex items-center gap-1">
-          <label
-            className="flex items-center gap-1 text-[10px] text-text-tertiary"
-            title="Your speech-to-text rate, dollars per minute of caller audio — prices the ASR line of the voice estimate (caller speech time modeled at ~150 wpm)"
-          >
-            asr $/min
-            <Input
-              value={asrPerMin}
-              onChange={(e) => setAsrPerMin(e.target.value)}
-              placeholder="0.008"
-              className="w-16"
-            />
-          </label>
-          <label
-            className="flex items-center gap-1 text-[10px] text-text-tertiary"
-            title="Your text-to-speech rate, dollars per million characters — priced over the agent's actual transcript characters"
-          >
-            tts $/1M chars
-            <Input
-              value={ttsPerMChars}
-              onChange={(e) => setTtsPerMChars(e.target.value)}
-              placeholder="8.00"
-              className="w-16"
-            />
-          </label>
-          <Divider />
           <Button size="sm" onClick={() => s.setSetupOpen(!s.setupOpen)}>
             {s.setupOpen ? "hide prompt" : "edit prompt"}
           </Button>
