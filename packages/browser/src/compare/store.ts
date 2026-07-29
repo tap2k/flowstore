@@ -117,6 +117,10 @@ interface CompareState {
   uploadBundle: (file: File) => void;
   run: () => Promise<void>;
   runScenario: (s: Scenario) => Promise<void>;
+  // Broadcast a typed user turn: appends to the selected scenario's script
+  // (the exchange stays reproducible — it IS the case now) and continues
+  // every column, including done ones.
+  sendUserTurn: (text: string) => Promise<void>;
   runColumn: (mi: number) => Promise<void>;
   stopRun: () => void;
   translateColumn: (key: string, turns: TranscriptTurn[]) => Promise<void>;
@@ -405,6 +409,33 @@ export const useCompareStore = create<CompareState>((set, get) => {
         patch: { selected: sc.id },
       },
     );
+  },
+
+  sendUserTurn: async (text) => {
+    const t = text.trim();
+    const { selected, scenarios, models, runMode } = get();
+    const sc = scenarios.find((x) => x.id === selected);
+    if (!t || !sc || runMode) return;
+    // The typed turn joins the script — a lone empty scaffold turn is
+    // replaced, anything else appended.
+    const turns = sc.turns.length === 1 && !sc.turns[0].trim() ? [t] : [...sc.turns, t];
+    const updated = { ...sc, turns };
+    set((st) => {
+      // Done cells become resumable: the script just grew, so their complete
+      // pairs are a valid prefix again — idle lets the engine continue them
+      // instead of restarting the conversation.
+      const cells = { ...st.cells };
+      for (let mi = 0; mi < models.length; mi++) {
+        const k = cellKey(sc.id, mi);
+        const c = cells[k];
+        if (c?.status === "done") cells[k] = { ...c, status: "idle" };
+      }
+      return {
+        scenarios: st.scenarios.map((x) => (x.id === sc.id ? updated : x)),
+        cells,
+      };
+    });
+    await get().runScenario(updated);
   },
 
   // Run ONE cell: the selected scenario on this model column — the column
