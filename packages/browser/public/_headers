@@ -4,6 +4,11 @@
 # validate locally with build+preview before trusting a Pages deploy.
 #
 # CSP rationale (XSS hardens the plaintext credentials in localStorage):
+# NOTE: after the build:web staple these headers cover the WHOLE origin
+# (flowstore.org and both app paths) — the site's GA init is an external file
+# (site/public/ga-init.js) for exactly that reason. cloudflareinsights is
+# Cloudflare's auto-injected Web Analytics beacon (Pages injects it; named
+# origin, same standing as googletagmanager).
 #   script-src   no 'unsafe-inline' — this is the directive that actually
 #                defends the LLM keys + GitHub token. googletagmanager is the one
 #                external script (GA4 gtag.js); it's a named origin, not a hole.
@@ -23,6 +28,6 @@
 #                http://localhost:8000).
 #   img-src      *.google-analytics.com for GA beacon pixels; data: for inline svg.
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.google-analytics.com; font-src 'self'; connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' https://www.googletagmanager.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.google-analytics.com; font-src 'self'; connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin

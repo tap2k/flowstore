@@ -23,12 +23,9 @@ const GA_ID = import.meta.env.PUBLIC_GA_ID;
       GA_ID && (
         <>
           <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} />
-          <script is:inline define:vars={{ GA_ID }}>
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', GA_ID);
-          </script>
+          {/* External init (public/ga-init.js): the origin-wide CSP has no
+              'unsafe-inline' for script — it guards the app's stored keys. */}
+          <script src="/ga-init.js" data-ga-id={GA_ID} is:inline />
         </>
       )
     }
