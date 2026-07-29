@@ -32,6 +32,11 @@ import { clearTurnAudio, putTurnAudio } from "./audioCache";
 // The engine's ResolveDispatch, backed by the shared settings store — and
 // the single "is this model dispatchable" predicate (run, translate, and the
 // generators all use it rather than respelling the provider/key check).
+// Compare is the small-N eyeball tool: three transcript columns is what
+// reads side by side. Caps the ADD action only — a bundle that arrives
+// wider still opens intact (never destroy imported data).
+export const MAX_MODEL_COLUMNS = 3;
+
 export function resolveForEngine(model: string) {
   const d = resolveDispatch(model);
   return d.provider && d.apiKey.trim()
@@ -175,7 +180,10 @@ export const useCompareStore = create<CompareState>((set, get) => ({
 
   setModelAt: (i, id) =>
     set((s) => ({ models: s.models.map((m, j) => (j === i ? id : m)) })),
-  addModel: () => set((s) => ({ models: [...s.models, DEFAULT_MODEL_ID] })),
+  addModel: () =>
+    set((s) =>
+      s.models.length >= MAX_MODEL_COLUMNS ? s : { models: [...s.models, DEFAULT_MODEL_ID] },
+    ),
   removeModel: (i) => set((s) => ({ models: s.models.filter((_, j) => j !== i) })),
 
   setVar: (name, value) => set((s) => ({ vars: { ...s.vars, [name]: value } })),

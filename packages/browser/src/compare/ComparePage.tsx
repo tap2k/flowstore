@@ -28,7 +28,7 @@ import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
 import { useSettingsStore } from "@/lib/store/settings";
 import { downloadBlob } from "@/lib/download";
-import { activeVarsOf, resolveForEngine, useCompareStore } from "./store";
+import { MAX_MODEL_COLUMNS, activeVarsOf, resolveForEngine, useCompareStore } from "./store";
 import { isStudyEmpty } from "./studyStorage";
 import {
   getTurnAudioUrl,
@@ -533,9 +533,13 @@ export function ComparePage() {
                       <IconButton
                         icon={Plus}
                         size="sm"
-                        label="Add model column"
+                        label={
+                          s.models.length >= MAX_MODEL_COLUMNS
+                            ? `${MAX_MODEL_COLUMNS} columns max — compare is the small-N eyeball tool; hand off to the harness for wider matrices`
+                            : "Add model column"
+                        }
                         onClick={() => s.addModel()}
-                        disabled={busy}
+                        disabled={busy || s.models.length >= MAX_MODEL_COLUMNS}
                         className="shrink-0"
                       />
                     )}
