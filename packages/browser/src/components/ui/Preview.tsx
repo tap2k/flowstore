@@ -35,7 +35,7 @@ import {
 } from "./index";
 import { useThemeStore } from "@/lib/store/theme";
 
-// Kitchen sink for the design-system foundation, mounted at /?ds (see main.tsx).
+// Kitchen sink for the design-system foundation, mounted at /create/?ds (see main.tsx).
 // It is the fastest way to see every atom in both themes at once, and it doubles
 // as the reference for the chrome retrofit that comes next.
 

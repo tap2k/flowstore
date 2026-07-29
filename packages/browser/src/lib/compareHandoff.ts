@@ -4,7 +4,7 @@ import { isStudyEmpty, loadStudy } from "@/compare/studyStorage";
 import { loadPortableSpec } from "@/lib/store/loadSpec";
 
 // Compare → editor graduation, receive side. Compare's "open in editor"
-// navigates to /?study=compare after flushing the study to localStorage;
+// navigates to /create/?study=compare after flushing the study to localStorage;
 // both surfaces share an origin, so the study is simply read back out here
 // and routed through the same bundle → loadProject → loadPortableSpec
 // pipeline a file import uses — including its confirm-replace and

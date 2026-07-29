@@ -80,6 +80,33 @@ describe("runMatrix s2s columns", () => {
     expect(cells["s1::1"].status).toBe("done");
   });
 
+  it("off-script cells (composer probes) are excluded from divergence", async () => {
+    const done = (texts: [string, string][]) => ({
+      status: "done" as const,
+      totalMs: 1,
+      turns: texts.flatMap(([u, a]) => [
+        { role: "user" as const, text: u, ts: 1, events: [] },
+        { role: "agent" as const, text: a, ts: 2, events: [] },
+      ]),
+    });
+    const cells = await runMatrix({
+      systemPrompt: "SP",
+      scenarios: [scenario("s1")], // script: ["hi"]
+      models: ["live-a", "live-b"],
+      resolveDispatch: () => ({ provider: "google", apiKey: "k", wireModel: "x", live: true }),
+      onCell: () => {},
+      // Incumbent on script; column 1 was probed (extra off-script turn) and
+      // carries a stale divergent flag from before the probe.
+      resumeFrom: {
+        "s1::0": done([["hi", "totally different words entirely"]]),
+        "s1::1": { ...done([["hi", "totally different words entirely"], ["probe", "reply"]]), divergent: true },
+      },
+      columns: [],
+    });
+    // Stale badge cleared, no fresh verdict minted for the off-script cell.
+    expect(cells["s1::1"].divergent).toBeUndefined();
+  });
+
   it("routes by provider: openai → realtime driver", async () => {
     calls.length = 0;
     const cells = await runMatrix({

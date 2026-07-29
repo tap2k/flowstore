@@ -90,9 +90,8 @@ npm workspaces monorepo. `@flowstore/core` is pure TS (files, schema, codegen, p
   /vite.config.ts                   @vitejs/plugin-react + @tailwindcss/vite; alias @/* -> ./src/*
   /create/index.html                editor entry; /compare/index.html the second
                                     (path-shaped: the app overlays flowstore.org)
-                                      (BUILD_TARGET=compare roots compare for the compare.flowstore.org deploy)
   /src/
-    main.tsx                        mounts <App /> via createRoot
+    create/main.tsx                        mounts <App /> via createRoot
     App.tsx                         top-level shell (header, canvas, panels)
     /components/
       /canvas/                      React Flow nodes, edges, controls
@@ -132,7 +131,7 @@ before touching UI. The short version:
   click-away handlers.
 - **Checkbox/Switch stay on native inputs** — the platform primitive is already
   correct there; don't swap them for button-based re-implementations.
-- The `/?ds` gallery (dev only) renders every atom in both themes — check it in
+- The `/create/?ds` gallery (dev only) renders every atom in both themes — check it in
   light and dark when changing an atom.
 
 ## Design Principles

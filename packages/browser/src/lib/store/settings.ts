@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { create } from "zustand";
 import { BUILT_IN_MODELS, resolveEndpoint, wireModelId } from "@flowstore/core/files/models";
 import type { EndpointId } from "@flowstore/core/files/models";
@@ -343,6 +344,26 @@ export function resolveTts(): ResolvedTts | null {
         : s.elevenlabsApiKey
   ).trim();
   return apiKey ? { provider: s.ttsProvider, voice: s.ttsVoice, apiKey } : null;
+}
+
+// Reactive form of resolveTts for components: three subscriptions (the
+// provider-appropriate key is selected inside the selector) and a stable
+// object identity so the value can feed memoized children.
+export function useResolvedTts(): ResolvedTts | null {
+  const provider = useSettingsStore((s) => s.ttsProvider);
+  const voice = useSettingsStore((s) => s.ttsVoice);
+  const apiKey = useSettingsStore((s) =>
+    (s.ttsProvider === "gemini"
+      ? s.googleApiKey
+      : s.ttsProvider === "openai"
+        ? s.openaiApiKey
+        : s.elevenlabsApiKey
+    ).trim(),
+  );
+  return useMemo(
+    () => (apiKey ? { provider, voice, apiKey } : null),
+    [provider, voice, apiKey],
+  );
 }
 
 // True iff the model can be dispatched (has an API key or is a project model

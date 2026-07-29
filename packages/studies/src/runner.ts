@@ -186,16 +186,30 @@ export async function runMatrix(args: {
     }),
   );
 
+  // Divergence compares like with like: a cell whose user turns aren't
+  // exactly the scenario's script (an off-script composer probe extended
+  // the conversation) is excluded — extra turns would inflate the lexical
+  // distance for reasons that say nothing about the model. Derived from the
+  // transcript, not flagged state, so a scripted re-run heals it.
+  const onScript = (c: CellState, sc: Scenario): boolean => {
+    const users = c.turns.filter((t) => t.role === "user");
+    return users.length === sc.turns.length && users.every((t, i) => t.text === sc.turns[i]);
+  };
   for (const s of scenarios) {
     const inc = cells[cellKey(s.id, 0)];
-    if (!inc || inc.status !== "done") continue;
+    if (!inc || inc.status !== "done" || !onScript(inc, s)) continue;
     for (let mi = 1; mi < models.length; mi++) {
       const key = cellKey(s.id, mi);
       const c = cells[key];
       if (!c || c.status !== "done") continue;
+      // Off-script cells get their stale badge cleared rather than a fresh
+      // verdict — the signal is undefined for them, and a lingering flag
+      // from before the probe would lie.
+      const divergent = onScript(c, s)
+        ? divergence(inc.turns, c.turns) > DIVERGENCE_THRESHOLD
+        : undefined;
       // Only on change: partial runs seed standing cells whose divergence
       // is already right — re-emitting them is a store patch + render each.
-      const divergent = divergence(inc.turns, c.turns) > DIVERGENCE_THRESHOLD;
       if (c.divergent !== divergent) emit(key, { divergent });
     }
   }

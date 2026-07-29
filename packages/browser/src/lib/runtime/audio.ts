@@ -17,7 +17,7 @@ const INPUT_SAMPLE_RATE = 16000;
 // replay WAVs (pcm16ChunksToWav) can never disagree about what 24 kHz means.
 const OUTPUT_SAMPLE_RATE = S2S_AUDIO_SAMPLE_RATE;
 
-export function floatTo16BitPCM(samples: Float32Array): Int16Array {
+function floatTo16BitPCM(samples: Float32Array): Int16Array {
   const out = new Int16Array(samples.length);
   for (let i = 0; i < samples.length; i++) {
     const s = Math.max(-1, Math.min(1, samples[i]));
@@ -65,12 +65,23 @@ function base64ToInt16(b64: string): Int16Array {
   return new Int16Array(bytes.buffer, 0, bytes.length >> 1);
 }
 
-// Wrap base64 PCM16 chunks (s2s output: 24kHz mono) in a RIFF/WAV header so
-// a plain <audio>/Audio element can play them. Lives beside the player so
-// the two consumers of the wire format share one decoder and one rate.
-export function pcm16ChunksToWav(chunks: string[]): Uint8Array {
+// Concatenate base64 PCM16 chunks into one decoded byte array.
+export function pcm16ChunksToBytes(chunks: string[]): Uint8Array {
   const bins = chunks.map(base64ToBytes);
-  const dataLen = bins.reduce((a, b) => a + b.length, 0);
+  const out = new Uint8Array(bins.reduce((a, b) => a + b.length, 0));
+  let off = 0;
+  for (const b of bins) {
+    out.set(b, off);
+    off += b.length;
+  }
+  return out;
+}
+
+// Wrap raw PCM16 bytes (s2s output: 24kHz mono) in a RIFF/WAV header so a
+// plain <audio>/Audio element can play them. Lives beside the player so the
+// consumers of the wire format share one decoder and one rate.
+export function pcm16BytesToWav(data: Uint8Array): Uint8Array {
+  const dataLen = data.length;
   const buf = new ArrayBuffer(44 + dataLen);
   const v = new DataView(buf);
   const ascii = (off: number, s: string) => {
@@ -90,12 +101,12 @@ export function pcm16ChunksToWav(chunks: string[]): Uint8Array {
   ascii(36, "data");
   v.setUint32(40, dataLen, true);
   const out = new Uint8Array(buf);
-  let off = 44;
-  for (const b of bins) {
-    out.set(b, off);
-    off += b.length;
-  }
+  out.set(data, 44);
   return out;
+}
+
+export function pcm16ChunksToWav(chunks: string[]): Uint8Array {
+  return pcm16BytesToWav(pcm16ChunksToBytes(chunks));
 }
 
 // Captures the mic as base64 PCM16 @ 16 kHz and pushes each frame to onChunk.

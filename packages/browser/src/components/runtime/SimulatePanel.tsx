@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useSpecStore, type Selection } from "@/lib/store/spec";
 import type { Spec } from "@flowstore/core/schema/v0";
 import { DEFAULT_MODEL_ID, resolveDispatch, useSettingsStore } from "@/lib/store/settings";
@@ -14,10 +14,14 @@ import {
 } from "@/lib/store/simulate";
 import type { VoicePhase } from "@/lib/runtime/voiceSession";
 import { ReplayButton } from "@/components/runtime/ReplayButton";
-import { hasTurnAudio } from "@/lib/runtime/audioCache";
+import {
+  SIMULATE_AUDIO_KEY,
+  hasTurnAudio,
+  subscribeTurnAudio,
+  turnAudioVersion,
+} from "@/lib/runtime/audioCache";
 import { synthesizeSpeech, type ResolvedTts } from "@/lib/runtime/tts";
-import { SIMULATE_AUDIO_KEY } from "@/lib/store/simulate";
-import { resolveTts } from "@/lib/store/settings";
+import { useResolvedTts } from "@/lib/store/settings";
 import { formatErrors, validateSpec } from "@flowstore/core/validation/ajv";
 import type { RuntimeEvent } from "@flowstore/core/runtime/eventTypes";
 import { formatEvent, formatValueTruncated } from "@flowstore/core/runtime/formatEvent";
@@ -61,13 +65,8 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const dispatch = resolveDispatch(model);
   const apiKey = dispatch.apiKey;
   const googleApiKey = useSettingsStore((s) => s.googleApiKey);
-  // Ear-test TTS gate — subscribed for reactivity, resolved imperatively
-  // (resolveDispatch's sibling). Null hides the ▶ tts affordance.
-  useSettingsStore((s) => s.openaiApiKey);
-  useSettingsStore((s) => s.elevenlabsApiKey);
-  useSettingsStore((s) => s.ttsProvider);
-  useSettingsStore((s) => s.ttsVoice);
-  const tts = resolveTts();
+  const tts = useResolvedTts();
+  useSyncExternalStore(subscribeTurnAudio, turnAudioVersion);
   const setSimulateAgentModel = useSettingsStore((s) => s.setSimulateAgentModel);
   const simulateAttribution = useSettingsStore((s) => s.simulateAttribution);
   const setSimulateAttribution = useSettingsStore((s) => s.setSimulateAttribution);
@@ -1763,18 +1762,23 @@ function TurnView({
       <div className="rounded-lg bg-surface-sunken px-3 py-2 text-sm text-text-primary whitespace-pre-wrap">
         {text ? shown : <span className="italic text-text-tertiary">(no text returned)</span>}
       </div>
-      {(turn.latencyMs !== undefined || hasTurnAudio(SIMULATE_AUDIO_KEY, turn.ts) || (tts && text)) && (
-        <div className="flex items-center gap-2 text-[10px] text-text-tertiary">
-          {turn.latencyMs !== undefined && <span>{formatLatency(turn.latencyMs)}</span>}
-          {(hasTurnAudio(SIMULATE_AUDIO_KEY, turn.ts) || (tts && text)) && (
-            <ReplayButton
-              cellKey={SIMULATE_AUDIO_KEY}
-              ts={turn.ts}
-              synth={tts && text ? () => synthesizeSpeech(text, tts) : undefined}
-            />
-          )}
-        </div>
-      )}
+      {(() => {
+        const hasAudio = hasTurnAudio(SIMULATE_AUDIO_KEY, turn.ts);
+        const canSpeak = hasAudio || (tts && text);
+        if (turn.latencyMs === undefined && !canSpeak) return null;
+        return (
+          <div className="flex items-center gap-2 text-[10px] text-text-tertiary">
+            {turn.latencyMs !== undefined && <span>{formatLatency(turn.latencyMs)}</span>}
+            {canSpeak && (
+              <ReplayButton
+                cellKey={SIMULATE_AUDIO_KEY}
+                ts={turn.ts}
+                synth={tts && text ? () => synthesizeSpeech(text, tts) : undefined}
+              />
+            )}
+          </div>
+        );
+      })()}
       {postEvents.map((ev, i) => (
         <EventLine key={`post-${i}`} ev={ev} spec={spec} />
       ))}

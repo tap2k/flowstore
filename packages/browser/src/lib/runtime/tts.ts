@@ -1,12 +1,10 @@
 import { pcm16ChunksToWav } from "./audio";
 
-// Browser-direct TTS for compare's cascade-column ear test: text columns
-// synthesize a reply on demand so the cascade candidate is audible next to
-// the s2s column (which recorded its real audio). The vendor is the USER'S
-// choice (settings → ear-test TTS) — the point is to sound like their
-// cascade stack, not ours. All three vendors can emit raw PCM16 @ 24kHz —
-// the same wire format as the live sockets — so the chunks feed the
-// existing replay cache/WAV path unchanged.
+// Browser-direct TTS for the ear test — compare's cascade columns and
+// simulate's transcripts both synthesize replies on demand so the spoken
+// form is audible next to (or in place of) real s2s audio. The vendor is
+// the USER'S choice (settings → ear-test TTS) — the point is to sound like
+// their cascade stack, not ours.
 //
 // Synthesis is lazy (first click) and billed to the user's own key; nothing
 // here runs during a matrix run. Every vendor returns a ready-to-play Blob:

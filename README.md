@@ -2,7 +2,7 @@
 
 The browser editor in **flowstore — a Behavioral IDE for Conversational Agents**. Authors conversation specs on a canvas, decomposes them into per-concern files in a Git repo, and compiles a system prompt as a pure function of the spec. Specs conform to [SCHEMA.md](./SCHEMA.md); the on-disk layout is in [FILE-MODEL.md](./FILE-MODEL.md).
 
-**Try it:** the hosted editor at [create.flowstore.org](https://create.flowstore.org) — nothing to install, runs in your browser.
+**Try it:** the hosted editor at [flowstore.org/create](https://flowstore.org/create) — nothing to install, runs in your browser.
 
 ## Run
 

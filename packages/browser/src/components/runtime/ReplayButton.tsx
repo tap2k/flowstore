@@ -16,12 +16,22 @@ import { StatusIcon } from "@/components/ui";
 const replay = (() => {
   const el = typeof Audio !== "undefined" ? new Audio() : null;
   let playingUrl: string | null = null;
+  // Sequence token: switching src while playing queues an async `pause`
+  // event that lands AFTER the new playback started — without the token it
+  // would null playingUrl and strand the new reply with no ◼ affordance.
+  let seq = 0;
   const subs = new Set<() => void>();
   const notify = () => subs.forEach((cb) => cb());
-  if (el) el.onended = el.onpause = () => {
-    playingUrl = null;
-    notify();
-  };
+  if (el) {
+    el.onended = el.onpause = () => {
+      const mine = seq;
+      queueMicrotask(() => {
+        if (seq !== mine) return; // a newer playback superseded this event
+        playingUrl = null;
+        notify();
+      });
+    };
+  }
   return {
     subscribe: (cb: () => void) => {
       subs.add(cb);
@@ -34,6 +44,7 @@ const replay = (() => {
         el.pause();
         return;
       }
+      seq++;
       el.src = url;
       playingUrl = url;
       notify();

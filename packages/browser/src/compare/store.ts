@@ -26,7 +26,9 @@ import { clearTurnAudio, putTurnAudio } from "@/lib/runtime/audioCache";
 export type RunMode =
   | { kind: "all" }
   | { kind: "row"; id: string }
-  | { kind: "col"; index: number };
+  // One cell: the selected scenario on one model column (the header ▶ and
+  // the composer's probes both run in this mode).
+  | { kind: "cell"; index: number };
 
 // Compare's state and actions, in the editor's store idiom (zustand; the
 // page renders, the store owns behavior). Hydrates once from studyStorage at
@@ -121,9 +123,11 @@ interface CompareState {
   // composer). OFF-SCRIPT by design: the scenario stays the canonical
   // suite; the probe lives in the cell's transcript (and so in the saved
   // study and exported run results). A later scripted re-run of the cell
-  // starts over from the script.
-  sendUserTurn: (text: string, mi: number) => Promise<void>;
-  runColumn: (mi: number) => Promise<void>;
+  // starts over from the script. Returns false when the send was NOT
+  // accepted (no scenario selected, or a run raced in) — the composer keeps
+  // the draft in that case.
+  sendUserTurn: (text: string, mi: number) => Promise<boolean>;
+  runCell: (mi: number) => Promise<void>;
   stopRun: () => void;
   translateColumn: (key: string, turns: TranscriptTurn[]) => Promise<void>;
   generateVars: () => Promise<void>;
@@ -173,8 +177,8 @@ export const useCompareStore = create<CompareState>((set, get) => {
       keepCaches: (key: string) => boolean;
       patch?: Partial<CompareState>;
     },
-  ): Promise<void> => {
-    if (get().runMode) return;
+  ): Promise<boolean> => {
+    if (get().runMode) return false;
     const { prompt, vars, models } = get();
     set((st) => ({ runMode: mode, ...(a.patch ?? {}), ...cellCaches(st, a.keepCaches) }));
     // The engine owns the matrix policy (parallelism, divergence); the store
@@ -194,6 +198,7 @@ export const useCompareStore = create<CompareState>((set, get) => {
     });
     runAbort = null;
     set({ runMode: null });
+    return true;
   };
 
   return ({
@@ -417,11 +422,13 @@ export const useCompareStore = create<CompareState>((set, get) => {
     const t = text.trim();
     const { selected, scenarios, cells, runMode } = get();
     const sc = scenarios.find((x) => x.id === selected);
-    if (!t || !sc || runMode) return;
+    if (!t || !sc || runMode) return false;
     const key = cellKey(sc.id, mi);
     // A synthetic script — this cell's own user turns plus the probe — lets
     // the ordinary resume machinery continue the conversation while the
-    // scenario stays untouched. Text cells resume in place; s2s cells
+    // scenario stays untouched. Text cells resume in place (done AND
+    // cleanly-errored cells flip to idle: complete pairs are a valid prefix
+    // of the probe script — the error text was already surfaced). s2s cells
     // replay the whole conversation in a fresh session (a closed live
     // socket can't be re-seeded), which costs another run but stays honest.
     const userTurns = (cells[key]?.turns ?? [])
@@ -430,14 +437,14 @@ export const useCompareStore = create<CompareState>((set, get) => {
     const probe: Scenario = { ...sc, turns: [...userTurns, t] };
     set((st) => {
       const c = st.cells[key];
-      // done → idle: the transcript is a valid prefix of the probe script.
-      return c?.status === "done"
-        ? { cells: { ...st.cells, [key]: { ...c, status: "idle" } } }
+      const completePairs = !!c && c.turns.length > 0 && c.turns.length % 2 === 0;
+      return (c?.status === "done" || c?.status === "error") && completePairs
+        ? { cells: { ...st.cells, [key]: { ...c, status: "idle", error: undefined } } }
         : {};
     });
     const resume = seedFor(get().cells, (k) => k === key);
-    await startRun(
-      { kind: "col", index: mi },
+    return startRun(
+      { kind: "cell", index: mi },
       {
         scenarios: [probe],
         columns: [mi],
@@ -447,19 +454,18 @@ export const useCompareStore = create<CompareState>((set, get) => {
     );
   },
 
-  // Run ONE cell: the selected scenario on this model column — the column
-  // header ▶ lives next to the transcript it would rerun, so it means "run
-  // this conversation", not the whole column. Same pause semantics as
-  // runScenario. (Whole-column and whole-row sweeps stay: run-all and the
-  // sidebar ▶.)
-  runColumn: async (mi) => {
+  // Run ONE cell: the selected scenario on this model column — the header ▶
+  // lives next to the transcript it would rerun, so it means "run this
+  // conversation", not a column sweep. Same pause semantics as runScenario.
+  // (Whole-matrix and whole-row sweeps stay: run-all and the sidebar ▶.)
+  runCell: async (mi) => {
     const { selected, scenarios } = get();
     const sc = scenarios.find((x) => x.id === selected);
     if (!sc) return;
     const key = cellKey(sc.id, mi);
     const resume = seedFor(get().cells, (k) => k === key);
     await startRun(
-      { kind: "col", index: mi },
+      { kind: "cell", index: mi },
       {
         scenarios: [sc],
         columns: [mi],

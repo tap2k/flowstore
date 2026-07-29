@@ -4,7 +4,7 @@ A first pass through flowstore's core loop: **author a spec → simulate it → 
 
 ## Open the editor
 
-The easiest way in is the hosted editor at [create.flowstore.org](https://create.flowstore.org) — nothing to install. It runs entirely in your browser and autosaves to `localStorage`, so your spec survives a refresh; there's no account or server in the loop.
+The easiest way in is the hosted editor at [flowstore.org/create](https://flowstore.org/create) — nothing to install. It runs entirely in your browser and autosaves to `localStorage`, so your spec survives a refresh; there's no account or server in the loop.
 
 To run it locally instead — for contributing, or working offline:
 

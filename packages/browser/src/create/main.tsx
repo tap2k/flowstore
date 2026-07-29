@@ -5,7 +5,7 @@ import { App } from "@/App";
 import { initAnalytics } from "@/lib/analytics";
 import { drainCompareHandoff } from "@/lib/compareHandoff";
 
-// /?ds renders the design-system gallery instead of the app — every atom in both
+// /create/?ds renders the design-system gallery instead of the app — every atom in both
 // themes on one page. Dev-only, and lazily imported: a static import would ship
 // the gallery and its Phosphor glyphs to every production visitor, and an
 // unguarded query param would hand any of them the gallery instead of the app,

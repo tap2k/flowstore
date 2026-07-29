@@ -21,21 +21,15 @@ import {
   UploadSimple,
   X,
 } from "@phosphor-icons/react";
-import { Button, DisclosureCaret, DropdownMenu, Icon, IconButton, Input, RunButton, StatusIcon, StopButton, Textarea } from "@/components/ui";
+import { Button, DisclosureCaret, DropdownMenu, Icon, IconButton, Input, RunButton, StopButton, Textarea } from "@/components/ui";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { ReplayButton } from "@/components/runtime/ReplayButton";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
-import { resolveTts, useSettingsStore } from "@/lib/store/settings";
+import { useResolvedTts, useSettingsStore } from "@/lib/store/settings";
 import { downloadBlob } from "@/lib/download";
 import { MAX_MODEL_COLUMNS, activeVarsOf, resolveForEngine, useCompareStore } from "./store";
 import { isStudyEmpty } from "./studyStorage";
-import {
-  getOrSynthesizeTurnAudio,
-  hasTurnAudio,
-  peekTurnAudioUrl,
-  subscribeTurnAudio,
-  turnAudioVersion,
-} from "@/lib/runtime/audioCache";
+import { hasTurnAudio, subscribeTurnAudio, turnAudioVersion } from "@/lib/runtime/audioCache";
 import { GitHubStudyOpenModal, GitHubStudySaveModal } from "./GitHubStudyModals";
 import { synthesizeSpeech, type ResolvedTts } from "@/lib/runtime/tts";
 
@@ -51,14 +45,7 @@ export function ComparePage() {
   const asrPerMin = useSettingsStore((st) => st.voiceAsrPerMin);
   const ttsPerMChars = useSettingsStore((st) => st.voiceTtsPerMChars);
   const defaultModel = useSettingsStore((st) => st.defaultModel);
-  // Subscribed only for reactivity; the resolved dispatch comes from
-  // resolveTts() (the store's imperative read, resolveDispatch's sibling).
-  useSettingsStore((st) => st.googleApiKey);
-  useSettingsStore((st) => st.openaiApiKey);
-  useSettingsStore((st) => st.elevenlabsApiKey);
-  useSettingsStore((st) => st.ttsProvider);
-  useSettingsStore((st) => st.ttsVoice);
-  const tts = resolveTts();
+  const tts = useResolvedTts();
 
   const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -148,7 +135,15 @@ export function ComparePage() {
           <Button size="sm" onClick={() => s.setSetupOpen(!s.setupOpen)}>
             {s.setupOpen ? "hide prompt" : "edit prompt"}
           </Button>
-          <Button size="sm" onClick={() => s.clearConversations()} disabled={busy || !hasResults}>
+          <Button
+            size="sm"
+            onClick={() => {
+              if (window.confirm("Clear all conversations? Transcripts and their replay audio are dropped; the study itself (prompt, scenarios, models, golds) stays.")) {
+                s.clearConversations();
+              }
+            }}
+            disabled={busy || !hasResults}
+          >
             clear
           </Button>
           {totalCells > 0 && (
@@ -285,6 +280,8 @@ export function ComparePage() {
                   <button
                     type="button"
                     onClick={() => setVarsOpen((o) => !o)}
+                    aria-expanded={varsOpen}
+                    aria-controls="placeholder-strip"
                     title="Values fill {{placeholders}} at send time; the prompt text stays verbatim."
                     className="flex min-w-0 cursor-pointer items-center gap-1 text-[11px] font-medium text-text-tertiary hover:text-text-primary"
                   >
@@ -309,25 +306,27 @@ export function ComparePage() {
                   )}
                 </div>
                 {varsOpen && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {placeholders.map((name) => (
-                      <label
-                        key={name}
-                        className="flex items-center gap-1.5 rounded border border-border-default py-0.5 pl-1.5 pr-0.5 text-[11px]"
-                      >
-                        <span className="font-mono text-text-tertiary">{`{{${name}}}`}</span>
-                        <Input
-                          value={s.vars[name] ?? ""}
-                          onChange={(e) => s.setVar(name, e.target.value)}
-                          placeholder="value"
-                          className="w-32"
-                        />
-                      </label>
-                    ))}
+                  <div id="placeholder-strip">
+                    <div className="flex flex-wrap gap-1.5">
+                      {placeholders.map((name) => (
+                        <label
+                          key={name}
+                          className="flex items-center gap-1.5 rounded border border-border-default py-0.5 pl-1.5 pr-0.5 text-[11px]"
+                        >
+                          <span className="font-mono text-text-tertiary">{`{{${name}}}`}</span>
+                          <Input
+                            value={s.vars[name] ?? ""}
+                            onChange={(e) => s.setVar(name, e.target.value)}
+                            placeholder="value"
+                            className="w-32"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    {s.generateVarsError && (
+                      <div className="mt-1 text-[10px] text-state-error-fg">{s.generateVarsError}</div>
+                    )}
                   </div>
-                )}
-                {varsOpen && s.generateVarsError && (
-                  <div className="mt-1 text-[10px] text-state-error-fg">{s.generateVarsError}</div>
                 )}
               </div>
             )}
@@ -361,7 +360,7 @@ export function ComparePage() {
             {/* h-48 is the height CONTRIBUTION (so many scenarios scroll
                 instead of stretching the row); grow absorbs any extra row
                 height the prompt column's placeholder strip creates. */}
-            <div className="h-48 min-h-0 grow space-y-3 overflow-y-auto pr-1">
+            <div className="min-h-0 grow basis-48 space-y-3 overflow-y-auto pr-1">
             {s.scenarios.map((sc, i) => (
               <div key={sc.id}>
                 <div className="mb-1 flex items-center gap-2">
@@ -512,20 +511,30 @@ export function ComparePage() {
                         icon={X}
                         size="sm"
                         label="Remove column"
-                        onClick={() => s.removeModel(i)}
+                        onClick={() => {
+                          const hasRuns = s.scenarios.some(
+                            (sc) => (s.cells[cellKey(sc.id, i)]?.turns.length ?? 0) > 0,
+                          );
+                          if (
+                            !hasRuns ||
+                            window.confirm(`Remove the ${m} column? Its conversations are deleted.`)
+                          ) {
+                            s.removeModel(i);
+                          }
+                        }}
                         disabled={busy}
                         className="shrink-0"
                       />
                     )}
                     {/* Column ▶/■ — completes the trio with run-all and the
                         scenario rows' ▶: rerun one model across the suite. */}
-                    {s.runMode?.kind === "col" && s.runMode.index === i ? (
+                    {s.runMode?.kind === "cell" && s.runMode.index === i ? (
                       <StopButton size="sm" className="shrink-0" onClick={() => s.stopRun()} />
                     ) : (
                       <RunButton
                         size="sm"
                         label={`Run ${m} on this scenario — a stopped conversation continues; a done or failed one re-runs`}
-                        onClick={() => void s.runColumn(i)}
+                        onClick={() => void s.runCell(i)}
                         disabled={busy || !s.selected}
                         className="shrink-0"
                       />
@@ -610,7 +619,11 @@ export function ComparePage() {
                   {/* Simulate-style composer, one per column. Off-script:
                       the probe continues THIS conversation only and lives in
                       the cell/run — the scenario script is untouched. */}
-                  <ColumnComposer disabled={busy} onSend={(t) => void s.sendUserTurn(t, i)} />
+                  <ColumnComposer
+                    disabled={busy || !s.selected || resolveForEngine(m) === null}
+                    live={colLive}
+                    onSend={(t) => s.sendUserTurn(t, i)}
+                  />
                 </div>
               );
             })}
@@ -773,8 +786,18 @@ function TurnBubble({
 }
 
 // One column's chat input. Local draft state so the three composers don't
-// share text; the send semantics live in the store (sendUserTurn).
-function ColumnComposer({ disabled, onSend }: { disabled: boolean; onSend: (t: string) => void }) {
+// share text; the send semantics live in the store (sendUserTurn). The
+// draft clears only after the store ACCEPTS the send — a rejected send
+// (raced run, deselected scenario) must not eat the typed text.
+function ColumnComposer({
+  disabled,
+  live,
+  onSend,
+}: {
+  disabled: boolean;
+  live: boolean;
+  onSend: (t: string) => Promise<boolean>;
+}) {
   const [draft, setDraft] = useState("");
   return (
     <form
@@ -783,15 +806,20 @@ function ColumnComposer({ disabled, onSend }: { disabled: boolean; onSend: (t: s
         e.preventDefault();
         const t = draft.trim();
         if (!t || disabled) return;
-        setDraft("");
-        onSend(t);
+        void onSend(t).then((accepted) => {
+          if (accepted) setDraft("");
+        });
       }}
     >
       <Input
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder="message this model…"
-        title="Continues this conversation off-script — saved with the run; the scenario is unchanged. A scripted re-run starts over."
+        title={
+          live
+            ? "Continues this conversation off-script — NOTE: a live column replays the whole conversation in a fresh s2s session (billed again). The scenario is unchanged."
+            : "Continues this conversation off-script — saved with the run; the scenario is unchanged. A scripted re-run starts over."
+        }
         disabled={disabled}
         className="flex-1"
       />

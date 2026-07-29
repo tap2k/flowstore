@@ -1,29 +1,30 @@
-import { pcm16ChunksToWav } from "./audio";
+import { pcm16BytesToWav, pcm16ChunksToBytes } from "./audio";
 
 // Session-scoped replay cache for spoken turns — compare's s2s columns AND
 // simulate's voice/TTS turns share it (one budget, one replay UX). Sources:
 // the engine hands over each s2s reply's PCM chunks (s2sCell onAudio),
 // VoiceSession tees its live audio, and TTS synthesis stores ready blobs.
-// PCM is WAV-wrapped lazily on first replay — eagerly encoding every turn
-// would burn main-thread time and triple-copy audio nobody may ever click.
 // Deliberately NOT in the zustand store and never persisted — a study's
 // audio would blow the localStorage quota instantly, so replay is for the
 // session that ran it. (Durable audio belongs in a future bundle export.)
 //
-// Insertion-ordered → oldest-first eviction. Budgeted by decoded bytes:
-// PCM16@24kHz is ~48 KB/s, so 64 MB holds ~20 minutes of spoken replies —
-// a large study with headroom. Re-runs mint new turn timestamps (old entries
-// go stale, not replaced), so without the budget a long session would leak.
+// Insertion-ordered → oldest-first eviction, budgeted by WIRE bytes (raw
+// PCM for the live sockets — ~48 KB/s; encoded mp3 for TTS — ~10x smaller,
+// so TTS entries stretch the budget much further). Every writer goes
+// through store() so the budget can't be bypassed.
 //
 // The cache is observable (version + subscribe) so React re-renders when
 // entries arrive or evict — the "hear" control appears with the turn and
 // disappears on eviction instead of silently breaking.
 
-// Two entry shapes: raw PCM chunks (the live sockets emit containerless
-// audio — WAV-wrapped lazily on first play) or a ready-to-play Blob (TTS
-// vendors return real containers; an <audio> element plays them natively,
-// so transcoding would be pure waste).
-type Entry = { chunks?: string[]; blob?: Blob; bytes: number; url?: string };
+// Cache-key namespace for simulate's spoken turns (turn ts disambiguates;
+// compare uses cellKey, which never collides with this).
+export const SIMULATE_AUDIO_KEY = "simulate";
+
+type Entry = ({ kind: "pcm"; pcm: Uint8Array } | { kind: "blob"; blob: Blob }) & {
+  bytes: number;
+  url?: string;
+};
 
 const MAX_AUDIO_BYTES = 64 * 1024 * 1024;
 const entries = new Map<string, Entry>();
@@ -55,19 +56,25 @@ function evict(k: string): void {
   entries.delete(k);
 }
 
-export function putTurnAudio(cellKey: string, turnTs: number, chunks: string[]): void {
-  const k = keyOf(cellKey, turnTs);
+// The one writer: replaces any prior entry, then enforces the byte budget
+// oldest-first. Both insertion paths (engine PCM, TTS blobs) come through
+// here — a second path that skipped the budget would grow unbounded.
+function store(k: string, e: Entry): void {
   evict(k);
-  // Decoded size from base64 length — close enough for a budget, and it
-  // avoids decoding audio that may never be played.
-  const bytes = Math.floor(chunks.reduce((a, c) => a + c.length, 0) * 0.75);
-  entries.set(k, { chunks, bytes });
-  totalBytes += bytes;
+  entries.set(k, e);
+  totalBytes += e.bytes;
   for (const oldest of entries.keys()) {
     if (totalBytes <= MAX_AUDIO_BYTES || oldest === k) break;
     evict(oldest);
   }
   bump();
+}
+
+export function putTurnAudio(cellKey: string, turnTs: number, chunks: string[]): void {
+  // Decode once at write time: exact accounting, and the base64 strings
+  // (1.33x the payload) don't stay resident.
+  const pcm = pcm16ChunksToBytes(chunks);
+  store(keyOf(cellKey, turnTs), { kind: "pcm", pcm, bytes: pcm.length });
 }
 
 export function hasTurnAudio(cellKey: string, turnTs: number): boolean {
@@ -87,8 +94,9 @@ export function getTurnAudioUrl(cellKey: string, turnTs: number): string | undef
   if (!e) return undefined;
   if (!e.url) {
     const blob =
-      e.blob ??
-      new Blob([pcm16ChunksToWav(e.chunks ?? []).buffer as ArrayBuffer], { type: "audio/wav" });
+      e.kind === "blob"
+        ? e.blob
+        : new Blob([pcm16BytesToWav(e.pcm).buffer as ArrayBuffer], { type: "audio/wav" });
     e.url = URL.createObjectURL(blob);
   }
   return e.url;
@@ -111,10 +119,7 @@ export function getOrSynthesizeTurnAudio(
   if (pending) return pending;
   const p = synth()
     .then((blob) => {
-      evict(k);
-      entries.set(k, { blob, bytes: blob.size });
-      totalBytes += blob.size;
-      bump();
+      store(k, { kind: "blob", blob, bytes: blob.size });
       return getTurnAudioUrl(cellKey, turnTs);
     })
     .finally(() => inFlight.delete(k));
@@ -122,11 +127,11 @@ export function getOrSynthesizeTurnAudio(
   return p;
 }
 
-export function clearTurnAudio(): void {
-  for (const e of entries.values()) {
-    if (e.url) URL.revokeObjectURL(e.url);
+// Clear everything, or one namespace (`prefix` = the cellKey namespace, e.g.
+// SIMULATE_AUDIO_KEY) — simulate's resets must not nuke compare's replays.
+export function clearTurnAudio(prefix?: string): void {
+  for (const k of [...entries.keys()]) {
+    if (prefix === undefined || k.startsWith(`${prefix}::`)) evict(k);
   }
-  entries.clear();
-  totalBytes = 0;
   bump();
 }

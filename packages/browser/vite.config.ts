@@ -20,13 +20,16 @@ import type { Plugin, Connect } from "vite";
 function rootRedirect(): Plugin {
   const handler: Connect.NextHandleFunction = (req, res, next) => {
     // Bare root → editor; bare entry paths get their trailing slash (vite
-    // dev serves create/index.html only at /create/). Pages handles both
-    // in production.
+    // dev serves create/index.html only at /create/). Match on the PATH and
+    // carry the query — /?ds (design gallery) and ?study=compare (handoff)
+    // ride the redirect. Pages handles both shapes in production.
+    const [pathname, search] = (req.url ?? "/").split("?");
+    const q = search ? `?${search}` : "";
     const target =
-      req.url === "/" || req.url === "/index.html"
-        ? "/create/"
-        : req.url === "/create" || req.url === "/compare"
-          ? `${req.url}/`
+      pathname === "/" || pathname === "/index.html"
+        ? `/create/${q}`
+        : pathname === "/create" || pathname === "/compare"
+          ? `${pathname}/${q}`
           : null;
     if (target) {
       res.statusCode = 302;
@@ -63,6 +66,13 @@ function pagesHeaders(): Record<string, string> {
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), rootRedirect()],
+  // One GA property for the merged origin: the app reads VITE_GA_ID, the
+  // site PUBLIC_GA_ID — let the Pages project set just PUBLIC_GA_ID.
+  define: {
+    "import.meta.env.VITE_GA_ID": JSON.stringify(
+      process.env.VITE_GA_ID ?? process.env.PUBLIC_GA_ID ?? "",
+    ),
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

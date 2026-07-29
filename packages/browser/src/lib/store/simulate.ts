@@ -30,10 +30,7 @@ import { asrShape, maybeBargeIn, type AsrLevel } from "@/lib/runtime/asrShape";
 // never bundle the Live SDK.
 import type { VoiceSession, VoicePhase } from "@/lib/runtime/voiceSession";
 import { generateSystemPrompt, ALL_LANGUAGES } from "@flowstore/core/codegen/promptGenerator";
-import { putTurnAudio } from "@/lib/runtime/audioCache";
-
-// Cache key namespace for simulate's spoken turns (turn ts disambiguates).
-export const SIMULATE_AUDIO_KEY = "simulate";
+import { SIMULATE_AUDIO_KEY, clearTurnAudio, putTurnAudio } from "@/lib/runtime/audioCache";
 import {
   buildCapabilityTools,
   cleanMockReturns,
@@ -865,6 +862,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       voiceSession.stop();
       voiceSession = null;
     }
+    clearTurnAudio(SIMULATE_AUDIO_KEY);
     set({
       mode,
       status: "starting",
@@ -1368,6 +1366,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       voiceSession.stop();
       voiceSession = null;
     }
+    clearTurnAudio(SIMULATE_AUDIO_KEY);
     set({
       sessionId: null,
       baseUrl: null,
