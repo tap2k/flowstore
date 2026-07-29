@@ -66,3 +66,4 @@ pip-delete-this-directory.txt
 # we intentionally ship lives here only via explicit `git add -f`.
 examples/*/tests/runs/
 dist-web
+key.txt
