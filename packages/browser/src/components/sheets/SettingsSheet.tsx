@@ -114,11 +114,8 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
       maxWidth="max-w-lg"
       bodyClass="flex-1 overflow-auto px-5 py-4 space-y-4"
     >
-      {/* Appearance leads: it is the only row here that isn't a credential, and
-          burying a display preference under three API keys is how people fail
-          to find it. Three explicit options rather than the header's cycling
-          toggle — a settings panel should show the states, not make you click
-          through them to discover what they are. */}
+      {/* Appearance row commented out for now (Tapan 2026-07-29) — the header
+          theme toggle covers it. Restore by uncommenting.
       <FieldRow
         label="Appearance"
         hint="Applies immediately; not staged behind Save."
@@ -134,6 +131,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           className="w-full"
         />
       </FieldRow>
+      */}
 
       <ApiKeyRow
         label="Google API key"
@@ -249,9 +247,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           />
         )}
         <p className="text-[11px] text-text-tertiary">
-          Voices compare&apos;s ▶ hear on text columns, so the cascade candidate
-          sounds like YOUR stack next to the s2s column&apos;s real audio.
-          Synthesized on click, on your key; never during a run.
+          Voices ▶ hear on text columns. Synthesized on click, on your key.
         </p>
       </div>
 
