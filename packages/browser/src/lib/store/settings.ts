@@ -103,9 +103,6 @@ export type ResolvedDispatch = {
   baseUrl?: string;
   endpoint: EndpointId | null;
   wireModel: string;
-  // Voice-tagged (Gemini Live) model — s2s columns dispatch over the Live
-  // socket instead of chat completions.
-  live?: boolean;
 };
 
 function persistString(storageKey: string, value: string): void {
@@ -263,8 +260,7 @@ export function resolveDispatch(modelId: string, keyOverrides?: KeyOverrides): R
         const fb = openrouterFallback("google");
         if (fb) return fb;
       }
-      const live = (entry as { voice?: boolean } | undefined)?.voice === true;
-      return { provider: "google", apiKey, endpoint, wireModel, ...(live ? { live } : {}) };
+      return { provider: "google", apiKey, endpoint, wireModel };
     }
     case "openai": {
       const apiKey = keyFor("openai", s.openaiApiKey);

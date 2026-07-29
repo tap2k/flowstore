@@ -88,17 +88,11 @@ export function addUsage(a: ChatUsage | undefined, b: ChatUsage | undefined): Ch
       : undefined;
   const cost =
     a.cost !== undefined || b.cost !== undefined ? (a.cost ?? 0) + (b.cost ?? 0) : undefined;
-  const optSum = (x: number | undefined, y: number | undefined) =>
-    x !== undefined || y !== undefined ? (x ?? 0) + (y ?? 0) : undefined;
-  const audioIn = optSum(a.audioInputTokens, b.audioInputTokens);
-  const audioOut = optSum(a.audioOutputTokens, b.audioOutputTokens);
   return {
     inputTokens: a.inputTokens + b.inputTokens,
     outputTokens: a.outputTokens + b.outputTokens,
     ...(cached !== undefined ? { cachedInputTokens: cached } : {}),
     ...(cost !== undefined ? { cost } : {}),
-    ...(audioIn !== undefined ? { audioInputTokens: audioIn } : {}),
-    ...(audioOut !== undefined ? { audioOutputTokens: audioOut } : {}),
   };
 }
 

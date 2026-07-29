@@ -10,7 +10,6 @@
     "./*": "./src/*.ts"
   },
   "dependencies": {
-    "@flowstore/core": "*",
-    "@google/genai": "^2.8.0"
+    "@flowstore/core": "*"
   }
 }

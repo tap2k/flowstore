@@ -5,7 +5,6 @@ import {
   buildStudyBundle,
   cellKey,
   detectPlaceholders,
-  estimateLiveCost,
   estimateVoiceCost,
 } from "@flowstore/studies";
 import type { CellState, VoiceRates } from "@flowstore/studies";
@@ -487,7 +486,6 @@ export function ComparePage() {
                       onChange={(v) => s.setModelAt(i, v)}
                       disabled={busy}
                       showUnconfigured
-                      includeVoice
                       className="min-w-0 text-[11px]"
                     />
                     {i > 0 && (
@@ -518,7 +516,7 @@ export function ComparePage() {
                         🌐 {translateLabel}
                       </Button>
                     )}
-                    <ColumnStats cell={c} rates={voiceRates} model={m} />
+                    <ColumnStats cell={c} rates={voiceRates} />
                     {/* capture-gold disabled for now (Tapan 2026-07-26) — uncomment
                         to restore (store.captureGold); import-side golds and
                         bundle round-trip are unaffected.
@@ -627,15 +625,11 @@ function ScenarioChip({ cells }: { cells: (CellState | undefined)[] }) {
   );
 }
 
-function ColumnStats({ cell, rates, model }: { cell?: CellState; rates: VoiceRates; model: string }) {
+function ColumnStats({ cell, rates }: { cell?: CellState; rates: VoiceRates }) {
   if (!cell?.usage) return null;
   const u = cell.usage;
-  const isLive = (u.audioInputTokens ?? 0) + (u.audioOutputTokens ?? 0) > 0;
-  // S2S column: measured audio tokens × Live rates (~, modeled dollars). The
-  // cascade estimate never applies here — this column already IS speech.
-  const liveEst = isLive ? estimateLiveCost(u, model) : null;
   // ≈ marks the modeled figure; measured LLM $ stays unprefixed beside it.
-  const voice = isLive ? null : estimateVoiceCost(cell.turns, u.cost, rates);
+  const voice = estimateVoiceCost(cell.turns, u.cost, rates);
   const fmt = (n: number) => `$${n.toFixed(n >= 0.01 ? 3 : 4)}`;
   const voiceTitle = voice
     ? [
@@ -653,16 +647,7 @@ function ColumnStats({ cell, rates, model }: { cell?: CellState; rates: VoiceRat
   return (
     <span className="whitespace-nowrap text-[10px] text-text-tertiary">
       {`${u.inputTokens.toLocaleString()}/${u.outputTokens.toLocaleString()}`}
-      {isLive && (
-        <span title="audio tokens in/out (measured)">
-          {` · audio ${(u.audioInputTokens ?? 0).toLocaleString()}/${(u.audioOutputTokens ?? 0).toLocaleString()}`}
-        </span>
-      )}
-      {liveEst !== null ? (
-        <span title="estimated: measured audio/text tokens × published Gemini Live rates">
-          {` · ≈${fmt(liveEst)}`}
-        </span>
-      ) : voice ? (
+      {voice ? (
         <span title={voiceTitle}>{` · ≈${fmt(voice.total)} voice`}</span>
       ) : (
         u.cost !== undefined && ` · $${u.cost.toFixed(4)}`

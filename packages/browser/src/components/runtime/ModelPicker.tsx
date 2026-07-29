@@ -21,10 +21,6 @@ interface ModelPickerProps {
   // When true, only Live-capable (voice-tagged) models are listed — for the
   // Simulation panel's voice mode, which can only dispatch to a Live model.
   voiceOnly?: boolean;
-  // When true, voice-tagged models are listed ALONGSIDE text models — for
-  // compare's columns, where an s2s model is just another column. Default
-  // false: surfaces that can only dispatch chat completions hide them.
-  includeVoice?: boolean;
   // Draft keys (keyed by endpoint) that take precedence over the persisted
   // store when deciding key presence. The Settings sheet passes its unsaved
   // key fields so a just-typed key clears "(no key)" before Save.
@@ -43,7 +39,6 @@ export function ModelPicker({
   title,
   showUnconfigured = false,
   voiceOnly = false,
-  includeVoice = false,
   keyOverrides,
 }: ModelPickerProps) {
   // Subscribe to the provider keys and project models so the option list
@@ -63,7 +58,7 @@ export function ModelPicker({
     : [];
 
   function filterEntry(id: string, m: ModelEntry): boolean {
-    if (voiceOnly ? !m.voice : !!m.voice && !includeVoice) return false;
+    if (voiceOnly ? !m.voice : !!m.voice) return false;
     if (id === value) return true;
     if (!showUnconfigured && !hasKeyForModel(id, keyOverrides)) return false;
     return true;

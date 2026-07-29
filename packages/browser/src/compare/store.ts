@@ -34,7 +34,7 @@ import {
 export function resolveForEngine(model: string) {
   const d = resolveDispatch(model);
   return d.provider && d.apiKey.trim()
-    ? { provider: d.provider, apiKey: d.apiKey, baseUrl: d.baseUrl, wireModel: d.wireModel, live: d.live }
+    ? { provider: d.provider, apiKey: d.apiKey, baseUrl: d.baseUrl, wireModel: d.wireModel }
     : null;
 }
 
