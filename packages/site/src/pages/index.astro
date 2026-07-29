@@ -1,13 +1,14 @@
 ---
 import Base from "../layouts/Base.astro";
 
+const compareUrl = "/compare/";
 const editorUrl = "/create/";
 const repoUrl = "https://github.com/tap2k/flowstore";
 ---
 
 <Base
   title="flowstore — a Behavioral IDE for Conversational Agents"
-  description="Author conversation specs on a canvas, decompose them into per-concern files in a Git repo, and compile a system prompt as a pure function of the spec."
+  description="Compare the cost and behavior of different models, author conversation specs on a canvas, decompose them into per-concern files in a Git repo, and compile a system prompt as a pure function of the spec."
 >
   <main class="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-20">
     <p class="font-mono text-sm font-semibold tracking-tight text-slate-500">flowstore</p>
@@ -15,15 +16,32 @@ const repoUrl = "https://github.com/tap2k/flowstore";
       A Behavioral IDE for Conversational Agents.
     </h1>
     <p class="mt-6 max-w-2xl text-lg text-slate-600">
-      Author conversation specs on a canvas. Import from system prompts or raw sources. flowstore organizes them into per-concern files in a Git repo, and compiles them into a structured system prompt as a pure function of the spec.
+      Compare the cost and behavior of different models, author conversation specs on a canvas, decompose them into per-concern files in a Git repo, and compile a system prompt as a pure function of the spec.
     </p>
-    <div class="mt-10 flex flex-wrap gap-3">
+    <div class="mt-10 grid gap-4 sm:grid-cols-2">
+      <a
+        href={compareUrl}
+        class="rounded-lg border border-slate-300 p-5 hover:border-slate-900"
+      >
+        <p class="text-sm font-semibold text-slate-900">Compare →</p>
+        <p class="mt-1 text-sm text-slate-600">
+          Paste a system prompt, run it across models side by side — behavior,
+          latency, and cost, including speech-to-speech. Runs in your browser;
+          your prompt never leaves your machine.
+        </p>
+      </a>
       <a
         href={editorUrl}
-        class="rounded-md bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-700"
+        class="rounded-lg border border-slate-300 p-5 hover:border-slate-900"
       >
-        Open the editor
+        <p class="text-sm font-semibold text-slate-900">Create →</p>
+        <p class="mt-1 text-sm text-slate-600">
+          Author the spec on a canvas, simulate conversations interactively,
+          and compile the system prompt as a pure function of the spec.
+        </p>
       </a>
+    </div>
+    <div class="mt-6">
       <a
         href={repoUrl}
         class="rounded-md border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-900 hover:bg-slate-50"
