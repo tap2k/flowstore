@@ -41,15 +41,18 @@ export async function runCell(args: {
   scenario: Scenario;
   dispatch: ModelDispatch;
   onUpdate: (patch: Partial<CellState>) => void;
+  // Live columns only: spoken-reply sink (see runLiveCell). Text cells
+  // produce no audio and never call it.
+  onAudio?: (turnTs: number, chunks: string[]) => void;
   signal?: AbortSignal;
   resume?: CellState;
 }): Promise<void> {
-  const { systemPrompt, scenario, dispatch, onUpdate, signal } = args;
+  const { systemPrompt, scenario, dispatch, onUpdate, onAudio, signal } = args;
   // S2S columns route to the Live driver (same onUpdate contract, no resume —
   // a closed Live session can't be re-seeded, so stopped cells restart).
   // Static import is cheap: the SDK load stays lazy inside runLiveCell.
   if (dispatch.live) {
-    return runLiveCell({ systemPrompt, scenario, dispatch, onUpdate, signal });
+    return runLiveCell({ systemPrompt, scenario, dispatch, onUpdate, onAudio, signal });
   }
   const prior = resumablePrefix(args.resume, scenario);
   const history: TranscriptTurn[] = prior ? [...prior] : [];
@@ -97,13 +100,15 @@ export async function runMatrix(args: {
   models: string[];
   resolveDispatch: ResolveDispatch;
   onCell: (key: string, patch: Partial<CellState>) => void;
+  // Live columns only: spoken-reply sink, keyed by cell + agent-turn ts.
+  onAudio?: (key: string, turnTs: number, chunks: string[]) => void;
   signal?: AbortSignal;
   // Resume after a stop: done cells seed the matrix and are skipped;
   // partially-run cells continue mid-conversation (see runCell's resume).
   // Divergence recomputes over the union.
   resumeFrom?: Record<string, CellState>;
 }): Promise<Record<string, CellState>> {
-  const { systemPrompt, scenarios, models, resolveDispatch, onCell, signal } = args;
+  const { systemPrompt, scenarios, models, resolveDispatch, onCell, onAudio, signal } = args;
   const cells: Record<string, CellState> = {};
   for (const [k, c] of Object.entries(args.resumeFrom ?? {})) {
     if (c.status === "done") cells[k] = c;
@@ -130,6 +135,7 @@ export async function runMatrix(args: {
           scenario: s,
           dispatch,
           onUpdate: (p) => emit(key, p),
+          onAudio: onAudio ? (ts, chunks) => onAudio(key, ts, chunks) : undefined,
           signal,
           resume: args.resumeFrom?.[key],
         });

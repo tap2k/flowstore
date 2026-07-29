@@ -21,6 +21,7 @@ import {
   type StudyGithubLocation,
   type StudyGold,
 } from "./studyStorage";
+import { clearTurnAudio, putTurnAudio } from "./audioCache";
 
 // Compare's state and actions, in the editor's store idiom (zustand; the
 // page renders, the store owns behavior). Hydrates once from studyStorage at
@@ -183,9 +184,13 @@ export const useCompareStore = create<CompareState>((set, get) => ({
 
   // Drop the transcripts (and their translation caches/toggles/errors) while
   // keeping the study itself — prompt, scenarios, models, golds, vars.
-  clearConversations: () => set((st) => ({ cells: {}, ...cellCaches(st, () => false) })),
+  clearConversations: () => {
+    clearTurnAudio();
+    set((st) => ({ cells: {}, ...cellCaches(st, () => false) }));
+  },
 
-  clearStudy: () =>
+  clearStudy: () => {
+    clearTurnAudio();
     set({
       agentId: genId("agent"),
       prompt: "",
@@ -200,7 +205,8 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       translateErrors: {},
       selected: null,
       setupOpen: true,
-    }),
+    });
+  },
 
   applyBundle: (files) => {
     // Parsing (scenarios from cases or golds, gold rebinding, fixture vars)
@@ -275,6 +281,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       models,
       resolveDispatch: resolveForEngine,
       onCell: patchCell(set),
+      onAudio: putTurnAudio,
       signal: runAbort.signal,
       resumeFrom: resuming ? kept : undefined,
     });
@@ -308,6 +315,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       models,
       resolveDispatch: resolveForEngine,
       onCell: patchCell(set),
+      onAudio: putTurnAudio,
       signal: runAbort.signal,
       resumeFrom: Object.keys(resume).length > 0 ? resume : undefined,
     });

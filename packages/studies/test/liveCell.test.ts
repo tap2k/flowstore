@@ -72,6 +72,19 @@ describe("LiveTurnCollector", () => {
       outputTokens: 0,
       audioOutputTokens: 300,
     });
+    // The spoken audio rides along, chunked in stream order.
+    expect(turns[0].audioChunks).toEqual(["AAAA"]);
+  });
+
+  it("audio chunks accumulate per turn and reset between turns", () => {
+    const turns: LiveTurnResult[] = [];
+    const c = new LiveTurnCollector((t) => turns.push(t));
+    c.feed(audioChunk, 0);
+    c.feed(audioChunk, 1);
+    c.feed({ serverContent: { turnComplete: true } }, 2);
+    c.feed({ serverContent: { outputTranscription: { text: "silent?" }, turnComplete: true } }, 3);
+    expect(turns[0].audioChunks).toEqual(["AAAA", "AAAA"]);
+    expect(turns[1].audioChunks).toBeUndefined();
   });
 
   it("resets state between turns", () => {

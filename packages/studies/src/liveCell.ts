@@ -68,7 +68,14 @@ export type LiveTurnResult = {
   usage?: ChatUsage;
   latencyMs?: number;
   wallMs?: number;
+  // The turn's spoken audio: base64 PCM16 chunks in stream order (Live
+  // output format — 24kHz mono). The surface decides what to do with them
+  // (compare wraps a WAV for replay); the engine never decodes audio.
+  audioChunks?: string[];
 };
+
+// Live API output audio format (fixed by the protocol).
+export const LIVE_AUDIO_SAMPLE_RATE = 24000;
 
 // Reduces the interleaved Live message stream into completed agent turns.
 // One instance per session; feed() every message, and it invokes onTurn when
@@ -80,6 +87,7 @@ export class LiveTurnCollector {
   private turnUsage: ChatUsage | undefined;
   private sentAt: number | null = null;
   private latencyMs: number | undefined;
+  private audioChunks: string[] = [];
   ready = false;
 
   constructor(private onTurn: (turn: LiveTurnResult) => void) {}
@@ -95,7 +103,13 @@ export class LiveTurnCollector {
     if (msg.setupComplete) this.ready = true;
     const content = msg.serverContent;
 
-    const hasAudio = (content?.modelTurn?.parts ?? []).some((p) => p.inlineData?.data);
+    let hasAudio = false;
+    for (const p of content?.modelTurn?.parts ?? []) {
+      if (p.inlineData?.data) {
+        hasAudio = true;
+        this.audioChunks.push(p.inlineData.data);
+      }
+    }
     const text = content?.outputTranscription?.text ?? "";
     if ((hasAudio || text) && this.latencyMs === undefined && this.sentAt !== null) {
       this.latencyMs = Math.round(now - this.sentAt);
@@ -110,11 +124,13 @@ export class LiveTurnCollector {
         usage: this.turnUsage,
         latencyMs: this.latencyMs,
         wallMs: this.sentAt !== null ? Math.round(now - this.sentAt) : undefined,
+        ...(this.audioChunks.length > 0 ? { audioChunks: this.audioChunks } : {}),
       };
       this.agentBuf = "";
       this.turnUsage = undefined;
       this.sentAt = null;
       this.latencyMs = undefined;
+      this.audioChunks = [];
       this.onTurn(turn);
     }
   }
@@ -148,9 +164,13 @@ export async function runLiveCell(args: {
   scenario: Scenario;
   dispatch: ModelDispatch;
   onUpdate: (patch: Partial<CellState>) => void;
+  // Spoken-reply sink: called with each completed agent turn's audio chunks,
+  // keyed by the turn's ts (the id the transcript UI already carries).
+  // Session-scoped by nature — audio never enters CellState or persistence.
+  onAudio?: (turnTs: number, chunks: string[]) => void;
   signal?: AbortSignal;
 }): Promise<void> {
-  const { systemPrompt, scenario, dispatch, onUpdate, signal } = args;
+  const { systemPrompt, scenario, dispatch, onUpdate, onAudio, signal } = args;
   const history: TranscriptTurn[] = [];
   let usage: ChatUsage | undefined;
   let totalMs = 0;
@@ -221,13 +241,15 @@ export async function runLiveCell(args: {
 
       totalMs += res.wallMs ?? res.latencyMs ?? 0;
       usage = addUsage(usage, res.usage);
-      history.push(userTurn, {
+      const agentTurn: TranscriptTurn = {
         role: "agent",
         text: res.text,
         ts: Date.now(),
         events: [],
         latencyMs: res.latencyMs,
-      });
+      };
+      history.push(userTurn, agentTurn);
+      if (res.audioChunks && onAudio) onAudio(agentTurn.ts, res.audioChunks);
       onUpdate({ turns: [...history], usage, totalMs });
     }
     // A stopped live cell reverts to idle with whatever completed; it will

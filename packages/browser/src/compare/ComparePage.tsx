@@ -29,6 +29,7 @@ import { useSettingsStore } from "@/lib/store/settings";
 import { downloadBlob } from "@/lib/download";
 import { activeVarsOf, resolveForEngine, useCompareStore } from "./store";
 import { isStudyEmpty } from "./studyStorage";
+import { getTurnAudio } from "./audioCache";
 import { GitHubStudyOpenModal, GitHubStudySaveModal } from "./GitHubStudyModals";
 
 // The compare tool: paste a prompt, edit scenarios, pick models, run the
@@ -559,6 +560,7 @@ export function ComparePage() {
                         key={k}
                         turn={t}
                         displayText={s.showTranslated[key] ? s.translations[key]?.get(t.ts) : undefined}
+                        audioUrl={t.role === "agent" ? getTurnAudio(key, t.ts) : undefined}
                       />
                     ))}
                     {c?.status === "running" && (
@@ -674,18 +676,61 @@ function ColumnStats({ cell, rates, model }: { cell?: CellState; rates: VoiceRat
 
 // displayText swaps in the English translation while the column's translate
 // toggle is on (same substitution the editor's TurnView does) — the stored
-// transcript stays verbatim.
-function TurnBubble({ turn, displayText }: { turn: TranscriptTurn; displayText?: string }) {
+// transcript stays verbatim. audioUrl (s2s replies, session-scoped — see
+// audioCache) adds an inline replay control.
+function TurnBubble({
+  turn,
+  displayText,
+  audioUrl,
+}: {
+  turn: TranscriptTurn;
+  displayText?: string;
+  audioUrl?: string;
+}) {
   const shown = displayText ?? turn.text;
   return turn.role === "user" ? (
     <div className="ml-8 rounded-lg bg-emphasis px-3 py-2 text-xs text-emphasis-fg">{shown}</div>
   ) : (
     <div className="mr-8 rounded-lg border border-border-default bg-surface-panel px-3 py-2 text-xs">
       {shown}
-      {turn.latencyMs !== undefined && (
-        <div className="mt-1 text-[10px] text-text-disabled">{(turn.latencyMs / 1000).toFixed(1)}s</div>
+      {(turn.latencyMs !== undefined || audioUrl) && (
+        <div className="mt-1 flex items-center gap-2 text-[10px] text-text-disabled">
+          {turn.latencyMs !== undefined && <span>{(turn.latencyMs / 1000).toFixed(1)}s</span>}
+          {audioUrl && <ReplayButton url={audioUrl} />}
+        </div>
       )}
     </div>
+  );
+}
+
+// Replay a spoken s2s reply. One shared Audio element module-wide so starting
+// a reply stops whichever one was playing (columns would cacophony otherwise).
+let replayEl: HTMLAudioElement | null = null;
+function ReplayButton({ url }: { url: string }) {
+  const [playing, setPlaying] = useState(false);
+  const toggle = () => {
+    if (playing) {
+      replayEl?.pause();
+      return; // onpause below clears state
+    }
+    replayEl?.pause();
+    const el = new Audio(url);
+    replayEl = el;
+    el.onended = el.onpause = () => {
+      if (replayEl === el) setPlaying(false);
+    };
+    setPlaying(true);
+    void el.play();
+  };
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      title={playing ? "Stop" : "Hear this reply (audio from the run, kept for this session)"}
+      className="cursor-pointer text-text-tertiary hover:text-text-primary"
+    >
+      {playing ? "◼ stop" : "▶ hear"}
+    </button>
   );
 }
 
