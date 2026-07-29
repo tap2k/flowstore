@@ -63,7 +63,11 @@ export function ModelPicker({
     : [];
 
   function filterEntry(id: string, m: ModelEntry): boolean {
-    if (voiceOnly ? !m.voice : !!m.voice && !includeVoice) return false;
+    // voiceOnly = the simulate panel's voice mode, which dispatches through
+    // @google/genai — only Gemini voice entries qualify there. Compare's
+    // includeVoice lists every voice model (each has a live driver).
+    if (voiceOnly ? !(m.voice && m.endpoint === "google") : !!m.voice && !includeVoice)
+      return false;
     if (id === value) return true;
     if (!showUnconfigured && !hasKeyForModel(id, keyOverrides)) return false;
     return true;

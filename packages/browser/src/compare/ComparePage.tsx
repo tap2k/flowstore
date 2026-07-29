@@ -661,7 +661,7 @@ function ColumnStats({ cell, rates, model }: { cell?: CellState; rates: VoiceRat
         </span>
       )}
       {liveEst !== null ? (
-        <span title="estimated: measured audio/text tokens × published Gemini Live rates">
+        <span title="estimated: measured audio/text tokens × the vendor's published live-API rates">
           {` · ≈${fmt(liveEst)}`}
         </span>
       ) : voice ? (

@@ -272,7 +272,8 @@ export function resolveDispatch(modelId: string, keyOverrides?: KeyOverrides): R
         const fb = openrouterFallback("openai");
         if (fb) return fb;
       }
-      return { provider: "openai", apiKey, endpoint, wireModel };
+      const live = (entry as { voice?: boolean } | undefined)?.voice === true;
+      return { provider: "openai", apiKey, endpoint, wireModel, ...(live ? { live } : {}) };
     }
     case "openrouter":
       return {

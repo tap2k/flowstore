@@ -103,14 +103,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           through them to discover what they are. */}
       <FieldRow
         label="Appearance"
-        hint={
-          <>
-            Applies immediately and is remembered on this device — unlike the fields below, it
-            isn&apos;t staged behind Save, and Clear leaves it alone.{" "}
-            <span className="font-medium">Match system</span> follows your OS setting as it
-            changes.
-          </>
-        }
+        hint="Applies immediately; not staged behind Save."
       >
         <Select
           value={themePreference}

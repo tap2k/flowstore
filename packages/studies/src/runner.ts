@@ -4,6 +4,7 @@ import type { ChatUsage } from "@flowstore/core/llm/types";
 import type { CellState, ModelDispatch, Scenario } from "./types";
 import { IDLE_CELL, cellKey } from "./types";
 import { runLiveCell } from "./liveCell";
+import { runRealtimeCell } from "./realtimeCell";
 
 // Resolves a model id to dispatch credentials, or null when the model can't
 // be dispatched (no key). Injected by the surface (browser settings store,
@@ -48,11 +49,12 @@ export async function runCell(args: {
   resume?: CellState;
 }): Promise<void> {
   const { systemPrompt, scenario, dispatch, onUpdate, onAudio, signal } = args;
-  // S2S columns route to the Live driver (same onUpdate contract, no resume —
-  // a closed Live session can't be re-seeded, so stopped cells restart).
-  // Static import is cheap: the SDK load stays lazy inside runLiveCell.
+  // S2S columns route to a live driver by provider (same onUpdate contract,
+  // no resume — a closed session can't be re-seeded, so stopped cells
+  // restart). Static imports are cheap: SDK loads stay lazy inside drivers.
   if (dispatch.live) {
-    return runLiveCell({ systemPrompt, scenario, dispatch, onUpdate, onAudio, signal });
+    const run = dispatch.provider === "openai" ? runRealtimeCell : runLiveCell;
+    return run({ systemPrompt, scenario, dispatch, onUpdate, onAudio, signal });
   }
   const prior = resumablePrefix(args.resume, scenario);
   const history: TranscriptTurn[] = prior ? [...prior] : [];
