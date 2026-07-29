@@ -577,7 +577,10 @@ export const useCompareStore = create<CompareState>((set, get) => {
   // (lib/compareHandoff.ts) looks for.
   openInEditor: () => {
     flushStudy();
-    window.location.href = "/create/?study=compare";
+    // New tab: graduation shouldn't navigate away from the study you're
+    // looking at — the handoff rides localStorage, so any same-origin tab
+    // can receive it.
+    window.open("/create/?study=compare", "_blank");
   },
 
   captureGold: (scenarioId, column) => {
