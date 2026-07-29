@@ -18,12 +18,11 @@ import {
   Package,
   Play,
   Plus,
-  Stop,
   Trash,
   UploadSimple,
   X,
 } from "@phosphor-icons/react";
-import { Button, DropdownMenu, Icon, IconButton, Input, StopButton, Textarea } from "@/components/ui";
+import { Button, DropdownMenu, Icon, IconButton, Input, RunButton, StopButton, Textarea } from "@/components/ui";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
 import { useSettingsStore } from "@/lib/store/settings";
@@ -152,21 +151,14 @@ export function ComparePage() {
             </span>
           )}
           {busy ? (
-            <IconButton
-              icon={Stop}
-              size="sm"
-              label="Stop — completed conversations are kept; stopped ones resume where they paused"
-              onClick={() => s.stopRun()}
-              className="shrink-0 text-state-error-fg"
-            />
+            <StopButton size="sm" className="shrink-0" onClick={() => s.stopRun()} />
           ) : (
-            <IconButton
-              icon={Play}
+            <RunButton
               size="sm"
               label="Run all — continues stopped conversations and runs missing or failed ones; finished conversations are kept"
               onClick={() => void s.run()}
               disabled={!s.prompt.trim() || s.scenarios.length === 0 || s.models.length === 0}
-              className="shrink-0 text-state-success-fg"
+              className="shrink-0"
             />
           )}
           <Divider />
