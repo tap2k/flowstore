@@ -357,7 +357,10 @@ export function ComparePage() {
             {/* No box around the list: inputs are already the recessed layer
                 (sunken-on-panel, same as the prompt column) — a bordered
                 wrapper here reads as a third, redundant surface. */}
-            <div className="min-h-48 grow space-y-3 overflow-y-auto pr-1">
+            {/* h-48 is the height CONTRIBUTION (so many scenarios scroll
+                instead of stretching the row); grow absorbs any extra row
+                height the prompt column's placeholder strip creates. */}
+            <div className="h-48 grow space-y-3 overflow-y-auto pr-1">
             {s.scenarios.map((sc, i) => (
               <div key={sc.id}>
                 <div className="mb-1 flex items-center gap-2">
