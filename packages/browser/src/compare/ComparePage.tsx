@@ -37,7 +37,7 @@ import {
   turnAudioVersion,
 } from "./audioCache";
 import { GitHubStudyOpenModal, GitHubStudySaveModal } from "./GitHubStudyModals";
-import { synthesizeSpeech } from "@/lib/runtime/tts";
+import { synthesizeSpeech, ttsKeyFor, type TtsConfig } from "@/lib/runtime/tts";
 import { putTurnAudio } from "./audioCache";
 
 // The compare tool: paste a prompt, edit scenarios, pick models, run the
@@ -55,6 +55,14 @@ export function ComparePage() {
   const setTtsPerMChars = useSettingsStore((st) => st.setVoiceTtsPerMChars);
   const defaultModel = useSettingsStore((st) => st.defaultModel);
   const googleApiKey = useSettingsStore((st) => st.googleApiKey);
+  const openaiApiKey = useSettingsStore((st) => st.openaiApiKey);
+  const ttsProvider = useSettingsStore((st) => st.ttsProvider);
+  const ttsVoice = useSettingsStore((st) => st.ttsVoice);
+  const elevenlabsApiKey = useSettingsStore((st) => st.elevenlabsApiKey);
+  const ttsConfig = useMemo<TtsConfig>(
+    () => ({ provider: ttsProvider, voice: ttsVoice, googleApiKey, openaiApiKey, elevenlabsApiKey }),
+    [ttsProvider, ttsVoice, googleApiKey, openaiApiKey, elevenlabsApiKey],
+  );
 
   const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -573,7 +581,7 @@ export function ComparePage() {
                         key={k}
                         turn={t}
                         displayText={s.showTranslated[key] ? s.translations[key]?.get(t.ts) : undefined}
-                        audio={audioFor(colLive, t, key, googleApiKey)}
+                        audio={audioFor(colLive, t, key, ttsConfig)}
                       />
                     ))}
                     {c?.status === "running" && (
@@ -710,15 +718,15 @@ function audioFor(
   colLive: boolean,
   t: TranscriptTurn,
   cellKey: string,
-  googleApiKey: string,
+  tts: TtsConfig,
 ): TurnAudio | undefined {
   if (t.role !== "agent") return undefined;
   if (colLive) {
     return hasTurnAudio(cellKey, t.ts) ? { cellKey, ts: t.ts } : undefined;
   }
-  if (!t.text || !googleApiKey.trim()) return undefined;
+  if (!t.text || !ttsKeyFor(tts)) return undefined;
   const text = t.text;
-  return { cellKey, ts: t.ts, synth: () => synthesizeSpeech(text, googleApiKey) };
+  return { cellKey, ts: t.ts, synth: () => synthesizeSpeech(text, tts) };
 }
 
 type TurnAudio = { cellKey: string; ts: number; synth?: () => Promise<string[]> };
@@ -825,7 +833,7 @@ function ReplayButton({
         (playing
           ? "Stop"
           : synth && !hasTurnAudio(cellKey, ts)
-            ? "Hear this reply — synthesized with Gemini TTS on your Google key, then kept for this session"
+            ? "Hear this reply — synthesized with your ear-test TTS vendor (settings), then kept for this session"
             : "Hear this reply (audio from the run, kept for this session)")
       }
       className={`cursor-pointer ${error ? "text-state-error-fg" : "text-text-tertiary hover:text-text-primary"}`}

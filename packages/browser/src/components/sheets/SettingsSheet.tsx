@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { SheetShell } from "./SheetShell";
-import { useSettingsStore, DEFAULT_RUNNER_URL, DEFAULT_MODEL_ID } from "@/lib/store/settings";
+import { useSettingsStore, DEFAULT_RUNNER_URL, DEFAULT_MODEL_ID, type TtsProvider } from "@/lib/store/settings";
 import { useThemeStore, type ThemePreference } from "@/lib/store/theme";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { FieldRow, Select } from "@/components/ui";
@@ -29,6 +29,12 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   const setGithubPat = useSettingsStore((s) => s.setGithubPat);
   const defaultModel = useSettingsStore((s) => s.defaultModel);
   const setGenerateModel = useSettingsStore((s) => s.setGenerateModel);
+  const storedTtsProvider = useSettingsStore((s) => s.ttsProvider);
+  const setTtsProvider = useSettingsStore((s) => s.setTtsProvider);
+  const storedTtsVoice = useSettingsStore((s) => s.ttsVoice);
+  const setTtsVoice = useSettingsStore((s) => s.setTtsVoice);
+  const storedElevenlabs = useSettingsStore((s) => s.elevenlabsApiKey);
+  const setElevenlabsApiKey = useSettingsStore((s) => s.setElevenlabsApiKey);
   // Theme is not part of the settings store and not staged behind Save — see
   // the Appearance row below.
   const themePreference = useThemeStore((s) => s.preference);
@@ -39,6 +45,9 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   const [openrouter, setOpenrouter] = useState(storedOpenrouter);
   const [runnerUrl, setRunnerUrlInput] = useState(storedRunnerUrl);
   const [pat, setPat] = useState(storedGithubPat);
+  const [ttsProvider, setTtsProviderDraft] = useState<TtsProvider>(storedTtsProvider);
+  const [ttsVoice, setTtsVoiceDraft] = useState(storedTtsVoice);
+  const [elevenlabs, setElevenlabs] = useState(storedElevenlabs);
   const [patReveal, setPatReveal] = useState(false);
   const [ghStatus, setGhStatus] = useState<GhTestStatus>({ kind: "idle" });
   // Two-step guard: first click arms, second click wipes. Clearing erases
@@ -51,6 +60,9 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
     setOpenrouterApiKey(openrouter.trim());
     setRunnerUrl(runnerUrl);
     setGithubPat(pat);
+    setTtsProvider(ttsProvider);
+    setTtsVoice(ttsVoice.trim());
+    setElevenlabsApiKey(elevenlabs.trim());
     onClose();
   }
 
@@ -64,6 +76,12 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
     setRunnerUrl("");
     setGithubPat("");
     setGenerateModel(DEFAULT_MODEL_ID);
+    setTtsProvider("gemini");
+    setTtsVoice("");
+    setElevenlabsApiKey("");
+    setTtsProviderDraft("gemini");
+    setTtsVoiceDraft("");
+    setElevenlabs("");
     setGoogle("");
     setOpenai("");
     setOpenrouter("");
@@ -191,6 +209,49 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         <p className="text-[11px] text-text-tertiary">
           Used wherever no explicit model is picked — generating personas,
           variables and mocks, and translating transcripts.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="fs-label text-text-secondary">Ear-test TTS</label>
+        <div className="flex gap-2">
+          <Select
+            value={ttsProvider}
+            onChange={(e) => setTtsProviderDraft(e.target.value as TtsProvider)}
+            options={[
+              { value: "gemini", label: "Gemini (Google key)" },
+              { value: "openai", label: "OpenAI (OpenAI key)" },
+              { value: "elevenlabs", label: "ElevenLabs" },
+            ]}
+            className="w-44"
+          />
+          <input
+            type="text"
+            value={ttsVoice}
+            onChange={(e) => setTtsVoiceDraft(e.target.value)}
+            placeholder={
+              ttsProvider === "elevenlabs"
+                ? "voice id (required)"
+                : ttsProvider === "openai"
+                  ? "voice (default: alloy)"
+                  : "voice (default: Kore)"
+            }
+            className="flex-1 rounded border border-border-default px-2 py-1.5 fs-data focus:outline-none focus:ring-1 focus:ring-focus-ring"
+          />
+        </div>
+        {ttsProvider === "elevenlabs" && (
+          <input
+            type="password"
+            value={elevenlabs}
+            onChange={(e) => setElevenlabs(e.target.value)}
+            placeholder="ElevenLabs API key (xi-…)"
+            className="w-full rounded border border-border-default px-2 py-1.5 fs-data focus:outline-none focus:ring-1 focus:ring-focus-ring"
+          />
+        )}
+        <p className="text-[11px] text-text-tertiary">
+          Voices compare&apos;s ▶ hear on text columns, so the cascade candidate
+          sounds like YOUR stack next to the s2s column&apos;s real audio.
+          Synthesized on click, on your key; never during a run.
         </p>
       </div>
 

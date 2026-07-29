@@ -15,6 +15,9 @@ const GITHUB_LOGIN_KEY = "flowstore:settings:github_login";
 const GITHUB_NAME_KEY = "flowstore:settings:github_name";
 const VOICE_ASR_KEY = "flowstore:settings:voice_asr_per_min";
 const VOICE_TTS_KEY = "flowstore:settings:voice_tts_per_m_chars";
+const TTS_PROVIDER_KEY = "flowstore:settings:tts_provider";
+const TTS_VOICE_KEY = "flowstore:settings:tts_voice";
+const ELEVENLABS_KEY = "flowstore:settings:elevenlabs_api_key";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -33,6 +36,8 @@ export const DEFAULT_MODEL_ID = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
 export const DEFAULT_VOICE_MODEL_ID =
   Object.entries(BUILT_IN_MODELS.models).find(([, e]) => e.voice && e.endpoint === "google")?.[0] ??
   "gemini-3.1-flash-live-preview";
+
+export type TtsProvider = "gemini" | "openai" | "elevenlabs";
 
 interface SettingsState {
   googleApiKey: string;
@@ -77,8 +82,18 @@ interface SettingsState {
   // keys — they describe the user's ASR/TTS vendors, not any one study.
   voiceAsrPerMin: string;
   voiceTtsPerMChars: string;
+  // Ear-test TTS: which vendor synthesizes text-column replies on ▶ hear,
+  // and which voice. Stack-level facts like the rates — the point is to
+  // sound like the USER'S cascade stack, not ours. Gemini/OpenAI reuse
+  // their key slots; ElevenLabs gets its own.
+  ttsProvider: TtsProvider;
+  ttsVoice: string;
+  elevenlabsApiKey: string;
   setVoiceAsrPerMin: (v: string) => void;
   setVoiceTtsPerMChars: (v: string) => void;
+  setTtsProvider: (p: TtsProvider) => void;
+  setTtsVoice: (v: string) => void;
+  setElevenlabsApiKey: (k: string) => void;
   setGoogleApiKey: (key: string) => void;
   setOpenaiApiKey: (key: string) => void;
   setOpenrouterApiKey: (key: string) => void;
@@ -138,6 +153,21 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   githubName: "",
   voiceAsrPerMin: "",
   voiceTtsPerMChars: "",
+  ttsProvider: "gemini",
+  ttsVoice: "",
+  elevenlabsApiKey: "",
+  setTtsProvider: (p) => {
+    persistString(TTS_PROVIDER_KEY, p === "gemini" ? "" : p);
+    set({ ttsProvider: p });
+  },
+  setTtsVoice: (v) => {
+    persistString(TTS_VOICE_KEY, v);
+    set({ ttsVoice: v });
+  },
+  setElevenlabsApiKey: (k) => {
+    persistString(ELEVENLABS_KEY, k);
+    set({ elevenlabsApiKey: k });
+  },
   setVoiceAsrPerMin: (v) => {
     persistString(VOICE_ASR_KEY, v);
     set({ voiceAsrPerMin: v });
@@ -345,6 +375,12 @@ export function loadSavedSettings(): void {
     const voiceTts = window.localStorage.getItem(VOICE_TTS_KEY);
     if (voiceAsr) patch.voiceAsrPerMin = voiceAsr;
     if (voiceTts) patch.voiceTtsPerMChars = voiceTts;
+    const ttsProvider = window.localStorage.getItem(TTS_PROVIDER_KEY);
+    if (ttsProvider === "openai" || ttsProvider === "elevenlabs") patch.ttsProvider = ttsProvider;
+    const ttsVoice = window.localStorage.getItem(TTS_VOICE_KEY);
+    if (ttsVoice) patch.ttsVoice = ttsVoice;
+    const elKey = window.localStorage.getItem(ELEVENLABS_KEY);
+    if (elKey) patch.elevenlabsApiKey = elKey;
     if (login) patch.githubLogin = login;
     if (name) patch.githubName = name;
     if (Object.keys(patch).length > 0) useSettingsStore.setState(patch);
