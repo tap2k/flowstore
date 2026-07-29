@@ -1,4 +1,5 @@
-import { bytesToBase64 } from "./audio";
+import { bytesToBase64, floatTo16BitPCM } from "./audio";
+import { S2S_AUDIO_SAMPLE_RATE } from "@flowstore/studies";
 
 // Browser-direct TTS for compare's cascade-column ear test: text columns
 // synthesize a reply on demand so the cascade candidate is audible next to
@@ -102,25 +103,49 @@ function synthesizeOpenai(text: string, voice: string, apiKey: string): Promise<
   );
 }
 
-function synthesizeElevenlabs(text: string, voice: string, apiKey: string): Promise<string[]> {
+// ElevenLabs gates raw PCM output formats behind paid tiers — free accounts
+// get mp3. We take the mp3 and transcode to the cache's native PCM16@24k
+// locally (WebAudio decode + offline resample), so the tier difference never
+// reaches the replay pipeline.
+async function synthesizeElevenlabs(text: string, voice: string, apiKey: string): Promise<string[]> {
   if (!voice.trim()) {
-    return Promise.reject(
-      new Error("ElevenLabs needs a voice id — set it in settings (ear-test TTS)."),
-    );
+    throw new Error("ElevenLabs needs a voice id — set it in settings (ear-test TTS).");
   }
-  return fetchPcm(
-    `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice.trim())}?output_format=pcm_24000`,
+  const res = await fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice.trim())}?output_format=mp3_44100_128`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "xi-api-key": apiKey },
       body: JSON.stringify({ text, model_id: "eleven_multilingual_v2" }),
     },
-    "ElevenLabs",
-    (b) => {
+  );
+  if (!res.ok) {
+    throw await ttsError(res, "ElevenLabs", (b) => {
       const detail = (b as { detail?: { message?: string } | string }).detail;
       return typeof detail === "string" ? detail : detail?.message;
-    },
+    });
+  }
+  return mp3ToPcmChunks(await res.arrayBuffer());
+}
+
+// Decode compressed audio and resample to the s2s wire format. Browser-only
+// (WebAudio) — which is where all synthesis happens anyway.
+async function mp3ToPcmChunks(buf: ArrayBuffer): Promise<string[]> {
+  const probe = new AudioContext();
+  const decoded = await probe.decodeAudioData(buf);
+  await probe.close();
+  const off = new OfflineAudioContext(
+    1,
+    Math.ceil(decoded.duration * S2S_AUDIO_SAMPLE_RATE),
+    S2S_AUDIO_SAMPLE_RATE,
   );
+  const src = off.createBufferSource();
+  src.buffer = decoded;
+  src.connect(off.destination);
+  src.start();
+  const rendered = await off.startRendering();
+  const pcm = floatTo16BitPCM(rendered.getChannelData(0));
+  return [bytesToBase64(new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength))];
 }
 
 // One table answers every per-vendor question: adding a vendor is one entry.

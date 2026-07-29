@@ -17,7 +17,7 @@ const INPUT_SAMPLE_RATE = 16000;
 // replay WAVs (pcm16ChunksToWav) can never disagree about what 24 kHz means.
 const OUTPUT_SAMPLE_RATE = S2S_AUDIO_SAMPLE_RATE;
 
-function floatTo16BitPCM(samples: Float32Array): Int16Array {
+export function floatTo16BitPCM(samples: Float32Array): Int16Array {
   const out = new Int16Array(samples.length);
   for (let i = 0; i < samples.length; i++) {
     const s = Math.max(-1, Math.min(1, samples[i]));
