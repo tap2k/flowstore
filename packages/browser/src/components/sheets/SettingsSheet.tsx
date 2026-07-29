@@ -247,8 +247,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           </label>
         </div>
         <p className="text-[11px] text-text-tertiary">
-          Your ASR/TTS vendor rates — price compare&apos;s voice estimate on
-          text columns. Blank hides the estimate.
+          Prices the voice estimate. Blank hides it.
         </p>
       </div>
 
