@@ -1,5 +1,0 @@
-# create.flowstore.org routes through the brand (301s preserved forever —
-# spoken URLs keep working; search consolidates on flowstore.org).
-/compare https://flowstore.org/compare/ 301
-/compare.html https://flowstore.org/compare/ 301
-/* https://flowstore.org/create/:splat 301
