@@ -407,18 +407,24 @@ export const useCompareStore = create<CompareState>((set, get) => {
     );
   },
 
-  // Run one model column across every scenario — the column ▶. Same pause
-  // semantics as runScenario.
+  // Run ONE cell: the selected scenario on this model column — the column
+  // header ▶ lives next to the transcript it would rerun, so it means "run
+  // this conversation", not the whole column. Same pause semantics as
+  // runScenario. (Whole-column and whole-row sweeps stay: run-all and the
+  // sidebar ▶.)
   runColumn: async (mi) => {
-    const inCol = new Set(get().scenarios.map((sc) => cellKey(sc.id, mi)));
-    const resume = seedFor(get().cells, (k) => inCol.has(k));
+    const { selected, scenarios } = get();
+    const sc = scenarios.find((x) => x.id === selected);
+    if (!sc) return;
+    const key = cellKey(sc.id, mi);
+    const resume = seedFor(get().cells, (k) => k === key);
     await startRun(
       { kind: "col", index: mi },
       {
-        scenarios: get().scenarios,
+        scenarios: [sc],
         columns: [mi],
         resumeFrom: resume,
-        keepCaches: (k) => !inCol.has(k) || k in resume,
+        keepCaches: (k) => k !== key || k in resume,
       },
     );
   },

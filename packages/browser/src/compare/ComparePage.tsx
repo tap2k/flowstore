@@ -520,9 +520,9 @@ export function ComparePage() {
                     ) : (
                       <RunButton
                         size="sm"
-                        label={`Run ${m} on all scenarios — stopped conversations continue; done and failed ones re-run`}
+                        label={`Run ${m} on this scenario — a stopped conversation continues; a done or failed one re-runs`}
                         onClick={() => void s.runColumn(i)}
-                        disabled={busy || s.scenarios.length === 0}
+                        disabled={busy || !s.selected}
                         className="shrink-0"
                       />
                     )}
