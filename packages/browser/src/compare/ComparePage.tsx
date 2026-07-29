@@ -18,6 +18,7 @@ import {
   Package,
   Play,
   Plus,
+  Stop,
   Trash,
   UploadSimple,
   X,
@@ -142,29 +143,31 @@ export function ComparePage() {
           <Button size="sm" onClick={() => s.clearConversations()} disabled={busy || !hasResults}>
             clear
           </Button>
+          {totalCells > 0 && (
+            <span
+              className="text-[10px] tabular-nums text-text-tertiary"
+              title={`${settledCells} of ${totalCells} conversations finished (scenarios × models)`}
+            >
+              {settledCells}/{totalCells} conversations
+            </span>
+          )}
           {busy ? (
-            <>
-              {s.running && (
-                <span
-                  className="text-[10px] tabular-nums text-text-tertiary"
-                  title={`${settledCells} of ${totalCells} conversations finished (scenarios × models)`}
-                >
-                  {settledCells}/{totalCells} conversations
-                </span>
-              )}
-              <StopButton size="sm" onClick={() => s.stopRun()} />
-            </>
-          ) : (
-            <Button
-              variant="primary"
+            <IconButton
+              icon={Stop}
               size="sm"
+              label="Stop — completed conversations are kept; stopped ones resume where they paused"
+              onClick={() => s.stopRun()}
+              className="shrink-0 text-state-error-fg"
+            />
+          ) : (
+            <IconButton
               icon={Play}
+              size="sm"
+              label="Run all — continues stopped conversations and runs missing or failed ones; finished conversations are kept"
               onClick={() => void s.run()}
               disabled={!s.prompt.trim() || s.scenarios.length === 0 || s.models.length === 0}
-              title="Continues stopped conversations and runs missing or failed ones; finished conversations are kept. Use clear for a fresh start."
-            >
-              run all
-            </Button>
+              className="shrink-0 text-state-success-fg"
+            />
           )}
           <Divider />
           {/* Graduation: same-origin jump to the editor, which imports this
