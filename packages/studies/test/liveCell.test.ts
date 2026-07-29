@@ -64,6 +64,9 @@ describe("LiveTurnCollector", () => {
     // Latency is send→first evidence (the audio chunk at 1400), not the
     // transcription that trails it.
     expect(turns[0].latencyMs).toBe(400);
+    // Wall time runs to turnComplete — audio streams long past first chunk,
+    // and the cell total must carry that truth.
+    expect(turns[0].wallMs).toBe(700);
     expect(turns[0].usage).toEqual({
       inputTokens: 20,
       outputTokens: 0,

@@ -144,7 +144,7 @@ export function buildReportHtml(
 <tbody>${summaryRows}</tbody></table>
 <div class="note">*Measured dollar cost is reported by OpenRouter-routed models; direct-provider runs show tokens only. ${latencyNote} Divergence is a lexical signal marking where to read — it is not a pass/fail verdict; read the transcripts.${
     withLiveEst
-      ? " S2S cost (~) is estimated: measured audio/text tokens × published Gemini Live rates — the provider reports tokens, not dollars."
+      ? " S2S cost (~) is estimated: measured audio/text tokens × published Gemini Live rates — the provider reports tokens, not dollars. S2S latency/reply is time-to-first-audio; the audio itself streams near real time beyond that."
       : ""
   }${
     withVoice

@@ -58,7 +58,17 @@ export function usageFromLiveMetadata(
   };
 }
 
-export type LiveTurnResult = { text: string; usage?: ChatUsage; latencyMs?: number };
+// latencyMs = send→first audio (how fast the reply FEELS — the per-reply
+// chip and the report's latency column). wallMs = send→turnComplete (how
+// long the turn actually HOLDS the line — audio streams near real-time, so
+// a 1s-to-first-audio reply can still take 20s of wall). totalMs sums wall,
+// matching the text path's full-round-trip semantics.
+export type LiveTurnResult = {
+  text: string;
+  usage?: ChatUsage;
+  latencyMs?: number;
+  wallMs?: number;
+};
 
 // Reduces the interleaved Live message stream into completed agent turns.
 // One instance per session; feed() every message, and it invokes onTurn when
@@ -74,7 +84,8 @@ export class LiveTurnCollector {
 
   constructor(private onTurn: (turn: LiveTurnResult) => void) {}
 
-  // Stamp when a user turn is sent so first response marks latency.
+  // Stamp when a user turn is sent: first response marks latency; the stamp
+  // itself anchors wall time until turnComplete.
   markSent(now: number): void {
     this.sentAt = now;
     this.latencyMs = undefined;
@@ -98,6 +109,7 @@ export class LiveTurnCollector {
         text: this.agentBuf.trim(),
         usage: this.turnUsage,
         latencyMs: this.latencyMs,
+        wallMs: this.sentAt !== null ? Math.round(now - this.sentAt) : undefined,
       };
       this.agentBuf = "";
       this.turnUsage = undefined;
@@ -207,7 +219,7 @@ export async function runLiveCell(args: {
       const res = await withTimeout(turnDone, TURN_TIMEOUT_MS, "Live turn");
       if (signal?.aborted) break;
 
-      totalMs += res.latencyMs ?? 0;
+      totalMs += res.wallMs ?? res.latencyMs ?? 0;
       usage = addUsage(usage, res.usage);
       history.push(userTurn, {
         role: "agent",

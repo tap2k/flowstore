@@ -3,6 +3,7 @@ import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
 import type { ChatUsage } from "@flowstore/core/llm/types";
 import type { CellState, ModelDispatch, Scenario } from "./types";
 import { IDLE_CELL, cellKey } from "./types";
+import { runLiveCell } from "./liveCell";
 
 // Resolves a model id to dispatch credentials, or null when the model can't
 // be dispatched (no key). Injected by the surface (browser settings store,
@@ -46,8 +47,8 @@ export async function runCell(args: {
   const { systemPrompt, scenario, dispatch, onUpdate, signal } = args;
   // S2S columns route to the Live driver (same onUpdate contract, no resume —
   // a closed Live session can't be re-seeded, so stopped cells restart).
+  // Static import is cheap: the SDK load stays lazy inside runLiveCell.
   if (dispatch.live) {
-    const { runLiveCell } = await import("./liveCell");
     return runLiveCell({ systemPrompt, scenario, dispatch, onUpdate, signal });
   }
   const prior = resumablePrefix(args.resume, scenario);
@@ -114,16 +115,15 @@ export async function runMatrix(args: {
 
   await Promise.all(
     models.map(async (model, mi) => {
-      for (const s of scenarios) {
-        if (signal?.aborted) break;
+      const one = async (s: Scenario): Promise<void> => {
         const key = cellKey(s.id, mi);
-        if (cells[key]?.status === "done") continue;
+        if (cells[key]?.status === "done") return;
         // Resolved per cell on purpose: a key entered mid-run is picked up
         // by the remaining scenarios in the column.
         const dispatch = resolveDispatch(model);
         if (!dispatch) {
           emit(key, { status: "error", error: `No API key for ${model}.` });
-          continue;
+          return;
         }
         await runCell({
           systemPrompt,
@@ -133,6 +133,26 @@ export async function runMatrix(args: {
           signal,
           resume: args.resumeFrom?.[key],
         });
+      };
+      // Live columns overlap scenarios (each is an independent session, and
+      // the socket paces audio at speech speed — serial live cells would cost
+      // the sum of the spoken durations). Bounded to stay inside Live
+      // concurrent-session quotas. Text columns stay sequential: completions
+      // are fast, and serial order keeps provider rate-limit pressure flat.
+      if (resolveDispatch(model)?.live) {
+        const queue = [...scenarios];
+        await Promise.all(
+          Array.from({ length: Math.min(LIVE_COLUMN_CONCURRENCY, queue.length) }, async () => {
+            for (let s = queue.shift(); s && !signal?.aborted; s = queue.shift()) {
+              await one(s);
+            }
+          }),
+        );
+      } else {
+        for (const s of scenarios) {
+          if (signal?.aborted) break;
+          await one(s);
+        }
       }
     }),
   );
@@ -173,3 +193,8 @@ export function divergence(a: TranscriptTurn[], b: TranscriptTurn[]): number {
 }
 
 export const DIVERGENCE_THRESHOLD = 0.72;
+
+// Concurrent Live sessions per s2s column. Gemini Live session quotas are
+// modest (single digits on lower tiers) — 3 keeps a healthy margin while
+// cutting a column's wall time to ~ceil(n/3) spoken durations.
+export const LIVE_COLUMN_CONCURRENCY = 3;
