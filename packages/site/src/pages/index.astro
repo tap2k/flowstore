@@ -18,13 +18,13 @@ const repoUrl = "https://github.com/tap2k/flowstore";
     <p class="mt-6 max-w-2xl text-lg text-slate-600">
       Compare the cost and behavior of different models, author conversation specs on a canvas, decompose them into per-concern files in a Git repo, and compile a system prompt as a pure function of the spec.
     </p>
-    <div class="mt-10 grid gap-4 sm:grid-cols-2">
+    <div class="mt-10 grid items-stretch gap-4 sm:grid-cols-2">
       <a
         href={compareUrl}
-        class="rounded-lg border border-slate-300 p-5 hover:border-slate-900"
+        class="flex flex-col rounded-xl border border-slate-300 bg-slate-50 p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-md"
       >
-        <p class="text-sm font-semibold text-slate-900">Compare →</p>
-        <p class="mt-1 text-sm text-slate-600">
+        <p class="text-base font-semibold text-slate-900">Compare →</p>
+        <p class="mt-2 text-sm leading-relaxed text-slate-600">
           Paste a system prompt, run it across models side by side — behavior,
           latency, and cost, including speech-to-speech. Runs in your browser;
           your prompt never leaves your machine.
@@ -32,10 +32,10 @@ const repoUrl = "https://github.com/tap2k/flowstore";
       </a>
       <a
         href={editorUrl}
-        class="rounded-lg border border-slate-300 p-5 hover:border-slate-900"
+        class="flex flex-col rounded-xl border border-slate-300 bg-slate-50 p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-md"
       >
-        <p class="text-sm font-semibold text-slate-900">Create →</p>
-        <p class="mt-1 text-sm text-slate-600">
+        <p class="text-base font-semibold text-slate-900">Create →</p>
+        <p class="mt-2 text-sm leading-relaxed text-slate-600">
           Author the spec on a canvas, simulate conversations interactively,
           and compile the system prompt as a pure function of the spec.
         </p>
