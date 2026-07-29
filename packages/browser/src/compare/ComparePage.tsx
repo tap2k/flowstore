@@ -37,6 +37,8 @@ import {
   turnAudioVersion,
 } from "./audioCache";
 import { GitHubStudyOpenModal, GitHubStudySaveModal } from "./GitHubStudyModals";
+import { synthesizeSpeech } from "@/lib/runtime/tts";
+import { putTurnAudio } from "./audioCache";
 
 // The compare tool: paste a prompt, edit scenarios, pick models, run the
 // small-N matrix, read the side-by-sides. The engine lives in
@@ -52,6 +54,7 @@ export function ComparePage() {
   const ttsPerMChars = useSettingsStore((st) => st.voiceTtsPerMChars);
   const setTtsPerMChars = useSettingsStore((st) => st.setVoiceTtsPerMChars);
   const defaultModel = useSettingsStore((st) => st.defaultModel);
+  const googleApiKey = useSettingsStore((st) => st.googleApiKey);
 
   const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -570,7 +573,7 @@ export function ComparePage() {
                         key={k}
                         turn={t}
                         displayText={s.showTranslated[key] ? s.translations[key]?.get(t.ts) : undefined}
-                        audio={colLive && t.role === "agent" && hasTurnAudio(key, t.ts) ? { cellKey: key, ts: t.ts } : undefined}
+                        audio={audioFor(colLive, t, key, googleApiKey)}
                       />
                     ))}
                     {c?.status === "running" && (
@@ -700,6 +703,26 @@ function ColumnStats({
 // toggle is on (same substitution the editor's TurnView does) — the stored
 // transcript stays verbatim. audio (s2s replies, session-scoped — see
 // audioCache) adds an inline replay control; the WAV builds on first click.
+// Which replay control an agent bubble gets: s2s columns replay the run's
+// real audio (present in the cache); text columns offer lazy TTS synthesis —
+// the cascade side of the ear test — when a Google key is available.
+function audioFor(
+  colLive: boolean,
+  t: TranscriptTurn,
+  cellKey: string,
+  googleApiKey: string,
+): TurnAudio | undefined {
+  if (t.role !== "agent") return undefined;
+  if (colLive) {
+    return hasTurnAudio(cellKey, t.ts) ? { cellKey, ts: t.ts } : undefined;
+  }
+  if (!t.text || !googleApiKey.trim()) return undefined;
+  const text = t.text;
+  return { cellKey, ts: t.ts, synth: () => synthesizeSpeech(text, googleApiKey) };
+}
+
+type TurnAudio = { cellKey: string; ts: number; synth?: () => Promise<string[]> };
+
 function TurnBubble({
   turn,
   displayText,
@@ -707,7 +730,7 @@ function TurnBubble({
 }: {
   turn: TranscriptTurn;
   displayText?: string;
-  audio?: { cellKey: string; ts: number };
+  audio?: TurnAudio;
 }) {
   const shown = displayText ?? turn.text;
   return turn.role === "user" ? (
@@ -718,7 +741,7 @@ function TurnBubble({
       {(turn.latencyMs !== undefined || audio) && (
         <div className="mt-1 flex items-center gap-2 text-[10px] text-text-disabled">
           {turn.latencyMs !== undefined && <span>{(turn.latencyMs / 1000).toFixed(1)}s</span>}
-          {audio && <ReplayButton cellKey={audio.cellKey} ts={audio.ts} />}
+          {audio && <ReplayButton cellKey={audio.cellKey} ts={audio.ts} synth={audio.synth} />}
         </div>
       )}
     </div>
@@ -759,21 +782,55 @@ const replay = (() => {
   };
 })();
 
-function ReplayButton({ cellKey, ts }: { cellKey: string; ts: number }) {
+function ReplayButton({
+  cellKey,
+  ts,
+  synth,
+}: {
+  cellKey: string;
+  ts: number;
+  // Text columns only: synthesize the reply (Gemini TTS, the user's key) on
+  // first click and cache it like an s2s recording. s2s columns replay the
+  // run's real audio and never synthesize.
+  synth?: () => Promise<string[]>;
+}) {
   const playingUrl = useSyncExternalStore(replay.subscribe, replay.playingUrl);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   // peek never builds — the WAV encode happens on click only.
   const playing = playingUrl !== null && peekTurnAudioUrl(cellKey, ts) === playingUrl;
+  const onClick = async () => {
+    if (busy) return;
+    let u = getTurnAudioUrl(cellKey, ts);
+    if (!u && synth) {
+      setBusy(true);
+      setError(null);
+      try {
+        putTurnAudio(cellKey, ts, await synth());
+        u = getTurnAudioUrl(cellKey, ts);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "TTS failed.");
+      } finally {
+        setBusy(false);
+      }
+    }
+    if (u) replay.toggle(u);
+  };
   return (
     <button
       type="button"
-      onClick={() => {
-        const u = getTurnAudioUrl(cellKey, ts);
-        if (u) replay.toggle(u);
-      }}
-      title={playing ? "Stop" : "Hear this reply (audio from the run, kept for this session)"}
-      className="cursor-pointer text-text-tertiary hover:text-text-primary"
+      onClick={() => void onClick()}
+      title={
+        error ??
+        (playing
+          ? "Stop"
+          : synth && !hasTurnAudio(cellKey, ts)
+            ? "Hear this reply — synthesized with Gemini TTS on your Google key, then kept for this session"
+            : "Hear this reply (audio from the run, kept for this session)")
+      }
+      className={`cursor-pointer ${error ? "text-state-error-fg" : "text-text-tertiary hover:text-text-primary"}`}
     >
-      {playing ? "◼ stop" : "▶ hear"}
+      {busy ? "…" : playing ? "◼ stop" : error ? "✕ tts" : "▶ hear"}
     </button>
   );
 }
