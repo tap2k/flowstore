@@ -414,7 +414,7 @@ export function ComparePage() {
                 >
                   <td className="border-b border-border-subtle px-2 py-1.5">
                     <div className="flex items-center gap-1">
-                      <span className="min-w-0 flex-1 truncate">
+                      <span className="min-w-0 flex-1 break-words">
                         {sc.name} <span className="text-text-disabled">{sc.language}</span>
                         {s.golds[sc.id] && s.golds[sc.id].column === undefined && (
                           <span
