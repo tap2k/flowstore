@@ -66,7 +66,6 @@ export function ComparePage() {
   // Placeholder strip disclosure — session-local; collapsed shows the fill
   // tally so the state stays truthful at a glance.
   const [varsOpen, setVarsOpen] = useState(true);
-  const [composer, setComposer] = useState("");
 
   // Parsed rates; a blank or non-numeric field contributes nothing, and with
   // both blank the voice estimate disappears everywhere.
@@ -481,7 +480,6 @@ export function ComparePage() {
           </table>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col">
         <section className="flex flex-1 min-w-0 divide-x divide-border-default overflow-x-auto">
           {s.selected &&
             s.models.map((m, i) => {
@@ -608,37 +606,14 @@ export function ComparePage() {
                       </div>
                     )}
                   </div>
+                  {/* Simulate-style composer, one per column. Off-script:
+                      the probe continues THIS conversation only and lives in
+                      the cell/run — the scenario script is untouched. */}
+                  <ColumnComposer disabled={busy} onSend={(t) => void s.sendUserTurn(t, i)} />
                 </div>
               );
             })}
         </section>
-        {/* Simulate-style composer: the typed turn appends to the scenario's
-            script and fans out to every column — works on stopped, done, and
-            not-yet-started conversations alike. */}
-        {s.selected && (
-          <form
-            className="flex items-center gap-2 border-t border-border-default bg-surface-panel px-4 py-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const t = composer.trim();
-              if (!t || busy) return;
-              setComposer("");
-              void s.sendUserTurn(t);
-            }}
-          >
-            <Input
-              value={composer}
-              onChange={(e) => setComposer(e.target.value)}
-              placeholder="type the next user turn — joins the scenario script and runs on every column"
-              disabled={busy}
-              className="flex-1"
-            />
-            <Button size="sm" type="submit" disabled={busy || !composer.trim()}>
-              send
-            </Button>
-          </form>
-        )}
-        </div>
       </main>
       )}
       {settingsOpen && <SettingsSheet onClose={() => setSettingsOpen(false)} />}
@@ -898,6 +873,36 @@ function ReplayButton({
         "▶ tts"
       )}
     </button>
+  );
+}
+
+// One column's chat input. Local draft state so the three composers don't
+// share text; the send semantics live in the store (sendUserTurn).
+function ColumnComposer({ disabled, onSend }: { disabled: boolean; onSend: (t: string) => void }) {
+  const [draft, setDraft] = useState("");
+  return (
+    <form
+      className="flex items-center gap-1.5 border-t border-border-subtle px-2 py-1.5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const t = draft.trim();
+        if (!t || disabled) return;
+        setDraft("");
+        onSend(t);
+      }}
+    >
+      <Input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder="message this model…"
+        title="Continues this conversation off-script — saved with the run; the scenario is unchanged. A scripted re-run starts over."
+        disabled={disabled}
+        className="flex-1"
+      />
+      <Button size="sm" type="submit" disabled={disabled || !draft.trim()}>
+        send
+      </Button>
+    </form>
   );
 }
 

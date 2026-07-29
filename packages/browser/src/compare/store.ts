@@ -117,10 +117,12 @@ interface CompareState {
   uploadBundle: (file: File) => void;
   run: () => Promise<void>;
   runScenario: (s: Scenario) => Promise<void>;
-  // Broadcast a typed user turn: appends to the selected scenario's script
-  // (the exchange stays reproducible — it IS the case now) and continues
-  // every column, including done ones.
-  sendUserTurn: (text: string) => Promise<void>;
+  // Typed user turn into ONE column's conversation (the per-column
+  // composer). OFF-SCRIPT by design: the scenario stays the canonical
+  // suite; the probe lives in the cell's transcript (and so in the saved
+  // study and exported run results). A later scripted re-run of the cell
+  // starts over from the script.
+  sendUserTurn: (text: string, mi: number) => Promise<void>;
   runColumn: (mi: number) => Promise<void>;
   stopRun: () => void;
   translateColumn: (key: string, turns: TranscriptTurn[]) => Promise<void>;
@@ -411,31 +413,38 @@ export const useCompareStore = create<CompareState>((set, get) => {
     );
   },
 
-  sendUserTurn: async (text) => {
+  sendUserTurn: async (text, mi) => {
     const t = text.trim();
-    const { selected, scenarios, models, runMode } = get();
+    const { selected, scenarios, cells, runMode } = get();
     const sc = scenarios.find((x) => x.id === selected);
     if (!t || !sc || runMode) return;
-    // The typed turn joins the script — a lone empty scaffold turn is
-    // replaced, anything else appended.
-    const turns = sc.turns.length === 1 && !sc.turns[0].trim() ? [t] : [...sc.turns, t];
-    const updated = { ...sc, turns };
+    const key = cellKey(sc.id, mi);
+    // A synthetic script — this cell's own user turns plus the probe — lets
+    // the ordinary resume machinery continue the conversation while the
+    // scenario stays untouched. Text cells resume in place; s2s cells
+    // replay the whole conversation in a fresh session (a closed live
+    // socket can't be re-seeded), which costs another run but stays honest.
+    const userTurns = (cells[key]?.turns ?? [])
+      .filter((x) => x.role === "user")
+      .map((x) => x.text);
+    const probe: Scenario = { ...sc, turns: [...userTurns, t] };
     set((st) => {
-      // Done cells become resumable: the script just grew, so their complete
-      // pairs are a valid prefix again — idle lets the engine continue them
-      // instead of restarting the conversation.
-      const cells = { ...st.cells };
-      for (let mi = 0; mi < models.length; mi++) {
-        const k = cellKey(sc.id, mi);
-        const c = cells[k];
-        if (c?.status === "done") cells[k] = { ...c, status: "idle" };
-      }
-      return {
-        scenarios: st.scenarios.map((x) => (x.id === sc.id ? updated : x)),
-        cells,
-      };
+      const c = st.cells[key];
+      // done → idle: the transcript is a valid prefix of the probe script.
+      return c?.status === "done"
+        ? { cells: { ...st.cells, [key]: { ...c, status: "idle" } } }
+        : {};
     });
-    await get().runScenario(updated);
+    const resume = seedFor(get().cells, (k) => k === key);
+    await startRun(
+      { kind: "col", index: mi },
+      {
+        scenarios: [probe],
+        columns: [mi],
+        resumeFrom: resume,
+        keepCaches: (k) => k !== key || k in resume,
+      },
+    );
   },
 
   // Run ONE cell: the selected scenario on this model column — the column
