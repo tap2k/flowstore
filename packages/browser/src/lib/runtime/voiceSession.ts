@@ -33,6 +33,8 @@ export interface VoiceSessionConfig {
   // connect so it greets without waiting for user audio (the voice analog of
   // text mode's synthetic [begin] turn).
   chatbotInitiates?: boolean;
+  // Speaker persona (vendor namespace); blank/absent = vendor default.
+  voice?: string;
   onUserTurn: (text: string) => void;
   // latencyMs: time from the user finishing their turn to the agent's first
   // response (audio or transcription) — the voice analog of text's
@@ -115,6 +117,9 @@ export class VoiceSession {
           systemInstruction: this.cfg.systemPrompt,
           inputAudioTranscription: {},
           outputAudioTranscription: {},
+          ...(this.cfg.voice
+            ? { speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: this.cfg.voice } } } }
+            : {}),
           ...(functionDeclarations.length > 0
             ? { tools: [{ functionDeclarations }] }
             : {}),

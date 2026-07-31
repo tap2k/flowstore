@@ -59,7 +59,11 @@ export function ModelPicker({
 
   // Merge built-in and project models; project entries shadow built-ins with
   // the same key. Project entries are shown in a separate optgroup.
-  const builtinEntries = Object.entries(BUILT_IN_MODELS.models);
+  // Voice (s2s) models sort to the top whenever they're listed — they're
+  // the newest capability and the reason most pickers get opened now.
+  const builtinEntries = Object.entries(BUILT_IN_MODELS.models).sort(
+    ([, a], [, b]) => Number(b.voice === true) - Number(a.voice === true),
+  );
   const projectEntries: [string, ModelEntry][] = projectConfig
     ? Object.entries(projectConfig.models).filter(([id]) => !(id in BUILT_IN_MODELS.models))
     : [];

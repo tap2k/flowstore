@@ -91,6 +91,9 @@ const connectGeminiLive: S2sConnect = async ({ dispatch, systemPrompt, acc, onRe
       responseModalities: [Modality.AUDIO],
       systemInstruction: systemPrompt,
       outputAudioTranscription: {},
+      ...(dispatch.voice
+        ? { speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: dispatch.voice } } } }
+        : {}),
     },
   });
   return {

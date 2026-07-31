@@ -112,7 +112,7 @@ type RealtimeVendor = {
   name: string;
   url: string;
   subprotocols: (apiKey: string) => Promise<string[]>;
-  sessionUpdate: (systemPrompt: string) => unknown;
+  sessionUpdate: (systemPrompt: string, voice?: string) => unknown;
 };
 
 const VENDORS: Record<"openai" | "xai", RealtimeVendor> = {
@@ -122,9 +122,14 @@ const VENDORS: Record<"openai" | "xai", RealtimeVendor> = {
     subprotocols: (apiKey) => Promise.resolve(["realtime", `openai-insecure-api-key.${apiKey}`]),
     // Minimal session config: instructions + audio out. Formats stay at the
     // protocol default (pcm16 @ 24kHz — the replay cache's wire format).
-    sessionUpdate: (systemPrompt) => ({
+    sessionUpdate: (systemPrompt, voice) => ({
       type: "session.update",
-      session: { type: "realtime", output_modalities: ["audio"], instructions: systemPrompt },
+      session: {
+        type: "realtime",
+        output_modalities: ["audio"],
+        instructions: systemPrompt,
+        ...(voice ? { audio: { output: { voice } } } : {}),
+      },
     }),
   },
   xai: {
@@ -153,11 +158,12 @@ const VENDORS: Record<"openai" | "xai", RealtimeVendor> = {
     },
     // xAI's session dialect: no `type` field; audio format set explicitly to
     // the cache's wire format (their default may differ).
-    sessionUpdate: (systemPrompt) => ({
+    sessionUpdate: (systemPrompt, voice) => ({
       type: "session.update",
       session: {
         instructions: systemPrompt,
         audio: { output: { format: { type: "audio/pcm", rate: 24000 } } },
+        ...(voice ? { voice } : {}),
       },
     }),
   },
@@ -187,7 +193,7 @@ function connectVendor(vendor: RealtimeVendor): S2sConnect {
     let readySent = false;
 
     ws.onopen = () => {
-      send(vendor.sessionUpdate(systemPrompt));
+      send(vendor.sessionUpdate(systemPrompt, dispatch.voice));
     };
     ws.onmessage = (e: MessageEvent) => {
       let evt: RealtimeEvent;

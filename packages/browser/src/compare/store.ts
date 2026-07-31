@@ -46,9 +46,16 @@ export const MAX_MODEL_COLUMNS = 3;
 // generators all use it rather than respelling the provider/key check).
 export function resolveForEngine(model: string) {
   const d = resolveDispatch(model);
-  return d.provider && d.apiKey.trim()
-    ? { provider: d.provider, apiKey: d.apiKey, baseUrl: d.baseUrl, wireModel: d.wireModel, live: d.live }
-    : null;
+  if (!d.provider || !d.apiKey.trim()) return null;
+  const voice = useSettingsStore.getState().s2sVoice.trim();
+  return {
+    provider: d.provider,
+    apiKey: d.apiKey,
+    baseUrl: d.baseUrl,
+    wireModel: d.wireModel,
+    live: d.live,
+    ...(d.live && voice ? { voice } : {}),
+  };
 }
 
 // Placeholder-fill: only currently-detected, non-empty values participate —

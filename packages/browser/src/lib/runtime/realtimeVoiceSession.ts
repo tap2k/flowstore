@@ -26,6 +26,8 @@ export interface RealtimeVoiceSessionConfig {
   tools: ToolDefinition[];
   resolveTool: (name: string, args: Record<string, unknown>) => Promise<unknown> | unknown;
   chatbotInitiates?: boolean;
+  // Speaker persona (vendor namespace); blank/absent = vendor default.
+  voice?: string;
   onUserTurn: (text: string) => void;
   onAgentTurn: (
     text: string,
@@ -175,6 +177,7 @@ export class RealtimeVoiceSession {
     // Dialects differ slightly: OpenAI's GA session carries type/modalities
     // and an input-transcription config; xAI's is leaner (transcription is
     // emitted by default, unknown params are rejected loudly).
+    const voice = this.cfg.voice?.trim();
     const session =
       this.cfg.provider === "openai"
         ? {
@@ -184,12 +187,14 @@ export class RealtimeVoiceSession {
             audio: {
               ...audio,
               input: { ...audio.input, transcription: { model: "gpt-4o-mini-transcribe" } },
+              ...(voice ? { output: { ...audio.output, voice } } : {}),
             },
             ...(tools.length > 0 ? { tools, tool_choice: "auto" } : {}),
           }
         : {
             instructions: this.cfg.systemPrompt,
             audio,
+            ...(voice ? { voice } : {}),
             ...(tools.length > 0 ? { tools } : {}),
           };
     this.send({ type: "session.update", session });

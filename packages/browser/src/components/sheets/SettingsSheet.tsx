@@ -34,6 +34,8 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   const setTtsProvider = useSettingsStore((s) => s.setTtsProvider);
   const storedTtsVoice = useSettingsStore((s) => s.ttsVoice);
   const setTtsVoice = useSettingsStore((s) => s.setTtsVoice);
+  const storedS2sVoice = useSettingsStore((s) => s.s2sVoice);
+  const setS2sVoice = useSettingsStore((s) => s.setS2sVoice);
   const storedElevenlabs = useSettingsStore((s) => s.elevenlabsApiKey);
   const setElevenlabsApiKey = useSettingsStore((s) => s.setElevenlabsApiKey);
   const storedAsrPerMin = useSettingsStore((s) => s.voiceAsrPerMin);
@@ -49,6 +51,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   const [pat, setPat] = useState(storedGithubPat);
   const [ttsProvider, setTtsProviderDraft] = useState<TtsProvider>(storedTtsProvider);
   const [ttsVoice, setTtsVoiceDraft] = useState(storedTtsVoice);
+  const [s2sVoice, setS2sVoiceDraft] = useState(storedS2sVoice);
   const [elevenlabs, setElevenlabs] = useState(storedElevenlabs);
   const [asrPerMin, setAsrPerMin] = useState(storedAsrPerMin);
   const [ttsPerMChars, setTtsPerMChars] = useState(storedTtsPerMChars);
@@ -67,6 +70,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
     setGithubPat(pat);
     setTtsProvider(ttsProvider);
     setTtsVoice(ttsVoice.trim());
+    setS2sVoice(s2sVoice.trim());
     setElevenlabsApiKey(elevenlabs.trim());
     setVoiceAsrPerMin(asrPerMin.trim());
     setVoiceTtsPerMChars(ttsPerMChars.trim());
@@ -86,9 +90,11 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
     setGenerateModel(DEFAULT_MODEL_ID);
     setTtsProvider("gemini");
     setTtsVoice("");
+    setS2sVoice("");
     setElevenlabsApiKey("");
     setTtsProviderDraft("gemini");
     setTtsVoiceDraft("");
+    setS2sVoiceDraft("");
     setElevenlabs("");
     setVoiceAsrPerMin("");
     setVoiceTtsPerMChars("");
@@ -297,6 +303,19 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         </div>
         <p className="text-[11px] text-text-tertiary">
           Voices ▶ hear on text columns. Synthesized on click, on your key.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="fs-label text-text-secondary">S2S voice</label>
+        <Input
+          value={s2sVoice}
+          onChange={(e) => setS2sVoiceDraft(e.target.value)}
+          placeholder="vendor default (Gemini: Kore · OpenAI: marin · Grok: eve)"
+          className="w-full"
+        />
+        <p className="text-[11px] text-text-tertiary">
+          Speaker for live s2s sessions. Vendor&apos;s namespace; blank = default.
         </p>
       </div>
       {ttsProvider === "elevenlabs" && (

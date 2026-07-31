@@ -21,6 +21,7 @@ const VOICE_ASR_KEY = "flowstore:settings:voice_asr_per_min";
 const VOICE_TTS_KEY = "flowstore:settings:voice_tts_per_m_chars";
 const TTS_PROVIDER_KEY = "flowstore:settings:tts_provider";
 const TTS_VOICE_KEY = "flowstore:settings:tts_voice";
+const S2S_VOICE_KEY = "flowstore:settings:s2s_voice";
 const ELEVENLABS_KEY = "flowstore:settings:elevenlabs_api_key";
 const XAI_KEY = "flowstore:settings:xai_api_key";
 
@@ -94,11 +95,16 @@ interface SettingsState {
   // their key slots; ElevenLabs gets its own.
   ttsProvider: TtsProvider;
   ttsVoice: string;
+  // Speaker persona for LIVE s2s sessions (compare columns + simulate voice
+  // mode) — vendor's namespace, blank = vendor default. Distinct from
+  // ttsVoice, which voices the cascade ear test only.
+  s2sVoice: string;
   elevenlabsApiKey: string;
   setVoiceAsrPerMin: (v: string) => void;
   setVoiceTtsPerMChars: (v: string) => void;
   setTtsProvider: (p: TtsProvider) => void;
   setTtsVoice: (v: string) => void;
+  setS2sVoice: (v: string) => void;
   setElevenlabsApiKey: (k: string) => void;
   setGoogleApiKey: (key: string) => void;
   setOpenaiApiKey: (key: string) => void;
@@ -163,6 +169,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   voiceTtsPerMChars: "",
   ttsProvider: "gemini",
   ttsVoice: "",
+  s2sVoice: "",
+  setS2sVoice: (v) => {
+    persistString(S2S_VOICE_KEY, v);
+    set({ s2sVoice: v });
+  },
   elevenlabsApiKey: "",
   setTtsProvider: (p) => {
     persistString(TTS_PROVIDER_KEY, p === "gemini" ? "" : p);
@@ -433,6 +444,8 @@ export function loadSavedSettings(): void {
     if (ttsProvider === "openai" || ttsProvider === "elevenlabs") patch.ttsProvider = ttsProvider;
     const ttsVoice = window.localStorage.getItem(TTS_VOICE_KEY);
     if (ttsVoice) patch.ttsVoice = ttsVoice;
+    const s2sVoice = window.localStorage.getItem(S2S_VOICE_KEY);
+    if (s2sVoice) patch.s2sVoice = s2sVoice;
     const elKey = window.localStorage.getItem(ELEVENLABS_KEY);
     if (elKey) patch.elevenlabsApiKey = elKey;
     if (login) patch.githubLogin = login;

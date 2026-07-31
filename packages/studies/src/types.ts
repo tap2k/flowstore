@@ -24,6 +24,9 @@ export type ModelDispatch = {
   // turns in, audio + transcription out) instead of chat completions. The
   // runner picks the driver by provider (S2S_DRIVERS).
   live?: boolean;
+  // Speaker persona for live sessions (vendor's namespace; blank/absent =
+  // vendor default).
+  voice?: string;
 };
 
 export type CellStatus = "idle" | "running" | "done" | "error";

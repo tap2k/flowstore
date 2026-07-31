@@ -916,6 +916,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
             resolveMockedCall(name, args, get().mockReturns, get().mockErrors,
               useModelsStore.getState().config?.capabilityEndpoints ?? {}),
           chatbotInitiates: spec.agent.chatbot_initiates ?? false,
+          voice: useSettingsStore.getState().s2sVoice.trim() || undefined,
           onUserTurn: (text) => {
             set({
               transcript: [
