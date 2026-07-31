@@ -51,7 +51,10 @@ export type ChatResponse = {
   usage?: ChatUsage;
 };
 
-export type ProviderId = "google" | "openai" | "openai-compatible";
+// "xai" chats through the OpenAI-compatible adapter (api.x.ai is
+// OpenAI-compatible); it exists as a distinct id so the s2s driver registry
+// and the key slots can route Grok voice natively.
+export type ProviderId = "google" | "openai" | "openai-compatible" | "xai";
 
 // Per-provider runtime knobs the dispatcher passes through. base_url is
 // load-bearing for openai-compatible (OpenRouter, DeepInfra, vLLM, etc.);

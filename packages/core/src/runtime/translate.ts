@@ -1,3 +1,4 @@
+import type { ProviderId } from "../llm/types";
 import { generateStructuredJson } from "./structuredOutput";
 export { extractLooseJson } from "./jsonRecovery";
 
@@ -15,7 +16,7 @@ export interface TranslateItem {
 // Dispatch-shaped credentials — mirrors what the surfaces' resolveDispatch
 // returns, so callers pass it straight through.
 export interface TranslateDispatch {
-  provider: "google" | "openai" | "openai-compatible";
+  provider: ProviderId;
   apiKey: string;
   baseUrl?: string;
   wireModel: string;

@@ -55,7 +55,7 @@ export function buildReportHtml(
     // S2S columns: no provider-reported dollars — estimate from measured
     // tokens × published rates, shown with "~" to keep measured/modeled apart.
     const liveEsts = modelCells
-      .map((c) => estimateS2sCost(c.usage, m))
+      .map((c) => estimateS2sCost(c.usage, m, c.totalMs))
       .filter((x): x is number => x !== null);
     const liveEstPerConv =
       costPerConv === undefined && liveEsts.length === modelCells.length && modelCells.length > 0

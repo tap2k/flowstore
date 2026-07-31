@@ -22,5 +22,10 @@ export async function chat(
       return callOpenAI(apiKey, model, req, opts);
     case "openai-compatible":
       return callOpenAICompatible(apiKey, model, req, opts);
+    case "xai":
+      return callOpenAICompatible(apiKey, model, req, {
+        ...opts,
+        baseUrl: opts.baseUrl ?? "https://api.x.ai/v1/chat/completions",
+      });
   }
 }

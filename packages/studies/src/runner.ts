@@ -4,7 +4,7 @@ import type { ChatUsage } from "@flowstore/core/llm/types";
 import type { CellState, ModelDispatch, Scenario } from "./types";
 import { IDLE_CELL, cellKey } from "./types";
 import { runLiveCell } from "./liveCell";
-import { runRealtimeCell } from "./realtimeCell";
+import { runGrokVoiceCell, runRealtimeCell } from "./realtimeCell";
 import type { RunS2sCellArgs } from "./s2sCell";
 
 // S2s driver registry, total over the providers that have one — anything
@@ -13,6 +13,7 @@ import type { RunS2sCellArgs } from "./s2sCell";
 const S2S_DRIVERS: Partial<Record<string, (a: RunS2sCellArgs) => Promise<void>>> = {
   google: runLiveCell,
   openai: runRealtimeCell,
+  xai: runGrokVoiceCell,
 };
 
 // Resolves a model id to dispatch credentials, or null when the model can't

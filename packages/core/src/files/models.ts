@@ -29,6 +29,7 @@ export type EndpointId =
   | "google"
   | "openai"
   | "openrouter"
+  | "xai"
   | "openai-compatible";
 
 // Ships inside @flowstore/core. Used when a project has no models/ at all.
@@ -60,6 +61,11 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     // openai-insecure-api-key subprotocol; no server-minted token needed).
     "gpt-realtime":                    { name: "GPT Realtime (voice)", endpoint: "openai", voice: true },
     "gpt-realtime-mini":               { name: "GPT Realtime Mini (voice)", endpoint: "openai", voice: true },
+    // Grok Voice — OpenAI-Realtime-compatible socket at api.x.ai. Browser
+    // connects mint an ephemeral client secret first (their mint endpoint
+    // allows browser CORS, so still zero-backend). Billed per MINUTE, not
+    // tokens — cost estimates come from wall time (s2sRates).
+    "grok-voice":                      { name: "Grok Voice (voice)", endpoint: "xai", voice: true, model_id: "grok-voice-latest" },
 
     // OpenAI
     "gpt-5.6-luna":             { name: "GPT-5.6 Luna", endpoint: "openai" },
@@ -109,6 +115,7 @@ const KNOWN_ENDPOINTS: ReadonlySet<EndpointId> = new Set([
   "google",
   "openai",
   "openrouter",
+  "xai",
   "openai-compatible",
 ]);
 

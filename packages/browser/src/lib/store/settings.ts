@@ -22,6 +22,7 @@ const VOICE_TTS_KEY = "flowstore:settings:voice_tts_per_m_chars";
 const TTS_PROVIDER_KEY = "flowstore:settings:tts_provider";
 const TTS_VOICE_KEY = "flowstore:settings:tts_voice";
 const ELEVENLABS_KEY = "flowstore:settings:elevenlabs_api_key";
+const XAI_KEY = "flowstore:settings:xai_api_key";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -45,6 +46,9 @@ interface SettingsState {
   googleApiKey: string;
   openaiApiKey: string;
   openrouterApiKey: string;
+  // For Grok voice (native xAI socket). Grok TEXT models keep routing via
+  // OpenRouter in the catalog; this slot exists for the s2s driver.
+  xaiApiKey: string;
   // defaultModel is the ONE persisted model choice: the value used wherever
   // no explicit per-location pick is made (Generate vars/mocks/persona-from-
   // name+notes; Translate; the flow watcher). Any dispatchable model works —
@@ -99,6 +103,7 @@ interface SettingsState {
   setGoogleApiKey: (key: string) => void;
   setOpenaiApiKey: (key: string) => void;
   setOpenrouterApiKey: (key: string) => void;
+  setXaiApiKey: (key: string) => void;
   setChatModel: (model: string) => void;
   setSimulateAgentModel: (model: string) => void;
   setSimulatePersonaModel: (model: string) => void;
@@ -142,6 +147,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   googleApiKey: "",
   openaiApiKey: "",
   openrouterApiKey: "",
+  xaiApiKey: "",
   chatModel: DEFAULT_MODEL_ID,
   simulateAgentModel: DEFAULT_MODEL_ID,
   simulatePersonaModel: DEFAULT_MODEL_ID,
@@ -189,6 +195,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setOpenrouterApiKey: (key) => {
     persistString(OPENROUTER_KEY, key);
     set({ openrouterApiKey: key });
+  },
+  setXaiApiKey: (key) => {
+    persistString(XAI_KEY, key);
+    set({ xaiApiKey: key });
   },
   // Per-location picks are transient — set in memory only, no persistString.
   setChatModel: (model) => set({ chatModel: model }),
@@ -310,6 +320,10 @@ export function resolveDispatch(modelId: string, keyOverrides?: KeyOverrides): R
       }
       return { provider: "openai", apiKey, endpoint, wireModel, ...(isVoice ? { live: true } : {}) };
     }
+    case "xai": {
+      const apiKey = keyFor("xai", s.xaiApiKey);
+      return { provider: "xai", apiKey, endpoint, wireModel, ...(isVoice ? { live: true } : {}) };
+    }
     case "openrouter":
       return {
         provider: "openai-compatible",
@@ -386,6 +400,7 @@ export function loadSavedSettings(): void {
     const googleKey = window.localStorage.getItem(KEY) ?? "";
     const openaiKey = window.localStorage.getItem(OPENAI_KEY) ?? "";
     const openrouterKey = window.localStorage.getItem(OPENROUTER_KEY) ?? "";
+    const xaiKey = window.localStorage.getItem(XAI_KEY) ?? "";
     const defaultModel = window.localStorage.getItem(DEFAULT_MODEL_KEY) ?? "";
     const runner = window.localStorage.getItem(RUNNER_KEY);
     const pat = window.localStorage.getItem(GITHUB_PAT_KEY) ?? "";
@@ -395,6 +410,7 @@ export function loadSavedSettings(): void {
     if (googleKey) patch.googleApiKey = googleKey;
     if (openaiKey) patch.openaiApiKey = openaiKey;
     if (openrouterKey) patch.openrouterApiKey = openrouterKey;
+    if (xaiKey) patch.xaiApiKey = xaiKey;
     // Only defaultModel persists. Seed the transient per-location picks from
     // it so they all start on the user's default until overridden in-session.
     if (defaultModel && validModelIds.has(defaultModel)) {

@@ -24,6 +24,12 @@ vi.mock("../src/realtimeCell", () => ({
       args.onUpdate({ status: "done", turns: [], totalMs: 1 });
     },
   ),
+  runGrokVoiceCell: vi.fn(
+    async (args: { onUpdate: (p: unknown) => void }) => {
+      calls.push("grok");
+      args.onUpdate({ status: "done", turns: [], totalMs: 1 });
+    },
+  ),
 }));
 
 let running = 0;
@@ -122,6 +128,24 @@ describe("runMatrix s2s columns", () => {
       onCell: () => {},
     });
     expect(calls).toEqual(["realtime"]);
+    expect(cells["s1::0"].status).toBe("done");
+  });
+
+  it("routes by provider: xai → grok voice driver", async () => {
+    calls.length = 0;
+    const cells = await runMatrix({
+      systemPrompt: "SP",
+      scenarios: [scenario("s1")],
+      models: ["grok-voice"],
+      resolveDispatch: () => ({
+        provider: "xai",
+        apiKey: "k",
+        wireModel: "grok-voice-latest",
+        live: true,
+      }),
+      onCell: () => {},
+    });
+    expect(calls).toEqual(["grok"]);
     expect(cells["s1::0"].status).toBe("done");
   });
 

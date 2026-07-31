@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { feedRealtimeEvent, usageFromRealtimeUsage } from "../src/realtimeCell";
+import { feedRealtimeEvent, makeRealtimeFeed, usageFromRealtimeUsage } from "../src/realtimeCell";
 import { TurnAccumulator, type S2sTurn } from "../src/s2sCell";
 import { estimateS2sCost, s2sRatesFor } from "../src/s2sRates";
 
@@ -99,12 +99,53 @@ describe("feedRealtimeEvent", () => {
   });
 });
 
+describe("response.done transcript fallback (xAI emits no transcript deltas)", () => {
+  it("recovers agent text from the done event's output items", () => {
+    const turns: S2sTurn[] = [];
+    const acc = new TurnAccumulator((t) => turns.push(t));
+    const feed = makeRealtimeFeed(acc);
+    acc.markSent(0);
+    feed({ type: "response.output_audio.delta", delta: "AAAA" }, 100);
+    feed(
+      {
+        type: "response.done",
+        response: {
+          output: [{ content: [{ transcript: "Namaste, how can I help?" }] }],
+        },
+      },
+      900,
+    );
+    expect(turns[0].text).toBe("Namaste, how can I help?");
+    expect(turns[0].audioChunks).toEqual(["AAAA"]);
+  });
+
+  it("does NOT double-append when transcript deltas were seen", () => {
+    const turns: S2sTurn[] = [];
+    const acc = new TurnAccumulator((t) => turns.push(t));
+    const feed = makeRealtimeFeed(acc);
+    feed({ type: "response.output_audio_transcript.delta", delta: "hi" }, 1);
+    feed(
+      { type: "response.done", response: { output: [{ content: [{ transcript: "hi" }] }] } },
+      2,
+    );
+    expect(turns[0].text).toBe("hi");
+  });
+});
+
 describe("s2s rates (realtime)", () => {
   it("matches realtime models, mini row before full", () => {
     expect(s2sRatesFor("gpt-realtime")?.audioOutPerM).toBe(64);
     expect(s2sRatesFor("gpt-realtime-mini")?.audioOutPerM).toBe(20);
     expect(s2sRatesFor("gpt-4o-realtime-preview")?.audioOutPerM).toBe(64);
     expect(s2sRatesFor("gpt-5.5")).toBeNull();
+  });
+
+  it("grok voice prices by wall time, not tokens", () => {
+    // 90s of session wall at $0.05/min
+    expect(estimateS2sCost(undefined, "grok-voice-latest", 90_000)).toBeCloseTo(0.075);
+    expect(estimateS2sCost(undefined, "grok-voice", 0)).toBeNull();
+    // token-priced models ignore wall and still require audio tokens
+    expect(estimateS2sCost(undefined, "gpt-realtime", 90_000)).toBeNull();
   });
 
   it("prices realtime usage", () => {

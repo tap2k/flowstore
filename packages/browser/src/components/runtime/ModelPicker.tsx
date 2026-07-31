@@ -53,6 +53,7 @@ export function ModelPicker({
   useSettingsStore((s) => s.googleApiKey);
   useSettingsStore((s) => s.openaiApiKey);
   useSettingsStore((s) => s.openrouterApiKey);
+  useSettingsStore((s) => s.xaiApiKey);
   const projectConfig = useModelsStore((s) => s.config);
 
   // Merge built-in and project models; project entries shadow built-ins with

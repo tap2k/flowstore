@@ -22,6 +22,8 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   const setOpenaiApiKey = useSettingsStore((s) => s.setOpenaiApiKey);
   const storedOpenrouter = useSettingsStore((s) => s.openrouterApiKey);
   const setOpenrouterApiKey = useSettingsStore((s) => s.setOpenrouterApiKey);
+  const storedXai = useSettingsStore((s) => s.xaiApiKey);
+  const setXaiApiKey = useSettingsStore((s) => s.setXaiApiKey);
   const storedRunnerUrl = useSettingsStore((s) => s.runnerUrl);
   const setRunnerUrl = useSettingsStore((s) => s.setRunnerUrl);
   const storedGithubPat = useSettingsStore((s) => s.githubPat);
@@ -42,6 +44,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   const [google, setGoogle] = useState(storedGoogle);
   const [openai, setOpenai] = useState(storedOpenai);
   const [openrouter, setOpenrouter] = useState(storedOpenrouter);
+  const [xai, setXai] = useState(storedXai);
   const [runnerUrl, setRunnerUrlInput] = useState(storedRunnerUrl);
   const [pat, setPat] = useState(storedGithubPat);
   const [ttsProvider, setTtsProviderDraft] = useState<TtsProvider>(storedTtsProvider);
@@ -59,6 +62,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
     setGoogleApiKey(google.trim());
     setOpenaiApiKey(openai.trim());
     setOpenrouterApiKey(openrouter.trim());
+    setXaiApiKey(xai.trim());
     setRunnerUrl(runnerUrl);
     setGithubPat(pat);
     setTtsProvider(ttsProvider);
@@ -76,6 +80,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
     setGoogleApiKey("");
     setOpenaiApiKey("");
     setOpenrouterApiKey("");
+    setXaiApiKey("");
     setRunnerUrl("");
     setGithubPat("");
     setGenerateModel(DEFAULT_MODEL_ID);
@@ -92,6 +97,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
     setGoogle("");
     setOpenai("");
     setOpenrouter("");
+    setXai("");
     setRunnerUrlInput("");
     setPat("");
     setGhStatus({ kind: "idle" });
@@ -195,6 +201,26 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
               className="underline hover:text-text-primary"
             >
               openrouter.ai/keys
+            </a>
+            .
+          </>
+        }
+      />
+      <ApiKeyRow
+        label="xAI API key"
+        placeholder="xai-…"
+        value={xai}
+        onChange={setXai}
+        help={
+          <>
+            For Grok Voice (s2s). Get a key at{" "}
+            <a
+              href="https://console.x.ai"
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-text-primary"
+            >
+              console.x.ai
             </a>
             .
           </>

@@ -697,7 +697,7 @@ function ColumnStats({
   // whose vendor omits token details must not fall into the cascade branch):
   // measured audio tokens × published rates (~, modeled dollars). The
   // cascade estimate never applies here — this column already IS speech.
-  const liveEst = live ? estimateS2sCost(u, model) : null;
+  const liveEst = live ? estimateS2sCost(u, model, cell.totalMs) : null;
   // ≈ marks the modeled figure; measured LLM $ stays unprefixed beside it.
   const voice = live ? null : estimateVoiceCost(cell.turns, u.cost, rates);
   const fmt = (n: number) => `$${n.toFixed(n >= 0.01 ? 3 : 4)}`;
