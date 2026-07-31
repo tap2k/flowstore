@@ -14,7 +14,10 @@ import {
   CloudArrowUp,
   DownloadSimple,
   FileCode,
+  Check,
+  Copy,
   Gear,
+  ListPlus,
   Microphone,
   Package,
   Plus,
@@ -579,6 +582,19 @@ export function ComparePage() {
                         className="shrink-0"
                       />
                     )}
+                    {colTurns.some((t) => t.text) && (
+                      <>
+                        <CopyTranscript turns={colTurns} model={m} />
+                        <IconButton
+                          icon={ListPlus}
+                          size="sm"
+                          label="Make a scenario from this conversation — its user turns become a new scripted case"
+                          onClick={() => s.mintScenario(i)}
+                          disabled={busy}
+                          className="shrink-0"
+                        />
+                      </>
+                    )}
                     {c?.divergent && (
                       <span className="rounded-full bg-state-warning-bg px-1.5 text-[9px] text-state-warning-fg">
                         diverges
@@ -596,9 +612,6 @@ export function ComparePage() {
                       >
                         🌐 {translateLabel}
                       </Button>
-                    )}
-                    {colTurns.some((t) => t.text) && (
-                      <CopyTranscript turns={colTurns} model={m} />
                     )}
                     <ColumnStats cell={c} rates={voiceRates} model={m} live={colLive} />
                     {/* capture-gold disabled for now (Tapan 2026-07-26) — uncomment
@@ -788,8 +801,10 @@ function ColumnStats({
 function CopyTranscript({ turns, model }: { turns: TranscriptTurn[]; model: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <button
-      type="button"
+    <IconButton
+      icon={copied ? Check : Copy}
+      size="sm"
+      label={copied ? "Copied" : "Copy this conversation as plain text"}
       onClick={() => {
         const text = turns
           .filter((t) => t.text)
@@ -800,11 +815,8 @@ function CopyTranscript({ turns, model }: { turns: TranscriptTurn[]; model: stri
           setTimeout(() => setCopied(false), 1500);
         });
       }}
-      title="Copy this conversation as plain text"
-      className="shrink-0 cursor-pointer text-[10px] text-text-tertiary hover:text-text-primary"
-    >
-      {copied ? "✓ copied" : "⧉ copy"}
-    </button>
+      className="shrink-0"
+    />
   );
 }
 

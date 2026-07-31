@@ -152,6 +152,9 @@ interface CompareState {
   // OFF-SCRIPT (probe doctrine: persists in the study/runs, scenario
   // untouched, divergence excludes it). Starting clears the cell — a live
   // socket can't resume a transcript.
+  // Mint a scripted scenario from one column's conversation: its user turns
+  // become the case (the interactive-probe → reproducible-suite loop).
+  mintScenario: (mi: number) => void;
   startColumnVoice: (mi: number) => Promise<void>;
   stopColumnVoice: () => void;
   stopRun: () => void;
@@ -452,6 +455,25 @@ export const useCompareStore = create<CompareState>((set, get) => {
         patch: { selected: sc.id },
       },
     );
+  },
+
+  mintScenario: (mi) => {
+    const { selected, scenarios, cells } = get();
+    const sc = scenarios.find((x) => x.id === selected);
+    if (!sc) return;
+    const turns = (cells[cellKey(sc.id, mi)]?.turns ?? [])
+      .filter((t) => t.role === "user" && t.text.trim())
+      .map((t) => t.text);
+    if (turns.length === 0) return;
+    const id = genId("scenario");
+    const name = turns[0].length > 34 ? `${turns[0].slice(0, 34)}…` : turns[0];
+    set((st) => ({
+      scenarios: [
+        { id, scenarioId: id, name, language: sc.language, turns },
+        ...st.scenarios,
+      ],
+      selected: id,
+    }));
   },
 
   startColumnVoice: async (mi) => {
