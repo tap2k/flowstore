@@ -43,12 +43,6 @@ export function buildStudyBundle(args: {
   // `provided` on the agent, valued on every case (the fixture overlay) —
   // so the harness reproduces the same compile-time fill.
   vars?: Record<string, string>;
-  // The FileMap the study was opened from, when it came from an existing
-  // project (GitHub open, upload, example). When present the bundle is that
-  // project — flows, real agent.json and all — with the study's cases, golds,
-  // and run results overlaid, instead of a synthesized flowless stub. This is
-  // what makes graduation lossless for spec'd projects.
-  sourceFiles?: Record<string, string> | null;
 }): Record<string, string> {
   const { prompt, models, scenarios, cells, golds } = args;
   const vars = Object.fromEntries(
@@ -57,97 +51,51 @@ export function buildStudyBundle(args: {
   const hasVars = Object.keys(vars).length > 0;
   const stamp = new Date().toISOString();
   const runDir = `tests/runs/${stamp.slice(0, 19).replace(/[:T]/g, "-")}-compare`;
-  const src = args.sourceFiles ?? undefined;
-  const files: Record<string, string> = src ? { ...src } : {};
+  const files: Record<string, string> = {};
   const j = (v: unknown) => JSON.stringify(v, null, 2) + "\n";
-  const parseJson = (text: string | undefined): Record<string, unknown> | undefined => {
-    if (!text) return undefined;
-    try {
-      const v = JSON.parse(text) as unknown;
-      return isRecord(v) ? v : undefined;
-    } catch {
-      return undefined;
-    }
-  };
 
-  if (!files["flowstore.json"]) {
-    files["flowstore.json"] = j({ $schema: "flowstore://spec/project/v0" });
-  }
-  const srcAgent = parseJson(src?.["agent.json"]);
-  if (!srcAgent) {
-    files["agent.json"] = j({
-      $schema: "flowstore://spec/agent/v0",
-      id: args.agentId,
-      name: "Imported agent (compare study)",
-      // identity/purpose are file metadata here — with a full-override prompt
-      // they never enter the compiled output. Required by the strict schema so
-      // the bundle loads in the editor (the graduation contract).
-      meta: {
-        identity: "Imported agent",
-        purpose:
-          "Agent imported from a pasted system prompt for a compare study; the override prompt below is the system under test.",
-        modality: "text",
-        languages: [...new Set(scenarios.map((s) => s.language))],
-      },
-      // Full override (no {{generated}}): compiles to itself verbatim — see
-      // SCHEMA.md § system_prompt.
-      system_prompt: prompt,
-      // Placeholder-fill vars: declared provided so the case fixtures below
-      // ship them at session start (the only gate fixture vars pass through).
-      ...(hasVars
-        ? {
-            variables: Object.fromEntries(
-              Object.keys(vars).map((n) => [n, { type: "string", provided: true }]),
-            ),
-          }
-        : {}),
-      // Stub: no flows exist pre-extraction (flowless-project acceptance is a
-      // pending loader/validator decision).
-      entry_flow_id: "",
-    });
-  } else {
-    // Source project's agent stands — flows, entry_flow_id, meta untouched.
-    // Only a prompt the user actually edited in compare (differs from what
-    // the source project runs on) becomes a full override; an unedited study
-    // leaves agent.json byte-identical so the editor keeps compiling from
-    // the spec. New fill vars get declared on top of existing declarations.
-    const promptEdited = prompt !== effectivePromptOf(src ?? {});
-    if (promptEdited || hasVars) {
-      const declared = isRecord(srcAgent.variables) ? srcAgent.variables : {};
-      files["agent.json"] = j({
-        ...srcAgent,
-        ...(promptEdited ? { system_prompt: prompt } : {}),
-        ...(hasVars
-          ? {
-              variables: {
-                ...declared,
-                ...Object.fromEntries(
-                  Object.keys(vars)
-                    .filter((n) => declared[n] === undefined)
-                    .map((n) => [n, { type: "string", provided: true }]),
-                ),
-              },
-            }
-          : {}),
-      });
-    }
-  }
+  files["flowstore.json"] = j({ $schema: "flowstore://spec/project/v0" });
+  files["agent.json"] = j({
+    $schema: "flowstore://spec/agent/v0",
+    id: args.agentId,
+    name: "Imported agent (compare study)",
+    // identity/purpose are file metadata here — with a full-override prompt
+    // they never enter the compiled output. Required by the strict schema so
+    // the bundle loads in the editor (the graduation contract).
+    meta: {
+      identity: "Imported agent",
+      purpose:
+        "Agent imported from a pasted system prompt for a compare study; the override prompt below is the system under test.",
+      modality: "text",
+      languages: [...new Set(scenarios.map((s) => s.language))],
+    },
+    // Full override (no {{generated}}): compiles to itself verbatim — see
+    // SCHEMA.md § system_prompt.
+    system_prompt: prompt,
+    // Placeholder-fill vars: declared provided so the case fixtures below
+    // ship them at session start (the only gate fixture vars pass through).
+    ...(hasVars
+      ? {
+          variables: Object.fromEntries(
+            Object.keys(vars).map((n) => [n, { type: "string", provided: true }]),
+          ),
+        }
+      : {}),
+    // Stub: no flows exist pre-extraction (flowless-project acceptance is a
+    // pending loader/validator decision).
+    entry_flow_id: "",
+  });
 
   for (const s of scenarios) {
-    const path = `tests/cases/${s.id}.test.json`;
-    // A case that came from the source project keeps its extra fields
-    // (gold_id, tags, …); the study's edits win on the fields compare owns.
-    const orig = parseJson(src?.[path]);
-    files[path] = j({
+    files[`tests/cases/${s.id}.test.json`] = j({
       $schema: "flowstore://test/case/v0",
       id: s.id,
-      tags: ["src:compare"],
-      ...orig,
-      scenario_id: s.scenarioId,
       name: s.name,
       user_turns: s.turns,
       language: s.language,
+      scenario_id: s.scenarioId,
       ...(hasVars ? { vars } : {}),
+      tags: ["src:compare"],
     });
   }
 
@@ -194,12 +142,8 @@ export function buildStudyBundle(args: {
   });
 
   for (const [sid, g] of Object.entries(golds ?? {})) {
-    const path = `tests/gold/${sid}.gold.json`;
-    const orig = parseJson(src?.[path]);
-    files[path] = j({
+    files[`tests/gold/${sid}.gold.json`] = j({
       $schema: "flowstore://test/gold/v0",
-      tags: ["src:compare"],
-      ...orig,
       id: g.goldId ?? sid,
       name: g.name,
       turns: g.turns.map((t) => ({ role: t.role, text: t.text })),
@@ -207,6 +151,7 @@ export function buildStudyBundle(args: {
       scenario_id: g.scenarioId,
       source_pointer: g.sourcePointer ?? `compare-run:${stamp}`,
       blessed_at: g.blessedAt ?? stamp,
+      tags: ["src:compare"],
     });
   }
 
