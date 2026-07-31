@@ -510,10 +510,7 @@ export function ComparePage() {
                       disabled={busy}
                       showUnconfigured
                       includeVoice
-                      // flex-1 + min-w-0: the select SHRINKS (truncating its
-                      // label) instead of pushing the ✕ and the action icons
-                      // out of the header as the cluster grows.
-                      className="min-w-0 flex-1 text-[11px]"
+                      className="min-w-0 text-[11px]"
                     />
                     {i > 0 && (
                       <IconButton
