@@ -194,6 +194,11 @@ export class RealtimeVoiceSession {
         : {
             instructions: this.cfg.systemPrompt,
             audio,
+            // xAI's server VAD is OFF by default (OpenAI's is on) — without
+            // this the buffer holds speech forever and no turn ever ends.
+            // Verified live: with it, speech_started/stopped/committed and
+            // transcription.completed all flow.
+            turn_detection: { type: "server_vad" },
             ...(voice ? { voice } : {}),
             ...(tools.length > 0 ? { tools } : {}),
           };
