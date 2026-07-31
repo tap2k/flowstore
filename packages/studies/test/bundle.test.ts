@@ -239,3 +239,75 @@ describe("buildStudyBundle", () => {
     expect(Object.keys(bare).some((p) => p.startsWith("tests/gold/"))).toBe(false);
   });
 });
+
+// A study opened from an existing project graduates back as THAT project —
+// flows and agent spec intact — with the study's artifacts overlaid.
+describe("buildStudyBundle with sourceFiles", () => {
+  const source = {
+    "flowstore.json": JSON.stringify({ $schema: "flowstore://spec/project/v0" }),
+    "agent.json": JSON.stringify({
+      $schema: "flowstore://spec/agent/v0",
+      id: "agent_spec",
+      name: "spec-agent",
+      meta: { identity: "Asha", purpose: "Remind patients about appointments.", modality: "voice" },
+      chatbot_initiates: true,
+      entry_flow_id: "greet",
+    }),
+    "flows/greet.flow.json": JSON.stringify({
+      $schema: "flowstore://spec/flow/v0",
+      id: "greet",
+      name: "Greet",
+      type: "happy",
+      instructions: "Greet the caller and confirm the appointment.",
+      exit_paths: [{ id: "xp_done", goto: "END", condition: { expression: "true", method: "direct" } }],
+    }),
+    "tests/cases/s1.test.json": JSON.stringify({
+      $schema: "flowstore://test/case/v0",
+      id: "s1",
+      name: "Refill request",
+      user_turns: ["hi"],
+      language: "EN",
+      scenario_id: "sc-refill",
+      gold_id: "g-orig",
+      tags: ["from-repo"],
+    }),
+  };
+
+  it("keeps flows and agent.json byte-identical when the prompt is unedited", () => {
+    const compiled = parseStudyBundle(source).prompt;
+    const out = buildStudyBundle({
+      agentId: "x", prompt: compiled, models, scenarios, cells, sourceFiles: source,
+    });
+    expect(out["agent.json"]).toBe(source["agent.json"]);
+    expect(out["flows/greet.flow.json"]).toBe(source["flows/greet.flow.json"]);
+    expect(out["flowstore.json"]).toBe(source["flowstore.json"]);
+    const { spec, errors } = loadProject(out);
+    expect(errors, JSON.stringify(errors)).toEqual([]);
+    expect(spec?.flows).toHaveLength(1);
+    expect(spec?.agent.entry_flow_id).toBe("greet");
+  });
+
+  it("an edited prompt becomes a full override on the source agent; flows still carry", () => {
+    const out = buildStudyBundle({
+      agentId: "x", prompt: "Edited prompt.", models, scenarios, cells, sourceFiles: source,
+    });
+    const agent = JSON.parse(out["agent.json"]);
+    expect(agent.system_prompt).toBe("Edited prompt.");
+    expect(agent.entry_flow_id).toBe("greet");
+    expect(agent.id).toBe("agent_spec");
+    expect(out["flows/greet.flow.json"]).toBe(source["flows/greet.flow.json"]);
+  });
+
+  it("source case files keep extra fields under the study's edits", () => {
+    const out = buildStudyBundle({
+      agentId: "x", prompt: "p", models, scenarios, cells, sourceFiles: source,
+    });
+    const c = JSON.parse(out["tests/cases/s1.test.json"]);
+    expect(c.gold_id).toBe("g-orig");
+    expect(c.tags).toEqual(["from-repo"]);
+    // Compare-owned fields win — the study's (possibly edited) turns ship.
+    expect(c.user_turns).toEqual(["hi", "refill please"]);
+    // A scenario with no source counterpart still gets a fresh case file.
+    expect(JSON.parse(out["tests/cases/s2.test.json"]).tags).toEqual(["src:compare"]);
+  });
+});

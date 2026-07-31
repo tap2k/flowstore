@@ -30,6 +30,11 @@ export type PersistedStudy = {
   // prompt text itself is never rewritten).
   vars: Record<string, string>;
   github: StudyGithubLocation | null;
+  // The FileMap the study was opened from (GitHub open, upload, example) —
+  // null for pasted-prompt studies. Graduation and re-export overlay the
+  // study onto these files so a source project's flows survive the round
+  // trip (see buildStudyBundle's sourceFiles).
+  sourceFiles: Record<string, string> | null;
 };
 
 export const EMPTY_STUDY: Omit<PersistedStudy, "agentId"> = {
@@ -40,6 +45,7 @@ export const EMPTY_STUDY: Omit<PersistedStudy, "agentId"> = {
   golds: {},
   vars: {},
   github: null,
+  sourceFiles: null,
 };
 
 export const freshStudy = (): PersistedStudy => ({ agentId: genId("agent"), ...EMPTY_STUDY });
@@ -84,6 +90,11 @@ const storage = createScopedJsonStorage<PersistedStudy>({
         typeof raw.github.ref === "string"
           ? { owner: raw.github.owner, repo: raw.github.repo, ref: raw.github.ref }
           : null,
+      sourceFiles: isPlainObject(raw.sourceFiles)
+        ? (Object.fromEntries(
+            Object.entries(raw.sourceFiles).filter(([, v]) => typeof v === "string"),
+          ) as Record<string, string>)
+        : null,
     };
   },
   isEmpty: (v) =>

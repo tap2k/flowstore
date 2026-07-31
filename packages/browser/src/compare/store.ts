@@ -91,6 +91,10 @@ interface CompareState {
   vars: Record<string, string>;
   // Repo the study came from / last landed in; null = local-only study.
   github: StudyGithubLocation | null;
+  // The FileMap the study was opened from; null = pasted-prompt study.
+  // Graduation and export overlay the study onto these files so a source
+  // project's flows survive (buildStudyBundle's sourceFiles).
+  sourceFiles: Record<string, string> | null;
   // The one in-flight run, or null. A single discriminated field (not three
   // flags) so mutual exclusion, the busy checks, and the persist guard are
   // all `runMode` — and the column-0-is-falsy trap can't exist.
@@ -218,6 +222,7 @@ export const useCompareStore = create<CompareState>((set, get) => {
   golds: initial.golds,
   vars: initial.vars,
   github: initial.github,
+  sourceFiles: initial.sourceFiles,
   runMode: null,
   setupOpen: true,
   generatingVars: false,
@@ -324,6 +329,7 @@ export const useCompareStore = create<CompareState>((set, get) => {
       golds: {},
       vars: {},
       github: null,
+      sourceFiles: null,
       translations: {},
       showTranslated: {},
       translateErrors: {},
@@ -346,6 +352,9 @@ export const useCompareStore = create<CompareState>((set, get) => {
       // A bundle has no repo claim (the GitHub open flow re-stamps the
       // location right after this — see ComparePage's onOpened wiring).
       github: null,
+      // Keep the opened FileMap: graduation/export overlay the study onto it
+      // so a source project's flows and agent spec aren't lost.
+      sourceFiles: files,
       cells: {},
       translations: {},
       showTranslated: {},
@@ -640,9 +649,9 @@ function flushStudy() {
     clearTimeout(saveTimer);
     saveTimer = null;
   }
-  const { agentId, prompt, scenarios, models, cells, golds, vars, github } =
+  const { agentId, prompt, scenarios, models, cells, golds, vars, github, sourceFiles } =
     useCompareStore.getState();
-  saveStudy({ agentId, prompt, scenarios, models, cells, golds, vars, github });
+  saveStudy({ agentId, prompt, scenarios, models, cells, golds, vars, github, sourceFiles });
 }
 useCompareStore.subscribe((s) => {
   if (s.runMode) return;

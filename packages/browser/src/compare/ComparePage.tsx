@@ -94,6 +94,7 @@ export function ComparePage() {
     cells: s.cells,
     golds: s.golds,
     vars: activeVarsOf(s.prompt, s.vars),
+    sourceFiles: s.sourceFiles,
     voiceRates,
   };
   const BROWSER_REPORT_OPTS = {
