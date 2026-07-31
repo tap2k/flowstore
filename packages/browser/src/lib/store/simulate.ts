@@ -28,7 +28,8 @@ import { asrShape, maybeBargeIn, type AsrLevel } from "@/lib/runtime/asrShape";
 // Type-only import: VoiceSession (and the @google/genai SDK it pulls) is
 // loaded lazily inside the voice branch of start(), so text/runner sessions
 // never bundle the Live SDK.
-import type { VoiceSessionConfig, VoicePhase } from "@/lib/runtime/voiceSession";
+import type { VoiceSessionConfig, VoiceSessionLike, VoicePhase } from "@/lib/runtime/voiceSession";
+import { VOICE_PROVIDERS } from "@/lib/runtime/realtimeVoiceSession";
 import { generateSystemPrompt, ALL_LANGUAGES } from "@flowstore/core/codegen/promptGenerator";
 import { SIMULATE_AUDIO_KEY, clearTurnAudio, putTurnAudio } from "@/lib/runtime/audioCache";
 import {
@@ -330,8 +331,7 @@ function reduceEvents(
 // The live voice session is a non-serializable controller (WebSocket +
 // AudioContexts), so it lives outside the zustand state — the store holds
 // only the derived, serializable bits (transcript, status, voicePhase).
-// Either vendor's session — same surface (start/stop/mute).
-let voiceSession: { stop(): void; setMuted(m: boolean): void } | null = null;
+let voiceSession: VoiceSessionLike | null = null;
 
 export const useSimulateStore = create<SimulateState>((set, get) => ({
   mode: "text",
@@ -890,7 +890,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     });
 
     if (mode === "voice") {
-      const voiceCapable = provider === "google" || provider === "openai" || provider === "xai";
+      const voiceCapable = provider !== null && VOICE_PROVIDERS.has(provider);
       if (!voiceCapable || !apiKey) {
         set({
           status: "error",
@@ -916,7 +916,6 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
             resolveMockedCall(name, args, get().mockReturns, get().mockErrors,
               useModelsStore.getState().config?.capabilityEndpoints ?? {}),
           chatbotInitiates: spec.agent.chatbot_initiates ?? false,
-          language,
           onUserTurn: (text) => {
             set({
               transcript: [
@@ -955,13 +954,18 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           },
           onError: (message) => set({ status: "error", error: message, voicePhase: null }),
         };
-        let session: { start(): Promise<void>; stop(): void; setMuted(m: boolean): void };
+        let session: VoiceSessionLike;
         if (provider === "google") {
           const { VoiceSession } = await import("@/lib/runtime/voiceSession");
           session = new VoiceSession(common);
-        } else {
+        } else if (provider === "openai" || provider === "xai") {
           const { RealtimeVoiceSession } = await import("@/lib/runtime/realtimeVoiceSession");
           session = new RealtimeVoiceSession({ ...common, provider });
+        } else {
+          // Unreachable behind the VOICE_PROVIDERS gate; keeps the narrow
+          // type honest if the set ever widens before a driver exists.
+          set({ status: "error", error: `No interactive voice driver for ${provider}.` });
+          return;
         }
         voiceSession = session;
         await session.start();

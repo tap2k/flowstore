@@ -1,13 +1,15 @@
 // Browser audio plumbing for the Simulation panel's voice mode. Two halves:
 //
-//   MicCapture  — getUserMedia → AudioWorklet → mono PCM16 @ 16 kHz frames,
-//                 base64-encoded, handed to a callback for the Live socket.
+//   MicCapture  — getUserMedia → AudioWorklet → mono PCM16 frames at the
+//                 socket's rate (16 kHz for Gemini Live, 24 kHz for the
+//                 Realtime vendors), base64-encoded, handed to a callback.
 //   AudioPlayer — base64 PCM16 @ 24 kHz chunks from the model, decoded and
 //                 scheduled gaplessly on an output AudioContext, with a
 //                 flush() for barge-in (the model interrupts itself).
 //
-// The Gemini Live API speaks raw little-endian PCM: 16 kHz mono in, 24 kHz
-// mono out. These are the only two rates here; nothing else negotiates them.
+// All vendors speak raw little-endian PCM; output is uniformly 24 kHz mono
+// (S2S_AUDIO_SAMPLE_RATE), input rate is per-vendor via MicCapture's
+// constructor.
 
 import workletUrl from "./capture-worklet.js?url";
 import { S2S_AUDIO_SAMPLE_RATE } from "@flowstore/studies";
@@ -26,7 +28,7 @@ function floatTo16BitPCM(samples: Float32Array): Int16Array {
   return out;
 }
 
-// Nearest-sample decimation from the device rate to 16 kHz. Linear-enough for
+// Nearest-sample decimation from the device rate to the target. Linear-enough for
 // ASR; we're not preserving fidelity, just intelligibility for the model.
 function downsample(samples: Float32Array, fromRate: number, toRate: number): Float32Array {
   if (fromRate === toRate) return samples;
@@ -123,7 +125,7 @@ export class MicCapture {
   // Realtime-protocol vendors.
   constructor(
     private onChunk: (base64Pcm16: string) => void,
-    readonly sampleRate: number = INPUT_SAMPLE_RATE,
+    private sampleRate: number = INPUT_SAMPLE_RATE,
   ) {}
 
   async start(): Promise<void> {

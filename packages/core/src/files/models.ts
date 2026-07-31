@@ -49,10 +49,10 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     "gemini-2.5-flash":         { name: "Gemini 2.5 Flash", endpoint: "google" },
 
     // Voice-tagged (s2s) models. In compare these are ordinary columns
-    // (dispatch.live routes to the vendor's live driver); the editor's
-    // simulate voice mode can only drive the Gemini entries (its VoiceSession
-    // is @google/genai) — the picker's voiceOnly filter enforces that. The
-    // first voice-tagged entry is the default voice model; bump ids as
+    // (dispatch.live routes to the vendor's live driver); simulate's voice
+    // mode drives all three vendors (Gemini via @google/genai Live; GPT
+    // Realtime and Grok Voice via the shared Realtime session). The first
+    // voice-tagged google entry is the default voice model; bump ids as
     // vendors rotate previews. Gemini ships two flavors: half-cascade Live
     // and native-audio (more natural prosody) — keep both to A/B.
     "gemini-3.1-flash-live-preview":   { name: "Gemini 3.1 Flash Live (voice)", endpoint: "google", voice: true },

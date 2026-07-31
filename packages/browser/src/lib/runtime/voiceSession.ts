@@ -12,6 +12,13 @@ import type { ToolDefinition } from "@flowstore/core/llm/types";
 import type { CapabilityInvocation } from "@flowstore/core/runtime/promptClient";
 
 export type VoicePhase = "listening" | "speaking" | "idle";
+
+// What the store holds: either vendor's session, one surface.
+export interface VoiceSessionLike {
+  start(): Promise<void>;
+  stop(): void;
+  setMuted(muted: boolean): void;
+}
 export type VoiceStatus = "connecting" | "ready" | "closed" | "error";
 
 export interface VoiceSessionConfig {
@@ -26,7 +33,6 @@ export interface VoiceSessionConfig {
   // connect so it greets without waiting for user audio (the voice analog of
   // text mode's synthetic [begin] turn).
   chatbotInitiates?: boolean;
-  language?: string;
   onUserTurn: (text: string) => void;
   // latencyMs: time from the user finishing their turn to the agent's first
   // response (audio or transcription) — the voice analog of text's

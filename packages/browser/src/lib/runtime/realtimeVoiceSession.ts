@@ -13,6 +13,11 @@ import type { VoicePhase, VoiceStatus } from "./voiceSession";
 // The Realtime vendors speak 24k PCM on both directions.
 const RATE = 24000;
 
+// The endpoints simulate's voice mode can actually drive — the picker's
+// voiceOnly filter and the store's gate both consume THIS set, so they
+// can't drift apart (a project entry may tag voice on any endpoint).
+export const VOICE_PROVIDERS: ReadonlySet<string> = new Set(["google", "openai", "xai"]);
+
 export interface RealtimeVoiceSessionConfig {
   provider: "openai" | "xai";
   apiKey: string;
@@ -65,6 +70,8 @@ export class RealtimeVoiceSession {
   private turnLatencyMs: number | undefined = undefined;
 
   private readySent = false;
+  private queue: Promise<void> = Promise.resolve();
+  private readyTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private cfg: RealtimeVoiceSessionConfig) {}
 
@@ -82,8 +89,17 @@ export class RealtimeVoiceSession {
       protocols = await info.subprotocols(this.cfg.apiKey);
     } catch (e) {
       this.cfg.onError(e instanceof Error ? e.message : `${info.name} auth failed.`);
+      this.stop();
       throw e;
     }
+    // A vendor that silently ignores our session.update must not leave the
+    // UI at "connecting" with a hot mic — fail loudly instead.
+    this.readyTimer = setTimeout(() => {
+      if (!this.readySent && !this.closed) {
+        this.cfg.onError(`${info.name} never acknowledged the session.`);
+        this.stop();
+      }
+    }, 15_000);
     const ws = new WebSocket(`${info.url}?model=${encodeURIComponent(this.cfg.model)}`, protocols);
     this.ws = ws;
     ws.onopen = () => this.sendSessionUpdate();
@@ -94,7 +110,10 @@ export class RealtimeVoiceSession {
       } catch {
         return;
       }
-      void this.handle(evt);
+      // Serialized: handle() awaits resolveTool, and response.done follows
+      // function_call_arguments.done immediately — unserialized, the flush
+      // would run before the capability resolved and strip it from its turn.
+      this.queue = this.queue.then(() => this.handle(evt));
     };
     ws.onerror = () => {
       if (!this.closed) this.cfg.onError(`${info.name} socket error.`);
@@ -103,8 +122,10 @@ export class RealtimeVoiceSession {
       if (!this.closed) this.cfg.onStatus("closed");
     };
 
-    // Mic starts immediately (frames sent pre-ready are the tail of setup —
-    // both vendors buffer); server VAD owns turn-taking.
+    // Mic starts immediately; frames sent before the socket opens are
+    // DROPPED by send()'s readyState guard — in practice getUserMedia's
+    // permission prompt outlasts the handshake, and F4's ready timeout
+    // covers the failure case. Server VAD owns turn-taking.
     this.mic = new MicCapture((b64) => {
       this.send({ type: "input_audio_buffer.append", audio: b64 });
     }, RATE);
@@ -112,6 +133,7 @@ export class RealtimeVoiceSession {
       await this.mic.start();
     } catch (e) {
       this.cfg.onError(e instanceof Error ? `Mic access failed: ${e.message}` : "Mic access failed.");
+      this.stop();
       throw e;
     }
   }
@@ -122,6 +144,7 @@ export class RealtimeVoiceSession {
 
   stop(): void {
     this.closed = true;
+    if (this.readyTimer) clearTimeout(this.readyTimer);
     this.mic?.stop();
     this.player?.close();
     try {
@@ -244,8 +267,11 @@ export class RealtimeVoiceSession {
       return;
     }
 
-    // User transcription — OpenAI emits `.completed` (final), xAI `.updated`
-    // (replace semantics). Either way the buffer holds the latest full text.
+    // User transcription — OpenAI emits `.completed` (final: flush now),
+    // xAI `.updated` (REPLACE semantics: the buffer keeps only the latest
+    // full text, and the flush waits for response.done — flushing earlier
+    // would emit a truncated prefix as its own bubble, then the full text
+    // again).
     if (
       t === "conversation.item.input_audio_transcription.completed" ||
       t === "conversation.item.input_audio_transcription.updated"
@@ -257,7 +283,6 @@ export class RealtimeVoiceSession {
 
     if (t === "response.output_audio.delta" || t === "response.audio.delta") {
       this.markResponded();
-      this.flushUserTurn();
       if (evt.delta) {
         this.player?.enqueue(evt.delta);
         this.audioChunks.push(evt.delta);
@@ -299,6 +324,13 @@ export class RealtimeVoiceSession {
           .flatMap((o) => o.content ?? [])
           .map((c) => c.transcript ?? c.text ?? "")
           .join("");
+      }
+      // A tool-call-only response (no audio, no text) is not the end of the
+      // agent's turn — response.create was just sent for the spoken answer.
+      // Carry the pending capabilities AND the latency anchor into it; a
+      // flush here would strip both from the turn they belong to.
+      if (!this.agentBuf.trim() && this.audioChunks.length === 0 && this.pendingCapabilities.length > 0) {
+        return;
       }
       this.flushAgentTurn();
     }
