@@ -151,6 +151,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
       </FieldRow>
       */}
 
+      <Section title="API keys" />
       <ApiKeyRow
         label="Google API key"
         placeholder="AIza…"
@@ -233,6 +234,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         }
       />
 
+      <Section title="Models" />
       <div className="space-y-2">
         <label className="fs-label text-text-secondary">Default model</label>
         <ModelPicker
@@ -248,30 +250,20 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         </p>
       </div>
 
+
+
+
+      <Section title="Voice" />
       <div className="space-y-2">
-        <label className="fs-label text-text-secondary">Cascade rates</label>
-        <div className="flex gap-2">
-          <label className="flex flex-1 items-center gap-1.5 text-[11px] text-text-tertiary">
-            asr $/min
-            <Input
-              value={asrPerMin}
-              onChange={(e) => setAsrPerMin(e.target.value)}
-              placeholder="0.008"
-              className="w-full"
-            />
-          </label>
-          <label className="flex flex-1 items-center gap-1.5 text-[11px] text-text-tertiary">
-            tts $/1M chars
-            <Input
-              value={ttsPerMChars}
-              onChange={(e) => setTtsPerMChars(e.target.value)}
-              placeholder="8.00"
-              className="w-full"
-            />
-          </label>
-        </div>
+        <label className="fs-label text-text-secondary">S2S voice</label>
+        <Input
+          value={s2sVoice}
+          onChange={(e) => setS2sVoiceDraft(e.target.value)}
+          placeholder="vendor default (Gemini: Kore · OpenAI: marin · Grok: eve)"
+          className="w-full"
+        />
         <p className="text-[11px] text-text-tertiary">
-          Prices the voice estimate. Blank hides it.
+          Speaker for live s2s sessions. Vendor&apos;s namespace; blank = default.
         </p>
       </div>
 
@@ -305,19 +297,6 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           Voices ▶ hear on text columns. Synthesized on click, on your key.
         </p>
       </div>
-
-      <div className="space-y-2">
-        <label className="fs-label text-text-secondary">S2S voice</label>
-        <Input
-          value={s2sVoice}
-          onChange={(e) => setS2sVoiceDraft(e.target.value)}
-          placeholder="vendor default (Gemini: Kore · OpenAI: marin · Grok: eve)"
-          className="w-full"
-        />
-        <p className="text-[11px] text-text-tertiary">
-          Speaker for live s2s sessions. Vendor&apos;s namespace; blank = default.
-        </p>
-      </div>
       {ttsProvider === "elevenlabs" && (
         <ApiKeyRow
           label="ElevenLabs API key"
@@ -328,6 +307,34 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         />
       )}
 
+      <div className="space-y-2">
+        <label className="fs-label text-text-secondary">Cascade rates</label>
+        <div className="flex gap-2">
+          <label className="flex flex-1 items-center gap-1.5 text-[11px] text-text-tertiary">
+            asr $/min
+            <Input
+              value={asrPerMin}
+              onChange={(e) => setAsrPerMin(e.target.value)}
+              placeholder="0.008"
+              className="w-full"
+            />
+          </label>
+          <label className="flex flex-1 items-center gap-1.5 text-[11px] text-text-tertiary">
+            tts $/1M chars
+            <Input
+              value={ttsPerMChars}
+              onChange={(e) => setTtsPerMChars(e.target.value)}
+              placeholder="8.00"
+              className="w-full"
+            />
+          </label>
+        </div>
+        <p className="text-[11px] text-text-tertiary">
+          Prices the voice estimate. Blank hides it.
+        </p>
+      </div>
+
+      <Section title="GitHub" />
       <div className="space-y-2">
         <label className="fs-label text-text-secondary">GitHub PAT</label>
         <div className="flex gap-2">
@@ -429,6 +436,18 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         </button>
       </div>
     </SheetShell>
+  );
+}
+
+// Quiet section header: the sheet grew past one screen — group scanning
+// beats scrolling a flat list of eleven rows.
+function Section({ title }: { title: string }) {
+  return (
+    <div className="border-b border-border-subtle pb-1 pt-2 first:pt-0">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+        {title}
+      </span>
+    </div>
   );
 }
 
