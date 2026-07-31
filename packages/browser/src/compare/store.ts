@@ -22,13 +22,18 @@ import {
   type StudyGold,
 } from "./studyStorage";
 import { clearTurnAudio, putTurnAudio } from "@/lib/runtime/audioCache";
+import { VOICE_PROVIDERS } from "@/lib/runtime/realtimeVoiceSession";
+import type { VoicePhase, VoiceSessionLike } from "@/lib/runtime/voiceSession";
 
 export type RunMode =
   | { kind: "all" }
   | { kind: "row"; id: string }
   // One cell: the selected scenario on one model column (the header ▶ and
   // the composer's probes both run in this mode).
-  | { kind: "cell"; index: number };
+  | { kind: "cell"; index: number }
+  // Live mic conversation with one s2s column (the header 🎤): the
+  // transcript lands in the selected scenario's cell, off-script.
+  | { kind: "voice"; index: number };
 
 // Compare's state and actions, in the editor's store idiom (zustand; the
 // page renders, the store owns behavior). Hydrates once from studyStorage at
@@ -99,6 +104,9 @@ interface CompareState {
   // flags) so mutual exclusion, the busy checks, and the persist guard are
   // all `runMode` — and the column-0-is-falsy trap can't exist.
   runMode: RunMode | null;
+  // Live phase of the in-flight 🎤 conversation (listening/speaking/idle);
+  // null when no voice session is up.
+  voicePhase: VoicePhase | null;
   setupOpen: boolean;
   generatingVars: boolean;
   generateVarsError: string | null;
@@ -139,6 +147,13 @@ interface CompareState {
   // the draft in that case.
   sendUserTurn: (text: string, mi: number) => Promise<boolean>;
   runCell: (mi: number) => Promise<void>;
+  // Talk to one s2s column: mic conversation against the column's model +
+  // the study prompt. Transcript lands in the selected scenario's cell,
+  // OFF-SCRIPT (probe doctrine: persists in the study/runs, scenario
+  // untouched, divergence excludes it). Starting clears the cell — a live
+  // socket can't resume a transcript.
+  startColumnVoice: (mi: number) => Promise<void>;
+  stopColumnVoice: () => void;
   stopRun: () => void;
   translateColumn: (key: string, turns: TranscriptTurn[]) => Promise<void>;
   generateVars: () => Promise<void>;
@@ -153,6 +168,10 @@ const initial = loadStudy();
 // mutually exclusive). Module-level, not state: an AbortController isn't
 // serializable and no view renders it.
 let runAbort: AbortController | null = null;
+
+// The in-flight 🎤 session (mutually exclusive with runs via runMode).
+let compareVoice: VoiceSessionLike | null = null;
+let compareVoiceStartedAt = 0;
 
 // Standing state for a partial (row/column) run: paused cells INSIDE the
 // rerun scope continue mid-conversation; done cells OUTSIDE it seed the
@@ -224,6 +243,7 @@ export const useCompareStore = create<CompareState>((set, get) => {
   github: initial.github,
   sourceFiles: initial.sourceFiles,
   runMode: null,
+  voicePhase: null,
   setupOpen: true,
   generatingVars: false,
   generateVarsError: null,
@@ -432,6 +452,130 @@ export const useCompareStore = create<CompareState>((set, get) => {
         patch: { selected: sc.id },
       },
     );
+  },
+
+  startColumnVoice: async (mi) => {
+    const { selected, scenarios, models, runMode } = get();
+    const sc = scenarios.find((x) => x.id === selected);
+    if (!sc || runMode) return;
+    const d = resolveForEngine(models[mi]);
+    if (!d?.live || !VOICE_PROVIDERS.has(d.provider)) return;
+    const key = cellKey(sc.id, mi);
+    const { prompt, vars } = get();
+    set((st) => ({
+      runMode: { kind: "voice", index: mi },
+      voicePhase: "idle",
+      cells: { ...st.cells, [key]: { status: "running", turns: [], totalMs: 0 } },
+      ...cellCaches(st, (k) => k !== key),
+    }));
+    const appendTurn = (turn: TranscriptTurn) =>
+      set((st) => {
+        const c = st.cells[key];
+        return c ? { cells: { ...st.cells, [key]: { ...c, turns: [...c.turns, turn] } } } : {};
+      });
+    // One finalizer for hang-up, remote close, and error: settle the cell
+    // (idle — off-script probe semantics) with the session's wall time (the
+    // per-minute cost basis for wall-priced vendors).
+    const finalize = (error?: string) => {
+      if (!compareVoice) return;
+      compareVoice.stop();
+      compareVoice = null;
+      set((st) => {
+        const c = st.cells[key];
+        return {
+          runMode: null,
+          voicePhase: null,
+          ...(c
+            ? {
+                cells: {
+                  ...st.cells,
+                  [key]: {
+                    ...c,
+                    status: error ? "error" : "idle",
+                    ...(error ? { error } : {}),
+                    totalMs: Date.now() - compareVoiceStartedAt,
+                  },
+                },
+              }
+            : {}),
+        };
+      });
+    };
+    const common = {
+      apiKey: d.apiKey,
+      model: d.wireModel,
+      systemPrompt: filledPromptOf(prompt, vars),
+      tools: [],
+      resolveTool: () => ({}),
+      chatbotInitiates: false,
+      voice: useSettingsStore.getState().s2sVoice.trim() || undefined,
+      onUserTurn: (text: string) =>
+        appendTurn({ role: "user", text, ts: Date.now(), events: [] }),
+      onAgentTurn: (
+        text: string,
+        _caps: unknown,
+        latencyMs?: number,
+        audioChunks?: string[],
+      ) => {
+        const ts = Date.now();
+        if (audioChunks) putTurnAudio(key, ts, audioChunks);
+        appendTurn({
+          role: "agent",
+          text,
+          ts,
+          events: [],
+          ...(latencyMs !== undefined ? { latencyMs } : {}),
+        });
+      },
+      onPhase: (phase: VoicePhase) => set({ voicePhase: phase }),
+      onStatus: (st: string) => {
+        if (st === "closed") finalize();
+      },
+      onError: (message: string) => finalize(message),
+    };
+    try {
+      if (d.provider === "google") {
+        const { VoiceSession } = await import("@/lib/runtime/voiceSession");
+        compareVoice = new VoiceSession(common);
+      } else if (d.provider === "openai" || d.provider === "xai") {
+        const { RealtimeVoiceSession } = await import("@/lib/runtime/realtimeVoiceSession");
+        compareVoice = new RealtimeVoiceSession({ ...common, provider: d.provider });
+      } else {
+        return;
+      }
+      compareVoiceStartedAt = Date.now();
+      await compareVoice.start();
+    } catch {
+      // onError already finalized (sessions call it before throwing).
+      if (compareVoice) finalize("Voice session failed to start.");
+    }
+  },
+
+  stopColumnVoice: () => {
+    // Reuse the finalizer path via the session's own close: stop() triggers
+    // no callbacks, so settle state directly.
+    if (!compareVoice) return;
+    compareVoice.stop();
+    compareVoice = null;
+    set((st) => {
+      const mode = st.runMode;
+      if (mode?.kind !== "voice") return { runMode: null, voicePhase: null };
+      const sc = st.scenarios.find((x) => x.id === st.selected);
+      const key = sc ? cellKey(sc.id, mode.index) : null;
+      const c = key ? st.cells[key] : null;
+      return {
+        runMode: null,
+        voicePhase: null,
+        ...(key && c
+          ? {
+              cells: {
+                ...st.cells,
+                [key]: { ...c, status: "idle", totalMs: Date.now() - compareVoiceStartedAt },
+              },
+            }
+          : {}),
+      };
+    });
   },
 
   sendUserTurn: async (text, mi) => {

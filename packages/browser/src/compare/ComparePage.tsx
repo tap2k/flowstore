@@ -15,6 +15,7 @@ import {
   DownloadSimple,
   FileCode,
   Gear,
+  Microphone,
   Package,
   Plus,
   Trash,
@@ -24,6 +25,7 @@ import {
 import { Button, DisclosureCaret, DropdownMenu, Icon, IconButton, Input, RunButton, StopButton, Textarea } from "@/components/ui";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
 import { ReplayButton } from "@/components/runtime/ReplayButton";
+import { VOICE_PROVIDERS } from "@/lib/runtime/realtimeVoiceSession";
 import { SettingsSheet } from "@/components/sheets/SettingsSheet";
 import { useResolvedTts, useSettingsStore } from "@/lib/store/settings";
 import { downloadBlob } from "@/lib/download";
@@ -529,6 +531,43 @@ export function ComparePage() {
                     )}
                     {/* Column ▶/■ — completes the trio with run-all and the
                         scenario rows' ▶: rerun one model across the suite. */}
+                    {/* 🎤 talk to this column (s2s only): live mic against
+                        this model + the study prompt; transcript lands in
+                        the selected cell, off-script. */}
+                    {s.runMode?.kind === "voice" && s.runMode.index === i ? (
+                      <span className="flex shrink-0 items-center gap-1">
+                        <span className="text-[10px] text-state-running-fg">
+                          {s.voicePhase === "listening"
+                            ? "listening…"
+                            : s.voicePhase === "speaking"
+                              ? "speaking…"
+                              : "live"}
+                        </span>
+                        <StopButton
+                          size="sm"
+                          label="Hang up — the conversation is kept in this cell"
+                          onClick={() => s.stopColumnVoice()}
+                        />
+                      </span>
+                    ) : colLive && voiceReady(m) ? (
+                      <IconButton
+                        icon={Microphone}
+                        size="sm"
+                        label="Talk to this model — live mic conversation with the study prompt; the transcript replaces this cell (off-script, kept with the study)"
+                        onClick={() => {
+                          const sc = s.scenarios.find((x) => x.id === s.selected);
+                          const cell = sc ? s.cells[cellKey(sc.id, i)] : undefined;
+                          if (
+                            !cell?.turns.length ||
+                            window.confirm("Start a voice conversation? This cell's current transcript is replaced.")
+                          ) {
+                            void s.startColumnVoice(i);
+                          }
+                        }}
+                        disabled={busy || !s.selected}
+                        className="shrink-0"
+                      />
+                    ) : null}
                     {s.runMode?.kind === "cell" && s.runMode.index === i ? (
                       <StopButton size="sm" className="shrink-0" onClick={() => s.stopRun()} />
                     ) : (
@@ -557,6 +596,9 @@ export function ComparePage() {
                       >
                         🌐 {translateLabel}
                       </Button>
+                    )}
+                    {colTurns.some((t) => t.text) && (
+                      <CopyTranscript turns={colTurns} model={m} />
                     )}
                     <ColumnStats cell={c} rates={voiceRates} model={m} live={colLive} />
                     {/* capture-gold disabled for now (Tapan 2026-07-26) — uncomment
@@ -741,6 +783,37 @@ function ColumnStats({
 // toggle is on (same substitution the editor's TurnView does) — the stored
 // transcript stays verbatim. audio (s2s replies, session-scoped — see
 // audioCache) adds an inline replay control; the WAV builds on first click.
+// Copy one column's conversation as plain text — for pasting into a doc,
+// an issue, or a chat with the vendor.
+function CopyTranscript({ turns, model }: { turns: TranscriptTurn[]; model: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        const text = turns
+          .filter((t) => t.text)
+          .map((t) => `${t.role === "user" ? "user" : model}: ${t.text}`)
+          .join("\n");
+        void navigator.clipboard.writeText(text).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+      title="Copy this conversation as plain text"
+      className="shrink-0 cursor-pointer text-[10px] text-text-tertiary hover:text-text-primary"
+    >
+      {copied ? "✓ copied" : "⧉ copy"}
+    </button>
+  );
+}
+
+// s2s columns whose provider has an interactive voice driver and a key.
+function voiceReady(model: string): boolean {
+  const d = resolveForEngine(model);
+  return !!d?.live && VOICE_PROVIDERS.has(d.provider);
+}
+
 // Which replay control an agent bubble gets: s2s columns replay the run's
 // real audio (present in the cache); text columns offer lazy TTS synthesis —
 // the cascade side of the ear test — when the chosen vendor's key is set.
