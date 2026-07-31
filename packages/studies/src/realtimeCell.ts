@@ -163,6 +163,18 @@ const VENDORS: Record<"openai" | "xai", RealtimeVendor> = {
   },
 };
 
+// Socket-level connection facts, exported for the browser's INTERACTIVE
+// Realtime voice session (simulate) — same URL and credential transit as the
+// compare cells; the session dialect differs there (mic input, VAD, tools).
+export function realtimeSocketInfo(provider: "openai" | "xai"): {
+  name: string;
+  url: string;
+  subprotocols: (apiKey: string) => Promise<string[]>;
+} {
+  const v = VENDORS[provider];
+  return { name: v.name, url: v.url, subprotocols: v.subprotocols };
+}
+
 function connectVendor(vendor: RealtimeVendor): S2sConnect {
   return async ({ dispatch, systemPrompt, acc, onReady, onFatal }) => {
     const protocols = await vendor.subprotocols(dispatch.apiKey);

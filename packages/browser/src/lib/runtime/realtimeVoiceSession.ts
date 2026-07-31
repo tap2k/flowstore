@@ -1,0 +1,306 @@
+// Interactive voice session over the OpenAI-Realtime protocol — the
+// GPT Realtime / Grok Voice sibling of voiceSession.ts (Gemini Live). Same
+// contract as VoiceSession: mic in, live playback out, transcript turns
+// reduced into the store's shape, capabilities over the function-calling
+// channel. Socket URL + credential transit come from the engine's vendor
+// table (realtimeSocketInfo); the session dialect here adds what the
+// compare cells don't need — mic input, server VAD, transcription, tools.
+import { realtimeSocketInfo } from "@flowstore/studies";
+import type { ToolDefinition } from "@flowstore/core/llm/types";
+import type { CapabilityInvocation } from "@flowstore/core/runtime/promptClient";
+import type { VoicePhase, VoiceStatus } from "./voiceSession";
+
+// The Realtime vendors speak 24k PCM on both directions.
+const RATE = 24000;
+
+export interface RealtimeVoiceSessionConfig {
+  provider: "openai" | "xai";
+  apiKey: string;
+  model: string;
+  systemPrompt: string;
+  tools: ToolDefinition[];
+  resolveTool: (name: string, args: Record<string, unknown>) => Promise<unknown> | unknown;
+  chatbotInitiates?: boolean;
+  onUserTurn: (text: string) => void;
+  onAgentTurn: (
+    text: string,
+    capabilities: CapabilityInvocation[],
+    latencyMs?: number,
+    audioChunks?: string[],
+  ) => void;
+  onPhase: (phase: VoicePhase) => void;
+  onStatus: (status: VoiceStatus) => void;
+  onError: (message: string) => void;
+}
+
+type Evt = {
+  type?: string;
+  delta?: string;
+  transcript?: string;
+  name?: string;
+  call_id?: string;
+  arguments?: string;
+  error?: { message?: string };
+  response?: {
+    output?: { content?: { transcript?: string; text?: string }[] }[];
+  };
+};
+
+export class RealtimeVoiceSession {
+  private ws: WebSocket | null = null;
+  private mic: import("./audio").MicCapture | null = null;
+  private player: import("./audio").AudioPlayer | null = null;
+  private closed = false;
+
+  private userBuf = "";
+  private agentBuf = "";
+  private sawAgentDelta = false;
+  private audioChunks: string[] = [];
+  private pendingCapabilities: CapabilityInvocation[] = [];
+
+  // Latency: user stops speaking (server VAD speech_stopped) → first agent
+  // audio. The opener stamps at send instead.
+  private lastInputAt: number | null = null;
+  private respondedThisTurn = false;
+  private turnLatencyMs: number | undefined = undefined;
+
+  private readySent = false;
+
+  constructor(private cfg: RealtimeVoiceSessionConfig) {}
+
+  async start(): Promise<void> {
+    this.cfg.onStatus("connecting");
+    const { MicCapture, AudioPlayer } = await import("./audio");
+    this.player = new AudioPlayer((playing) => {
+      if (this.closed) return;
+      this.cfg.onPhase(playing ? "speaking" : "idle");
+    });
+
+    const info = realtimeSocketInfo(this.cfg.provider);
+    let protocols: string[];
+    try {
+      protocols = await info.subprotocols(this.cfg.apiKey);
+    } catch (e) {
+      this.cfg.onError(e instanceof Error ? e.message : `${info.name} auth failed.`);
+      throw e;
+    }
+    const ws = new WebSocket(`${info.url}?model=${encodeURIComponent(this.cfg.model)}`, protocols);
+    this.ws = ws;
+    ws.onopen = () => this.sendSessionUpdate();
+    ws.onmessage = (e: MessageEvent) => {
+      let evt: Evt;
+      try {
+        evt = JSON.parse(typeof e.data === "string" ? e.data : "") as Evt;
+      } catch {
+        return;
+      }
+      void this.handle(evt);
+    };
+    ws.onerror = () => {
+      if (!this.closed) this.cfg.onError(`${info.name} socket error.`);
+    };
+    ws.onclose = () => {
+      if (!this.closed) this.cfg.onStatus("closed");
+    };
+
+    // Mic starts immediately (frames sent pre-ready are the tail of setup —
+    // both vendors buffer); server VAD owns turn-taking.
+    this.mic = new MicCapture((b64) => {
+      this.send({ type: "input_audio_buffer.append", audio: b64 });
+    }, RATE);
+    try {
+      await this.mic.start();
+    } catch (e) {
+      this.cfg.onError(e instanceof Error ? `Mic access failed: ${e.message}` : "Mic access failed.");
+      throw e;
+    }
+  }
+
+  setMuted(muted: boolean): void {
+    if (this.mic) this.mic.muted = muted;
+  }
+
+  stop(): void {
+    this.closed = true;
+    this.mic?.stop();
+    this.player?.close();
+    try {
+      this.ws?.close();
+    } catch {
+      // already closed
+    }
+    this.ws = null;
+    this.mic = null;
+    this.player = null;
+  }
+
+  private send(payload: unknown): void {
+    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(payload));
+  }
+
+  private sendSessionUpdate(): void {
+    const tools = this.cfg.tools.map((t) => ({
+      type: "function",
+      name: t.name,
+      description: t.description,
+      parameters: t.parameters,
+    }));
+    const audio = {
+      input: { format: { type: "audio/pcm", rate: RATE } },
+      output: { format: { type: "audio/pcm", rate: RATE } },
+    };
+    // Dialects differ slightly: OpenAI's GA session carries type/modalities
+    // and an input-transcription config; xAI's is leaner (transcription is
+    // emitted by default, unknown params are rejected loudly).
+    const session =
+      this.cfg.provider === "openai"
+        ? {
+            type: "realtime",
+            output_modalities: ["audio"],
+            instructions: this.cfg.systemPrompt,
+            audio: {
+              ...audio,
+              input: { ...audio.input, transcription: { model: "gpt-4o-mini-transcribe" } },
+            },
+            ...(tools.length > 0 ? { tools, tool_choice: "auto" } : {}),
+          }
+        : {
+            instructions: this.cfg.systemPrompt,
+            audio,
+            ...(tools.length > 0 ? { tools } : {}),
+          };
+    this.send({ type: "session.update", session });
+  }
+
+  private markResponded(): void {
+    if (this.respondedThisTurn) return;
+    this.respondedThisTurn = true;
+    if (this.lastInputAt != null) {
+      this.turnLatencyMs = Math.round(performance.now() - this.lastInputAt);
+    }
+  }
+
+  private flushUserTurn(): void {
+    const text = this.userBuf.trim();
+    this.userBuf = "";
+    if (text) this.cfg.onUserTurn(text);
+  }
+
+  private flushAgentTurn(): void {
+    const text = this.agentBuf.trim();
+    const caps = this.pendingCapabilities;
+    const latencyMs = this.turnLatencyMs;
+    const audio = this.audioChunks;
+    this.agentBuf = "";
+    this.sawAgentDelta = false;
+    this.pendingCapabilities = [];
+    this.audioChunks = [];
+    if (text || caps.length > 0) {
+      this.cfg.onAgentTurn(text, caps, latencyMs, audio.length > 0 ? audio : undefined);
+    }
+    this.lastInputAt = null;
+    this.respondedThisTurn = false;
+    this.turnLatencyMs = undefined;
+    this.cfg.onPhase("idle");
+  }
+
+  private maybeSendOpener(): void {
+    if (!this.cfg.chatbotInitiates) return;
+    this.lastInputAt = performance.now();
+    this.send({
+      type: "conversation.item.create",
+      item: { type: "message", role: "user", content: [{ type: "input_text", text: "[begin]" }] },
+    });
+    this.send({ type: "response.create" });
+  }
+
+  private async handle(evt: Evt): Promise<void> {
+    if (this.closed) return;
+    const t = evt.type ?? "";
+
+    if (t === "error") {
+      this.cfg.onError(evt.error?.message || "Realtime error.");
+      return;
+    }
+    if ((t === "session.updated" || t === "session.created") && !this.readySent) {
+      // session.updated = our config is acknowledged; created alone counts
+      // as a fallback for vendors that never ack.
+      if (t === "session.updated" || this.cfg.provider === "xai") {
+        this.readySent = true;
+        this.cfg.onStatus("ready");
+        this.maybeSendOpener();
+      }
+      return;
+    }
+
+    // Server VAD: user speaking → barge-in (drop queued playback).
+    if (t === "input_audio_buffer.speech_started") {
+      this.player?.flush();
+      this.cfg.onPhase("listening");
+      return;
+    }
+    if (t === "input_audio_buffer.speech_stopped") {
+      this.lastInputAt = performance.now();
+      return;
+    }
+
+    // User transcription — OpenAI emits `.completed` (final), xAI `.updated`
+    // (replace semantics). Either way the buffer holds the latest full text.
+    if (
+      t === "conversation.item.input_audio_transcription.completed" ||
+      t === "conversation.item.input_audio_transcription.updated"
+    ) {
+      if (evt.transcript !== undefined) this.userBuf = evt.transcript;
+      if (t.endsWith("completed")) this.flushUserTurn();
+      return;
+    }
+
+    if (t === "response.output_audio.delta" || t === "response.audio.delta") {
+      this.markResponded();
+      this.flushUserTurn();
+      if (evt.delta) {
+        this.player?.enqueue(evt.delta);
+        this.audioChunks.push(evt.delta);
+      }
+      return;
+    }
+    if (t === "response.output_audio_transcript.delta" || t === "response.audio_transcript.delta") {
+      this.markResponded();
+      this.sawAgentDelta = true;
+      if (evt.delta) this.agentBuf += evt.delta;
+      return;
+    }
+
+    // Capability call: resolve against the mocks/endpoints, answer, continue.
+    if (t === "response.function_call_arguments.done") {
+      const name = evt.name ?? "";
+      let args: Record<string, unknown> = {};
+      try {
+        args = JSON.parse(evt.arguments ?? "{}") as Record<string, unknown>;
+      } catch {
+        // leave {}
+      }
+      const result = await this.cfg.resolveTool(name, args);
+      this.pendingCapabilities.push({ name, args, result });
+      this.send({
+        type: "conversation.item.create",
+        item: { type: "function_call_output", call_id: evt.call_id, output: JSON.stringify(result) },
+      });
+      this.send({ type: "response.create" });
+      return;
+    }
+
+    if (t === "response.done") {
+      this.flushUserTurn();
+      // Vendors without transcript deltas (xAI): recover the agent text from
+      // the response's output items.
+      if (!this.sawAgentDelta) {
+        this.agentBuf += (evt.response?.output ?? [])
+          .flatMap((o) => o.content ?? [])
+          .map((c) => c.transcript ?? c.text ?? "")
+          .join("");
+      }
+      this.flushAgentTurn();
+    }
+  }
+}

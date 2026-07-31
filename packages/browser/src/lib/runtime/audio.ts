@@ -119,7 +119,12 @@ export class MicCapture {
   private source: MediaStreamAudioSourceNode | null = null;
   muted = false;
 
-  constructor(private onChunk: (base64Pcm16: string) => void) {}
+  // sampleRate: what the socket expects — 16k for Gemini Live, 24k for the
+  // Realtime-protocol vendors.
+  constructor(
+    private onChunk: (base64Pcm16: string) => void,
+    readonly sampleRate: number = INPUT_SAMPLE_RATE,
+  ) {}
 
   async start(): Promise<void> {
     this.stream = await navigator.mediaDevices.getUserMedia({
@@ -132,7 +137,7 @@ export class MicCapture {
     const fromRate = this.ctx.sampleRate;
     this.node.port.onmessage = (e: MessageEvent<Float32Array>) => {
       if (this.muted) return;
-      const down = downsample(e.data, fromRate, INPUT_SAMPLE_RATE);
+      const down = downsample(e.data, fromRate, this.sampleRate);
       this.onChunk(int16ToBase64(floatTo16BitPCM(down)));
     };
     this.source.connect(this.node);

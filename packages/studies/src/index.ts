@@ -11,3 +11,6 @@ export * from "./s2sRates";
 // deep-import. Only the audio format constant crosses to the surface (the
 // replay cache's WAV wrapper must agree with it).
 export { S2S_AUDIO_SAMPLE_RATE } from "./s2sCell";
+// Socket facts for the browser's interactive Realtime voice session
+// (simulate) — URL + credential transit, shared with the compare cells.
+export { realtimeSocketInfo } from "./realtimeCell";

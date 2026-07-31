@@ -28,7 +28,7 @@ import { asrShape, maybeBargeIn, type AsrLevel } from "@/lib/runtime/asrShape";
 // Type-only import: VoiceSession (and the @google/genai SDK it pulls) is
 // loaded lazily inside the voice branch of start(), so text/runner sessions
 // never bundle the Live SDK.
-import type { VoiceSession, VoicePhase } from "@/lib/runtime/voiceSession";
+import type { VoiceSessionConfig, VoicePhase } from "@/lib/runtime/voiceSession";
 import { generateSystemPrompt, ALL_LANGUAGES } from "@flowstore/core/codegen/promptGenerator";
 import { SIMULATE_AUDIO_KEY, clearTurnAudio, putTurnAudio } from "@/lib/runtime/audioCache";
 import {
@@ -330,7 +330,8 @@ function reduceEvents(
 // The live voice session is a non-serializable controller (WebSocket +
 // AudioContexts), so it lives outside the zustand state — the store holds
 // only the derived, serializable bits (transcript, status, voicePhase).
-let voiceSession: VoiceSession | null = null;
+// Either vendor's session — same surface (start/stop/mute).
+let voiceSession: { stop(): void; setMuted(m: boolean): void } | null = null;
 
 export const useSimulateStore = create<SimulateState>((set, get) => ({
   mode: "text",
@@ -889,11 +890,12 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     });
 
     if (mode === "voice") {
-      if (provider !== "google" || !apiKey) {
+      const voiceCapable = provider === "google" || provider === "openai" || provider === "xai";
+      if (!voiceCapable || !apiKey) {
         set({
           status: "error",
           error:
-            "Voice mode needs a Google API key and a Gemini Live model (voice is Gemini-only). Set them in Settings.",
+            "Voice mode needs a voice-capable model (Gemini Live, GPT Realtime, or Grok Voice) and its provider's API key. Set them in Settings.",
         });
         return;
       }
@@ -903,8 +905,9 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           generateSystemPrompt(spec, shippedVars, { language: language ?? ALL_LANGUAGES });
         const sessionId = `voice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         set({ sessionId, systemPrompt, specSnapshot: spec });
-        const { VoiceSession } = await import("@/lib/runtime/voiceSession");
-        const session = new VoiceSession({
+        // Same config shape both ways; Gemini rides @google/genai's Live
+        // socket, the Realtime vendors ride the shared protocol session.
+        const common: VoiceSessionConfig = {
           apiKey,
           model,
           systemPrompt,
@@ -951,7 +954,15 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
             else if (s === "closed") set({ status: "ended", voicePhase: null });
           },
           onError: (message) => set({ status: "error", error: message, voicePhase: null }),
-        });
+        };
+        let session: { start(): Promise<void>; stop(): void; setMuted(m: boolean): void };
+        if (provider === "google") {
+          const { VoiceSession } = await import("@/lib/runtime/voiceSession");
+          session = new VoiceSession(common);
+        } else {
+          const { RealtimeVoiceSession } = await import("@/lib/runtime/realtimeVoiceSession");
+          session = new RealtimeVoiceSession({ ...common, provider });
+        }
         voiceSession = session;
         await session.start();
       } catch (e) {

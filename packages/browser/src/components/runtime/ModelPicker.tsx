@@ -1,4 +1,4 @@
-import { BUILT_IN_MODELS, resolveEndpoint } from "@flowstore/core/files/models";
+import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
 import type { ModelEntry } from "@flowstore/core/files/models";
 import {
   hasKeyForModel,
@@ -64,12 +64,11 @@ export function ModelPicker({
     : [];
 
   function filterEntry(id: string, m: ModelEntry): boolean {
-    // voiceOnly = the simulate panel's voice mode, which dispatches through
-    // @google/genai — only google-endpoint voice entries qualify there
-    // (resolved, so project entries with an inferred endpoint count too).
-    // Compare's includeVoice lists every voice model (each has a live driver).
-    const simulateVoice = m.voice === true && resolveEndpoint(id, m) === "google";
-    if (voiceOnly ? !simulateVoice : !!m.voice && !includeVoice) return false;
+    // voiceOnly = the simulate panel's voice mode. Every voice-tagged model
+    // now has an interactive driver (Gemini via @google/genai Live; GPT
+    // Realtime and Grok Voice via the shared Realtime session), so the
+    // filter is just the tag. Compare's includeVoice lists them too.
+    if (voiceOnly ? !m.voice : !!m.voice && !includeVoice) return false;
     if (id === value) return true;
     if (!showUnconfigured && !hasKeyForModel(id, keyOverrides)) return false;
     return true;
