@@ -2,7 +2,7 @@ import { useState } from "react";
 import { SheetShell } from "./SheetShell";
 import { useSettingsStore, DEFAULT_RUNNER_URL, DEFAULT_MODEL_ID, type TtsProvider } from "@/lib/store/settings";
 import { ModelPicker } from "@/components/runtime/ModelPicker";
-import { Input, Select } from "@/components/ui";
+import { DisclosureCaret, Input, Select } from "@/components/ui";
 import { makeGitHubClient, testConnection } from "@flowstore/core/files/github";
 
 interface SettingsSheetProps {
@@ -151,7 +151,11 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
       </FieldRow>
       */}
 
-      <Section title="API keys" />
+      <Section
+        title="API keys"
+        summary={`${[google, openai, openrouter, xai].filter((k) => k.trim()).length}/4 set`}
+        defaultOpen={[google, openai, openrouter, xai].every((k) => !k.trim())}
+      >
       <ApiKeyRow
         label="Google API key"
         placeholder="AIza…"
@@ -234,7 +238,8 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         }
       />
 
-      <Section title="Models" />
+      </Section>
+      <Section title="Models" summary={defaultModel} defaultOpen={false}>
       <div className="space-y-2">
         <label className="fs-label text-text-secondary">Default model</label>
         <ModelPicker
@@ -253,7 +258,12 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
 
 
 
-      <Section title="Voice" />
+      </Section>
+      <Section
+        title="Voice"
+        summary={`${ttsProvider}${ttsVoice.trim() ? ` · ${ttsVoice.trim()}` : ""}${s2sVoice.trim() ? ` · s2s ${s2sVoice.trim()}` : ""}`}
+        defaultOpen={false}
+      >
       <div className="space-y-2">
         <label className="fs-label text-text-secondary">S2S voice</label>
         <Input
@@ -334,7 +344,12 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         </p>
       </div>
 
-      <Section title="GitHub" />
+      </Section>
+      <Section
+        title="GitHub"
+        summary={pat.trim() ? "connected" : "not connected"}
+        defaultOpen={!pat.trim()}
+      >
       <div className="space-y-2">
         <label className="fs-label text-text-secondary">GitHub PAT</label>
         <div className="flex gap-2">
@@ -390,6 +405,8 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         </p>
       </div>
 
+      </Section>
+
       {/* Deliberately circular — a fresh prod session can't reach the runner
           tier while the runner is a dev-only prototype. Drop the wrapper when
           it ships; the runner-gated editors key off runnerUrl and follow. */}
@@ -439,14 +456,46 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
   );
 }
 
-// Quiet section header: the sheet grew past one screen — group scanning
-// beats scrolling a flat list of eleven rows.
-function Section({ title }: { title: string }) {
+// Collapsible section — the sheet outgrew one screen. Same disclosure idiom
+// as compare's placeholders strip (caret + truthful summary + aria); a
+// section whose fields are all configured starts collapsed with the summary
+// carrying its state, anything needing attention starts open.
+function Section({
+  title,
+  summary,
+  defaultOpen,
+  children,
+}: {
+  title: string;
+  // Shown while collapsed — the section's state at a glance ("4/4 set").
+  summary?: string;
+  defaultOpen: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const id = `settings-${title.toLowerCase().replace(/[^a-z]+/g, "-")}`;
   return (
-    <div className="border-b border-border-subtle pb-1 pt-2 first:pt-0">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-        {title}
-      </span>
+    <div className="border-b border-border-subtle pb-3 last:border-b-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={id}
+        className="flex w-full cursor-pointer items-center gap-1 pb-1 pt-2 text-left"
+      >
+        <DisclosureCaret open={open} />
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+          {title}
+        </span>
+        {!open && summary && (
+          <span className="text-[10px] text-text-disabled">{summary}</span>
+        )}
+      </button>
+      {open && (
+        <div id={id} className="space-y-4">
+          {children}
+        </div>
+      )}
     </div>
   );
 }
