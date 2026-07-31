@@ -261,7 +261,9 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
       </Section>
       <Section
         title="Voice"
-        summary={`${ttsProvider}${ttsVoice.trim() ? ` · ${ttsVoice.trim()}` : ""}${s2sVoice.trim() ? ` · s2s ${s2sVoice.trim()}` : ""}`}
+        // State, not values — an ElevenLabs voice id in the header reads
+        // like a leaked secret even though it isn't one.
+        summary={`${ttsProvider}${ttsVoice.trim() || s2sVoice.trim() ? " · voices set" : ""}`}
         defaultOpen={false}
       >
       <div className="space-y-2">
