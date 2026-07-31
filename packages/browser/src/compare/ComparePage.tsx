@@ -510,10 +510,10 @@ export function ComparePage() {
                       disabled={busy}
                       showUnconfigured
                       includeVoice
-                      // Shrinkable (min-w-0) but capped (max-w) — the select
-                      // yields space when the header is tight and never
-                      // balloons when it isn't.
-                      className="w-full min-w-0 max-w-44 text-[11px]"
+                      // flex-1 + min-w-0: the select SHRINKS (truncating its
+                      // label) instead of pushing the ✕ and the action icons
+                      // out of the header as the cluster grows.
+                      className="min-w-0 flex-1 text-[11px]"
                     />
                     {i > 0 && (
                       <IconButton
@@ -585,7 +585,19 @@ export function ComparePage() {
                         className="shrink-0"
                       />
                     )}
-
+                    {colTurns.some((t) => t.text) && (
+                      <>
+                        <CopyTranscript turns={colTurns} model={m} />
+                        <IconButton
+                          icon={ListPlus}
+                          size="sm"
+                          label="Make a scenario from this conversation — its user turns become a new scripted case"
+                          onClick={() => s.mintScenario(i)}
+                          disabled={busy}
+                          className="shrink-0"
+                        />
+                      </>
+                    )}
                     {c?.divergent && (
                       <span className="rounded-full bg-state-warning-bg px-1.5 text-[9px] text-state-warning-fg">
                         diverges
@@ -603,19 +615,6 @@ export function ComparePage() {
                       >
                         🌐 {translateLabel}
                       </Button>
-                    )}
-                    {colTurns.some((t) => t.text) && (
-                      <>
-                        <CopyTranscript turns={colTurns} model={m} />
-                        <IconButton
-                          icon={ListPlus}
-                          size="sm"
-                          label="Make a scenario from this conversation — its user turns become a new scripted case"
-                          onClick={() => s.mintScenario(i)}
-                          disabled={busy}
-                          className="shrink-0"
-                        />
-                      </>
                     )}
                     <ColumnStats cell={c} rates={voiceRates} model={m} live={colLive} />
                     {/* capture-gold disabled for now (Tapan 2026-07-26) — uncomment
