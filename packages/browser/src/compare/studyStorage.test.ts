@@ -113,6 +113,24 @@ describe("studyStorage", () => {
     expect(loadStudy().scenarios[0].turns).toEqual([u("hi")]);
   });
 
+  it("coerces malformed scenario entries instead of casting them through", () => {
+    backing.set(
+      KEY,
+      JSON.stringify({
+        ...study(),
+        scenarios: [
+          "garbage",
+          { noId: true },
+          { id: "s1", turns: ["hi", 42, { role: "agent", text: "yo" }, { role: "bogus", text: "x" }] },
+        ],
+      }),
+    );
+    const loaded = loadStudy();
+    expect(loaded.scenarios).toEqual([
+      { id: "s1", scenarioId: "s1", name: "s1", language: "EN", turns: [u("hi"), a("yo")] },
+    ]);
+  });
+
   it("drops non-string vars and non-string models on load", () => {
     backing.set(
       KEY,

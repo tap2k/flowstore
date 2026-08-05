@@ -607,26 +607,26 @@ export function ComparePage() {
                     )}
                     <ColumnStats cell={c} rates={voiceRates} model={m} live={colLive} />
                     {/* Bless a good run: this conversation becomes the
-                        scenario's script + gold (on-script cells only —
-                        a probe-extended transcript would rewrite the script
-                        too). */}
-                    {c?.status === "done" &&
-                      selectedScenario &&
-                      cellOnScript(c, selectedScenario) && (
+                        scenario's script + gold. An off-script conversation
+                        (composer probes extended it) rewrites the script too
+                        — that's the probe → suite graduation path, so it
+                        asks first. */}
+                    {c?.status === "done" && selectedScenario && (
                         <button
                           onClick={() => {
-                            if (
-                              goldOf(selectedScenario).length === 0 ||
-                              window.confirm(
-                                "Replace this scenario's gold with this conversation's replies?",
-                              )
-                            ) {
+                            const offScript = !cellOnScript(c, selectedScenario);
+                            const ask = offScript
+                              ? "This conversation went off-script. Save as gold? The scenario's script AND gold both become this conversation."
+                              : goldOf(selectedScenario).length > 0
+                                ? "Replace this scenario's gold with this conversation's replies?"
+                                : null;
+                            if (ask === null || window.confirm(ask)) {
                               s.setGold(selectedScenario.id, i);
                             }
                           }}
                           disabled={busy}
                           className="shrink-0 rounded-md border border-state-warning-line px-1.5 py-0.5 text-[10px] text-state-warning-fg hover:bg-state-warning-bg"
-                          title="Use this conversation as the scenario's gold — its replies become the expected agent turns the other columns are read against (exported as the scenario's gold)"
+                          title="Use this conversation as the scenario's gold — its replies become the expected agent turns the other columns are read against (exported as the scenario's gold). An off-script conversation updates the script to match as well."
                         >
                           save as gold
                         </button>

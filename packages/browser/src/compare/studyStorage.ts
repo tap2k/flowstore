@@ -72,16 +72,37 @@ const storage = createScopedJsonStorage<PersistedStudy>({
     // become user turns; a legacy gold whose user side matches the scenario's
     // script merges in as the full conversation; the golds record is dropped.
     const legacyGolds = isPlainObject(raw.golds)
-      ? (raw.golds as Record<string, { turns?: ScenarioTurn[] }>)
+      ? (raw.golds as Record<string, { turns?: unknown[] }>)
       : {};
-    const scenarios = (raw.scenarios as Scenario[]).map((sc) => {
-      const turns: ScenarioTurn[] = (Array.isArray(sc.turns) ? sc.turns : []).map((t) =>
-        typeof t === "string" ? { role: "user", text: t } : t,
-      );
-      const goldTurns = legacyGolds[sc.id]?.turns;
-      const merged = Array.isArray(goldTurns) ? mergeGoldTurns(turns, goldTurns) : null;
-      return { ...sc, turns: merged ?? turns };
-    });
+    // Coerce, don't cast: a legacy string turn becomes a user turn, a
+    // role-tagged object keeps only its {role, text}, anything else is
+    // dropped — as is any scenario entry that isn't an object with an id.
+    const toTurn = (t: unknown): ScenarioTurn | null => {
+      if (typeof t === "string") return { role: "user", text: t };
+      if (isPlainObject(t) && (t.role === "user" || t.role === "agent") && typeof t.text === "string") {
+        return { role: t.role, text: t.text };
+      }
+      return null;
+    };
+    const scenarios = (raw.scenarios as unknown[])
+      .filter((sc): sc is Record<string, unknown> => isPlainObject(sc) && typeof sc.id === "string")
+      .map((sc) => {
+        const turns = (Array.isArray(sc.turns) ? sc.turns : [])
+          .map(toTurn)
+          .filter((t): t is ScenarioTurn => t !== null);
+        const goldTurns = legacyGolds[sc.id as string]?.turns;
+        const merged = Array.isArray(goldTurns)
+          ? mergeGoldTurns(turns, goldTurns.map(toTurn).filter((t): t is ScenarioTurn => t !== null))
+          : null;
+        return {
+          id: sc.id as string,
+          scenarioId: typeof sc.scenarioId === "string" ? sc.scenarioId : (sc.id as string),
+          name: typeof sc.name === "string" ? sc.name : (sc.id as string),
+          language: typeof sc.language === "string" ? sc.language : "EN",
+          turns: merged ?? turns,
+          ...(typeof sc.goldPath === "string" ? { goldPath: sc.goldPath } : {}),
+        };
+      });
     return {
       agentId: typeof raw.agentId === "string" && raw.agentId ? raw.agentId : genId("agent"),
       prompt: raw.prompt,
