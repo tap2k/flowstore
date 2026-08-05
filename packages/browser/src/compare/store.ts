@@ -13,14 +13,10 @@ import {
   runMatrix,
 } from "@flowstore/studies";
 import type { CellState, Scenario } from "@flowstore/studies";
+import { toScenarioTurns } from "@flowstore/studies";
 import { DEFAULT_MODEL_ID, resolveDispatch } from "@/lib/store/settings";
 import { useSettingsStore } from "@/lib/store/settings";
-import {
-  loadStudy,
-  saveStudy,
-  type StudyGithubLocation,
-  type StudyGold,
-} from "./studyStorage";
+import { loadStudy, saveStudy, type StudyGithubLocation } from "./studyStorage";
 import { clearTurnAudio, putTurnAudio } from "@/lib/runtime/audioCache";
 import { VOICE_PROVIDERS } from "@/lib/runtime/realtimeVoiceSession";
 import type { VoicePhase, VoiceSessionLike } from "@/lib/runtime/voiceSession";
@@ -90,9 +86,6 @@ interface CompareState {
   models: string[];
   cells: Record<string, CellState>;
   selected: string | null;
-  // One gold per scenario id (StudyGold: column = captured-from this
-  // session; absent = imported).
-  golds: Record<string, StudyGold>;
   vars: Record<string, string>;
   // Repo the study came from / last landed in; null = local-only study.
   github: StudyGithubLocation | null;
@@ -152,9 +145,6 @@ interface CompareState {
   // OFF-SCRIPT (probe doctrine: persists in the study/runs, scenario
   // untouched, divergence excludes it). Starting clears the cell — a live
   // socket can't resume a transcript.
-  // Mint a scripted scenario from one column's conversation: its user turns
-  // become the case (the interactive-probe → reproducible-suite loop).
-  mintScenario: (mi: number) => void;
   startColumnVoice: (mi: number) => Promise<void>;
   stopColumnVoice: () => void;
   stopRun: () => void;
@@ -162,7 +152,10 @@ interface CompareState {
   generateVars: () => Promise<void>;
   generateScenarios: () => Promise<void>;
   openInEditor: () => void;
-  captureGold: (scenarioId: string, column: number) => void;
+  // Bless one cell's conversation as this scenario's gold: the
+  // transcript's turns (both sides) replace the scenario's. The agent side
+  // becomes the divergence baseline and exports as the scenario's gold.
+  setGold: (scenarioId: string, column: number) => void;
 }
 
 const initial = loadStudy();
@@ -178,10 +171,10 @@ let compareVoiceStartedAt = 0;
 
 // Standing state for a partial (row/column) run: paused cells INSIDE the
 // rerun scope continue mid-conversation; done cells OUTSIDE it seed the
-// engine solely so the divergence pass compares against the standing
-// incumbent (the engine skips done seeds, and the scope filter keeps them
-// from executing — resumeFrom is the state filter, scenarios/columns the
-// execution filter; deliberately independent).
+// engine solely so the divergence pass covers them too (the engine skips
+// done seeds, and the scope filter keeps them from executing — resumeFrom
+// is the state filter, scenarios/columns the execution filter; deliberately
+// independent).
 function seedFor(
   cells: Record<string, CellState>,
   rerun: (key: string) => boolean,
@@ -241,7 +234,6 @@ export const useCompareStore = create<CompareState>((set, get) => {
   models: initial.models.length > 0 ? initial.models : [DEFAULT_MODEL_ID, DEFAULT_MODEL_ID],
   cells: initial.cells,
   selected: initial.scenarios[0]?.id ?? null,
-  golds: initial.golds,
   vars: initial.vars,
   github: initial.github,
   sourceFiles: initial.sourceFiles,
@@ -270,7 +262,7 @@ export const useCompareStore = create<CompareState>((set, get) => {
           scenarioId: id,
           name: `Scenario ${s.scenarios.length + 1}`,
           language: "EN",
-          turns: [""],
+          turns: [{ role: "user" as const, text: "" }],
         },
         ...s.scenarios,
       ],
@@ -301,8 +293,7 @@ export const useCompareStore = create<CompareState>((set, get) => {
       s.models.length >= MAX_MODEL_COLUMNS ? s : { models: [...s.models, DEFAULT_MODEL_ID] },
     ),
   // Column removal re-keys: cells are index-keyed, so surviving columns
-  // shift down (and captured-gold column pointers shift with them —
-  // a gold captured FROM the removed column keeps only its transcript).
+  // shift down.
   removeModel: (i) =>
     set((s) => {
       const cells: Record<string, CellState> = {};
@@ -312,18 +303,9 @@ export const useCompareStore = create<CompareState>((set, get) => {
         if (mi === i) continue;
         cells[cellKey(k.slice(0, at), mi > i ? mi - 1 : mi)] = c;
       }
-      const golds = Object.fromEntries(
-        Object.entries(s.golds).map(([sid, g]) => [
-          sid,
-          g.column === undefined || g.column < i
-            ? g
-            : { ...g, column: g.column === i ? undefined : g.column - 1 },
-        ]),
-      );
       return {
         models: s.models.filter((_, j) => j !== i),
         cells,
-        golds,
         // Translation caches are cellKey-keyed; drop everything at or past
         // the removed index rather than re-keying caches.
         ...cellCaches(s, (k) => Number(k.slice(k.lastIndexOf("::") + 2)) < i),
@@ -335,7 +317,7 @@ export const useCompareStore = create<CompareState>((set, get) => {
   setGithubLocation: (loc) => set({ github: loc }),
 
   // Drop the transcripts (and their translation caches/toggles/errors) while
-  // keeping the study itself — prompt, scenarios, models, golds, vars.
+  // keeping the study itself — prompt, scenarios, models, vars.
   clearConversations: () => {
     clearTurnAudio();
     set((st) => ({ cells: {}, ...cellCaches(st, () => false) }));
@@ -349,7 +331,6 @@ export const useCompareStore = create<CompareState>((set, get) => {
       scenarios: [],
       models: [DEFAULT_MODEL_ID, DEFAULT_MODEL_ID],
       cells: {},
-      golds: {},
       vars: {},
       github: null,
       sourceFiles: null,
@@ -362,7 +343,7 @@ export const useCompareStore = create<CompareState>((set, get) => {
   },
 
   applyBundle: (files) => {
-    // Parsing (scenarios from cases or golds, gold rebinding, fixture vars)
+    // Parsing (scenarios from cases or golds, gold merging, fixture vars)
     // lives beside buildStudyBundle in @flowstore/studies — the store only
     // maps the parsed study into state.
     const parsed = parseStudyBundle(files);
@@ -370,7 +351,6 @@ export const useCompareStore = create<CompareState>((set, get) => {
       agentId: parsed.agentId ?? genId("agent"),
       prompt: parsed.prompt,
       scenarios: parsed.scenarios,
-      golds: parsed.golds,
       vars: parsed.vars,
       // A bundle has no repo claim (the GitHub open flow re-stamps the
       // location right after this — see ComparePage's onOpened wiring).
@@ -455,25 +435,6 @@ export const useCompareStore = create<CompareState>((set, get) => {
         patch: { selected: sc.id },
       },
     );
-  },
-
-  mintScenario: (mi) => {
-    const { selected, scenarios, cells } = get();
-    const sc = scenarios.find((x) => x.id === selected);
-    if (!sc) return;
-    const turns = (cells[cellKey(sc.id, mi)]?.turns ?? [])
-      .filter((t) => t.role === "user" && t.text.trim())
-      .map((t) => t.text);
-    if (turns.length === 0) return;
-    const id = genId("scenario");
-    const name = turns[0].length > 34 ? `${turns[0].slice(0, 34)}…` : turns[0];
-    set((st) => ({
-      scenarios: [
-        { id, scenarioId: id, name, language: sc.language, turns },
-        ...st.scenarios,
-      ],
-      selected: id,
-    }));
   },
 
   startColumnVoice: async (mi) => {
@@ -615,8 +576,8 @@ export const useCompareStore = create<CompareState>((set, get) => {
     // socket can't be re-seeded), which costs another run but stays honest.
     const userTurns = (cells[key]?.turns ?? [])
       .filter((x) => x.role === "user")
-      .map((x) => x.text);
-    const probe: Scenario = { ...sc, turns: [...userTurns, t] };
+      .map((x) => ({ role: "user" as const, text: x.text }));
+    const probe: Scenario = { ...sc, turns: [...userTurns, { role: "user", text: t }] };
     set((st) => {
       const c = st.cells[key];
       const completePairs = !!c && c.turns.length > 0 && c.turns.length % 2 === 0;
@@ -703,8 +664,8 @@ export const useCompareStore = create<CompareState>((set, get) => {
 
   // Machine-assist on the TEST side only: the LLM proposes fill values, the
   // user edits them before any run touches a model. Runs on the DEFAULT
-  // model, like every assist (translate, watcher, generators) — the
-  // incumbent is the system under test, never the tooling.
+  // model, like every assist (translate, watcher, generators) — the models
+  // under study are the system under test, never the tooling.
   generateVars: async () => {
     const { prompt, vars } = get();
     const names = detectPlaceholders(prompt).filter((n) => !(vars[n] ?? "").trim());
@@ -765,22 +726,15 @@ export const useCompareStore = create<CompareState>((set, get) => {
     window.open("/create/?study=compare", "_blank");
   },
 
-  captureGold: (scenarioId, column) => {
+  setGold: (scenarioId, column) => {
     const { scenarios, cells } = get();
     const sc = scenarios.find((x) => x.id === scenarioId);
     const c = cells[cellKey(scenarioId, column)];
-    if (!sc || !c) return;
+    if (!sc || !c || c.turns.length === 0) return;
     set((s) => ({
-      golds: {
-        ...s.golds,
-        [scenarioId]: {
-          scenarioId: sc.scenarioId,
-          language: sc.language,
-          name: sc.name,
-          column,
-          turns: c.turns.map((t) => ({ role: t.role, text: t.text })),
-        },
-      },
+      scenarios: s.scenarios.map((x) =>
+        x.id === scenarioId ? { ...x, turns: toScenarioTurns(c.turns) } : x,
+      ),
     }));
   },
 });
@@ -815,9 +769,9 @@ function flushStudy() {
     clearTimeout(saveTimer);
     saveTimer = null;
   }
-  const { agentId, prompt, scenarios, models, cells, golds, vars, github, sourceFiles } =
+  const { agentId, prompt, scenarios, models, cells, vars, github, sourceFiles } =
     useCompareStore.getState();
-  saveStudy({ agentId, prompt, scenarios, models, cells, golds, vars, github, sourceFiles });
+  saveStudy({ agentId, prompt, scenarios, models, cells, vars, github, sourceFiles });
 }
 useCompareStore.subscribe((s) => {
   if (s.runMode) return;

@@ -18,11 +18,14 @@ const KEY = "flowstore:compare:study:current";
 beforeEach(() => backing.clear());
 afterEach(() => backing.clear());
 
+const u = (text: string) => ({ role: "user" as const, text });
+const a = (text: string) => ({ role: "agent" as const, text });
+
 const study = () => ({
   ...EMPTY_STUDY,
   agentId: "agent-test",
   prompt: "You are Asha.",
-  scenarios: [{ id: "s1", scenarioId: "s1", name: "S1", language: "EN", turns: ["hi"] }],
+  scenarios: [{ id: "s1", scenarioId: "s1", name: "S1", language: "EN", turns: [u("hi")] }],
   models: ["m0", "m1"],
 });
 
@@ -67,6 +70,47 @@ describe("studyStorage", () => {
     expect(loaded.agentId).toEqual(expect.any(String));
     expect(loaded.agentId).not.toBe("");
     expect(loaded.prompt).toBe("You are Asha.");
+  });
+
+  it("migrates legacy string turns to user turns", () => {
+    backing.set(
+      KEY,
+      JSON.stringify({
+        ...study(),
+        scenarios: [{ id: "s1", scenarioId: "s1", name: "S1", language: "EN", turns: ["hi", "bye"] }],
+      }),
+    );
+    expect(loadStudy().scenarios[0].turns).toEqual([u("hi"), u("bye")]);
+  });
+
+  it("merges a legacy gold into its scenario when the user turns match, then drops the record", () => {
+    backing.set(
+      KEY,
+      JSON.stringify({
+        ...study(),
+        scenarios: [{ id: "s1", scenarioId: "s1", name: "S1", language: "EN", turns: ["hi"] }],
+        golds: {
+          s1: { scenarioId: "s1", language: "EN", name: "S1", turns: [u("hi"), a("hello!")] },
+        },
+      }),
+    );
+    const loaded = loadStudy();
+    expect(loaded.scenarios[0].turns).toEqual([u("hi"), a("hello!")]);
+    expect("golds" in loaded).toBe(false);
+  });
+
+  it("leaves the scenario user-only when a legacy gold's user turns mismatch", () => {
+    backing.set(
+      KEY,
+      JSON.stringify({
+        ...study(),
+        scenarios: [{ id: "s1", scenarioId: "s1", name: "S1", language: "EN", turns: ["hi"] }],
+        golds: {
+          s1: { scenarioId: "s1", language: "EN", name: "S1", turns: [u("DIFFERENT"), a("hello!")] },
+        },
+      }),
+    );
+    expect(loadStudy().scenarios[0].turns).toEqual([u("hi")]);
   });
 
   it("drops non-string vars and non-string models on load", () => {

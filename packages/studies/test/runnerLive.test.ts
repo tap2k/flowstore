@@ -41,7 +41,7 @@ const scenario = (id: string): Scenario => ({
   scenarioId: id,
   name: id,
   language: "EN",
-  turns: ["hi"],
+  turns: [{ role: "user", text: "hi" }],
 });
 
 describe("runMatrix s2s columns", () => {
@@ -97,11 +97,20 @@ describe("runMatrix s2s columns", () => {
     });
     const cells = await runMatrix({
       systemPrompt: "SP",
-      scenarios: [scenario("s1")], // script: ["hi"]
+      // Script ["hi"] with a gold reply, so on-script cells get judged.
+      scenarios: [
+        {
+          ...scenario("s1"),
+          turns: [
+            { role: "user", text: "hi" },
+            { role: "agent", text: "totally different words entirely" },
+          ],
+        },
+      ],
       models: ["live-a", "live-b"],
       resolveDispatch: () => ({ provider: "google", apiKey: "k", wireModel: "x", live: true }),
       onCell: () => {},
-      // Incumbent on script; column 1 was probed (extra off-script turn) and
+      // Column 0 on script; column 1 was probed (extra off-script turn) and
       // carries a stale divergent flag from before the probe.
       resumeFrom: {
         "s1::0": done([["hi", "totally different words entirely"]]),
@@ -109,7 +118,9 @@ describe("runMatrix s2s columns", () => {
       },
       columns: [],
     });
-    // Stale badge cleared, no fresh verdict minted for the off-script cell.
+    // On-script cell judged against the gold; the off-script cell's
+    // stale badge cleared with no fresh verdict minted.
+    expect(cells["s1::0"].divergent).toBe(false);
     expect(cells["s1::1"].divergent).toBeUndefined();
   });
 

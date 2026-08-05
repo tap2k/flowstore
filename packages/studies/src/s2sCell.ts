@@ -2,6 +2,7 @@ import type { ChatUsage } from "@flowstore/core/llm/types";
 import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
 import { addUsage } from "@flowstore/core/runtime/promptClient";
 import type { CellState, ModelDispatch, Scenario } from "./types";
+import { scriptOf } from "./types";
 
 // Shared skeleton for headless s2s compare cells (Gemini Live, OpenAI
 // Realtime): the scenario's user turns go in as TEXT (same suite as the text
@@ -205,7 +206,7 @@ export async function runS2sCell(
     });
     await withTimeout(ready, SETUP_TIMEOUT_MS, `${what} session setup`);
 
-    for (const userText of scenario.turns) {
+    for (const userText of scriptOf(scenario)) {
       if (fatal) throw fatal;
       const userTurn: TranscriptTurn = { role: "user", text: userText, ts: Date.now(), events: [] };
       onUpdate({ turns: [...history, userTurn] });

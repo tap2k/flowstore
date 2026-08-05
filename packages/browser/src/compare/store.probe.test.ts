@@ -16,8 +16,10 @@ describe("sendUserTurn wiring", () => {
     mockRun.mockClear();
   });
 
+  const u = (text: string) => ({ role: "user" as const, text });
+
   it("passes the cell's history as the probe script prefix, one column, resumable", async () => {
-    const sc = { id: "s1", scenarioId: "s1", name: "S", language: "EN", turns: ["a", "b"] };
+    const sc = { id: "s1", scenarioId: "s1", name: "S", language: "EN", turns: [u("a"), u("b")] };
     useCompareStore.setState({
       scenarios: [sc],
       models: ["m0", "m1"],
@@ -39,20 +41,20 @@ describe("sendUserTurn wiring", () => {
     await useCompareStore.getState().sendUserTurn("NEW", 1);
     expect(mockRun).toHaveBeenCalledTimes(1);
     const args = mockRun.mock.calls[0][0];
-    expect(args.scenarios[0].turns).toEqual(["a", "b", "NEW"]);
+    expect(args.scenarios[0].turns).toEqual([u("a"), u("b"), u("NEW")]);
     expect(args.columns).toEqual([1]);
     // The standing transcript rides in as a resumable idle cell.
     expect(args.resumeFrom?.["s1::1"]?.status).toBe("idle");
     expect(args.resumeFrom?.["s1::1"]?.turns).toHaveLength(4);
     // The scenario script itself is untouched.
-    expect(useCompareStore.getState().scenarios[0].turns).toEqual(["a", "b"]);
+    expect(useCompareStore.getState().scenarios[0].turns).toEqual([u("a"), u("b")]);
   });
 
   it("rejects (returns false, keeps state) when no scenario is selected or a run is live", async () => {
     useCompareStore.setState({ scenarios: [], selected: null, runMode: null });
     expect(await useCompareStore.getState().sendUserTurn("x", 0)).toBe(false);
     useCompareStore.setState({
-      scenarios: [{ id: "s1", scenarioId: "s1", name: "S", language: "EN", turns: ["a"] }],
+      scenarios: [{ id: "s1", scenarioId: "s1", name: "S", language: "EN", turns: [u("a")] }],
       selected: "s1",
       runMode: { kind: "all" },
     });
@@ -61,7 +63,7 @@ describe("sendUserTurn wiring", () => {
   });
 
   it("a cleanly-errored cell resumes instead of replaying", async () => {
-    const sc = { id: "s1", scenarioId: "s1", name: "S", language: "EN", turns: ["a"] };
+    const sc = { id: "s1", scenarioId: "s1", name: "S", language: "EN", turns: [u("a")] };
     useCompareStore.setState({
       scenarios: [sc],
       models: ["m0"],
@@ -82,6 +84,6 @@ describe("sendUserTurn wiring", () => {
     expect(await useCompareStore.getState().sendUserTurn("NEW", 0)).toBe(true);
     const args = mockRun.mock.calls[0][0];
     expect(args.resumeFrom?.["s1::0"]?.status).toBe("idle");
-    expect(args.scenarios[0].turns).toEqual(["a", "NEW"]);
+    expect(args.scenarios[0].turns).toEqual([u("a"), u("NEW")]);
   });
 });

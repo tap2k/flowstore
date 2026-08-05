@@ -22,12 +22,15 @@ const turn = (role: "user" | "agent", text: string): TranscriptTurn => ({
   events: [],
 });
 
-const scenario = (id: string, turns: string[] = ["hi"]): Scenario => ({
+const u = (text: string) => ({ role: "user" as const, text });
+const a = (text: string) => ({ role: "agent" as const, text });
+
+const scenario = (id: string, userTurns: string[] = ["hi"]): Scenario => ({
   id,
   scenarioId: id,
   name: id,
   language: "EN",
-  turns,
+  turns: userTurns.map(u),
 });
 
 const dispatch = (model: string): ModelDispatch => ({
@@ -321,34 +324,56 @@ describe("runMatrix", () => {
     expect(maxActive).toBe(3);
   });
 
-  it("flags divergent columns against column 0 and never flags the incumbent", async () => {
+  it("flags every column — including column 0 — against the scenario's gold turns", async () => {
     replyFor("diff", "uno dos tres cuatro cinco");
+    const sc: Scenario = {
+      ...scenario("s1"),
+      turns: [u("hi"), a("alpha beta gamma delta epsilon")],
+    };
     const cells = await runMatrix({
       systemPrompt: "SP",
-      scenarios: [scenario("s1")],
-      models: ["inc", "same", "diff"],
+      scenarios: [sc],
+      models: ["first", "same", "diff"],
       resolveDispatch: dispatch,
       onCell: () => {},
     });
-    expect(cells[cellKey("s1", 0)].divergent).toBeUndefined();
+    expect(cells[cellKey("s1", 0)].divergent).toBe(false);
     expect(cells[cellKey("s1", 1)].divergent).toBe(false);
     expect(cells[cellKey("s1", 2)].divergent).toBe(true);
   });
 
-  it("skips the divergence pass when the incumbent column failed", async () => {
-    mockSend.mockImplementation(async (args) => {
-      if (args.model === "inc") throw new Error("down");
-      return { text: "ok", invocations: [] };
-    });
+  it("a scenario without gold turns gets no verdict on any column", async () => {
+    replyFor("diff", "uno dos tres cuatro cinco");
     const cells = await runMatrix({
       systemPrompt: "SP",
       scenarios: [scenario("s1")],
-      models: ["inc", "cand"],
+      models: ["first", "diff"],
+      resolveDispatch: dispatch,
+      onCell: () => {},
+    });
+    expect(cells[cellKey("s1", 0)].divergent).toBeUndefined();
+    expect(cells[cellKey("s1", 1)].divergent).toBeUndefined();
+  });
+
+  it("an errored column gets no verdict; done columns are still judged", async () => {
+    mockSend.mockImplementation(async (args) => {
+      if (args.model === "bad") throw new Error("down");
+      return { text: "alpha beta gamma delta epsilon", invocations: [] };
+    });
+    const sc: Scenario = {
+      ...scenario("s1"),
+      turns: [u("hi"), a("alpha beta gamma delta epsilon")],
+    };
+    const cells = await runMatrix({
+      systemPrompt: "SP",
+      scenarios: [sc],
+      models: ["bad", "good"],
       resolveDispatch: dispatch,
       onCell: () => {},
     });
     expect(cells[cellKey("s1", 0)].status).toBe("error");
+    expect(cells[cellKey("s1", 0)].divergent).toBeUndefined();
     expect(cells[cellKey("s1", 1)].status).toBe("done");
-    expect(cells[cellKey("s1", 1)].divergent).toBeUndefined();
+    expect(cells[cellKey("s1", 1)].divergent).toBe(false);
   });
 });

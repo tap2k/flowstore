@@ -1,6 +1,7 @@
 import { genId } from "@flowstore/core/ids";
 import { generateStructuredJson } from "@flowstore/core/runtime/structuredOutput";
 import type { ModelDispatch, Scenario } from "./types";
+import { scriptOf } from "./types";
 
 // Machine-assist generators for the compare surface, in the translate.ts
 // shape: thin consumers of the shared structured-output dispatch, credentials
@@ -74,7 +75,7 @@ export async function generateScenarios(
   const existingNote =
     existing.length > 0
       ? `\n\nExisting scenarios (cover different paths):\n${existing
-          .map((s) => `- ${s.name}: ${s.turns.filter((t) => t.trim()).join(" | ")}`)
+          .map((s) => `- ${s.name}: ${scriptOf(s).filter((t) => t.trim()).join(" | ")}`)
           .join("\n")}`
       : "";
   const arr = await generateStructuredJson<
@@ -95,7 +96,12 @@ export async function generateScenarios(
         scenarioId: id,
         name: s.name.trim(),
         language: (s.language || "EN").trim().toUpperCase(),
-        turns: s.turns.map((t) => t.trim()).filter(Boolean),
+        // Generation stays user-only: the LLM must not invent the gold
+        // (expected agent turns are blessed by a human, not drafted).
+        turns: s.turns
+          .map((t) => t.trim())
+          .filter(Boolean)
+          .map((text) => ({ role: "user" as const, text })),
       };
     });
 }

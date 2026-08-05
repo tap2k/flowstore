@@ -1,15 +1,12 @@
 import { createScopedJsonStorage, isPlainObject } from "@/lib/store/scopedStorage";
 import { genId } from "@flowstore/core/ids";
-import type { CapturedGold, CellState, Scenario } from "@flowstore/studies";
+import type { CellState, Scenario, ScenarioTurn } from "@flowstore/studies";
+import { mergeGoldTurns } from "@flowstore/studies";
 
 // Compare's study state survives refresh the same way the editor's panel
 // state does: the shared scoped-storage module, one JSON payload per key.
 // One study slot for now ("current") — localStorage serves only the casual
 // tier; real continuity is the exported bundle / the study repo.
-
-// A study gold: the engine's CapturedGold plus which column it was captured
-// from this session (absent for golds that arrived via import).
-export type StudyGold = CapturedGold & { column?: number };
 
 // Which repo the study was opened from / last saved to. Local artifacts
 // (upload, example) carry no repo claim, mirroring the editor's rule.
@@ -25,7 +22,6 @@ export type PersistedStudy = {
   scenarios: Scenario[];
   models: string[];
   cells: Record<string, CellState>;
-  golds: Record<string, StudyGold>;
   // Placeholder-fill values for the prompt's {{vars}} (fixture bag — the
   // prompt text itself is never rewritten).
   vars: Record<string, string>;
@@ -42,7 +38,6 @@ export const EMPTY_STUDY: Omit<PersistedStudy, "agentId"> = {
   scenarios: [],
   models: [],
   cells: {},
-  golds: {},
   vars: {},
   github: null,
   sourceFiles: null,
@@ -71,13 +66,28 @@ const storage = createScopedJsonStorage<PersistedStudy>({
       // to idle rather than showing a spinner forever.
       cells[k] = v.status === "running" ? { ...v, status: "idle" } : v;
     }
+    // Legacy migration (one-way, at the storage boundary — the only place
+    // old shapes may exist): `turns` was `string[]` (user-only), and the
+    // expected agent side lived in a separate `golds` record. String turns
+    // become user turns; a legacy gold whose user side matches the scenario's
+    // script merges in as the full conversation; the golds record is dropped.
+    const legacyGolds = isPlainObject(raw.golds)
+      ? (raw.golds as Record<string, { turns?: ScenarioTurn[] }>)
+      : {};
+    const scenarios = (raw.scenarios as Scenario[]).map((sc) => {
+      const turns: ScenarioTurn[] = (Array.isArray(sc.turns) ? sc.turns : []).map((t) =>
+        typeof t === "string" ? { role: "user", text: t } : t,
+      );
+      const goldTurns = legacyGolds[sc.id]?.turns;
+      const merged = Array.isArray(goldTurns) ? mergeGoldTurns(turns, goldTurns) : null;
+      return { ...sc, turns: merged ?? turns };
+    });
     return {
       agentId: typeof raw.agentId === "string" && raw.agentId ? raw.agentId : genId("agent"),
       prompt: raw.prompt,
-      scenarios: raw.scenarios as Scenario[],
+      scenarios,
       models: (raw.models as string[]).filter((m) => typeof m === "string"),
       cells,
-      golds: isPlainObject(raw.golds) ? (raw.golds as PersistedStudy["golds"]) : {},
       vars: isPlainObject(raw.vars)
         ? Object.fromEntries(
             Object.entries(raw.vars).filter(([, v]) => typeof v === "string"),
@@ -101,7 +111,6 @@ const storage = createScopedJsonStorage<PersistedStudy>({
     !v.prompt &&
     v.scenarios.length === 0 &&
     Object.keys(v.cells).length === 0 &&
-    Object.keys(v.golds).length === 0 &&
     Object.keys(v.vars).length === 0,
 });
 

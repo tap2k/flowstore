@@ -1,7 +1,7 @@
 import { ALL_LANGUAGES, generateSystemPrompt } from "@flowstore/core/codegen/promptGenerator";
 import { loadProject } from "@flowstore/core/files/load";
-import type { CellState, Scenario } from "./types";
-import { cellKey } from "./types";
+import type { CellState, Scenario, ScenarioTurn } from "./types";
+import { cellKey, goldOf, mergeGoldTurns, scriptOf } from "./types";
 
 // Study export in file-model shape from the first save: a serialized FileMap
 // ({path: content}) of a mini flowstore project — scenarios as scripted test
@@ -14,19 +14,6 @@ import { cellKey } from "./types";
 // Note: agent.json is a stub — an imported-prompt project has no flows yet,
 // and entry_flow_id is required by AgentSchema (the "flowless project" open
 // question). The stub records intent; extraction at graduation mints flows.
-
-export type CapturedGold = {
-  scenarioId: string;
-  language: string;
-  name: string;
-  turns: { role: "agent" | "user"; text: string }[];
-  // Round-trip fields, present when the gold was imported rather than
-  // captured this session. Re-export must preserve the original identity and
-  // blessing — a bundle pass-through is not a re-bless.
-  goldId?: string;
-  blessedAt?: string;
-  sourcePointer?: string;
-};
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return v != null && typeof v === "object" && !Array.isArray(v);
@@ -67,7 +54,6 @@ export function buildStudyBundle(args: {
   models: string[];
   scenarios: Scenario[];
   cells: Record<string, CellState>;
-  golds?: Record<string, CapturedGold>;
   // Stable per-study agent id (compare mints one per study and persists it).
   // Agent-id-scoped editor state — canvas positions, persona/vars buckets —
   // keys off this, so two studies must not share an id.
@@ -79,12 +65,12 @@ export function buildStudyBundle(args: {
   vars?: Record<string, string>;
   // The FileMap the study was opened from, when it came from an existing
   // project (GitHub open, upload, example). When present the bundle is that
-  // project — flows, real agent.json and all — with the study's cases, golds,
-  // and run results overlaid, instead of a synthesized flowless stub. This is
-  // what makes graduation lossless for spec'd projects.
+  // project — flows, real agent.json and all — with the study's cases,
+  // golds, and run results overlaid, instead of a synthesized flowless stub.
+  // This is what makes graduation lossless for spec'd projects.
   sourceFiles?: Record<string, string> | null;
 }): Record<string, string> {
-  const { prompt, models, scenarios, cells, golds } = args;
+  const { prompt, models, scenarios, cells } = args;
   const vars = Object.fromEntries(
     Object.entries(args.vars ?? {}).filter(([, v]) => v.trim().length > 0),
   );
@@ -179,7 +165,7 @@ export function buildStudyBundle(args: {
       ...orig,
       scenario_id: s.scenarioId,
       name: s.name,
-      user_turns: s.turns,
+      user_turns: scriptOf(s),
       language: s.language,
       ...(hasVars ? { vars } : {}),
     });
@@ -227,20 +213,32 @@ export function buildStudyBundle(args: {
     results: resultFiles,
   });
 
-  for (const [sid, g] of Object.entries(golds ?? {})) {
-    const path = `tests/gold/${sid}.gold.json`;
+  // A scenario with agent turns IS a gold — the full conversation writes as
+  // flowstore://test/gold/v0. goldPath (recorded at import) targets the
+  // original file so an edited import overwrites instead of duplicating,
+  // and the ...orig merge preserves identity and metadata (id, notes, tags,
+  // mocks, source_pointer). Blessing is never minted here: blessed_at
+  // survives only when the turns are byte-identical to the original's —
+  // edited = unblessed; re-blessing is an explicit act elsewhere.
+  for (const s of scenarios) {
+    const ref = goldOf(s);
+    if (ref.length === 0) continue;
+    const path = s.goldPath ?? `tests/gold/${s.id}.gold.json`;
     const orig = parseJson(src?.[path]);
+    const untouched =
+      orig !== undefined && JSON.stringify(orig.turns) === JSON.stringify(s.turns);
+    const { blessed_at: origBlessed, ...origRest } = orig ?? {};
     files[path] = j({
       $schema: "flowstore://test/gold/v0",
       tags: ["src:compare"],
-      ...orig,
-      id: g.goldId ?? sid,
-      name: g.name,
-      turns: g.turns.map((t) => ({ role: t.role, text: t.text })),
-      language: g.language,
-      scenario_id: g.scenarioId,
-      source_pointer: g.sourcePointer ?? `compare-run:${stamp}`,
-      blessed_at: g.blessedAt ?? stamp,
+      source_pointer: `compare-study:${args.agentId}`,
+      ...origRest,
+      ...(untouched && typeof origBlessed === "string" ? { blessed_at: origBlessed } : {}),
+      id: orig?.id ?? s.id,
+      name: s.name,
+      turns: s.turns,
+      language: s.language,
+      scenario_id: s.scenarioId,
     });
   }
 
@@ -251,8 +249,9 @@ export function buildStudyBundle(args: {
 // The read side — buildStudyBundle's inverse, kept beside it so the
 // round-trip contract lives (and is tested) in one module. Tolerant of
 // arbitrary flowstore projects, not just our own bundles: scenarios come
-// from cases, or are derived from golds' user turns when a project ships
-// golds but no cases (replaying a blessed transcript IS a scripted case).
+// from cases (with a matching gold's agent turns merged in as the
+// gold), or directly from golds when a project ships golds but no
+// cases (replaying a blessed transcript IS a scripted case).
 // ---------------------------------------------------------------------------
 
 export type ParsedStudyBundle = {
@@ -261,8 +260,6 @@ export type ParsedStudyBundle = {
   // a re-opened study keeps its editor-side buckets. Null: caller mints.
   agentId: string | null;
   scenarios: Scenario[];
-  // Keyed by scenario (case) id — the same keying buildStudyBundle writes.
-  golds: Record<string, CapturedGold>;
   // Placeholder-fill values, read back from the cases' fixture vars.
   vars: Record<string, string>;
 };
@@ -276,10 +273,15 @@ export function parseStudyBundle(files: Record<string, string>): ParsedStudyBund
     .map((k) => JSON.parse(files[k]) as Record<string, unknown>);
   const goldFiles = Object.keys(files)
     .filter((k) => k.startsWith("tests/gold/") && k.endsWith(".gold.json"))
-    .map((k) => JSON.parse(files[k]) as Record<string, unknown>);
+    .map((path) => ({ path, gold: JSON.parse(files[path]) as Record<string, unknown> }));
 
-  const goldTurns = (g: Record<string, unknown>) =>
-    (Array.isArray(g.turns) ? g.turns : []) as { role: "agent" | "user"; text: string }[];
+  const goldTurns = (g: Record<string, unknown>): ScenarioTurn[] =>
+    (Array.isArray(g.turns) ? g.turns : [])
+      .filter(
+        (t): t is { role: "agent" | "user"; text: unknown } =>
+          isRecord(t) && (t.role === "agent" || t.role === "user"),
+      )
+      .map((t) => ({ role: t.role, text: String(t.text) }));
 
   const scenarios: Scenario[] =
     cases.length > 0
@@ -288,43 +290,50 @@ export function parseStudyBundle(files: Record<string, string>): ParsedStudyBund
           scenarioId: String(c.scenario_id ?? c.id),
           name: String(c.name ?? c.id),
           language: String(c.language ?? "EN"),
-          turns: Array.isArray(c.user_turns) ? c.user_turns.map(String) : [],
+          turns: Array.isArray(c.user_turns)
+            ? c.user_turns.map((t) => ({ role: "user" as const, text: String(t) }))
+            : [],
         }))
-      : goldFiles.map((g) => ({
+      : // A project with golds but no cases: the gold IS the scenario —
+        // replaying a blessed transcript is a scripted case, and its agent
+        // side comes along as the gold.
+        goldFiles.map(({ path, gold: g }) => ({
           id: String(g.id),
           scenarioId: String(g.scenario_id ?? g.id),
           name: String(g.name ?? g.id),
           language: String(g.language ?? "EN"),
-          turns: goldTurns(g)
-            .filter((t) => t.role === "user")
-            .map((t) => String(t.text)),
+          turns: goldTurns(g),
+          goldPath: path,
         }));
 
-  // Rebind golds to scenarios: explicit case.gold_id first, then shared id
-  // (our own bundles key gold files by case id), then scenario_id+language.
+  // Merge golds into their scenarios: explicit case.gold_id first, then
+  // shared id (our own bundles key gold files by case id), then
+  // scenario_id+language. A gold whose user turns match the case script
+  // becomes the scenario's full conversation (goldPath records where to
+  // write it back); a mismatched gold is left untouched in the file set —
+  // the scenario keeps its user-only script and the file passes through
+  // export verbatim.
   const caseById = new Map(cases.map((c) => [String(c.id), c]));
-  const golds: Record<string, CapturedGold> = {};
   for (const s of scenarios) {
+    if (s.goldPath) continue; // gold-derived scenario — already merged
     const declared = caseById.get(s.id)?.gold_id;
-    const g =
-      goldFiles.find((g) => declared !== undefined && String(g.id) === String(declared)) ??
-      goldFiles.find((g) => String(g.id) === s.id) ??
+    const found =
       goldFiles.find(
-        (g) =>
+        ({ gold: g }) => declared !== undefined && String(g.id) === String(declared),
+      ) ??
+      goldFiles.find(({ gold: g }) => String(g.id) === s.id) ??
+      goldFiles.find(
+        ({ gold: g }) =>
           g.scenario_id !== undefined &&
           String(g.scenario_id) === s.scenarioId &&
           String(g.language ?? "EN") === s.language,
       );
-    if (!g) continue;
-    golds[s.id] = {
-      scenarioId: s.scenarioId,
-      language: s.language,
-      name: s.name,
-      turns: goldTurns(g).map((t) => ({ role: t.role, text: String(t.text) })),
-      goldId: String(g.id),
-      blessedAt: typeof g.blessed_at === "string" ? g.blessed_at : undefined,
-      sourcePointer: typeof g.source_pointer === "string" ? g.source_pointer : undefined,
-    };
+    if (!found) continue;
+    const merged = mergeGoldTurns(s.turns, goldTurns(found.gold));
+    if (merged) {
+      s.turns = merged;
+      s.goldPath = found.path;
+    }
   }
 
   // Fill values ride the cases' fixture vars (every case carries the same
@@ -343,7 +352,6 @@ export function parseStudyBundle(files: Record<string, string>): ParsedStudyBund
     prompt: effectivePromptOf(files),
     agentId: typeof agent.id === "string" && agent.id ? agent.id : null,
     scenarios,
-    golds,
     vars,
   };
 }

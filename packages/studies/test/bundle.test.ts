@@ -8,9 +8,20 @@ import { buildStudyBundle, parseStudyBundle } from "../src/bundle";
 import type { CellState, Scenario } from "../src/types";
 import { cellKey } from "../src/types";
 
+const u = (text: string) => ({ role: "user" as const, text });
+const a = (text: string) => ({ role: "agent" as const, text });
+
+// s1 is a full dual-party scenario (agent turns = the gold → exports a
+// gold); s2 is user-only (no gold → no gold file).
 const scenarios: Scenario[] = [
-  { id: "s1", scenarioId: "sc-refill", name: "Refill request", language: "EN", turns: ["hi", "refill please"] },
-  { id: "s2", scenarioId: "sc-refill", name: "Refill request (HI)", language: "HI", turns: ["namaste"] },
+  {
+    id: "s1",
+    scenarioId: "sc-refill",
+    name: "Refill request",
+    language: "EN",
+    turns: [u("hi"), a("Hello! I can help with your refill."), u("refill please"), a("Sure, refill coming up.")],
+  },
+  { id: "s2", scenarioId: "sc-refill", name: "Refill request (HI)", language: "HI", turns: [u("namaste")] },
 ];
 const models = ["openai/gpt-4o-mini", "meta-llama/llama-3.1-8b-instruct:free"];
 
@@ -32,19 +43,7 @@ const cells: Record<string, CellState> = {
   [cellKey("s2", 1)]: { status: "error", turns: [], totalMs: 0, error: "rate limited" },
 };
 
-const golds = {
-  s1: {
-    scenarioId: "sc-refill",
-    language: "EN",
-    name: "Refill request",
-    turns: [
-      { role: "user" as const, text: "hi" },
-      { role: "agent" as const, text: "Hello! I can help with your refill." },
-    ],
-  },
-};
-
-const files = buildStudyBundle({ agentId: "agent-test", prompt: "You are Asha, a clinic assistant.", models, scenarios, cells, golds });
+const files = buildStudyBundle({ agentId: "agent-test", prompt: "You are Asha, a clinic assistant.", models, scenarios, cells });
 
 describe("buildStudyBundle", () => {
   it("every emitted file parses as JSON", () => {
@@ -60,7 +59,7 @@ describe("buildStudyBundle", () => {
     expect(agent.meta.languages).toEqual(["EN", "HI"]);
   });
 
-  it("scenarios serialize as valid test cases with language and scenario_id", () => {
+  it("scenarios serialize as valid test cases — user turns only, with language and scenario_id", () => {
     for (const s of scenarios) {
       const parsed = JSON.parse(files[`tests/cases/${s.id}.test.json`]);
       const { valid, errors } = validateFile(TestCaseSchema, parsed);
@@ -68,6 +67,7 @@ describe("buildStudyBundle", () => {
       expect(parsed.scenario_id).toBe("sc-refill");
       expect(parsed.language).toBe(s.language);
     }
+    expect(JSON.parse(files["tests/cases/s1.test.json"]).user_turns).toEqual(["hi", "refill please"]);
   });
 
   it("only done cells become results, each valid with usage mapped to unit-typed fields", () => {
@@ -100,14 +100,19 @@ describe("buildStudyBundle", () => {
     for (const p of manifest.results) expect(files[p], p).toBeDefined();
   });
 
-  it("captured golds serialize as valid blessed gold files", () => {
+  it("a scenario with agent turns exports a valid gold — never freshly blessed", () => {
     const parsed = JSON.parse(files["tests/gold/s1.gold.json"]);
     const { valid, errors } = validateFile(GoldSchema, parsed);
     expect(valid, JSON.stringify(errors)).toBe(true);
-    expect(parsed.blessed_at).toBeTruthy();
-    expect(parsed.source_pointer).toMatch(/^compare-run:/);
+    // Compare never mints a blessing — blessed_at only survives an
+    // untouched round-trip of an imported gold.
+    expect(parsed.blessed_at).toBeUndefined();
+    expect(parsed.source_pointer).toBe("compare-study:agent-test");
     expect(parsed.scenario_id).toBe("sc-refill");
     expect(parsed.language).toBe("EN");
+    expect(parsed.turns).toEqual(scenarios[0].turns);
+    // The user-only scenario writes no gold.
+    expect(files["tests/gold/s2.gold.json"]).toBeUndefined();
   });
 
   it("placeholder-fill vars ship as provided declarations + case fixtures, prompt untouched", () => {
@@ -133,26 +138,60 @@ describe("buildStudyBundle", () => {
     expect(bare.variables).toBeUndefined();
   });
 
-  it("re-exporting an imported gold preserves its identity and blessing (no re-bless)", () => {
+  it("re-exporting an untouched imported gold preserves identity and blessing at its original path", () => {
+    // The imported gold lives at a path unrelated to the scenario id; the
+    // scenario's goldPath (recorded at import) targets it, so export
+    // overwrites the original instead of minting a duplicate file.
+    const origGold = JSON.stringify({
+      $schema: "flowstore://test/gold/v0",
+      id: "gold-orig",
+      name: "Refill request",
+      turns: scenarios[0].turns,
+      language: "EN",
+      scenario_id: "sc-refill",
+      notes: "customer-approved",
+      blessed_at: "2026-07-01T00:00:00Z",
+      source_pointer: "call-recording-2026-06-30",
+    });
     const roundTrip = buildStudyBundle({
       agentId: "agent-test",
       prompt: "p",
       models,
-      scenarios,
+      scenarios: [{ ...scenarios[0], goldPath: "tests/gold/legacy-name.gold.json" }],
       cells,
-      golds: {
-        s1: {
-          ...golds.s1,
-          goldId: "gold-orig",
-          blessedAt: "2026-07-01T00:00:00Z",
-          sourcePointer: "call-recording-2026-06-30",
-        },
-      },
+      sourceFiles: { "tests/gold/legacy-name.gold.json": origGold },
     });
-    const parsed = JSON.parse(roundTrip["tests/gold/s1.gold.json"]);
+    expect(roundTrip["tests/gold/s1.gold.json"]).toBeUndefined();
+    const parsed = JSON.parse(roundTrip["tests/gold/legacy-name.gold.json"]);
     expect(parsed.id).toBe("gold-orig");
     expect(parsed.blessed_at).toBe("2026-07-01T00:00:00Z");
     expect(parsed.source_pointer).toBe("call-recording-2026-06-30");
+    expect(parsed.notes).toBe("customer-approved");
+  });
+
+  it("editing an imported gold's turns drops its blessing on export", () => {
+    const origGold = JSON.stringify({
+      id: "gold-orig",
+      turns: [u("hi"), a("Original reply.")],
+      blessed_at: "2026-07-01T00:00:00Z",
+    });
+    const edited = buildStudyBundle({
+      agentId: "agent-test",
+      prompt: "p",
+      models,
+      scenarios: [
+        {
+          ...scenarios[0],
+          turns: [u("hi"), a("Edited reply."), u("refill please"), a("Sure.")],
+          goldPath: "tests/gold/s1.gold.json",
+        },
+      ],
+      cells,
+      sourceFiles: { "tests/gold/s1.gold.json": origGold },
+    });
+    const parsed = JSON.parse(edited["tests/gold/s1.gold.json"]);
+    expect(parsed.blessed_at).toBeUndefined();
+    expect(parsed.id).toBe("gold-orig");
   });
 
   it("loads as a project in the editor's loader — the graduation contract", () => {
@@ -171,20 +210,43 @@ describe("buildStudyBundle", () => {
       models,
       scenarios,
       cells,
-      golds: {
-        s1: { ...golds.s1, goldId: "gold-orig", blessedAt: "2026-07-01T00:00:00Z" },
-      },
       vars: { clinic_name: "Sunrise Clinic" },
     });
     const parsed = parseStudyBundle(withVars);
     expect(parsed.prompt).toBe("You are Asha at {{clinic_name}}.");
-    expect(parsed.scenarios).toEqual(scenarios);
+    // s1's gold merges back in (its user turns match the case script) and
+    // records where it came from; s2 stays user-only.
+    expect(parsed.scenarios).toEqual([
+      { ...scenarios[0], goldPath: "tests/gold/s1.gold.json" },
+      scenarios[1],
+    ]);
     expect(parsed.vars).toEqual({ clinic_name: "Sunrise Clinic" });
-    // Gold rebinds to its scenario with blessing/identity intact — so a
-    // re-export after import preserves them (no re-bless, no re-key).
-    expect(parsed.golds.s1?.goldId).toBe("gold-orig");
-    expect(parsed.golds.s1?.blessedAt).toBe("2026-07-01T00:00:00Z");
-    expect(parsed.golds.s1?.turns).toEqual(golds.s1.turns);
+  });
+
+  it("a gold whose user turns mismatch the case passes through untouched — scenario stays user-only", () => {
+    const mismatch = {
+      "agent.json": JSON.stringify({ system_prompt: "p" }),
+      "tests/cases/s1.test.json": JSON.stringify({ id: "s1", user_turns: ["hi"], language: "EN" }),
+      "tests/gold/s1.gold.json": JSON.stringify({
+        id: "s1",
+        turns: [u("DIFFERENT SCRIPT"), a("reply")],
+        blessed_at: "2026-07-01T00:00:00Z",
+      }),
+    };
+    const parsed = parseStudyBundle(mismatch);
+    expect(parsed.scenarios[0].turns).toEqual([u("hi")]);
+    expect(parsed.scenarios[0].goldPath).toBeUndefined();
+    // Re-export: no agent turns → no gold write → the original file
+    // survives byte-identical from sourceFiles.
+    const out = buildStudyBundle({
+      agentId: "x",
+      prompt: "p",
+      models,
+      scenarios: parsed.scenarios,
+      cells: {},
+      sourceFiles: mismatch,
+    });
+    expect(out["tests/gold/s1.gold.json"]).toBe(mismatch["tests/gold/s1.gold.json"]);
   });
 
   it("compiles the prompt from the spec when a project has no manual system_prompt", () => {
@@ -212,7 +274,7 @@ describe("buildStudyBundle", () => {
     expect(parsed.agentId).toBe("agent_spec");
   });
 
-  it("derives scenarios from golds' user turns when a project has no cases", () => {
+  it("derives full dual-party scenarios from golds when a project has no cases", () => {
     const goldOnly = {
       "agent.json": JSON.stringify({ system_prompt: "p" }),
       "tests/gold/g1.gold.json": JSON.stringify({
@@ -229,13 +291,23 @@ describe("buildStudyBundle", () => {
     };
     const parsed = parseStudyBundle(goldOnly);
     expect(parsed.scenarios).toEqual([
-      { id: "g1", scenarioId: "sc-1", name: "From gold", language: "HI", turns: ["namaste", "haan"] },
+      {
+        id: "g1",
+        scenarioId: "sc-1",
+        name: "From gold",
+        language: "HI",
+        turns: [u("namaste"), a("hello"), u("haan")],
+        goldPath: "tests/gold/g1.gold.json",
+      },
     ]);
-    expect(parsed.golds.g1?.turns).toHaveLength(3);
   });
 
-  it("omits the gold section entirely when no golds were captured", () => {
-    const bare = buildStudyBundle({ agentId: "agent-test", prompt: "p", models, scenarios, cells });
+  it("writes no gold files when no scenario has agent turns", () => {
+    const userOnly = scenarios.map((s) => ({
+      ...s,
+      turns: s.turns.filter((t) => t.role === "user"),
+    }));
+    const bare = buildStudyBundle({ agentId: "agent-test", prompt: "p", models, scenarios: userOnly, cells });
     expect(Object.keys(bare).some((p) => p.startsWith("tests/gold/"))).toBe(false);
   });
 });

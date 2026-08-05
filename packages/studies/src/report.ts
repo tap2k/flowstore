@@ -61,7 +61,14 @@ export function buildReportHtml(
       costPerConv === undefined && liveEsts.length === modelCells.length && modelCells.length > 0
         ? liveEsts.reduce((a, b) => a + b, 0) / modelCells.length
         : undefined;
-    const divergent = scenarios.filter((s) => cells[cellKey(s.id, mi)]?.divergent).length;
+    // The engine's per-cell verdicts: judged ⊇ divergent. No gold or
+    // off-script means no verdict, and the report must not upgrade
+    // "unjudged" to "none flagged".
+    const verdicts = scenarios
+      .map((s) => cells[cellKey(s.id, mi)]?.divergent)
+      .filter((d): d is boolean => d !== undefined);
+    const judged = verdicts.length;
+    const divergent = verdicts.filter(Boolean).length;
     // Estimated cascade voice cost per conversation, averaged over done cells.
     const voiceEstimates = withVoice
       ? modelCells
@@ -72,17 +79,19 @@ export function buildReportHtml(
       voiceEstimates.length > 0
         ? voiceEstimates.reduce((a, e) => a + e.total, 0) / voiceEstimates.length
         : undefined;
-    return { model: m, mi, avgLatency, tokensIn, tokensOut, audioIn, audioOut, costPerConv, liveEstPerConv, voicePerConv, divergent, n: modelCells.length };
+    return { model: m, avgLatency, tokensIn, tokensOut, audioIn, audioOut, costPerConv, liveEstPerConv, voicePerConv, divergent, judged, n: modelCells.length };
   });
   const withLiveEst = perModel.some((r) => r.liveEstPerConv !== undefined);
 
+  // Divergence follows the engine's per-cell verdicts: a model with zero
+  // judged cells (no golds, or every run off-script) reads n/a — the report
+  // must not upgrade "unjudged" to "none flagged".
   const summaryRows = perModel
     .map((r) => {
-      const isInc = r.mi === 0;
-      return `<tr${isInc ? ' class="inc"' : ""}>
-        <td>${esc(r.model)}${isInc ? ' <span class="tag">current</span>' : ""}</td>
+      return `<tr>
+        <td>${esc(r.model)}</td>
         <td>${r.n}/${scenarios.length}</td>
-        <td>${isInc ? "—" : r.divergent > 0 ? `${r.divergent} scenario${r.divergent > 1 ? "s" : ""}` : "none flagged"}</td>
+        <td>${r.judged === 0 ? "n/a" : r.divergent > 0 ? `${r.divergent} scenario${r.divergent > 1 ? "s" : ""}` : `none flagged (of ${r.judged} judged)`}</td>
         <td>${r.avgLatency !== undefined ? r.avgLatency.toFixed(1) + "s" : "—"}</td>
         <td>${r.tokensIn.toLocaleString()} / ${r.tokensOut.toLocaleString()}${r.audioIn + r.audioOut > 0 ? `<span class="sub">audio ${r.audioIn.toLocaleString()} / ${r.audioOut.toLocaleString()}</span>` : ""}</td>
         <td>${r.costPerConv !== undefined ? fmtMoney(r.costPerConv) : r.liveEstPerConv !== undefined ? "~" + fmtMoney(r.liveEstPerConv) : "n/a*"}</td>
@@ -122,8 +131,7 @@ export function buildReportHtml(
   h4{font-size:11px;margin:0 0 6px;color:#3f3f46} .lang{color:#a1a1aa;font-weight:400}
   table{border-collapse:collapse;width:100%;font-size:12px}
   th,td{border:1px solid #e4e4e7;padding:6px 8px;text-align:left}
-  th{background:#fafafa;font-weight:600} tr.inc td{background:#fafafa}
-  .tag{font-size:10px;color:#71717a;border:1px solid #d4d4d8;border-radius:9999px;padding:0 6px}
+  th{background:#fafafa;font-weight:600}
   .flag{font-size:10px;color:#92400e;background:#fef3c7;border-radius:9999px;padding:1px 6px;font-weight:400}
   .cols{display:flex;gap:12px;overflow-x:auto}
   .col{flex:1;min-width:220px;border:1px solid #e4e4e7;border-radius:8px;padding:10px;font-size:12px}
@@ -140,9 +148,9 @@ export function buildReportHtml(
 <h1>${esc(study.title)}</h1>
 <div class="meta">${date} · ${models.length} models · ${scenarios.length} scenarios · prompt ${study.prompt.length.toLocaleString()} chars</div>
 <h2>Summary</h2>
-<table><thead><tr><th>Model</th><th>Completed</th><th>Divergence vs current</th><th>Avg latency/reply</th><th>Tokens in/out</th><th>Cost/conversation</th>${withVoice ? "<th>Est. voice cost/conv</th>" : ""}</tr></thead>
+<table><thead><tr><th>Model</th><th>Completed</th><th>Divergence vs gold</th><th>Avg latency/reply</th><th>Tokens in/out</th><th>Cost/conversation</th>${withVoice ? "<th>Est. voice cost/conv</th>" : ""}</tr></thead>
 <tbody>${summaryRows}</tbody></table>
-<div class="note">*Measured dollar cost is reported by OpenRouter-routed models; direct-provider runs show tokens only. ${latencyNote} Divergence is a lexical signal marking where to read — it is not a pass/fail verdict; read the transcripts.${
+<div class="note">*Measured dollar cost is reported by OpenRouter-routed models; direct-provider runs show tokens only. ${latencyNote} Divergence is lexical distance from the scenario's gold turns, marking where to read — it is not a pass/fail verdict; read the transcripts.${
     withLiveEst
       ? " S2S cost (~) is estimated: measured audio/text tokens × the vendor's published live-API rates — live APIs report tokens, not dollars. S2S latency/reply is time-to-first-audio; the audio itself streams near real time beyond that."
       : ""

@@ -11,7 +11,7 @@ const scenario = (turns: string[]): Scenario => ({
   scenarioId: "s1",
   name: "s1",
   language: "EN",
-  turns,
+  turns: turns.map((text) => ({ role: "user", text })),
 });
 
 const dispatch = { provider: "google" as const, apiKey: "k", wireModel: "m", live: true };

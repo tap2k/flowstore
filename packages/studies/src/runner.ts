@@ -2,7 +2,7 @@ import { addUsage, sendPromptTurn } from "@flowstore/core/runtime/promptClient";
 import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
 import type { ChatUsage } from "@flowstore/core/llm/types";
 import type { CellState, ModelDispatch, Scenario } from "./types";
-import { IDLE_CELL, cellKey } from "./types";
+import { IDLE_CELL, cellKey, cellOnScript, goldOf, scriptOf } from "./types";
 import { runLiveCell } from "./liveCell";
 import { runGrokVoiceCell, runRealtimeCell } from "./realtimeCell";
 import type { RunS2sCellArgs } from "./s2sCell";
@@ -31,11 +31,12 @@ function resumablePrefix(
   scenario: Scenario,
 ): TranscriptTurn[] | null {
   if (prior?.status !== "idle") return null;
+  const script = scriptOf(scenario);
   const t = prior.turns;
   if (t.length === 0 || t.length % 2 !== 0) return null;
-  if (t.length / 2 >= scenario.turns.length) return null;
+  if (t.length / 2 >= script.length) return null;
   for (let i = 0; i < t.length; i += 2) {
-    if (t[i].role !== "user" || t[i].text !== scenario.turns[i / 2]) return null;
+    if (t[i].role !== "user" || t[i].text !== script[i / 2]) return null;
     if (t[i + 1].role !== "agent") return null;
   }
   return t;
@@ -81,7 +82,7 @@ export async function runCell(args: {
   const settle = () => onUpdate({ status: "idle", turns: [...history], usage, totalMs });
 
   try {
-    for (const userText of scenario.turns.slice(history.length / 2)) {
+    for (const userText of scriptOf(scenario).slice(history.length / 2)) {
       if (signal?.aborted) return settle();
       const userTurn: TranscriptTurn = { role: "user", text: userText, ts: Date.now(), events: [] };
       onUpdate({ turns: [...history, userTurn] });
@@ -109,7 +110,8 @@ export async function runCell(args: {
 }
 
 // The matrix: columns (models) in parallel, scenarios within a column
-// sequential; then the divergence pass vs column 0 (the incumbent). Owns the
+// sequential; then the divergence pass vs each scenario's gold turns
+// (its scripted agent side, when it has one). Owns the
 // whole engine policy so every surface (browser page, node CLI) shares it —
 // including setting `divergent`, which report/bundle consume. Returns the
 // final cells; emits every patch through onCell for live rendering.
@@ -128,7 +130,7 @@ export async function runMatrix(args: {
   resumeFrom?: Record<string, CellState>;
   // Restrict execution to these column indexes (the column ▶). Other
   // columns don't run — but their done cells still seed via resumeFrom, so
-  // the divergence pass compares against the standing incumbent. columns is
+  // the divergence pass still covers them. columns is
   // the EXECUTION filter, resumeFrom the STATE filter — independent on
   // purpose (models can't be narrowed instead: mi is load-bearing in
   // cellKey, so a shorter array would renumber every cell).
@@ -187,28 +189,23 @@ export async function runMatrix(args: {
     }),
   );
 
-  // Divergence compares like with like: a cell whose user turns aren't
-  // exactly the scenario's script (an off-script composer probe extended
-  // the conversation) is excluded — extra turns would inflate the lexical
-  // distance for reasons that say nothing about the model. Derived from the
-  // transcript, not flagged state, so a scripted re-run heals it.
-  const onScript = (c: CellState, sc: Scenario): boolean => {
-    const users = c.turns.filter((t) => t.role === "user");
-    return users.length === sc.turns.length && users.every((t, i) => t.text === sc.turns[i]);
-  };
+  // Divergence reads every column against the scenario's gold turns
+  // (its scripted agent side). No gold → no verdict: the flag clears
+  // and the cells are side-by-side reading material. Off-script cells (a
+  // composer probe extended the conversation) are excluded the same way —
+  // extra turns would inflate the lexical distance for reasons that say
+  // nothing about the model. Derived from the transcript, not flagged
+  // state, so a scripted re-run heals it.
   for (const s of scenarios) {
-    const inc = cells[cellKey(s.id, 0)];
-    if (!inc || inc.status !== "done" || !onScript(inc, s)) continue;
-    for (let mi = 1; mi < models.length; mi++) {
+    const gold = goldOf(s);
+    for (let mi = 0; mi < models.length; mi++) {
       const key = cellKey(s.id, mi);
       const c = cells[key];
       if (!c || c.status !== "done") continue;
-      // Off-script cells get their stale badge cleared rather than a fresh
-      // verdict — the signal is undefined for them, and a lingering flag
-      // from before the probe would lie.
-      const divergent = onScript(c, s)
-        ? divergence(inc.turns, c.turns) > DIVERGENCE_THRESHOLD
-        : undefined;
+      const divergent =
+        gold.length > 0 && cellOnScript(c, s)
+          ? divergence(gold, c.turns) > DIVERGENCE_THRESHOLD
+          : undefined;
       // Only on change: partial runs seed standing cells whose divergence
       // is already right — re-emitting them is a store patch + render each.
       if (c.divergent !== divergent) emit(key, { divergent });
@@ -220,8 +217,9 @@ export async function runMatrix(args: {
 // Cheap lexical divergence between two columns' agent turns on the same
 // scenario: 1 - Jaccard over word sets. Deliberately not a verdict — it only
 // ranks where a human should look first.
-export function divergence(a: TranscriptTurn[], b: TranscriptTurn[]): number {
-  const words = (turns: TranscriptTurn[]) =>
+type SpokenTurn = Pick<TranscriptTurn, "role" | "text">;
+export function divergence(a: SpokenTurn[], b: SpokenTurn[]): number {
+  const words = (turns: SpokenTurn[]) =>
     new Set(
       turns
         .filter((t) => t.role === "agent")

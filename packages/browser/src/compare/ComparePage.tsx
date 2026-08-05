@@ -1,4 +1,4 @@
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
 import {
   buildReportHtml,
@@ -8,7 +8,8 @@ import {
   estimateS2sCost,
   estimateVoiceCost,
 } from "@flowstore/studies";
-import type { CellState, VoiceRates } from "@flowstore/studies";
+import type { CellState, Scenario, ScenarioTurn, VoiceRates } from "@flowstore/studies";
+import { cellOnScript, goldOf } from "@flowstore/studies";
 import {
   CloudArrowDown,
   CloudArrowUp,
@@ -17,7 +18,6 @@ import {
   Check,
   Copy,
   Gear,
-  ListPlus,
   Microphone,
   Package,
   Plus,
@@ -36,6 +36,7 @@ import { MAX_MODEL_COLUMNS, activeVarsOf, resolveForEngine, useCompareStore } fr
 import { isStudyEmpty } from "./studyStorage";
 import { hasTurnAudio, subscribeTurnAudio, turnAudioVersion } from "@/lib/runtime/audioCache";
 import { GitHubStudyOpenModal, GitHubStudySaveModal } from "./GitHubStudyModals";
+import { textToTurns, turnsToText } from "./turnText";
 import { synthesizeSpeech, type ResolvedTts } from "@/lib/runtime/tts";
 
 // The compare tool: paste a prompt, edit scenarios, pick models, run the
@@ -78,6 +79,7 @@ export function ComparePage() {
 
   const busy = s.runMode !== null;
   const hasResults = Object.keys(s.cells).length > 0;
+  const selectedScenario = s.scenarios.find((x) => x.id === s.selected);
   const totalCells = s.scenarios.length * s.models.length;
   // Counted over the grid, not the raw cells bag — the bag is pruned on
   // removal now, but the grid is the truth the denominator uses.
@@ -97,7 +99,6 @@ export function ComparePage() {
     models: s.models,
     scenarios: s.scenarios,
     cells: s.cells,
-    golds: s.golds,
     vars: activeVarsOf(s.prompt, s.vars),
     sourceFiles: s.sourceFiles,
     voiceRates,
@@ -144,7 +145,7 @@ export function ComparePage() {
           <Button
             size="sm"
             onClick={() => {
-              if (window.confirm("Clear all conversations? Transcripts and their replay audio are dropped; the study itself (prompt, scenarios, models, golds) stays.")) {
+              if (window.confirm("Clear all conversations? Transcripts and their replay audio are dropped; the study itself (prompt, scenarios, models) stays.")) {
                 s.clearConversations();
               }
             }}
@@ -255,7 +256,7 @@ export function ComparePage() {
             icon={Trash}
             label="Clear study"
             onClick={() => {
-              if (window.confirm("Clear the whole study? Prompt, scenarios, results, and golds will be removed.")) {
+              if (window.confirm("Clear the whole study? Prompt, scenarios, and results will be removed.")) {
                 s.clearStudy();
               }
             }}
@@ -339,8 +340,12 @@ export function ComparePage() {
           </div>
           <div className="flex min-w-0 flex-col border-l border-border-subtle pl-4">
             <div className="mb-1 flex h-6 items-center justify-between gap-2">
-              <label className="min-w-0 truncate text-[11px] font-medium text-text-tertiary">
-                scenarios (one user turn per line)
+              <label
+                className="min-w-0 truncate text-[11px] font-medium text-text-tertiary"
+                title={'One turn per line. Plain lines are what the user says; a line starting with "agent:" is a gold reply — the gold standard the models are read against.'}
+              >
+                scenarios (one turn per line;{" "}
+                <span className="text-state-warning-fg">"agent:" marks a gold reply</span>)
               </label>
               <div className="flex shrink-0 items-center gap-1">
                 <Button
@@ -388,10 +393,9 @@ export function ComparePage() {
                     onClick={() => s.removeScenario(i)}
                   />
                 </div>
-                <Textarea
-                  value={sc.turns.join("\n")}
-                  onChange={(e) => s.updateScenario(i, { turns: e.target.value.split("\n") })}
-                  className="h-16 w-full resize-y"
+                <TurnsTextarea
+                  turns={sc.turns}
+                  onChange={(turns) => s.updateScenario(i, { turns })}
                 />
               </div>
             ))}
@@ -444,14 +448,6 @@ export function ComparePage() {
                     <div className="flex items-center gap-1">
                       <span className="min-w-0 flex-1 break-words">
                         {sc.name} <span className="text-text-disabled">{sc.language}</span>
-                        {s.golds[sc.id] && s.golds[sc.id].column === undefined && (
-                          <span
-                            className="ml-1 text-[9px] text-state-warning-fg"
-                            title="An imported blessed gold transcript exists for this scenario"
-                          >
-                            gold ✓
-                          </span>
-                        )}
                       </span>
                       {/* Same ▶/■ pair as the header and the simulate strip. */}
                       {s.runMode?.kind === "row" && s.runMode.id === sc.id ? (
@@ -478,7 +474,10 @@ export function ComparePage() {
                     </div>
                   </td>
                   <td className="border-b border-l border-border-subtle px-1 py-1.5 text-center">
-                    <ScenarioChip cells={s.models.map((_, i) => s.cells[cellKey(sc.id, i)])} />
+                    <ScenarioChip
+                      cells={s.models.map((_, i) => s.cells[cellKey(sc.id, i)])}
+                      hasGold={goldOf(sc).length > 0}
+                    />
                   </td>
                 </tr>
               ))}
@@ -487,6 +486,9 @@ export function ComparePage() {
         </aside>
 
         <section className="flex flex-1 min-w-0 divide-x divide-border-default overflow-x-auto">
+          {selectedScenario && goldOf(selectedScenario).length > 0 && (
+            <ScriptPane scenario={selectedScenario} />
+          )}
           {s.selected &&
             s.models.map((m, i) => {
               const key = cellKey(s.selected!, i);
@@ -503,7 +505,6 @@ export function ComparePage() {
               return (
                 <div key={i} className="flex min-w-[280px] flex-1 flex-col">
                   <div className="flex h-10 items-center gap-1.5 border-b border-border-default bg-surface-panel px-3">
-                    {i === 0 && <span className="shrink-0 text-[10px] text-text-disabled">current</span>}
                     <ModelPicker
                       value={m}
                       onChange={(v) => s.setModelAt(i, v)}
@@ -582,21 +583,12 @@ export function ComparePage() {
                         className="shrink-0"
                       />
                     )}
-                    {colTurns.some((t) => t.text) && (
-                      <>
-                        <CopyTranscript turns={colTurns} model={m} />
-                        <IconButton
-                          icon={ListPlus}
-                          size="sm"
-                          label="Make a scenario from this conversation — its user turns become a new scripted case"
-                          onClick={() => s.mintScenario(i)}
-                          disabled={busy}
-                          className="shrink-0"
-                        />
-                      </>
-                    )}
+                    {colTurns.some((t) => t.text) && <CopyTranscript turns={colTurns} model={m} />}
                     {c?.divergent && (
-                      <span className="rounded-full bg-state-warning-bg px-1.5 text-[9px] text-state-warning-fg">
+                      <span
+                        className="rounded-full bg-state-warning-bg px-1.5 text-[9px] text-state-warning-fg"
+                        title="This conversation differs from the scenario's gold turns (lexical signal — read, don't trust)"
+                      >
                         diverges
                       </span>
                     )}
@@ -614,25 +606,31 @@ export function ComparePage() {
                       </Button>
                     )}
                     <ColumnStats cell={c} rates={voiceRates} model={m} live={colLive} />
-                    {/* capture-gold disabled for now (Tapan 2026-07-26) — uncomment
-                        to restore (store.captureGold); import-side golds and
-                        bundle round-trip are unaffected.
-                    {c?.status === "done" && s.selected && (
-                      s.golds[s.selected]?.column === i ? (
-                        <span className="shrink-0 rounded-md bg-state-warning-bg px-1.5 py-0.5 text-[10px] text-state-warning-fg" title="This transcript is the blessed gold for this scenario">
-                          gold ✓
-                        </span>
-                      ) : (
+                    {/* Bless a good run: this conversation becomes the
+                        scenario's script + gold (on-script cells only —
+                        a probe-extended transcript would rewrite the script
+                        too). */}
+                    {c?.status === "done" &&
+                      selectedScenario &&
+                      cellOnScript(c, selectedScenario) && (
                         <button
-                          onClick={() => s.captureGold(s.selected!, i)}
-                          className="shrink-0 rounded-md border border-border-default px-1.5 py-0.5 text-[10px] text-text-tertiary hover:bg-state-warning-bg hover:text-state-warning-fg"
-                          title="Capture this transcript as the gold (blessed reference) for this scenario"
+                          onClick={() => {
+                            if (
+                              goldOf(selectedScenario).length === 0 ||
+                              window.confirm(
+                                "Replace this scenario's gold with this conversation's replies?",
+                              )
+                            ) {
+                              s.setGold(selectedScenario.id, i);
+                            }
+                          }}
+                          disabled={busy}
+                          className="shrink-0 rounded-md border border-state-warning-line px-1.5 py-0.5 text-[10px] text-state-warning-fg hover:bg-state-warning-bg"
+                          title="Use this conversation as the scenario's gold — its replies become the expected agent turns the other columns are read against (exported as the scenario's gold)"
                         >
-                          capture gold
+                          save as gold
                         </button>
-                      )
-                    )}
-                    */}
+                      )}
                     {i === s.models.length - 1 && (
                       <IconButton
                         icon={Plus}
@@ -719,19 +717,100 @@ export function ComparePage() {
   );
 }
 
+// The scenario turns editor. Holds its own raw draft: serialize∘parse is a
+// normalizer, not the identity (marker spacing/case, compact↔explicit mode
+// selection), so echoing the store-derived text back into a controlled
+// textarea would rewrite markers under the cursor — typing "user:" would
+// vanish the moment the colon lands, and the caret would teleport. The
+// draft re-derives from the store only when the turns change from OUTSIDE
+// this editor (save-as-gold, import, generate scenarios), detected by
+// comparing the incoming turns against what the draft parses to.
+function TurnsTextarea({
+  turns,
+  onChange,
+}: {
+  turns: ScenarioTurn[];
+  onChange: (turns: ScenarioTurn[]) => void;
+}) {
+  const [draft, setDraft] = useState(() => turnsToText(turns));
+  const parsedRef = useRef(turns);
+  if (
+    turns !== parsedRef.current &&
+    JSON.stringify(turns) !== JSON.stringify(textToTurns(draft))
+  ) {
+    // External update — rebase the draft (render-time derived-state
+    // adjustment, the React-sanctioned pattern).
+    parsedRef.current = turns;
+    setDraft(turnsToText(turns));
+  }
+  return (
+    <Textarea
+      value={draft}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        const parsed = textToTurns(e.target.value);
+        parsedRef.current = parsed;
+        onChange(parsed);
+      }}
+      className="h-16 w-full resize-y"
+    />
+  );
+}
+
+// The leftmost pane: the scenario's gold — the blessed conversation the
+// model columns are read against. Rendered only when the scenario has gold
+// turns; it doubles as the live parse preview of the textarea's line
+// grammar (a misprefixed line shows up on the wrong side immediately).
+function ScriptPane({ scenario }: { scenario: Scenario }) {
+  return (
+    <div className="flex w-64 shrink-0 flex-col">
+      <div className="flex h-10 items-center gap-1.5 border-b border-border-default bg-surface-panel px-3">
+        <span
+          className="rounded-full bg-state-warning-bg px-1.5 text-[9px] text-state-warning-fg"
+          title="The gold standard: the blessed conversation the divergence flags read against; exported as a gold file"
+        >
+          gold ✓
+        </span>
+        <CopyTranscript turns={scenario.turns} model="agent" />
+      </div>
+      <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
+        {scenario.turns
+          .filter((t) => t.text.trim())
+          .map((t, k) =>
+            t.role === "user" ? (
+              <div key={k} className="ml-8 whitespace-pre-wrap rounded-lg bg-emphasis px-3 py-2 text-xs text-emphasis-fg">
+                {t.text}
+              </div>
+            ) : (
+              <div
+                key={k}
+                className="mr-8 whitespace-pre-wrap rounded-lg border border-state-warning-line bg-state-warning-bg px-3 py-2 text-xs"
+              >
+                {t.text}
+              </div>
+            ),
+          )}
+      </div>
+    </div>
+  );
+}
+
 // One aggregate indicator per scenario row — per-model detail lives in the
-// side-by-side view. Priority: running > error > diverged > clean.
-function ScenarioChip({ cells }: { cells: (CellState | undefined)[] }) {
+// side-by-side view. Priority: running > error > diverged > clean; the
+// verdict half only exists when the scenario has gold turns to judge
+// against (no gold → no verdict, not a fake ✓).
+function ScenarioChip({ cells, hasGold }: { cells: (CellState | undefined)[]; hasGold: boolean }) {
   const live = cells.filter((c): c is CellState => !!c && c.status !== "idle");
   if (live.length === 0) return <span className="text-text-disabled">·</span>;
   if (live.some((c) => c.status === "running")) return <span className="text-text-disabled">…</span>;
   if (live.some((c) => c.status === "error")) return <span className="text-state-error-fg">✕</span>;
+  if (!hasGold) return <span className="text-text-disabled">·</span>;
   return live.some((c) => c.divergent) ? (
-    <span className="text-state-warning-fg" title="a model diverges from your current one here — read it">
+    <span className="text-state-warning-fg" title="a model diverges from this scenario's gold turns — read it">
       ▲
     </span>
   ) : (
-    <span className="text-state-success-fg" title="all models agree with your current one">✓</span>
+    <span className="text-state-success-fg" title="all models track this scenario's gold turns">✓</span>
   );
 }
 
@@ -798,7 +877,7 @@ function ColumnStats({
 // audioCache) adds an inline replay control; the WAV builds on first click.
 // Copy one column's conversation as plain text — for pasting into a doc,
 // an issue, or a chat with the vendor.
-function CopyTranscript({ turns, model }: { turns: TranscriptTurn[]; model: string }) {
+function CopyTranscript({ turns, model }: { turns: { role: string; text: string }[]; model: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <IconButton
@@ -857,9 +936,9 @@ function TurnBubble({
 }) {
   const shown = displayText ?? turn.text;
   return turn.role === "user" ? (
-    <div className="ml-8 rounded-lg bg-emphasis px-3 py-2 text-xs text-emphasis-fg">{shown}</div>
+    <div className="ml-8 whitespace-pre-wrap rounded-lg bg-emphasis px-3 py-2 text-xs text-emphasis-fg">{shown}</div>
   ) : (
-    <div className="mr-8 rounded-lg border border-border-default bg-surface-panel px-3 py-2 text-xs">
+    <div className="mr-8 whitespace-pre-wrap rounded-lg border border-border-default bg-surface-panel px-3 py-2 text-xs">
       {shown}
       {(turn.latencyMs !== undefined || audio) && (
         <div className="mt-1 flex items-center gap-2 text-[10px] text-text-disabled">

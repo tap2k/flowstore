@@ -19,7 +19,16 @@ const study: Study = {
   prompt: "You are Asha.",
   models: ["incumbent-model", "candidate-model"],
   scenarios: [
-    { id: "s1", scenarioId: "s1", name: "Reschedule <b>fast</b>", language: "EN", turns: ["hi"] },
+    {
+      id: "s1",
+      scenarioId: "s1",
+      name: "Reschedule <b>fast</b>",
+      language: "EN",
+      turns: [
+        { role: "user", text: "hi" },
+        { role: "agent", text: "Hello & welcome" },
+      ],
+    },
   ],
   cells: {
     [cellKey("s1", 0)]: cell(),
@@ -43,9 +52,17 @@ describe("buildReportHtml", () => {
     expect(html).not.toContain("conversations/month");
   });
 
-  it("marks the incumbent row and flags divergent columns", () => {
-    expect(html).toContain("current");
+  it("flags divergent columns against the gold; no gold means n/a", () => {
     expect(html).toContain("diverges");
+    expect(html).toContain("1 scenario");
+    const noRef = buildReportHtml({
+      ...study,
+      scenarios: [
+        { ...study.scenarios[0], turns: [{ role: "user", text: "hi" }] },
+      ],
+    });
+    expect(noRef).toContain("n/a");
+    expect(noRef).not.toContain("none flagged");
   });
 
   it("never inlines the prompt text — only its length", () => {
