@@ -379,3 +379,68 @@ describe("validateGraph — canonical-case variable lint", () => {
     expect(casingWarnings(issues)).toEqual([]);
   });
 });
+
+describe("validateGraph — single-brace placeholder lint", () => {
+  const braceWarnings = (issues: { code: string }[]) => byCode(issues, "single-brace-placeholder");
+
+  function varSpec(flows: unknown[], variables: Record<string, unknown> = { LOAN_AMOUNT: { type: "string" }, "20_PERCENT_LOAN_AMOUNT": { type: "string" } }): Spec {
+    return {
+      agent: {
+        name: "t",
+        meta: { identity: "T", modality: "voice", languages: ["EN"] },
+        entry_flow_id: "f1",
+        variables,
+      },
+      flows,
+    } as unknown as Spec;
+  }
+
+  it("flags a single-brace reference to a declared variable in instructions", () => {
+    const issues = validateGraph(
+      varSpec([{ id: "f1", type: "happy", exit_paths: [], instructions: "Remind them {LOAN_AMOUNT} is due." }]),
+    );
+    const w = braceWarnings(issues);
+    expect(w).toHaveLength(1);
+    expect(w[0].severity).toBe("warning");
+    expect(w[0].at).toEqual({ kind: "flow", flowId: "f1" });
+  });
+
+  it("flags digit-leading declared names in scripts and exit conditions, anchored per site", () => {
+    const issues = validateGraph(
+      varSpec([
+        {
+          id: "f1",
+          type: "happy",
+          scripts: [{ text: { EN: "Pay {20_PERCENT_LOAN_AMOUNT} now." } }],
+          exit_paths: [
+            { id: "x1", goto: "END", condition: { method: "llm", expression: "offers at least {20_PERCENT_LOAN_AMOUNT}" } },
+          ],
+        },
+      ]),
+    );
+    const w = braceWarnings(issues);
+    expect(w).toHaveLength(2);
+    expect(w.map((i) => i.at.kind).sort()).toEqual(["edge", "flow"]);
+  });
+
+  it("ignores double-brace references and undeclared single-brace tokens", () => {
+    const issues = validateGraph(
+      varSpec([
+        {
+          id: "f1",
+          type: "happy",
+          exit_paths: [],
+          instructions: "Use {{LOAN_AMOUNT}} and sample JSON {\"a\": 1} and {unrelated_word}.",
+        },
+      ]),
+    );
+    expect(braceWarnings(issues)).toEqual([]);
+  });
+
+  it("dedupes repeated references to the same name at the same site", () => {
+    const issues = validateGraph(
+      varSpec([{ id: "f1", type: "happy", exit_paths: [], instructions: "{LOAN_AMOUNT} then {LOAN_AMOUNT} again" }]),
+    );
+    expect(braceWarnings(issues)).toHaveLength(1);
+  });
+});

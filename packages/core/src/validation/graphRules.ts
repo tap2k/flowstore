@@ -23,7 +23,8 @@ export type GraphIssueCode =
   | "retrieve-on-turn-not-retrieval"
   | "unreachable-flow"
   | "variable-casing"
-  | "provided-on-flow-variable";
+  | "provided-on-flow-variable"
+  | "single-brace-placeholder";
 
 export interface GraphIssue {
   code: GraphIssueCode;
@@ -208,9 +209,67 @@ export function validateGraph(spec: Spec): GraphIssue[] {
   }
 
   issues.push(...lintVariableCasing(spec));
+  issues.push(...lintSingleBracePlaceholders(spec));
 
   return issues;
 }
+
+// Legacy single-brace {var} references. Substitution is double-brace {{var}}
+// (substituteVars), so a single-brace token naming a declared variable is
+// almost certainly a pre-migration leftover or an import from a single-brace
+// runtime — it reaches the model as literal text instead of the value.
+// Matching only declared names keeps prose braces (JSON samples, set
+// notation) out of the rule.
+function lintSingleBracePlaceholders(spec: Spec): GraphIssue[] {
+  const declared = new Set([
+    ...Object.keys(spec.agent.variables ?? {}),
+    ...spec.flows.flatMap((f) => Object.keys(f.variables ?? {})),
+  ]);
+  if (declared.size === 0) return [];
+
+  const issues: GraphIssue[] = [];
+  const seen = new Set<string>();
+  const scan = (text: string | undefined, at: IssueLocation) => {
+    if (!text) return;
+    for (const m of text.matchAll(SINGLE_BRACE_RE)) {
+      if (!declared.has(m[1])) continue;
+      const key = `${m[1]}|${JSON.stringify(at)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      issues.push({
+        code: "single-brace-placeholder",
+        at,
+        severity: "warning",
+        message: `"{${m[1]}}" uses single braces — substitution only replaces {{${m[1]}}}, so this reaches the model as literal text`,
+      });
+    }
+  };
+
+  scan(spec.agent.system_prompt, { kind: "global" });
+  for (const g of spec.agent.guardrails ?? []) scan(g.statement, { kind: "global" });
+  for (const f of spec.flows) {
+    const flowAt: IssueLocation = { kind: "flow", flowId: f.id };
+    scan(f.instructions, flowAt);
+    scan(f.example, flowAt);
+    scan(f.entry_condition?.expression, flowAt);
+    for (const g of f.guardrails ?? []) scan(g.statement, flowAt);
+    for (const s of f.scripts ?? []) {
+      for (const t of localizedValues(s.text)) scan(t, flowAt);
+      for (const arr of Object.values(s.variations ?? {})) {
+        for (const v of arr) scan(v, flowAt);
+      }
+    }
+    for (const xp of f.exit_paths ?? []) {
+      scan(xp.condition?.expression, { kind: "edge", flowId: f.id, exitPathId: xp.id });
+    }
+  }
+  return issues;
+}
+
+// \w+ (not the identifier grammar): declared names may be digit-leading
+// ("20_PERCENT_LOAN_AMOUNT"), and the declared-name match is the precision
+// filter here. Lookarounds exclude the inner braces of a {{var}}.
+const SINGLE_BRACE_RE = /(?<!\{)\{(\w+)\}(?!\})/g;
 
 // NOTE: a "placeholder has no binding path" lint was tried here and reverted.
 // Its premise — that {placeholders} must be fillable by the bag (provided
