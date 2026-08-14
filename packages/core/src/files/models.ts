@@ -40,6 +40,7 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
   agents: {},
   models: {
     // Google
+    "gemini-3.7-flash":         { name: "Gemini 3.7 Flash", endpoint: "google" },
     "gemini-3.6-flash":         { name: "Gemini 3.6 Flash", endpoint: "google" },
     "gemini-3.5-flash":         { name: "Gemini 3.5 Flash", endpoint: "google" },
     "gemini-3.1-pro-preview":   { name: "Gemini 3.1 Pro", endpoint: "google" },
@@ -84,6 +85,7 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     "claude-haiku-4.5":         { name: "Claude Haiku 4.5", endpoint: "openrouter", model_id: "anthropic/claude-haiku-4.5" },
 
     // Open-weight on OpenRouter. The :free suffix routes to the free tier.
+    "grok-4.6":                 { name: "Grok 4.6", endpoint: "openrouter", model_id: "x-ai/grok-4.6" },
     "grok-4.5":                 { name: "Grok 4.5", endpoint: "openrouter", model_id: "x-ai/grok-4.5" },
     "grok-4.3":                 { name: "Grok 4.3", endpoint: "openrouter", model_id: "x-ai/grok-4.3" },
     "deepseek-v4-pro":          { name: "DeepSeek V4 Pro", endpoint: "openrouter", model_id: "deepseek/deepseek-v4-pro" },
