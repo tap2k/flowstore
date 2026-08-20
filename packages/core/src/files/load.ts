@@ -163,7 +163,24 @@ export function loadProject(files: FileMap): LoadResult {
     if (csv !== undefined) {
       // Pass the flow file's scripts as the merge base so per-script
       // variations (kept in .flow.json) survive into the resolved spec.
+      const before = new Set((flow.scripts ?? []).map((s) => s.id));
       flow.scripts = mergeScriptsCsv(csv, flow.scripts, languages);
+      // An EXPLICIT-id CSV row with no matching script in the flow file is
+      // usually a leftover from a script removed in .flow.json only. It still
+      // merges — id-less rows are the supported sheet-authoring append path,
+      // and warn-only keeps explicit-id authoring safe too — but surface it
+      // so a removed line can't ride silently into the compiled prompt.
+      const csvIds = new Set(
+        csv.split("\n").slice(1).map((l) => l.split(",")[0]?.trim()).filter(Boolean),
+      );
+      for (const line of flow.scripts) {
+        if (!before.has(line.id) && csvIds.has(line.id)) {
+          errors.push({
+            path: scriptsPath,
+            message: `warning: script "${line.id}" is in the CSV but not in ${path} — leftover from a removed script? It was still merged; delete the row to drop it.`,
+          });
+        }
+      }
     }
     flows.push(flow);
   }
