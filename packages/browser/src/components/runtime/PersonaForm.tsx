@@ -6,10 +6,7 @@ import type { AsrLevel } from "@/lib/runtime/asrShape";
 import { useTestsStore } from "@/lib/store/tests";
 import { hasKeyForModel, resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { generatePersonaContent } from "@flowstore/core/runtime/personaContentGen";
-import {
-  buildPersonaFromRuntime,
-  personaToRuntime,
-} from "@flowstore/core/runtime/personaRuntime";
+import { buildPersonaFromRuntime } from "@flowstore/core/runtime/personaRuntime";
 import { collectDeclaredVariables } from "@flowstore/core/runtime/contextVars";
 import { collectMockableCapabilities } from "@flowstore/core/runtime/capabilityMocks";
 import { ModelPicker } from "./ModelPicker";
@@ -48,6 +45,7 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
   const personaTurnsLeft = useSimulateStore((s) => s.personaTurnsLeft);
   const setPersonaPrompt = useSimulateStore((s) => s.setPersonaPrompt);
   const setPersonaTraits = useSimulateStore((s) => s.setPersonaTraits);
+  const loadPersona = useSimulateStore((s) => s.loadPersona);
   const setAutoRun = useSimulateStore((s) => s.setAutoRun);
   const setPersonaTurnLimit = useSimulateStore((s) => s.setPersonaTurnLimit);
   const reset = useSimulateStore((s) => s.reset);
@@ -100,7 +98,10 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
   }, [routeTarget]);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
-  const [loadedPersonaId, setLoadedPersonaId] = useState<string | null>(null);
+  // In the store (not local) so the Personas tab's "Simulate ▶" hookup carries
+  // the loaded persona's identity into this header too.
+  const loadedPersonaId = useSimulateStore((s) => s.loadedPersonaId);
+  const setLoadedPersonaId = useSimulateStore((s) => s.setLoadedPersonaId);
   const [savingAsName, setSavingAsName] = useState<string | null>(null);
 
   const configured = personaPrompt.trim().length > 0;
@@ -181,18 +182,10 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
     if (id === "") return;
     const persona = personas.find((p) => p.id === id);
     if (!persona) return;
-    setPersonaPrompt(persona.system_prompt ?? "");
-    setPersonaTraits(persona.traits);
     // Hydrate the buffer with this persona's full world so exploration
     // starts in the configured state. Reproducibility lives at the case
     // level; this is the convenience hookup for the free-explore path.
-    const { vars, returns, errors } = personaToRuntime(spec, persona);
-    setContextVars(vars);
-    setMockReturns(returns);
-    for (const [name, err] of Object.entries(errors)) {
-      setMockError(name, err);
-    }
-    setLoadedPersonaId(id);
+    loadPersona(spec, persona);
     setOpen(true);
   }
 
@@ -309,8 +302,12 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
         >
           <DisclosureCaret open={open} className="mr-1" />
           Persona
-          <span className="ml-1 text-text-tertiary">
-            {configured ? "configured" : "empty"}
+          <span className="ml-1 max-w-[10rem] truncate text-text-tertiary">
+            {loadedPersona
+              ? loadedPersona.name || loadedPersona.id
+              : configured
+                ? "configured"
+                : "empty"}
           </span>
         </button>
         {!hideRunControls && (

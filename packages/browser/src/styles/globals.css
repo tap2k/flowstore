@@ -191,6 +191,12 @@ body {
 .fs-root ::selection {
   background: var(--surface-active);
 }
+/* Emphasis surfaces (user/persona chat bubbles) invert the page polarity, so
+   the neutral overlay above disappears there. Flip the overlay with them. */
+.fs-root .bg-emphasis::selection,
+.fs-root .bg-emphasis ::selection {
+  background: var(--selection-on-emphasis);
+}
 .fs-root ::-webkit-scrollbar {
   width: 10px;
   height: 10px;

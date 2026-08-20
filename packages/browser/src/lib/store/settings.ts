@@ -161,7 +161,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   simulateVoiceModel: DEFAULT_VOICE_MODEL_ID,
   defaultModel: DEFAULT_MODEL_ID,
   runnerUrl: "",
-  simulateAttribution: true,
+  simulateAttribution: false,
   githubPat: "",
   githubLogin: "",
   githubName: "",
@@ -228,7 +228,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   },
   // Stored only when OFF ("0") — absence means the default (on).
   setSimulateAttribution: (on) => {
-    persistString(SIM_ATTRIBUTION_KEY, on ? "" : "0");
+    persistString(SIM_ATTRIBUTION_KEY, on ? "1" : "");
     set({ simulateAttribution: on });
   },
   setGithubPat: (pat) => {
@@ -432,8 +432,8 @@ export function loadSavedSettings(): void {
       patch.simulateJudgeModel = defaultModel;
     }
     if (runner !== null) patch.runnerUrl = runner;
-    if (window.localStorage.getItem(SIM_ATTRIBUTION_KEY) === "0") {
-      patch.simulateAttribution = false;
+    if (window.localStorage.getItem(SIM_ATTRIBUTION_KEY) === "1") {
+      patch.simulateAttribution = true;
     }
     if (pat) patch.githubPat = pat;
     const voiceAsr = window.localStorage.getItem(VOICE_ASR_KEY);

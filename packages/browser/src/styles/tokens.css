@@ -60,6 +60,9 @@
   --emphasis-bg: var(--n-12);
   --emphasis-bg-hover: #000000;
   --emphasis-fg: #ffffff;
+  /* ::selection needs the opposite polarity on emphasis surfaces — the
+     global --surface-active overlay is invisible on the near-black bubble. */
+  --selection-on-emphasis: rgba(255, 255, 255, 0.3);
 
   /* Selection is deliberately ACHROMATIC. Color is reserved for machine-reported
      state, so a selected node never competes for attention with a failing one. */
@@ -141,6 +144,7 @@
   --emphasis-bg: var(--n-12);
   --emphasis-bg-hover: #ffffff;
   --emphasis-fg: #0a0a0a;
+  --selection-on-emphasis: rgba(17, 17, 17, 0.14);
 
   --select-ring: var(--n-12);
   --select-halo: rgba(242, 242, 242, 0.16);

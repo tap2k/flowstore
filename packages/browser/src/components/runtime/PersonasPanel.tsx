@@ -9,7 +9,6 @@ import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { collectDeclaredVariables } from "@flowstore/core/runtime/contextVars";
 import { collectMockableCapabilities } from "@flowstore/core/runtime/capabilityMocks";
 import { generatePersonaContent } from "@flowstore/core/runtime/personaContentGen";
-import { personaToRuntime } from "@flowstore/core/runtime/personaRuntime";
 import { VarsEditor } from "./persona/VarsEditor";
 import { MocksEditor } from "./persona/MocksEditor";
 import { TagChips, TagsField } from "./TagsUI";
@@ -41,12 +40,8 @@ export function PersonasPanel() {
     return Array.from(set).sort();
   }, [personas, cases, golds]);
   const reset = useSimulateStore((s) => s.reset);
-  const setPersonaPrompt = useSimulateStore((s) => s.setPersonaPrompt);
-  const setPersonaTraits = useSimulateStore((s) => s.setPersonaTraits);
+  const loadPersona = useSimulateStore((s) => s.loadPersona);
   const setActiveCaseId = useSimulateStore((s) => s.setActiveCaseId);
-  const setContextVars = useSimulateStore((s) => s.setContextVars);
-  const setMockReturns = useSimulateStore((s) => s.setMockReturns);
-  const setMockError = useSimulateStore((s) => s.setMockError);
   const setOpenSimulateTab = useUiStore((s) => s.setOpenSimulateTab);
   const spec = useSpecStore((s) => s.spec);
   const defaultModel = useSettingsStore((s) => s.defaultModel);
@@ -116,18 +111,9 @@ export function PersonasPanel() {
 
   async function useInSimulate(p: Persona) {
     await reset();
-    setPersonaPrompt(p.system_prompt ?? "");
-    setPersonaTraits(p.traits);
     // Hydrate the simulate buffer with this persona's world so exploration
     // starts in a coherent context.
-    if (spec) {
-      const { vars, returns, errors } = personaToRuntime(spec, p);
-      setContextVars(vars);
-      setMockReturns(returns);
-      for (const [name, err] of Object.entries(errors)) {
-        setMockError(name, err);
-      }
-    }
+    loadPersona(spec, p);
     // Picking a persona = starting a free exploration. Drop any
     // active-case binding so the Active-case strip and verdict surfaces
     // don't linger and conflict with what's actually being run.

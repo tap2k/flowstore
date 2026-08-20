@@ -14,6 +14,8 @@ import {
 import type { AgentEndpoint } from "@flowstore/core/files/models";
 import { addUsage, sendPromptTurn, type CapabilityInvocation } from "@flowstore/core/runtime/promptClient";
 import { generatePersonaTurn } from "@flowstore/core/runtime/personaClient";
+import type { Persona } from "@flowstore/core/schema/files/persona";
+import { personaToRuntime } from "@flowstore/core/runtime/personaRuntime";
 import { generateRoutePersona } from "@flowstore/core/runtime/personaGen";
 import {
   routeToTarget,
@@ -164,6 +166,10 @@ interface SimulateState {
   personaPrompt: string;
   // Behavioral knobs rendered into the user-sim prompt. Per-session; re-pick persona to reload.
   personaTraits?: Record<string, string | number | boolean>;
+  // Saved persona the buffer was hydrated from (PersonaForm load / Personas-tab
+  // Simulate ▶). Labels the PersonaForm header and targets its save/delete.
+  // null = ad-hoc buffer. In-memory only; cleared on agent switch / route synth.
+  loadedPersonaId: string | null;
   autoRun: boolean;
   personaAgentId: string | null;
   autoStepping: boolean;
@@ -239,6 +245,12 @@ interface SimulateState {
   loadRouteTarget: (target: RouteTarget) => Promise<void>;
   clearRouteTarget: () => void;
   setPersonaTraits: (traits: Record<string, string | number | boolean> | undefined) => void;
+  setLoadedPersonaId: (id: string | null) => void;
+  // Hydrate the whole persona buffer (prompt + traits + vars + mocks +
+  // loaded-id) from a saved persona. The one entry point for "load persona X",
+  // so provenance can't drift from the buffer it labels. Null spec (not yet
+  // loaded) hydrates prompt/traits only — there's no world to translate.
+  loadPersona: (spec: Spec | null, persona: Persona) => void;
   setAutoRun: (on: boolean) => void;
   setPersonaTurnLimit: (n: number) => void;
   autoStep: () => Promise<void>;
@@ -357,6 +369,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   voicePhase: null,
   micMuted: false,
   personaPrompt: "",
+  loadedPersonaId: null,
   autoRun: false,
   personaAgentId: null,
   autoStepping: false,
@@ -522,6 +535,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       // Traits aren't persisted with the prompt; they reload when a persona is
       // picked. Switching agents starts with none.
       personaTraits: undefined,
+      loadedPersonaId: null,
       personaTurnLimit: 10,
       personaTurnsLeft: 0,
       autoRun: false,
@@ -592,6 +606,8 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       routeSynthesizing: true,
       error: null,
       personaTraits: undefined,
+      // A synthesized route persona is a throwaway, not the saved one.
+      loadedPersonaId: null,
       routeTarget: { target, label, underivable: derived.underivable, notProvided: [] },
     });
 
@@ -661,6 +677,20 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   },
 
   setPersonaTraits: (traits) => set({ personaTraits: traits }),
+
+  setLoadedPersonaId: (id) => set({ loadedPersonaId: id }),
+
+  loadPersona: (spec, persona) => {
+    get().setPersonaPrompt(persona.system_prompt ?? "");
+    set({ personaTraits: persona.traits, loadedPersonaId: persona.id });
+    if (!spec) return;
+    const { vars, returns, errors } = personaToRuntime(spec, persona);
+    get().setContextVars(vars);
+    get().setMockReturns(returns);
+    for (const [name, err] of Object.entries(errors)) {
+      get().setMockError(name, err);
+    }
+  },
 
   setAutoRun: (on) => {
     if (on) {

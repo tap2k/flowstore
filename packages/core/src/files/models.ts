@@ -104,7 +104,7 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     "llama-3.3-70b":            { name: "Llama 3.3 70B", endpoint: "openrouter", model_id: "meta-llama/llama-3.3-70b-instruct" },
     "gpt-oss-120b":             { name: "GPT-OSS 120B", endpoint: "openrouter", model_id: "openai/gpt-oss-120b" },
   },
-  default: "gemini-2.5-flash",
+  default: "gemini-3.7-flash",
   roles: {},
 };
 
