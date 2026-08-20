@@ -38,6 +38,11 @@ export function mergeScriptsCsv(
   csvText: string,
   existing: ScriptLine[] | undefined,
   languages: string[],
+  // Fired for each EXPLICIT-id row that matched no existing script — usually a
+  // leftover from a script removed in .flow.json only. The row still merges
+  // (id-less rows are the sheet-authoring append path and never fire this);
+  // policy about what an orphan means belongs to the caller.
+  opts: { onOrphanId?: (id: string) => void } = {},
 ): ScriptLine[] {
   const rows = parseCsv(csvText);
   if (rows.length < 1) return existing ?? [];
@@ -89,6 +94,7 @@ export function mergeScriptsCsv(
       Object.assign(merged, nonEmpty);
       out[existingIdx] = { ...cur, text: buildLocalized(merged, defaultLang) ?? "" };
     } else {
+      if (rawId !== "") opts.onOrphanId?.(id);
       out.push({ id, text: buildLocalized(nonEmpty, defaultLang) ?? "" });
       byId.set(id, out.length - 1);
     }

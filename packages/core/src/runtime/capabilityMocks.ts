@@ -1,6 +1,7 @@
 import type { Capability, Spec, VariableDecl } from "@flowstore/core/schema/v0";
 import type { ToolDefinition } from "@flowstore/core/llm/types";
 import type { CapabilityEndpoint } from "@flowstore/core/files/models";
+import { capabilityToolDefinitions, lookupDecl } from "@flowstore/core/llm/capabilityTools";
 
 export interface MockableOutput {
   name: string;
@@ -14,44 +15,15 @@ export interface MockableCapability {
   outputs: MockableOutput[];
 }
 
-// JSON-schema fragment for a single capability input, derived from its declared
-// variable type. Unknown/undeclared types fall back to string.
-function jsonSchemaForDecl(decl?: VariableDecl): Record<string, unknown> {
-  const schema: Record<string, unknown> =
-    decl?.type === "number"
-      ? { type: "number" }
-      : decl?.type === "boolean"
-        ? { type: "boolean" }
-        : decl?.type === "enum"
-          ? { type: "string", ...(decl.values?.length ? { enum: decl.values } : {}) }
-          : { type: "string" };
-  if (decl?.description) schema.description = decl.description;
-  return schema;
-}
-
 // Capabilities exposed to the LLM as tools in prompt mode. Both kinds are
 // included: prompt mode has no dispatcher, so the model is the de-facto router
 // and must trigger retrieval too for it to stay contextual. The tool name is
 // the capability name (the key mock_returns and capability events use), so a
 // call resolves straight back to its mock. Output-less capabilities are still
-// exposed (pure side-effect functions) and resolve to {}.
+// exposed (pure side-effect functions) and resolve to {}. Schema shape and
+// policy live in llm/capabilityTools.ts.
 export function buildCapabilityTools(spec: Spec | null): ToolDefinition[] {
-  if (!spec) return [];
-  const caps = (spec.agent.capabilities ?? []) as Capability[];
-  return caps.map((cap) => {
-    const inputs = cap.inputs ?? [];
-    const properties: Record<string, unknown> = {};
-    for (const name of inputs) properties[name] = jsonSchemaForDecl(lookupDecl(spec, name));
-    return {
-      name: cap.name,
-      description: cap.description,
-      parameters: {
-        type: "object",
-        properties,
-        ...(inputs.length ? { required: inputs } : {}),
-      },
-    };
-  });
+  return capabilityToolDefinitions(spec);
 }
 
 // Resolves a capability call to its outputs. Checks live endpoints first:
@@ -86,16 +58,6 @@ export async function resolveMockedCall(
   const errorMsg = mockErrors[capabilityName];
   if (errorMsg !== undefined) return { error: errorMsg };
   return mockReturns[capabilityName] ?? {};
-}
-
-function lookupDecl(spec: Spec, outputName: string): VariableDecl | undefined {
-  const fromAgent = spec.agent.variables?.[outputName];
-  if (fromAgent) return fromAgent;
-  for (const flow of spec.flows ?? []) {
-    const fromFlow = flow.variables?.[outputName];
-    if (fromFlow) return fromFlow;
-  }
-  return undefined;
 }
 
 export function collectMockableCapabilities(spec: Spec | null): MockableCapability[] {

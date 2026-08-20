@@ -3,7 +3,8 @@ import { resolve } from "node:path";
 import { loadProjectFromPath } from "@flowstore/core/files/node";
 import type { LoadResult } from "@flowstore/core/files";
 import { generateSystemPrompt } from "@flowstore/core/codegen/promptGenerator";
-import type { Spec, Capability, VariableDecl } from "@flowstore/core/schema/v0";
+import { capabilityToolDefinitions } from "@flowstore/core/llm/capabilityTools";
+import type { Spec } from "@flowstore/core/schema/v0";
 
 interface Args {
   format: "prompt" | "spec";
@@ -102,47 +103,6 @@ function loadSpec(input: string): Spec {
   return result.spec;
 }
 
-// Capability declarations carry variable names only. To make a JSON Schema
-// tool definition useful, look up the variable's declared type on the agent;
-// fall back to "string" when undeclared (matches generated-code default in
-// other targets).
-function variableType(
-  varName: string,
-  agentVars: Record<string, VariableDecl> | undefined,
-): { type: string; enum?: string[] } {
-  const decl = agentVars?.[varName];
-  if (!decl) return { type: "string" };
-  if (decl.type === "enum") {
-    return {
-      type: "string",
-      enum: (decl.values as string[] | undefined) ?? [],
-    };
-  }
-  if (decl.type === "number") return { type: "number" };
-  if (decl.type === "boolean") return { type: "boolean" };
-  return { type: "string" };
-}
-
-function toolSchemaForCapability(
-  cap: Capability,
-  agentVars: Record<string, VariableDecl> | undefined,
-): unknown {
-  const properties: Record<string, unknown> = {};
-  for (const input of cap.inputs ?? []) {
-    properties[input] = variableType(input, agentVars);
-  }
-  return {
-    name: cap.name,
-    description: cap.description,
-    parameters: {
-      type: "object",
-      properties,
-      required: cap.inputs ?? [],
-      additionalProperties: false,
-    },
-  };
-}
-
 function emit(text: string, out?: string): void {
   if (out) writeFileSync(resolve(out), text, "utf8");
   else process.stdout.write(text);
@@ -155,9 +115,7 @@ if (args.format === "prompt") {
   const system_prompt = generateSystemPrompt(spec, args.vars, {
     language: args.language,
   });
-  const tool_schemas = (spec.agent.capabilities ?? []).map((c) =>
-    toolSchemaForCapability(c, spec.agent.variables),
-  );
+  const tool_schemas = capabilityToolDefinitions(spec, { closed: true });
   emit(JSON.stringify({ system_prompt, tool_schemas }, null, 2) + "\n", args.out);
 } else {
   emit(JSON.stringify(spec, null, 2) + "\n", args.out);
