@@ -75,7 +75,7 @@ npm workspaces monorepo. `@flowstore/core` is pure TS (files, schema, codegen, p
 /tsconfig.base.json                 shared compiler options
 /packages/core/                     @flowstore/core (pure TS; no DOM/React/zustand)
   /package.json                     exports map: deep paths + per-subdir barrels
-  /scripts/preview-prompt.ts        dev CLI; renders a spec to stdout
+  /scripts/preview-prompt.ts        dev CLI; renders a project (dir or .flowstore.json bundle) to a prompt on stdout
   /src/
     index.ts                        re-exports schema/v0 + schema/flowJunction
     ids.ts                          stable-id generation
@@ -107,7 +107,7 @@ npm workspaces monorepo. `@flowstore/core` is pure TS (files, schema, codegen, p
 /examples/                          demo specs (coffee/) — loaded via the editor's file picker, not served as runtime URLs
 ```
 
-To iterate on a codegen target: edit the generator under `packages/core/src/codegen/`, re-run `npm run preview-prompt -- <absolute-path-to-spec>.json`, diff against expected.
+To iterate on a codegen target: edit the generator under `packages/core/src/codegen/`, re-run `npm run preview-prompt -- <project-dir-or-bundle.flowstore.json>`, diff against expected. (Bare spec JSON files are no longer accepted as CLI input — use a project directory or bundle.)
 
 ## Design system — the two-layer rule
 

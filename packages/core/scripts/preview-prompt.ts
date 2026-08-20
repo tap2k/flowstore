@@ -1,12 +1,22 @@
-import { readFileSync } from "node:fs";
+// Dev CLI: render a project's compiled system prompt to stdout. Accepts the
+// same inputs as flowstore-compile (project directory or .flowstore.json
+// bundle) — it IS flowstore-compile --format prompt minus the options, kept
+// as the documented codegen-iteration loop.
 import { generateSystemPrompt } from "@flowstore/core/codegen/promptGenerator";
-import type { Spec } from "@flowstore/core/schema/v0";
+import { loadProjectFromPath } from "@flowstore/core/files/node";
 
 const path = process.argv[2];
 if (!path) {
-  console.error("usage: tsx scripts/preview-prompt.ts <spec.json>");
+  console.error("usage: tsx scripts/preview-prompt.ts <project-dir|bundle.flowstore.json>");
   process.exit(1);
 }
 
-const spec = JSON.parse(readFileSync(path, "utf8")) as Spec;
-process.stdout.write(generateSystemPrompt(spec));
+const result = loadProjectFromPath(path);
+for (const e of result.errors) {
+  console.error(`  ${e.path ? `${e.path}: ` : ""}${e.message}`);
+}
+if (!result.spec) {
+  console.error("failed to load project");
+  process.exit(1);
+}
+process.stdout.write(generateSystemPrompt(result.spec));

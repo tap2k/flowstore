@@ -35,6 +35,17 @@ type BusinessGoal = NonNullable<Agent["business_goals"]>[number];
 type FaqEntry = NonNullable<NonNullable<Agent["knowledge"]>["faq"]>[number];
 type VariableDecl = NonNullable<Agent["variables"]>[string];
 
+// A serialized FileMap bundle (.flowstore.json): a plain object mapping paths
+// to file contents, with agent.json at the root. Distinguishable from a bare
+// spec (whose values are objects, not strings). The bundle is interchange
+// only — recognized here, expanded through loadProject, never a second
+// canonical form.
+export function isFileMapBundle(data: unknown): data is FileMap {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
+  const obj = data as Record<string, unknown>;
+  return "agent.json" in obj && Object.values(obj).every((v) => typeof v === "string");
+}
+
 export function loadProject(files: FileMap): LoadResult {
   const errors: LoadError[] = [];
 

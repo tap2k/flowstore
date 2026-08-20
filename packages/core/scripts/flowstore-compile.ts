@@ -1,7 +1,7 @@
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { readDirectoryToFileMap } from "@flowstore/core/files/node";
-import { loadProject } from "@flowstore/core/files";
+import { loadProjectFromPath } from "@flowstore/core/files/node";
+import type { LoadResult } from "@flowstore/core/files";
 import { generateSystemPrompt } from "@flowstore/core/codegen/promptGenerator";
 import type { Spec, Capability, VariableDecl } from "@flowstore/core/schema/v0";
 
@@ -51,7 +51,7 @@ function parseArgs(argv: string[]): Args {
     }
   }
   if (!format) usage("missing --format");
-  if (!input) usage("missing input (project directory or spec.json)");
+  if (!input) usage("missing input (project directory or .flowstore.json bundle)");
   return { format: format!, input: input!, out, vars, language, agent };
 }
 
@@ -69,7 +69,7 @@ function parseVars(raw: string | undefined): Record<string, unknown> | undefined
 function usage(msg?: string): never {
   if (msg) console.error(msg);
   console.error(
-    "usage: flowstore-compile <project-dir|spec.json> --format prompt|spec [--agent <id>] [--out <path>] [--vars k=v,k=v] [--vars-file <path.json>] [--language <code>]",
+    "usage: flowstore-compile <project-dir|bundle.flowstore.json> --format prompt|spec [--agent <id>] [--out <path>] [--vars k=v,k=v] [--vars-file <path.json>] [--language <code>]",
   );
   process.exit(2);
 }
@@ -80,27 +80,26 @@ function loadSpec(input: string): Spec {
     console.error(`input not found: ${path}`);
     process.exit(1);
   }
-  if (statSync(path).isDirectory()) {
-    const files = readDirectoryToFileMap(path);
-    const result = loadProject(files);
-    if (result.errors.length > 0) {
-      for (const e of result.errors) {
-        console.error(`  ${e.path ? `${e.path}: ` : ""}${e.message}`);
-      }
-    }
-    // Surface (never hide) test files skipped for an unrecognized $schema —
-    // forward-compat skips, but a typo'd $schema lands here too.
-    for (const ig of result.testingArtifacts.ignored) {
-      console.error(`  skipped ${ig.path}: ${ig.reason}`);
-    }
-    if (!result.spec) {
-      console.error("failed to load project");
-      process.exit(1);
-    }
-    return result.spec;
+  let result: LoadResult;
+  try {
+    result = loadProjectFromPath(path);
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : String(e));
+    process.exit(1);
   }
-  // Single-file spec (legacy / migration path).
-  return JSON.parse(readFileSync(path, "utf8")) as Spec;
+  for (const err of result.errors) {
+    console.error(`  ${err.path ? `${err.path}: ` : ""}${err.message}`);
+  }
+  // Surface (never hide) test files skipped for an unrecognized $schema —
+  // forward-compat skips, but a typo'd $schema lands here too.
+  for (const ig of result.testingArtifacts.ignored) {
+    console.error(`  skipped ${ig.path}: ${ig.reason}`);
+  }
+  if (!result.spec) {
+    console.error("failed to load project");
+    process.exit(1);
+  }
+  return result.spec;
 }
 
 // Capability declarations carry variable names only. To make a JSON Schema

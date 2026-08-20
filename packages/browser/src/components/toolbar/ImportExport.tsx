@@ -36,6 +36,7 @@ import { useTestsStore } from "@/lib/store/tests";
 import { useUiStore } from "@/lib/store/ui";
 import type { FileMap } from "@flowstore/core/files/types";
 import { makeZip, readZip } from "@flowstore/core/files/zip";
+import { isFileMapBundle } from "@flowstore/core/files/load";
 import {
   applyTranslations,
   previewTranslationsCsv,
@@ -381,15 +382,6 @@ interface ImportModalProps {
   onCommit: (parsed: unknown, opts?: LoadSpecOptions) => string[] | null;
 }
 
-// A serialized FileMap bundle (.flowstore.json): a plain object mapping paths
-// to file contents, with agent.json at the root. Distinguishable from a bare
-// spec (whose values are objects, not strings).
-function isBundleFileMap(data: unknown): data is FileMap {
-  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
-  const obj = data as Record<string, unknown>;
-  return "agent.json" in obj && Object.values(obj).every((v) => typeof v === "string");
-}
-
 function ImportModal({ onClose, onCommit }: ImportModalProps) {
   const [text, setText] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
@@ -399,7 +391,7 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
   function handleParsed(data: unknown, opts?: LoadSpecOptions) {
     // A single-file bundle routes through the project loader like a ZIP or
     // folder would — it IS the file model, serialized.
-    if (isBundleFileMap(data)) {
+    if (isFileMapBundle(data)) {
       loadFileMap(data, "No flowstore project found in the bundle.");
       return;
     }
