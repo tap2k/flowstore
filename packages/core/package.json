@@ -1,7 +1,7 @@
 {
   "name": "@flowstore/core",
   "version": "0.1.0-alpha.1",
-  "description": "Flowstore core — schema, codegen, validation, and runtime",
+  "description": "Flowstore core \u2014 schema, codegen, validation, and runtime",
   "license": "MIT",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -23,7 +23,9 @@
     "./runtime": "./src/runtime/index.ts",
     "./runtime/*": "./src/runtime/*.ts"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "preview-prompt": "tsx scripts/preview-prompt.ts",
@@ -31,7 +33,8 @@
     "github-smoke": "tsx scripts/github-smoke.ts",
     "github-init": "tsx scripts/github-init.ts",
     "flowstore-init-project": "tsx scripts/flowstore-init-project.ts",
-    "flowstore-compile": "tsx scripts/flowstore-compile.ts"
+    "flowstore-compile": "tsx scripts/flowstore-compile.ts",
+    "flowstore-convert": "tsx scripts/flowstore-convert.ts"
   },
   "dependencies": {
     "@octokit/rest": "^21.1.1",
