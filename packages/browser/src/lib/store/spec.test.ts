@@ -55,3 +55,63 @@ describe("useSpecStore — variable declaration removal", () => {
     expect(meta?.languages).toEqual(["EN"]);
   });
 });
+
+describe("useSpecStore — one-slot undo snapshot", () => {
+  beforeEach(() => {
+    useSpecStore.getState().setSpec(baseSpec());
+  });
+
+  it("undoLast reverses the most recent mutation, one level only", () => {
+    const s = useSpecStore.getState;
+    s().updateAgent({ guardrails: [{ id: "g1", statement: "one" }] });
+    s().updateAgent({ guardrails: [] }); // the delete
+    expect(s().spec?.agent.guardrails).toEqual([]);
+    s().undoLast();
+    expect(s().spec?.agent.guardrails).toEqual([{ id: "g1", statement: "one" }]);
+    // one level: a second undo is a no-op.
+    const after = s().spec;
+    s().undoLast();
+    expect(s().spec).toBe(after);
+  });
+
+  it("setSpec (loading a document) clears the snapshot; commitSpec records one", () => {
+    const s = useSpecStore.getState;
+    s().updateFlow("f1", { name: "F1b" });
+    s().setSpec(baseSpec());
+    expect(s().prevSpec).toBeNull();
+    const edited = structuredClone(s().spec!);
+    edited.flows[0].instructions = "hi";
+    s().commitSpec(edited);
+    expect(s().spec?.flows[0].instructions).toBe("hi");
+    s().undoLast();
+    expect(s().spec?.flows[0].instructions).toBeUndefined();
+  });
+});
+
+describe("useSpecStore — rename tracking for the prose-reference linter", () => {
+  beforeEach(() => {
+    useSpecStore.getState().setSpec(baseSpec());
+  });
+
+  it("records a flow rename and chains keystrokes back to the original name", () => {
+    const s = useSpecStore.getState;
+    s().updateFlow("f1", { name: "F2" });
+    expect(s().lastRename).toEqual({ from: "F1", to: "F2" });
+    // Continued typing chains: from stays the original.
+    s().updateFlow("f1", { name: "F2x" });
+    expect(s().lastRename).toEqual({ from: "F1", to: "F2x" });
+    // Typing back to the original clears the record.
+    s().updateFlow("f1", { name: "F1" });
+    expect(s().lastRename).toBeNull();
+  });
+
+  it("detects a variable rename in a whole-map variables patch", () => {
+    const s = useSpecStore.getState;
+    s().updateAgent({ variables: { a: { type: "string" }, c: { type: "number" } } });
+    expect(s().lastRename).toEqual({ from: "b", to: "c" });
+    // Pure addition or removal is not a rename.
+    s().clearLastRename();
+    s().updateAgent({ variables: { a: { type: "string" } } });
+    expect(s().lastRename).toBeNull();
+  });
+});

@@ -229,7 +229,7 @@ export function generateSystemPrompt(
   return compileSystemPrompt(spec, vars, opts).text;
 }
 
-interface RenderCtx {
+export interface RenderCtx {
   lang: string;
   defaultLang: string;
   // When set (multilingual mode), localized fields emit every listed language
@@ -361,7 +361,15 @@ function flowsGroup(
   return { leadText: leadLines.join("\n"), items };
 }
 
-function renderFlowRoutingInline(flow: Flow, flowNames: Map<string, string>): string {
+// Comparative routing preamble (see renderFlowRoutingInline). Exported so
+// promptDoc can emit it as a standalone display line without re-wording it.
+export const ROUTING_CHOICE_PREAMBLE =
+  "   At the end of this turn, choose exactly ONE transition below: weigh the " +
+  "customer's latest message against all options and take the single best " +
+  "match — do not default to the first that seems plausible. If none clearly " +
+  "applies, stay in this flow rather than forcing a weak match.";
+
+export function renderFlowRoutingInline(flow: Flow, flowNames: Map<string, string>): string {
   const exits = flow.exit_paths ?? [];
   if (!exits.length) return "";
   const lines: string[] = [];
@@ -404,17 +412,12 @@ function renderFlowRoutingInline(flow: Flow, flowNames: Map<string, string>): st
   // condition (which helps the monolith but breaks the runner). Single-exit flows
   // need no comparison, so the frame is omitted there.
   if (decidable >= 2) {
-    lines.unshift(
-      "   At the end of this turn, choose exactly ONE transition below: weigh the " +
-        "customer's latest message against all options and take the single best " +
-        "match — do not default to the first that seems plausible. If none clearly " +
-        "applies, stay in this flow rather than forcing a weak match.",
-    );
+    lines.unshift(ROUTING_CHOICE_PREAMBLE);
   }
   return lines.join("\n");
 }
 
-function renderInlineTarget(ep: ExitPath, flowNames: Map<string, string>): string {
+export function renderInlineTarget(ep: ExitPath, flowNames: Map<string, string>): string {
   if (isEndGoto(ep.goto)) return "end the conversation";
   if (isReturnGoto(ep.goto)) return "return to the calling flow";
   const name = flowNames.get(ep.goto) ?? ep.goto;
@@ -424,10 +427,17 @@ function renderInlineTarget(ep: ExitPath, flowNames: Map<string, string>): strin
 // Routing clause: prefixes the expression with a frame so deterministic
 // methods read as conditions rather than free-floating prose. The verbatim
 // expression is preserved (no translation drift) — modern LLMs read the
-// Python-like grammar fine.
+// Python-like grammar fine. The frame is exported separately so the inline
+// editor (promptDoc) can render the expression as an editable span between
+// the exact same pre/post text.
+export function conditionFrame(method: Condition["method"]): { pre: string; post: string } {
+  if (method === "llm") return { pre: "If ", post: "" };
+  return { pre: "When `", post: "` holds" };
+}
+
 function renderConditionClause(c: Condition): string {
-  if (c.method === "llm") return `If ${c.expression}`;
-  return `When \`${c.expression}\` holds`;
+  const f = conditionFrame(c.method);
+  return `${f.pre}${c.expression}${f.post}`;
 }
 
 // Interrupt triggers are author-natural-language regardless of method label.
@@ -457,7 +467,7 @@ function orderFlows(flows: Flow[], entryId: string | undefined): Flow[] {
   return ordered;
 }
 
-function renderFlowScripts(flow: Flow, ctx: RenderCtx): string {
+export function renderFlowScripts(flow: Flow, ctx: RenderCtx): string {
   const scripts = flow.scripts ?? [];
   if (!scripts.length) return "";
   const lines: string[] = ["   Scripts:"];
@@ -485,7 +495,7 @@ function renderFlowScripts(flow: Flow, ctx: RenderCtx): string {
   return lines.length > 1 ? lines.join("\n") : "";
 }
 
-function renderFlowGuardrails(flow: Flow): string {
+export function renderFlowGuardrails(flow: Flow): string {
   const items = flow.guardrails ?? [];
   if (!items.length) return "";
   const lines = ["   Flow guardrails:"];
@@ -493,7 +503,7 @@ function renderFlowGuardrails(flow: Flow): string {
   return lines.join("\n");
 }
 
-function renderFlowKnowledge(flow: Flow, ctx: RenderCtx): string {
+export function renderFlowKnowledge(flow: Flow, ctx: RenderCtx): string {
   const faq = flow.knowledge?.faq ?? [];
   if (!faq.length) return "";
   const lines = ["   FAQ:"];
@@ -557,7 +567,7 @@ function renderKnowledge(spec: Spec, ctx: RenderCtx): string {
   return blocks.join("\n\n");
 }
 
-function formatFaqEntry(entry: FaqEntry, indent: string, ctx: RenderCtx): string {
+export function formatFaqEntry(entry: FaqEntry, indent: string, ctx: RenderCtx): string {
   if (ctx.langs) {
     // Multilingual: question stays single (it isn't localized); answer emits
     // one labeled line per language with a reviewed translation.

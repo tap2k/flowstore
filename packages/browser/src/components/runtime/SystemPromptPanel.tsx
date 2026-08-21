@@ -6,66 +6,38 @@ import {
   ALL_LANGUAGES,
   type PromptSource,
 } from "@flowstore/core/codegen/promptGenerator";
+// bodyForDisplay is the deliberate View-mode divergence from the raw compiled
+// prompt (headers/numbering stripped). It lives in core promptDoc so the
+// inline-editing part model can be round-trip-tested against it.
+import { bodyForDisplay } from "@flowstore/core/codegen/promptDoc";
+import {
+  applyAllProseReferenceFixes,
+  applyProseReferenceFix,
+  findDanglingReferences,
+  type ProseFieldRef,
+} from "@flowstore/core/validation/proseRefs";
 import { type Spec } from "@flowstore/core/schema/v0";
 import { styleForSource, isClickable, labelFor, type PromptKind } from "@/lib/promptColors";
 import { computeDiagnostics, diagnosticCounts, anchorLabel, type Diagnostic } from "@/lib/diagnostics";
 import { DisclosureCaret } from "@/components/ui";
+import { EditableBlockBody } from "./PromptBlockBody";
 
 interface SystemPromptPanelProps {
   open: boolean;
   onClose: () => void;
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// DELIBERATE DIVERGENCE FROM THE RAW COMPILED PROMPT.
-//
-// The panel's View mode does NOT show the literal compiled prompt. It strips
-// the section headers and per-flow/per-interrupt numbering that merely restate
-// the block's own colored label, so each block reads as just its content. This
-// is a *display transform only*:
-//   • The Copy button and every prompt consumer (Simulate, export, runner) use
-//     the literal text from compileSystemPrompt — they are unaffected.
-//   • A manual select-all + copy inside the panel WILL pick up this trimmed
-//     text, not the literal prompt. Accepted tradeoff (low likelihood).
-//
-// The matched strings below mirror the headers emitted by promptGenerator.ts
-// (renderGuardrails / flowsGroup / interruptsGroup). If those headers change,
-// update them here too — there is no shared constant, this coupling is by hand.
-//
-// Knowledge is intentionally left verbatim: its "FAQ:" / "GLOSSARY:" lines are
-// meaningful sub-structure, not a header that duplicates the "Knowledge" label.
-// ─────────────────────────────────────────────────────────────────────────
-function bodyForDisplay(kind: PromptKind, text: string): string {
-  const lines = text.split("\n");
-  const dropWhile = (pred: (line: string) => boolean) => {
-    while (lines.length && pred(lines[0])) lines.shift();
-    while (lines.length && lines[0] === "") lines.shift();
-  };
-  // flow/interrupt content is indented ≥3 spaces under the (removed) header.
-  const dedent = () => lines.map((l) => (l.startsWith("   ") ? l.slice(3) : l)).join("\n");
-
-  switch (kind) {
-    case "flow":
-      dropWhile((l) => l === "FLOW OF CALL:" || l.startsWith("Begin with: "));
-      if (lines.length && /^\d+\. /.test(lines[0])) lines.shift(); // "N. Name" header
-      return dedent();
-    case "interrupt":
-      dropWhile((l) => l === "INTERRUPTS (fire at any point):");
-      if (lines.length && /^\d+\. /.test(lines[0])) lines.shift(); // "N. Name" header
-      return dedent();
-    case "guardrails":
-      // Drop the header only; the numbered "1. …" lines are the guardrails.
-      dropWhile((l) => l === "GUARDRAILS (apply at all times):");
-      return lines.join("\n");
-    default:
-      return text; // role, knowledge, runtimeContext — shown verbatim
-  }
-}
+// Segment kinds with an inline-editing model (see promptDoc.blockParts).
+const EDITABLE_KINDS = new Set<PromptKind>(["guardrails", "knowledge", "flow", "interrupt"]);
 
 export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
   const spec = useSpecStore((s) => s.spec);
   const requestFocus = useSpecStore((s) => s.requestFocus);
   const setSelection = useSpecStore((s) => s.setSelection);
+  const undoLast = useSpecStore((s) => s.undoLast);
+  const lastRename = useSpecStore((s) => s.lastRename);
+  const clearLastRename = useSpecStore((s) => s.clearLastRename);
+  const commitSpec = useSpecStore((s) => s.commitSpec);
   const promptOverride = useUiStore((s) => s.promptOverride);
   const setPromptOverride = useUiStore((s) => s.setPromptOverride);
   const promptOverrideSpecRef = useUiStore((s) => s.promptOverrideSpecRef);
@@ -75,6 +47,24 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
   const [problemsOpen, setProblemsOpen] = useState(true);
   const [copied, setCopied] = useState<"double" | "single" | null>(null);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Session-transient inline-editing state: staleness marks for script lines
+  // edited in one language ("flowId:scriptId"), and the one-slot undo toast
+  // for inline deletes (visibility + reversibility instead of confirm dialogs).
+  // The toast pins the store's undo snapshot at delete time: if a later
+  // mutation replaces the snapshot, "Undo" would no longer reverse the delete,
+  // so the toast hides itself (see toastLive below).
+  const [staleScripts, setStaleScripts] = useState<ReadonlySet<string>>(new Set());
+  const [toast, setToast] = useState<{ label: string; snapshot: object } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevSpec = useSpecStore((s) => s.prevSpec);
+  const markStale = (key: string) => setStaleScripts((prev) => new Set(prev).add(key));
+  function onDeleted(label: string) {
+    setToast({ label, snapshot: useSpecStore.getState().prevSpec! });
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 6000);
+  }
+  const toastLive = toast !== null && toast.snapshot === prevSpec;
 
   const availableLanguages = spec?.agent.meta.languages ?? [];
   // Default to "auto" (undefined → multilingual) so the inspector shows exactly
@@ -102,11 +92,25 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
 
   const diagnostics = useMemo(() => (spec ? computeDiagnostics(spec) : []), [spec]);
 
+  // Rename-aware reference check: prose mentions of the renamed-away name,
+  // offered as non-blocking quick-fixes (never auto-applied — a prose mention
+  // may be caller-facing wording).
+  const renameRefs = useMemo(
+    () => (spec && lastRename ? findDanglingReferences(spec, lastRename.from) : []),
+    [spec, lastRename],
+  );
+
   if (!open || !spec || !compiled) return null;
 
   const compiledText = compiled.text;
   const editorValue = promptOverride ?? compiledText;
   const edited = promptOverride !== null && promptOverride !== compiledText;
+
+  // Inline editing needs a spec-faithful, single-language render: View mode,
+  // no whole-document override, and a pinned language (the multilingual "auto"
+  // view interleaves translations, which the per-line mapping doesn't model).
+  const multilingualView = availableLanguages.length > 1 && !language;
+  const inlineEnabled = mode === "view" && !edited && !multilingualView;
   const specChangedSinceEdit =
     promptOverride !== null && promptOverrideSpecRef !== null && promptOverrideSpecRef !== spec;
   const charsDiff = Math.abs(editorValue.length - compiledText.length);
@@ -171,7 +175,7 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
   }
 
   return (
-    <aside className="flex flex-col h-full w-[380px] border-l border-border-default bg-surface-panel">
+    <aside className="relative flex flex-col h-full w-[380px] border-l border-border-default bg-surface-panel">
       <div className="flex items-center justify-between border-b border-border-default px-4 py-2">
         <div className="text-sm font-semibold text-text-primary">System prompt</div>
         <div className="flex items-center gap-1">
@@ -244,6 +248,21 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
         />
       )}
 
+      {lastRename && renameRefs.length > 0 && (
+        <RenameFixups
+          spec={spec}
+          from={lastRename.from}
+          to={lastRename.to}
+          refs={renameRefs}
+          onFixOne={(ref) => commitSpec(applyProseReferenceFix(spec, ref, lastRename.from, lastRename.to))}
+          onFixAll={() => {
+            commitSpec(applyAllProseReferenceFixes(spec, renameRefs, lastRename.from, lastRename.to));
+            clearLastRename();
+          }}
+          onDismiss={clearLastRename}
+        />
+      )}
+
       {(specChangedSinceEdit || edited) && (
         <div className="flex items-center justify-between gap-2 border-b border-state-warning-line bg-state-warning-bg px-3 py-2 text-[11px] text-state-warning-fg">
           <span>
@@ -262,6 +281,11 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
 
       {mode === "view" ? (
         <div className="flex-1 space-y-2 overflow-auto p-3">
+          {multilingualView && !edited && (
+            <div className="px-1 text-[10px] text-text-tertiary">
+              Inline editing is off in the multilingual view — pin a language to edit.
+            </div>
+          )}
           {compiled.segments.map((seg, i) => {
             const text = compiledText.slice(seg.start, seg.end);
             const src = seg.source;
@@ -299,13 +323,25 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
                     {label}
                   </div>
                 )}
-                <pre
-                  className={`whitespace-pre-wrap break-words font-mono text-[10px] leading-snug ${
-                    style.body ?? "text-text-primary"
-                  }`}
-                >
-                  {body}
-                </pre>
+                {inlineEnabled && EDITABLE_KINDS.has(src.kind) ? (
+                  <EditableBlockBody
+                    spec={spec}
+                    source={src}
+                    language={language}
+                    staleScripts={staleScripts}
+                    markStale={markStale}
+                    onDeleted={onDeleted}
+                    inkClass={style.body ?? "text-text-primary"}
+                  />
+                ) : (
+                  <pre
+                    className={`whitespace-pre-wrap break-words font-mono text-[10px] leading-snug ${
+                      style.body ?? "text-text-primary"
+                    }`}
+                  >
+                    {body}
+                  </pre>
+                )}
               </div>
             );
           })}
@@ -320,7 +356,102 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
           />
         </div>
       )}
+
+      {toastLive && (
+        <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-md border border-border-default bg-surface-panel px-3 py-1.5 text-[11px] shadow-lg">
+          <span className="text-text-primary">{toast.label}</span>
+          <button
+            onClick={() => {
+              undoLast();
+              setToast(null);
+            }}
+            className="font-semibold text-text-primary underline underline-offset-2 hover:bg-surface-hover rounded px-1"
+          >
+            Undo
+          </button>
+          <button
+            onClick={() => setToast(null)}
+            aria-label="Dismiss"
+            className="rounded px-1 text-text-tertiary hover:bg-surface-hover"
+          >
+            ×
+          </button>
+        </div>
+      )}
     </aside>
+  );
+}
+
+// Non-blocking rename fix-ups: after a flow/variable rename, prose fields that
+// still mention the old name get one-click replacements. Never auto-applied.
+function RenameFixups({
+  spec,
+  from,
+  to,
+  refs,
+  onFixOne,
+  onFixAll,
+  onDismiss,
+}: {
+  spec: Spec;
+  from: string;
+  to: string;
+  refs: { ref: ProseFieldRef; count: number }[];
+  onFixOne: (ref: ProseFieldRef) => void;
+  onFixAll: () => void;
+  onDismiss: () => void;
+}) {
+  const flowName = (id: string) => spec.flows.find((f) => f.id === id)?.name || id;
+  const label = (ref: ProseFieldRef): string => {
+    switch (ref.field) {
+      case "instructions":
+        return `instructions · ${flowName(ref.flowId)}`;
+      case "entry-condition":
+        return `trigger · ${flowName(ref.flowId)}`;
+      case "exit-condition":
+        return `exit condition · ${flowName(ref.flowId)}`;
+      case "faq-answer":
+        return ref.flowId ? `FAQ answer · ${flowName(ref.flowId)}` : "FAQ answer · agent";
+      case "script":
+        return `script · ${flowName(ref.flowId)}`;
+    }
+  };
+  const total = refs.reduce((n, r) => n + r.count, 0);
+  return (
+    <div className="border-b border-state-warning-line bg-state-warning-bg px-3 py-2 text-[11px]">
+      <div className="flex items-center justify-between gap-2 text-state-warning-fg">
+        <span>
+          Renamed “{from}” → “{to}” — {total} stale mention{total === 1 ? "" : "s"} in prose
+        </span>
+        <div className="flex shrink-0 gap-1">
+          <button
+            onClick={onFixAll}
+            className="rounded border border-state-warning-line bg-surface-panel px-2 py-0.5 hover:bg-state-warning-bg"
+          >
+            Fix all
+          </button>
+          <button onClick={onDismiss} className="rounded px-1.5 py-0.5 hover:bg-state-warning-bg">
+            Dismiss
+          </button>
+        </div>
+      </div>
+      <ul className="mt-1 space-y-0.5">
+        {refs.map((r, i) => (
+          <li key={i} className="flex items-center justify-between gap-2">
+            <span className="truncate text-state-warning-fg">
+              {label(r.ref)}
+              {r.count > 1 ? ` · ${r.count}×` : ""}
+            </span>
+            <button
+              onClick={() => onFixOne(r.ref)}
+              className="shrink-0 rounded border border-state-warning-line bg-surface-panel px-2 py-0.5 text-state-warning-fg hover:bg-state-warning-bg"
+            >
+              Fix
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

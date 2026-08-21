@@ -30,8 +30,20 @@ export type Selection =
   | { kind: "edge"; flowId: string; exitPathId: string }
   | null;
 
+// The one-slot undo snapshot. Durable undo is git (edits land as diffable
+// commits); the store deliberately has no history. Each mutation keeps a
+// reference to the previous spec object — free under the immutable-update
+// discipline — and undoLast restores it. One level, session-only: enough for
+// the "Guardrail deleted — Undo" toast; anything bigger is re-edit or git.
+//
+// lastRename powers the rename-aware reference linter: when a flow name or a
+// declared variable is renamed (inspector or sheet), the panel runs
+// findDanglingReferences(spec, from) and offers non-blocking quick-fixes.
+// Successive keystrokes of one rename chain (from stays the original name).
 interface SpecState {
   spec: Spec | null;
+  prevSpec: Spec | null;
+  lastRename: { from: string; to: string } | null;
   selection: Selection;
   // One-shot intent to center the canvas on a node. Bumped any time a
   // caller wants the camera to find a node — selection alone is
@@ -39,6 +51,12 @@ interface SpecState {
   // Nonce makes "focus the same id again" retriggerable.
   focusRequest: { kind: "flow"; id: string; nonce: number } | null;
   setSpec: (spec: Spec | null) => void;
+  // Replace the whole spec as an EDIT (quick-fix application): records the
+  // undo snapshot and keeps selection, unlike setSpec (which loads a new
+  // document and resets everything).
+  commitSpec: (spec: Spec) => void;
+  undoLast: () => void;
+  clearLastRename: () => void;
   setSelection: (selection: Selection) => void;
   requestFocus: (kind: "flow", id: string) => void;
   updateFlow: (id: string, patch: Partial<Flow>) => void;
@@ -78,13 +96,33 @@ function blankAgent(entryFlowId: string): Agent {
 // spec itself is persisted; selection / focusRequest are ephemeral UI. The
 // persisted spec is re-validated on rehydrate (merge), so a stale blob from an
 // older schema can't poison the store — it falls back to null.
+// Chain successive keystrokes of one rename: if the previous rename's `to` is
+// what we're now renaming away from, the user is still typing — keep the
+// original `from`. A rename that lands back on the original clears the record.
+function chainRename(
+  prev: { from: string; to: string } | null,
+  from: string,
+  to: string,
+): { from: string; to: string } | null {
+  const origin = prev && prev.to === from ? prev.from : from;
+  if (!origin.trim() || origin === to) return null;
+  return { from: origin, to };
+}
+
 export const useSpecStore = create<SpecState>()(
   persist(
     (set) => ({
       spec: null,
+      prevSpec: null,
+      lastRename: null,
       selection: null,
       focusRequest: null,
-      setSpec: (spec) => set({ spec, selection: null, focusRequest: null }),
+      setSpec: (spec) =>
+        set({ spec, prevSpec: null, lastRename: null, selection: null, focusRequest: null }),
+      commitSpec: (spec) => set((state) => ({ spec, prevSpec: state.spec })),
+      undoLast: () =>
+        set((state) => (state.prevSpec ? { spec: state.prevSpec, prevSpec: null } : {})),
+      clearLastRename: () => set({ lastRename: null }),
       setSelection: (selection) => set({ selection }),
       requestFocus: (kind, id) =>
         set((state) => ({
@@ -93,11 +131,18 @@ export const useSpecStore = create<SpecState>()(
       updateFlow: (id, patch) =>
         set((state) => {
           if (!state.spec) return {};
+          const target = state.spec.flows.find((f) => f.id === id);
+          const renamed =
+            target && patch.name !== undefined && patch.name !== target.name
+              ? chainRename(state.lastRename, target.name, patch.name)
+              : state.lastRename;
           return {
             spec: {
               ...state.spec,
               flows: state.spec.flows.map((f) => (f.id === id ? mergePatch(f, patch) : f)),
             },
+            prevSpec: state.spec,
+            lastRename: renamed,
           };
         }),
       updateAgent: (patch) =>
@@ -109,7 +154,24 @@ export const useSpecStore = create<SpecState>()(
           if (!state.spec) {
             return { spec: { agent: mergePatch(blankAgent(""), patch), flows: [] } };
           }
-          return { spec: { ...state.spec, agent: mergePatch(state.spec.agent, patch) } };
+          // A variables patch that swaps exactly one key for another is a
+          // variable rename (the sheet replaces the whole map) — record it for
+          // the prose-reference quick-fix pass.
+          let renamed = state.lastRename;
+          if (patch.variables) {
+            const oldKeys = Object.keys(state.spec.agent.variables ?? {});
+            const newKeys = Object.keys(patch.variables);
+            const removed = oldKeys.filter((k) => !newKeys.includes(k));
+            const added = newKeys.filter((k) => !oldKeys.includes(k));
+            if (removed.length === 1 && added.length === 1) {
+              renamed = chainRename(state.lastRename, removed[0], added[0]);
+            }
+          }
+          return {
+            spec: { ...state.spec, agent: mergePatch(state.spec.agent, patch) },
+            prevSpec: state.spec,
+            lastRename: renamed,
+          };
         }),
       updateExitPath: (flowId, exitPathId, patch) =>
         set((state) => {
@@ -127,6 +189,7 @@ export const useSpecStore = create<SpecState>()(
                 };
               }),
             },
+            prevSpec: state.spec,
           };
         }),
       addFlow: (select = false, seed) => {
@@ -146,6 +209,7 @@ export const useSpecStore = create<SpecState>()(
           }
           return {
             spec: { ...state.spec, flows: [...state.spec.flows, flow] },
+            prevSpec: state.spec,
             selection: nextSelection,
             focusRequest: focusBump,
           };
@@ -173,6 +237,7 @@ export const useSpecStore = create<SpecState>()(
               agent: { ...state.spec.agent, entry_flow_id: entry },
               flows: cleaned,
             },
+            prevSpec: state.spec,
             selection: null,
           };
         }),
@@ -195,6 +260,7 @@ export const useSpecStore = create<SpecState>()(
                 return { ...f, exit_paths: [...f.exit_paths, newXp] };
               }),
             },
+            prevSpec: state.spec,
             selection: select
               ? { kind: "edge", flowId: sourceFlowId, exitPathId: xpId }
               : state.selection,
@@ -214,6 +280,7 @@ export const useSpecStore = create<SpecState>()(
                   : { ...f, exit_paths: f.exit_paths.filter((xp) => xp.id !== exitPathId) }
               ),
             },
+            prevSpec: state.spec,
             selection: null,
           };
         }),
