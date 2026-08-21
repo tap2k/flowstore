@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  ALL_LANGUAGES,
   compileSystemPrompt,
   type PromptSource,
 } from "@flowstore/core/codegen/promptGenerator";
@@ -28,22 +29,47 @@ function augmented(): Spec {
   return s;
 }
 
-const specs: Array<[string, Spec]> = [
-  ["coffee", coffee],
-  ["fnol-min", fnol],
-  ["coffee+budget", augmented()],
+// A two-language variant: some scripts/answers translated, some still plain
+// strings (default-language only), so the multilingual render exercises both
+// the labeled-per-language lines and the skipped-language case.
+function multilingual(): Spec {
+  const s = structuredClone(coffee);
+  s.agent.meta.languages = ["en-US", "es-MX"];
+  const flow = s.flows.find((f) => (f.scripts?.length ?? 0) > 0)!;
+  const script = flow.scripts![0];
+  script.text = { "en-US": script.text as string, "es-MX": "Hola, bienvenido." };
+  script.variations = {
+    "en-US": ["Welcome in!"],
+    "es-MX": ["¡Bienvenido!", 'Con "gusto".'],
+  };
+  const faq = s.agent.knowledge!.faq!;
+  faq[0].answer = { "en-US": faq[0].answer as string, "es-MX": "Respuesta en español." };
+  return s;
+}
+
+// (name, spec, pinned language | undefined). Compile options mirror the
+// panel exactly: undefined = the "auto" view (ALL_LANGUAGES emission).
+const cases: Array<[string, Spec, string | undefined]> = [
+  ["coffee · auto", coffee, undefined],
+  ["fnol-min · auto", fnol, undefined],
+  ["coffee+budget · auto", augmented(), undefined],
+  ["multilingual · auto", multilingual(), undefined],
+  ["multilingual · pinned en-US", multilingual(), "en-US"],
+  ["multilingual · pinned es-MX", multilingual(), "es-MX"],
 ];
 
 // The load-bearing invariant: for every segment with an inline model, the
 // parts' display lines joined are byte-identical to the panel's read-only
 // body. This is the coupling pin between promptDoc and promptGenerator /
-// bodyForDisplay — if a renderer's wording or indentation changes, this
-// fails before the editable view can drift from the compiled prompt.
+// bodyForDisplay — if a renderer's wording, framing, or indentation changes,
+// this fails before the editable view can drift from the compiled prompt.
 describe("promptDoc — parts round-trip against bodyForDisplay", () => {
-  for (const [name, spec] of specs) {
+  for (const [name, spec, language] of cases) {
     it(`${name}: every editable segment's parts join to its displayed body`, () => {
-      const ctx = displayCtx(spec);
-      const compiled = compileSystemPrompt(spec);
+      const ctx = displayCtx(spec, language);
+      const compiled = compileSystemPrompt(spec, undefined, {
+        language: language ?? ALL_LANGUAGES,
+      });
       let editableSegments = 0;
       for (const seg of compiled.segments) {
         const parts = blockParts(spec, seg.source, ctx);
@@ -60,28 +86,46 @@ describe("promptDoc — parts round-trip against bodyForDisplay", () => {
 // Identity edits must be byte-stable: writing a part's own text back into its
 // spec field and recompiling yields the identical prompt. This is the
 // display-transform inverse check — the editable value has the "N. " prefix,
-// indentation, and quote-escaping stripped, so writing it back must not
-// reintroduce or lose any of them.
+// indentation, quote-escaping, and per-language labels stripped, so writing
+// it back must not reintroduce or lose any of them.
 describe("promptDoc — identity write-back is byte-stable", () => {
-  for (const [name, spec] of specs) {
-    it(`${name}: guardrails, instructions, scripts, FAQ, routing`, () => {
-      const ctx = displayCtx(spec);
-      const baseline = compileSystemPrompt(spec).text;
+  for (const [name, spec, language] of cases) {
+    it(`${name}: all editable part kinds`, () => {
+      const ctx = displayCtx(spec, language);
+      const opts = { language: language ?? ALL_LANGUAGES };
+      const baseline = compileSystemPrompt(spec, undefined, opts).text;
       const next = structuredClone(spec);
+      const flowOf = (id: string) => next.flows.find((f) => f.id === id)!;
 
-      for (const seg of compileSystemPrompt(spec).segments) {
+      for (const seg of compileSystemPrompt(spec, undefined, opts).segments) {
         const parts = blockParts(spec, seg.source, ctx);
         for (const p of parts ?? []) {
           switch (p.kind) {
+            case "role": {
+              next.agent.meta.identity = p.identity;
+              if (p.purpose) next.agent.meta.purpose = p.purpose;
+              if (p.tone !== null) next.agent.meta.tone = p.tone;
+              break;
+            }
             case "guardrail": {
               const g = next.agent.guardrails!.find((g) => g.id === p.guardrailId)!;
               g.statement = p.statement;
               break;
             }
+            case "flowGuardrail": {
+              const g = flowOf(p.flowId).guardrails!.find((g) => g.id === p.guardrailId)!;
+              g.statement = p.statement;
+              break;
+            }
             case "faq": {
-              const e = next.agent.knowledge!.faq!.find((e) => e.id === p.faqId)!;
+              const list = p.flowId
+                ? flowOf(p.flowId).knowledge!.faq!
+                : next.agent.knowledge!.faq!;
+              const e = list.find((e) => e.id === p.faqId)!;
               e.question = p.question;
-              e.answer = setLanguage(e.answer, ctx.lang, p.answer, ctx.defaultLang)!;
+              for (const a of p.answers) {
+                e.answer = setLanguage(e.answer, a.lang, a.text, ctx.defaultLang)!;
+              }
               break;
             }
             case "glossary": {
@@ -90,20 +134,22 @@ describe("promptDoc — identity write-back is byte-stable", () => {
               g.definition = p.definition;
               break;
             }
+            case "trigger": {
+              flowOf(p.flowId).entry_condition!.expression = p.expression;
+              break;
+            }
             case "instructions": {
-              next.flows.find((f) => f.id === p.flowId)!.instructions = p.text;
+              flowOf(p.flowId).instructions = p.text;
               break;
             }
             case "script": {
-              const f = next.flows.find((f) => f.id === p.flowId)!;
-              const s = f.scripts!.find((s) => s.id === p.scriptId)!;
-              s.text = setLanguage(s.text, ctx.lang, p.text, ctx.defaultLang)!;
+              const s = flowOf(p.flowId).scripts!.find((s) => s.id === p.scriptId)!;
+              s.text = setLanguage(s.text, p.lang, p.text, ctx.defaultLang)!;
               break;
             }
             case "routing": {
               if (p.readOnly || p.expression === null) break;
-              const f = next.flows.find((f) => f.id === p.flowId)!;
-              const xp = f.exit_paths.find((x) => x.id === p.exitPathId)!;
+              const xp = flowOf(p.flowId).exit_paths.find((x) => x.id === p.exitPathId)!;
               xp.condition = { ...xp.condition!, expression: p.expression };
               xp.goto = p.goto;
               break;
@@ -112,7 +158,7 @@ describe("promptDoc — identity write-back is byte-stable", () => {
         }
       }
 
-      expect(compileSystemPrompt(next).text).toBe(baseline);
+      expect(compileSystemPrompt(next, undefined, opts).text).toBe(baseline);
     });
   }
 });
@@ -126,9 +172,33 @@ describe("promptDoc — part structure", () => {
     expect(budget).toMatchObject({ readOnly: true, expression: null, goto: "END" });
   });
 
+  it("the role part exposes identity/purpose/tone as separate spans", () => {
+    const [role] = blockParts(coffee, { kind: "role" }, displayCtx(coffee))!;
+    expect(role).toMatchObject({
+      kind: "role",
+      identity: coffee.agent.meta.identity,
+      purpose: coffee.agent.meta.purpose,
+    });
+  });
+
+  it("multilingual scripts emit one editable part per language with content", () => {
+    const spec = multilingual();
+    const flow = spec.flows.find((f) => (f.scripts?.length ?? 0) > 0)!;
+    const parts = blockParts(spec, { kind: "flow", flowId: flow.id, name: flow.name }, displayCtx(spec))!;
+    const translated = parts.filter(
+      (p) => p.kind === "script" && p.scriptId === flow.scripts![0].id,
+    );
+    expect(translated.map((p) => p.kind === "script" && p.lang)).toEqual(["en-US", "es-MX"]);
+    // A plain-string script has content only for the default language.
+    const plain = parts.filter(
+      (p) => p.kind === "script" && p.scriptId !== flow.scripts![0].id,
+    );
+    for (const p of plain) expect(p.kind === "script" && p.lang).toBe("en-US");
+  });
+
   it("segments without an inline model return null", () => {
     const ctx = displayCtx(coffee);
-    for (const kind of ["role", "runtimeContext", "multilingual", "templateWrapper"] as const) {
+    for (const kind of ["runtimeContext", "multilingual", "templateWrapper"] as const) {
       expect(blockParts(coffee, { kind } as PromptSource, ctx)).toBeNull();
     }
   });

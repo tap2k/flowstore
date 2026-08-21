@@ -7,16 +7,21 @@ import {
 } from "@flowstore/core/schema/v0";
 import {
   BEGIN_WITH_PREFIX,
+  FAQ_A_LABEL,
   FAQ_A_PREFIX,
+  FAQ_LANG_INDENT,
   FAQ_Q_PREFIX,
   FLOWS_HEADER,
   GUARDRAILS_HEADER,
   INTERRUPTS_HEADER,
+  ROLE_PRE,
+  ROLE_TONE_PREFIX,
   ROUTING_CHOICE_PREAMBLE,
+  TRIGGER_PREFIX,
   conditionFrame,
   escapeQuotes,
   isConversationalFlow,
-  renderFlowGuardrails,
+  locPerLang,
   renderFlowKnowledge,
   renderFlowRoutingInline,
   renderFlowScripts,
@@ -24,6 +29,7 @@ import {
   type PromptSource,
   type RenderCtx,
 } from "./promptGenerator";
+import type { FaqEntry } from "@flowstore/core/schema/v0";
 
 // ─────────────────────────────────────────────────────────────────────────
 // The prompt-as-document model for INLINE EDITING.
@@ -35,54 +41,101 @@ import {
 // and the whole prompt re-renders from the spec.
 //
 // Association is positional/per-entity, not a character-diff: guardrail line i
-// ↔ agent.guardrails[i], a script line ↔ its ScriptLine, a routing line ↔ its
-// ExitPath. That is safe because the panel re-renders from the spec after
-// every accepted edit — an association only ever has to survive one edit.
+// ↔ agent.guardrails[i], a script line ↔ its ScriptLine (and, in the
+// multilingual view, one line per language of that ScriptLine), a routing
+// line ↔ its ExitPath. That is safe because the panel re-renders from the
+// spec after every accepted edit — an association only ever has to survive
+// one edit.
 //
-// Editable parts carry their display framing explicitly (`prefix`, `pre`/
-// `mid`/`post`, the script quote constants) and their `lines` are BUILT from
-// those pieces, while read-only content reuses promptGenerator's own
-// renderers on singleton lists. The invariant, pinned by promptDoc.test.ts:
+// Editable parts carry their display framing explicitly (prefixes and
+// pre/mid/post strings) and their `lines` are BUILT from those pieces, while
+// read-only content reuses promptGenerator's own renderers on singleton
+// lists. The invariant, pinned by promptDoc.test.ts:
 //     parts.flatMap(p => p.lines).join("\n") === bodyForDisplay(kind, segText)
 // so if a renderer's wording, framing, or indentation changes, the test fails
 // before either the editable or read-only view can drift from the compiled
 // prompt — and the editor components never restate a display literal.
 //
-// Builders assume a single-language render with no {{var}} substitution — the
-// panel gates inline editing to exactly that state (pinned language, no
-// whole-document override, vars undefined).
+// Builders support both render modes the panel gates to: a pinned language
+// (ctx.langs unset) and the multilingual "auto" view (ctx.langs set — script
+// lines and FAQ answers become one labeled editable line per language with
+// reviewed content; a language with no content renders no line, so adding a
+// translation stays an inspector/CSV job). {{var}} substitution is never
+// applied (vars undefined).
 // ─────────────────────────────────────────────────────────────────────────
 
-// Display framing for the editable line kinds, re-exported/owned here so the
-// editor components import all framing from one module. FAQ framing lives in
-// promptGenerator (its renderer composes it); glossary and script framing are
-// owned here and pinned against the renderers by the round-trip tests.
-export { FAQ_A_PREFIX, FAQ_Q_PREFIX } from "./promptGenerator";
+// Display framing owned here and pinned against the renderers by the
+// round-trip tests (FAQ/role/trigger framing lives in promptGenerator, whose
+// renderers compose it directly).
 export const GLOSSARY_PREFIX = "- ";
 export const GLOSSARY_SEP = ": ";
-export const SCRIPT_PRE = '  - "';
-export const SCRIPT_POST = '"';
+export { FAQ_A_LABEL, FAQ_A_PREFIX, FAQ_Q_PREFIX, ROLE_PRE, ROLE_TONE_PREFIX, TRIGGER_PREFIX } from "./promptGenerator";
+const SCRIPT_PRE = '  - "';
+const QUOTE = '"';
+const FLOW_GUARDRAILS_HEADER = "Flow guardrails:";
+const FLOW_GUARDRAIL_PRE = "  - ";
+const FLOW_FAQ_HEADER = "FAQ:";
+const FLOW_FAQ_INDENT = "  ";
+
+// One editable answer line of a FAQ entry. Single-language mode has exactly
+// one (lang = the pinned language, pre = FAQ_A_PREFIX); multilingual mode has
+// one per language with reviewed content (pre = indented "LANG: " label).
+export interface FaqAnswer {
+  lang: string;
+  pre: string;
+  text: string;
+}
 
 export type BlockPart =
   // Non-editable decoration: section labels, frame lines, read-only sub-blocks.
   | { kind: "plain"; lines: string[] }
+  // The synthesized role line: "You are {identity}. {purpose} Tone: {tone}".
+  // Each present meta field is its own editable span; absent purpose/tone are
+  // not addable inline (no text to click) — that stays in the agent sheet.
+  | { kind: "role"; identity: string; purpose: string; tone: string | null; lines: string[] }
   // Agent guardrail line — "N. statement"; edit writes guardrail.statement.
   | { kind: "guardrail"; guardrailId: string; prefix: string; statement: string; lines: string[] }
-  // Agent knowledge FAQ entry — Q edits question, A edits the answer in the
-  // rendered language. Framing: FAQ_Q_PREFIX / FAQ_A_PREFIX.
-  | { kind: "faq"; faqId: string; question: string; answer: string; lines: string[] }
+  // Flow guardrail line under the "Flow guardrails:" label.
+  | {
+      kind: "flowGuardrail";
+      flowId: string;
+      guardrailId: string;
+      pre: string;
+      statement: string;
+      lines: string[];
+    }
+  // A FAQ entry (agent knowledge, or a flow's when flowId is set). qPre frames
+  // the question; answerHeader is the bare "A:" label line in multilingual
+  // mode (null when the single answer line carries its own prefix).
+  | {
+      kind: "faq";
+      faqId: string;
+      flowId?: string;
+      qPre: string;
+      question: string;
+      answerHeader: string | null;
+      answers: FaqAnswer[];
+      lines: string[];
+    }
   // Framing: GLOSSARY_PREFIX term GLOSSARY_SEP definition.
   | { kind: "glossary"; glossaryId: string; term: string; definition: string; lines: string[] }
+  // An interrupt's entry condition: TRIGGER_PREFIX + editable expression.
+  | { kind: "trigger"; flowId: string; expression: string; lines: string[] }
   // A flow's whole instructions prose, mapped to one field (opaque free text).
   | { kind: "instructions"; flowId: string; text: string; lines: string[] }
-  // One script line in the rendered language: SCRIPT_PRE text SCRIPT_POST,
-  // followed by read-only variationLines. `text` is the raw field value (the
-  // display escapes quotes; the editor edits the raw text). `hasOtherLanguages`
-  // drives the session-transient "translations may be stale" badge.
+  // One script line: pre "text" — in the multilingual view, one part per
+  // language with content (pre carries the language label). `text` is the raw
+  // field value (the display escapes quotes; the editor edits the raw text).
+  // `hasOtherLanguages` drives the pinned-language "translations may be
+  // stale" badge (always false in the multilingual view, where every
+  // translation is visible). variationLines are read-only display.
   | {
       kind: "script";
       flowId: string;
       scriptId: string;
+      lang: string;
+      pre: string;
+      post: string;
       text: string;
       hasOtherLanguages: boolean;
       variationLines: string[];
@@ -153,12 +206,32 @@ export function bodyForDisplay(kind: PromptSource["kind"], text: string): string
   }
 }
 
-// Single-language render context for the inline-editing view. `language`
-// undefined falls back to the default language, matching compileSystemPrompt's
-// pinned-language path.
+// Render context for the inline-editing view, mirroring the panel's compile
+// call: a pinned `language` resolves to that language; undefined is the
+// "auto" view, which is multilingual when more than one language is declared
+// (the same guard compileSystemPrompt applies to ALL_LANGUAGES).
 export function displayCtx(spec: Spec, language?: string): RenderCtx {
-  const defaultLang = defaultLanguage(spec.agent.meta.languages);
-  return { lang: language ?? defaultLang, defaultLang };
+  const declared = spec.agent.meta.languages ?? [];
+  const defaultLang = defaultLanguage(declared);
+  const langs = !language && declared.length > 1 ? declared : undefined;
+  return { lang: language ?? defaultLang, defaultLang, langs };
+}
+
+export function roleBlockParts(spec: Spec): BlockPart[] {
+  const { identity, purpose, tone } = spec.agent.meta;
+  const text =
+    `${ROLE_PRE}${identity}.` +
+    (purpose ? ` ${purpose}` : "") +
+    (tone ? ` ${ROLE_TONE_PREFIX}${tone}` : "");
+  return [
+    {
+      kind: "role",
+      identity,
+      purpose: purpose ?? "",
+      tone: tone || null,
+      lines: text.split("\n"),
+    },
+  ];
 }
 
 export function guardrailsBlockParts(spec: Spec): BlockPart[] {
@@ -171,21 +244,53 @@ export function guardrailsBlockParts(spec: Spec): BlockPart[] {
   }));
 }
 
+// Build a FAQ part for one entry at a given display indent ("" for agent
+// knowledge, FLOW_FAQ_INDENT for a flow's), in either render mode.
+function faqPart(e: FaqEntry, indent: string, ctx: RenderCtx, flowId?: string): BlockPart {
+  const qPre = `${indent}${FAQ_Q_PREFIX}`;
+  if (ctx.langs) {
+    const answers: FaqAnswer[] = locPerLang(e.answer, ctx).map(([lang, text]) => ({
+      lang,
+      pre: `${indent}${FAQ_LANG_INDENT}${lang}: `,
+      text,
+    }));
+    const text =
+      `${qPre}${e.question}\n${indent}${FAQ_A_LABEL}\n` +
+      answers.map((a) => `${a.pre}${a.text}`).join("\n");
+    return {
+      kind: "faq",
+      faqId: e.id,
+      flowId,
+      qPre,
+      question: e.question,
+      answerHeader: `${indent}${FAQ_A_LABEL}`,
+      answers,
+      lines: text.split("\n"),
+    };
+  }
+  const answer: FaqAnswer = {
+    lang: ctx.lang,
+    pre: `${indent}${FAQ_A_PREFIX}`,
+    text: resolveLocalized(e.answer, ctx.lang, ctx.defaultLang),
+  };
+  return {
+    kind: "faq",
+    faqId: e.id,
+    flowId,
+    qPre,
+    question: e.question,
+    answerHeader: null,
+    answers: [answer],
+    lines: `${qPre}${e.question}\n${answer.pre}${answer.text}`.split("\n"),
+  };
+}
+
 export function knowledgeBlockParts(spec: Spec, ctx: RenderCtx): BlockPart[] {
   const k = spec.agent.knowledge;
   const parts: BlockPart[] = [];
   if (k?.faq?.length) {
     parts.push({ kind: "plain", lines: ["FAQ:"] });
-    for (const e of k.faq) {
-      const answer = resolveLocalized(e.answer, ctx.lang, ctx.defaultLang);
-      parts.push({
-        kind: "faq",
-        faqId: e.id,
-        question: e.question,
-        answer,
-        lines: `${FAQ_Q_PREFIX}${e.question}\n${FAQ_A_PREFIX}${answer}`.split("\n"),
-      });
-    }
+    for (const e of k.faq) parts.push(faqPart(e, "", ctx));
   }
   if (k?.glossary?.length) {
     // renderKnowledge joins its FAQ and GLOSSARY blocks with a blank line.
@@ -214,16 +319,71 @@ function routingFlowNames(spec: Spec, isInterrupt: boolean): Map<string, string>
   return new Map(flows.map((f) => [f.id, f.name || f.id]));
 }
 
+// Script parts for one flow. Pinned language: one part per script, framed
+// SCRIPT_PRE…QUOTE, variations via the singleton renderer (it owns the
+// variation fallback rules). Multilingual: one part per (script, language
+// with content), framed by the renderer's per-language label, variations
+// per that language.
+function scriptParts(flow: Flow, ctx: RenderCtx): BlockPart[] {
+  const parts: BlockPart[] = [];
+  for (const s of flow.scripts ?? []) {
+    if (ctx.langs) {
+      locPerLang(s.text, ctx).forEach(([lang, text], i) => {
+        const pre = `${i === 0 ? "  - " : "    "}${lang}: ${QUOTE}`;
+        const variationLines = (s.variations?.[lang] ?? [])
+          .filter(Boolean)
+          .map((v) => `      | ${QUOTE}${escapeQuotes(v)}${QUOTE}`);
+        parts.push({
+          kind: "script",
+          flowId: flow.id,
+          scriptId: s.id,
+          lang,
+          pre,
+          post: QUOTE,
+          text,
+          hasOtherLanguages: false,
+          variationLines,
+          lines: [
+            ...`${pre}${escapeQuotes(text)}${QUOTE}`.split("\n"),
+            ...variationLines,
+          ],
+        });
+      });
+      continue;
+    }
+    const single = renderFlowScripts({ ...flow, scripts: [s] }, ctx);
+    if (!single) continue; // no text in this language — skipped by the full render too
+    const text = resolveLocalized(s.text, ctx.lang, ctx.defaultLang);
+    const textLines = `${SCRIPT_PRE}${escapeQuotes(text)}${QUOTE}`.split("\n");
+    const present = languagesPresent(s.text, ctx.defaultLang);
+    const variationLines = dedentLines(single).slice(1 + textLines.length);
+    parts.push({
+      kind: "script",
+      flowId: flow.id,
+      scriptId: s.id,
+      lang: ctx.lang,
+      pre: SCRIPT_PRE,
+      post: QUOTE,
+      text,
+      hasOtherLanguages: present.some((l) => l !== ctx.lang),
+      variationLines,
+      lines: [...textLines, ...variationLines],
+    });
+  }
+  return parts;
+}
+
 export function flowBlockParts(spec: Spec, flow: Flow, ctx: RenderCtx): BlockPart[] {
   const parts: BlockPart[] = [];
   const isInterrupt = flow.type === "interrupt";
 
-  // Interrupt trigger (renderConditionPlain: the bare expression). Entry
-  // conditions are inspector-edited; read-only inline.
   if (isInterrupt && flow.entry_condition) {
+    const expression = flow.entry_condition.expression;
     parts.push({
-      kind: "plain",
-      lines: [`Trigger: ${flow.entry_condition.expression}`],
+      kind: "trigger",
+      flowId: flow.id,
+      expression,
+      lines: `${TRIGGER_PREFIX}${expression}`.split("\n"),
     });
   }
 
@@ -241,35 +401,31 @@ export function flowBlockParts(spec: Spec, flow: Flow, ctx: RenderCtx): BlockPar
 
   if (renderFlowScripts(flow, ctx)) {
     parts.push({ kind: "plain", lines: ["Scripts:"] });
-    for (const s of flow.scripts ?? []) {
-      // The text line is built from the quote framing; the variation lines
-      // come from the singleton renderer (they are read-only display).
-      const single = renderFlowScripts({ ...flow, scripts: [s] }, ctx);
-      if (!single) continue; // no text in this language — skipped by the full render too
-      const text = resolveLocalized(s.text, ctx.lang, ctx.defaultLang);
-      const textLines = `${SCRIPT_PRE}${escapeQuotes(text)}${SCRIPT_POST}`.split("\n");
-      const present = languagesPresent(s.text, ctx.defaultLang);
-      const variationLines = dedentLines(single).slice(1 + textLines.length);
+    parts.push(...scriptParts(flow, ctx));
+  }
+
+  // interruptsGroup does not render flow guardrails; flowsGroup does.
+  const flowGuardrails = flow.guardrails ?? [];
+  if (!isInterrupt && flowGuardrails.length) {
+    parts.push({ kind: "plain", lines: [FLOW_GUARDRAILS_HEADER] });
+    for (const g of flowGuardrails) {
       parts.push({
-        kind: "script",
+        kind: "flowGuardrail",
         flowId: flow.id,
-        scriptId: s.id,
-        text,
-        hasOtherLanguages: present.some((l) => l !== ctx.lang),
-        variationLines,
-        lines: [...textLines, ...variationLines],
+        guardrailId: g.id,
+        pre: FLOW_GUARDRAIL_PRE,
+        statement: g.statement,
+        lines: `${FLOW_GUARDRAIL_PRE}${g.statement}`.split("\n"),
       });
     }
   }
 
-  if (!isInterrupt) {
-    // interruptsGroup does not render flow guardrails; flowsGroup does.
-    const fg = renderFlowGuardrails(flow);
-    if (fg) parts.push({ kind: "plain", lines: dedentLines(fg) });
+  if (renderFlowKnowledge(flow, ctx)) {
+    parts.push({ kind: "plain", lines: [FLOW_FAQ_HEADER] });
+    for (const e of flow.knowledge?.faq ?? []) {
+      parts.push(faqPart(e, FLOW_FAQ_INDENT, ctx, flow.id));
+    }
   }
-
-  const fk = renderFlowKnowledge(flow, ctx);
-  if (fk) parts.push({ kind: "plain", lines: dedentLines(fk) });
 
   const exits = flow.exit_paths ?? [];
   if (exits.length) {
@@ -327,8 +483,9 @@ export function flowBlockParts(spec: Spec, flow: Flow, ctx: RenderCtx): BlockPar
 }
 
 // Segment kinds with an inline model. blockParts returns null for the rest
-// (role, runtimeContext, multilingual, templateWrapper — shown verbatim).
+// (runtimeContext, multilingual, templateWrapper — shown verbatim).
 export const INLINE_EDITABLE_KINDS: ReadonlySet<PromptSource["kind"]> = new Set([
+  "role",
   "guardrails",
   "knowledge",
   "flow",
@@ -337,6 +494,8 @@ export const INLINE_EDITABLE_KINDS: ReadonlySet<PromptSource["kind"]> = new Set(
 
 export function blockParts(spec: Spec, source: PromptSource, ctx: RenderCtx): BlockPart[] | null {
   switch (source.kind) {
+    case "role":
+      return roleBlockParts(spec);
     case "guardrails":
       return guardrailsBlockParts(spec);
     case "knowledge":

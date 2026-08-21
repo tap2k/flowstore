@@ -1,25 +1,27 @@
 import { Fragment, useMemo, useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
 import {
-  FAQ_A_PREFIX,
-  FAQ_Q_PREFIX,
   GLOSSARY_PREFIX,
   GLOSSARY_SEP,
-  SCRIPT_POST,
-  SCRIPT_PRE,
   blockParts,
   displayCtx,
   type BlockPart,
+  type FaqAnswer,
 } from "@flowstore/core/codegen/promptDoc";
 import {
   END_TARGET_TEXT,
   RETURN_TARGET_TEXT,
+  ROLE_PRE,
+  ROLE_TONE_PREFIX,
+  TRIGGER_PREFIX,
   type PromptSource,
 } from "@flowstore/core/codegen/promptGenerator";
 import {
   setLanguage,
   GOTO_END,
   GOTO_RETURN,
+  type Agent,
+  type FaqEntry,
   type Flow,
   type Spec,
 } from "@flowstore/core/schema/v0";
@@ -32,17 +34,19 @@ import { DropdownMenu, type MenuItemSpec } from "@/components/ui";
 // Renders a segment's displayed body from its BlockPart model (promptDoc)
 // instead of the raw text, swapping each entity-backed span for a
 // click-to-edit control. Display framing (prefixes, quote characters, routing
-// pre/mid/post) comes from the parts and core constants — this file states no
-// prompt literals of its own, so the editable view cannot drift from the
-// compiled prompt (promptDoc's round-trip tests pin the framing).
+// pre/mid/post, per-language labels) comes from the parts and core constants —
+// this file states no prompt literals of its own, so the editable view cannot
+// drift from the compiled prompt (promptDoc's round-trip tests pin the
+// framing).
 //
 // Every commit writes ONE spec content field through the store; the whole
 // prompt then re-renders from the spec, so part↔entity associations only ever
 // have to survive a single edit. Deletes are toast-undoable (single-slot
 // snapshot in the spec store) — no dialogs.
 //
-// The panel gates this to: View mode, no Edit-raw override, pinned-language
-// render. promptDoc's builders assume exactly that state.
+// The panel gates this to View mode with no Edit-raw override. Both render
+// modes are editable: a pinned language, and the multilingual "auto" view
+// (per-language script/FAQ lines each edit their own translation).
 // ─────────────────────────────────────────────────────────────────────────
 
 interface EditableBlockBodyProps {
@@ -50,18 +54,20 @@ interface EditableBlockBodyProps {
   source: PromptSource;
   language?: string;
   // Session-transient staleness marks for script lines edited in one language
-  // while translations exist ("flowId:scriptId"). Deliberately NOT a schema
-  // field — UI state only.
+  // while unseen translations exist ("flowId:scriptId"). Deliberately NOT a
+  // schema field — UI state only.
   staleScripts: ReadonlySet<string>;
   markStale: (key: string) => void;
   onDeleted: (label: string) => void;
   inkClass: string;
 }
 
-// The draft textarea shared by InlineText and GhostAdd: autofocus with caret
-// at the end, auto-sized to the draft's lines, trimmed commit on blur / Enter
-// (⌘Enter when multiline), Escape cancels. An empty commit is a cancel, never
-// a write of "" — deletion is an explicit control, not an accidental clear.
+// The draft editor shared by InlineText and GhostAdd. A grid-stacked
+// invisible replica sizes the textarea to its soft-wrapped content, so the
+// editor always shows the whole draft (no clipped single row) and grows as
+// you type. Caret starts at the end; trimmed commit on blur / Enter (⌘Enter
+// when multiline); Escape cancels. An empty commit is a cancel, never a write
+// of "" — deletion is an explicit control, not an accidental clear.
 function CommitTextarea({
   initial,
   onCommit,
@@ -83,30 +89,39 @@ function CommitTextarea({
     const text = draft.trim();
     if (text && text !== initial) onCommit(text);
   };
+  // Replica and textarea must share metrics (font, padding, border, wrapping)
+  // for the auto-size to be exact. The zero-width space keeps a trailing
+  // newline from collapsing.
+  const metrics =
+    "whitespace-pre-wrap break-words rounded border p-1 font-mono text-[10px] leading-snug";
   return (
-    <textarea
-      autoFocus
-      value={draft}
-      rows={Math.max(1, draft.split("\n").length)}
-      placeholder={placeholder}
-      onChange={(e) => setDraft(e.target.value)}
-      onFocus={(e) => {
-        const n = e.currentTarget.value.length;
-        e.currentTarget.setSelectionRange(n, n);
-      }}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          onDone();
-        } else if (e.key === "Enter" && (!multiline || e.metaKey || e.ctrlKey)) {
-          e.preventDefault();
-          commit();
-        }
-      }}
-      spellCheck={false}
-      className={`block w-full resize-none rounded border border-border-default bg-surface-panel p-1 font-mono text-[10px] leading-snug text-text-primary focus:outline-none focus:ring-1 focus:ring-focus-ring ${className}`}
-    />
+    <span className={`grid w-full py-0.5 ${className}`}>
+      <span aria-hidden className={`${metrics} invisible col-start-1 row-start-1 border-transparent`}>
+        {(draft || placeholder || "") + "​"}
+      </span>
+      <textarea
+        autoFocus
+        value={draft}
+        placeholder={placeholder}
+        onChange={(e) => setDraft(e.target.value)}
+        onFocus={(e) => {
+          const n = e.currentTarget.value.length;
+          e.currentTarget.setSelectionRange(n, n);
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            onDone();
+          } else if (e.key === "Enter" && (!multiline || e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            commit();
+          }
+        }}
+        spellCheck={false}
+        className={`${metrics} col-start-1 row-start-1 h-full w-full resize-none overflow-hidden border-border-default bg-surface-sunken text-text-primary placeholder:italic placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-focus-ring`}
+      />
+    </span>
   );
 }
 
@@ -285,36 +300,90 @@ export function EditableBlockBody({
       ? spec.flows.find((f) => f.id === source.flowId)
       : undefined;
 
-  const setFaq = (next: NonNullable<typeof knowledge>["faq"]) =>
-    updateAgent({ knowledge: { ...knowledge, faq: next } });
+  const setFaq = (next: FaqEntry[]) => updateAgent({ knowledge: { ...knowledge, faq: next } });
   const setGlossary = (next: NonNullable<typeof knowledge>["glossary"]) =>
     updateAgent({ knowledge: { ...knowledge, glossary: next } });
+  const setFlowFaq = (flowId: string, next: FaqEntry[]) =>
+    updateFlow(flowId, { knowledge: { ...flow?.knowledge, faq: next } });
+
+  // Route a FAQ mutation to the agent's or the owning flow's entry list.
+  const patchFaqEntry = (
+    p: Extract<BlockPart, { kind: "faq" }>,
+    patch: (e: FaqEntry) => FaqEntry,
+  ) => {
+    const list = (p.flowId ? flow?.knowledge?.faq : knowledge?.faq) ?? [];
+    const next = list.map((e) => (e.id === p.faqId ? patch(e) : e));
+    if (p.flowId) setFlowFaq(p.flowId, next);
+    else setFaq(next);
+  };
+  const deleteFaqEntry = (p: Extract<BlockPart, { kind: "faq" }>) => {
+    const list = (p.flowId ? flow?.knowledge?.faq : knowledge?.faq) ?? [];
+    const next = list.filter((e) => e.id !== p.faqId);
+    if (p.flowId) setFlowFaq(p.flowId, next);
+    else setFaq(next);
+    onDeleted("FAQ entry deleted");
+  };
 
   const commitScript = (p: Extract<BlockPart, { kind: "script" }>, text: string) => {
     if (!flow) return;
     updateFlow(p.flowId, {
       scripts: (flow.scripts ?? []).map((s) =>
         s.id === p.scriptId
-          ? { ...s, text: setLanguage(s.text, ctx.lang, text, ctx.defaultLang) ?? "" }
+          ? { ...s, text: setLanguage(s.text, p.lang, text, ctx.defaultLang) ?? "" }
           : s,
       ),
     });
     if (p.hasOtherLanguages) markStale(`${p.flowId}:${p.scriptId}`);
   };
 
-  // Add-row anchors, only relevant to the knowledge block.
-  const lastFaq = source.kind === "knowledge" ? parts.findLastIndex((p) => p.kind === "faq") : -1;
-  const lastGlossary =
-    source.kind === "knowledge" ? parts.findLastIndex((p) => p.kind === "glossary") : -1;
+  // Ghost-add anchors: the last part of each addable group.
+  const lastOf = (pred: (p: BlockPart) => boolean) => parts.findLastIndex(pred);
+  const lastFaq = source.kind === "knowledge" ? lastOf((p) => p.kind === "faq") : -1;
+  const lastGlossary = source.kind === "knowledge" ? lastOf((p) => p.kind === "glossary") : -1;
+  const lastFlowFaq = flow ? lastOf((p) => p.kind === "faq") : -1;
+  const lastFlowGuardrail = flow ? lastOf((p) => p.kind === "flowGuardrail") : -1;
 
   const renderPart = (p: BlockPart) => {
     switch (p.kind) {
       case "plain": {
         const text = p.lines.join("\n");
         // An empty plain part is a block separator (e.g. FAQ vs GLOSSARY); the
-        // non-breaking space keeps the line height in the pre-wrap layout.
-        return text ? <div>{text}</div> : <div>{" "}</div>;
+        // space keeps the line's height in the pre-wrap layout.
+        return text ? <div>{text}</div> : <div> </div>;
       }
+
+      case "role":
+        return (
+          <div>
+            {ROLE_PRE}
+            <InlineText
+              title="The name the agent inhabits (meta.identity)"
+              value={p.identity}
+              onCommit={(identity) => updateAgent({ meta: { identity } } as Partial<Agent>)}
+            />
+            {"."}
+            {p.purpose !== "" && (
+              <>
+                {" "}
+                <InlineText
+                  title="What the agent is for (meta.purpose)"
+                  value={p.purpose}
+                  onCommit={(purpose) => updateAgent({ meta: { purpose } } as Partial<Agent>)}
+                />
+              </>
+            )}
+            {p.tone !== null && (
+              <>
+                {" " + ROLE_TONE_PREFIX}
+                <InlineText
+                  title="How the agent sounds (meta.tone)"
+                  value={p.tone}
+                  onCommit={(tone) => updateAgent({ meta: { tone } } as Partial<Agent>)}
+                />
+              </>
+            )}
+          </div>
+        );
 
       case "guardrail":
         return (
@@ -340,40 +409,56 @@ export function EditableBlockBody({
           </div>
         );
 
-      case "faq":
+      case "flowGuardrail":
         return (
           <div className="group/row relative pr-4">
-            {FAQ_Q_PREFIX}
+            {p.pre}
             <InlineText
-              value={p.question}
-              onCommit={(q) =>
-                setFaq(
-                  (knowledge?.faq ?? []).map((e) =>
-                    e.id === p.faqId ? { ...e, question: q } : e,
+              value={p.statement}
+              onCommit={(text) =>
+                updateFlow(p.flowId, {
+                  guardrails: (flow?.guardrails ?? []).map((g) =>
+                    g.id === p.guardrailId ? { ...g, statement: text } : g,
                   ),
-                )
-              }
-            />
-            {"\n" + FAQ_A_PREFIX}
-            <InlineText
-              value={p.answer}
-              onCommit={(a) =>
-                setFaq(
-                  (knowledge?.faq ?? []).map((e) =>
-                    e.id === p.faqId
-                      ? { ...e, answer: setLanguage(e.answer, ctx.lang, a, ctx.defaultLang) ?? "" }
-                      : e,
-                  ),
-                )
+                })
               }
             />
             <DeleteX
-              label="FAQ entry"
+              label="flow guardrail"
               onClick={() => {
-                setFaq((knowledge?.faq ?? []).filter((e) => e.id !== p.faqId));
-                onDeleted("FAQ entry deleted");
+                updateFlow(p.flowId, {
+                  guardrails: (flow?.guardrails ?? []).filter((g) => g.id !== p.guardrailId),
+                });
+                onDeleted("Flow guardrail deleted");
               }}
             />
+          </div>
+        );
+
+      case "faq":
+        return (
+          <div className="group/row relative pr-4">
+            {p.qPre}
+            <InlineText
+              value={p.question}
+              onCommit={(q) => patchFaqEntry(p, (e) => ({ ...e, question: q }))}
+            />
+            {p.answerHeader !== null && "\n" + p.answerHeader}
+            {p.answers.map((a: FaqAnswer) => (
+              <Fragment key={a.lang}>
+                {"\n" + a.pre}
+                <InlineText
+                  value={a.text}
+                  onCommit={(text) =>
+                    patchFaqEntry(p, (e) => ({
+                      ...e,
+                      answer: setLanguage(e.answer, a.lang, text, ctx.defaultLang) ?? "",
+                    }))
+                  }
+                />
+              </Fragment>
+            ))}
+            <DeleteX label="FAQ entry" onClick={() => deleteFaqEntry(p)} />
           </div>
         );
 
@@ -412,6 +497,22 @@ export function EditableBlockBody({
           </div>
         );
 
+      case "trigger":
+        return (
+          <div>
+            {TRIGGER_PREFIX}
+            <InlineText
+              value={p.expression}
+              title="Click to edit the interrupt trigger (free text)"
+              onCommit={(expression) =>
+                updateFlow(p.flowId, {
+                  entry_condition: { ...flow!.entry_condition!, expression },
+                })
+              }
+            />
+          </div>
+        );
+
       case "instructions":
         return (
           <div>
@@ -427,15 +528,15 @@ export function EditableBlockBody({
       case "script": {
         // The display shows quote-escaped text; the editable value is the raw
         // field. Variations are read-only display beneath the text line.
-        const stale = staleScripts.has(`${p.flowId}:${p.scriptId}`);
+        const stale = p.hasOtherLanguages && staleScripts.has(`${p.flowId}:${p.scriptId}`);
         return (
           <div>
-            {SCRIPT_PRE}
+            {p.pre}
             <InlineText value={p.text} onCommit={(text) => commitScript(p, text)} />
-            {SCRIPT_POST}
+            {p.post}
             {stale && (
               <span
-                title={`Edited in ${ctx.lang} only — translations in other languages may be stale.`}
+                title={`Edited in ${p.lang} only — translations in other languages may be stale.`}
                 className="ml-1 rounded bg-state-warning-bg px-1 text-[9px] font-sans text-state-warning-fg"
               >
                 translations stale?
@@ -520,6 +621,27 @@ export function EditableBlockBody({
                   ...(knowledge?.glossary ?? []),
                   { id: genId("gloss"), term, definition: "" },
                 ])
+              }
+            />
+          )}
+          {flow && i === lastFlowFaq && (
+            <GhostAdd
+              label="Q&A (question first)"
+              onAdd={(q) =>
+                setFlowFaq(flow.id, [
+                  ...(flow.knowledge?.faq ?? []),
+                  { id: genId("faq"), question: q, answer: "" },
+                ])
+              }
+            />
+          )}
+          {flow && i === lastFlowGuardrail && (
+            <GhostAdd
+              label="flow guardrail"
+              onAdd={(statement) =>
+                updateFlow(flow.id, {
+                  guardrails: [...(flow.guardrails ?? []), { id: genId("g"), statement }],
+                })
               }
             />
           )}

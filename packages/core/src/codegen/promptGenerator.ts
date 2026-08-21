@@ -246,8 +246,8 @@ function loc(value: string | Record<string, string> | undefined, ctx: RenderCtx)
 // value, in declared-language order. Languages with no reviewed content are
 // skipped (no fallback) so the model sees only real translations — except a
 // plain string, which counts as default-language content. Only called when
-// ctx.langs is set.
-function locPerLang(
+// ctx.langs is set. Exported for promptDoc's per-language editable parts.
+export function locPerLang(
   value: string | Record<string, string> | undefined,
   ctx: RenderCtx,
 ): Array<[lang: string, text: string]> {
@@ -300,12 +300,17 @@ function renderRuntimeContext(spec: Spec, vars?: Record<string, unknown>): strin
   return ["RUNTIME CONTEXT (current values of agent variables — use these to evaluate any conditional instructions and any date arithmetic):", ...lines].join("\n");
 }
 
+// Role-line framing, exported for the inline editor (promptDoc builds the
+// editable role parts from these).
+export const ROLE_PRE = "You are ";
+export const ROLE_TONE_PREFIX = "Tone: ";
+
 function renderRole(spec: Spec): string {
   const { meta } = spec.agent;
   const lines: string[] = [];
-  lines.push(`You are ${meta.identity}.`);
+  lines.push(`${ROLE_PRE}${meta.identity}.`);
   if (meta.purpose) lines.push(meta.purpose);
-  if (meta.tone) lines.push(`Tone: ${meta.tone}`);
+  if (meta.tone) lines.push(`${ROLE_TONE_PREFIX}${meta.tone}`);
   return lines.join(" ");
 }
 
@@ -459,6 +464,7 @@ function renderConditionClause(c: Condition): string {
 }
 
 // Interrupt triggers are author-natural-language regardless of method label.
+export const TRIGGER_PREFIX = "Trigger: ";
 function renderConditionPlain(c: Condition): string {
   return c.expression;
 }
@@ -541,7 +547,7 @@ function interruptsGroup(
     const lines = [`${i + 1}. ${flow.name || flow.id}`];
     const trigger = flow.entry_condition;
     if (trigger) {
-      lines.push(`   Trigger: ${renderConditionPlain(trigger)}`);
+      lines.push(`   ${TRIGGER_PREFIX}${renderConditionPlain(trigger)}`);
     }
     const instructions = flow.instructions ?? "";
     if (instructions.trim()) {
@@ -588,16 +594,18 @@ function renderKnowledge(spec: Spec, ctx: RenderCtx): string {
 // FAQ line framing, exported for the inline editor (promptDoc builds editable
 // FAQ lines from these, so the editable view can't drift from this renderer).
 export const FAQ_Q_PREFIX = "- Q: ";
-export const FAQ_A_PREFIX = "  A: ";
+export const FAQ_A_LABEL = "  A:";
+export const FAQ_A_PREFIX = `${FAQ_A_LABEL} `;
+export const FAQ_LANG_INDENT = "    "; // per-language answer lines sit under the A: label
 
 export function formatFaqEntry(entry: FaqEntry, indent: string, ctx: RenderCtx): string {
   if (ctx.langs) {
     // Multilingual: question stays single (it isn't localized); answer emits
     // one labeled line per language with a reviewed translation.
     const answers = locPerLang(entry.answer, ctx)
-      .map(([lang, text]) => `${indent}    ${lang}: ${text}`)
+      .map(([lang, text]) => `${indent}${FAQ_LANG_INDENT}${lang}: ${text}`)
       .join("\n");
-    return `${indent}${FAQ_Q_PREFIX}${entry.question}\n${indent}  A:\n${answers}`;
+    return `${indent}${FAQ_Q_PREFIX}${entry.question}\n${indent}${FAQ_A_LABEL}\n${answers}`;
   }
   return `${indent}${FAQ_Q_PREFIX}${entry.question}\n${indent}${FAQ_A_PREFIX}${loc(entry.answer, ctx)}`;
 }

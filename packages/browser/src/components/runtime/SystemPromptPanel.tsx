@@ -113,12 +113,11 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
   const editorValue = promptOverride ?? compiledText;
   const edited = promptOverride !== null && promptOverride !== compiledText;
 
-  // Inline editing needs a spec-faithful, single-language render: no
-  // whole-document override, and a pinned language (the multilingual "auto"
-  // view interleaves translations, which the per-line mapping doesn't model).
-  // Only consulted inside the View-mode branch.
-  const multilingualView = availableLanguages.length > 1 && !language;
-  const inlineEnabled = !edited && !multilingualView;
+  // Inline editing needs a spec-faithful render: any language mode works (the
+  // multilingual "auto" view edits each translation on its own labeled line),
+  // but not while an Edit-raw override detaches the text from the spec. Only
+  // consulted inside the View-mode branch.
+  const inlineEnabled = !edited;
   const specChangedSinceEdit =
     promptOverride !== null && promptOverrideSpecRef !== null && promptOverrideSpecRef !== spec;
   const charsDiff = Math.abs(editorValue.length - compiledText.length);
@@ -289,11 +288,6 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
 
       {mode === "view" ? (
         <div className="flex-1 space-y-2 overflow-auto p-3">
-          {multilingualView && !edited && (
-            <div className="px-1 text-[10px] text-text-tertiary">
-              Inline editing is off in the multilingual view — pin a language to edit.
-            </div>
-          )}
           {compiled.segments.map((seg, i) => {
             const text = compiledText.slice(seg.start, seg.end);
             const src = seg.source;
