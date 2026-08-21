@@ -115,3 +115,36 @@ describe("useSpecStore — rename tracking for the prose-reference linter", () =
     expect(s().lastRename).toBeNull();
   });
 });
+
+describe("useSpecStore — multilingual policy guardrail seeding", () => {
+  beforeEach(() => {
+    useSpecStore.getState().setSpec(baseSpec());
+  });
+
+  const goMulti = () =>
+    useSpecStore.getState().updateAgent({ meta: { languages: ["EN", "ES"] } } as Partial<Agent>);
+  const guardrailIds = () =>
+    (useSpecStore.getState().spec?.agent.guardrails ?? []).map((g) => g.id);
+
+  it("going 1→many languages seeds gr_multilingual_policy", () => {
+    goMulti();
+    expect(guardrailIds()).toContain("gr_multilingual_policy");
+  });
+
+  it("seeds once — already-multilingual edits don't duplicate it", () => {
+    goMulti();
+    useSpecStore
+      .getState()
+      .updateAgent({ meta: { languages: ["EN", "ES", "fr"] } } as Partial<Agent>);
+    expect(guardrailIds().filter((id) => id === "gr_multilingual_policy")).toHaveLength(1);
+  });
+
+  it("deleting it while multilingual is respected", () => {
+    goMulti();
+    useSpecStore.getState().updateAgent({ guardrails: undefined });
+    useSpecStore
+      .getState()
+      .updateAgent({ meta: { languages: ["EN", "ES", "fr"] } } as Partial<Agent>);
+    expect(guardrailIds()).not.toContain("gr_multilingual_policy");
+  });
+});

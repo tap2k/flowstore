@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import type { Agent, ExitPath, Flow, Spec } from "@flowstore/core/schema/v0";
 import { GOTO_END } from "@flowstore/core/schema/v0";
 import { genId } from "@flowstore/core/ids";
+import { MULTILINGUAL_POLICY_GUARDRAIL } from "@flowstore/core/codegen/promptGenerator";
 import { validateSpec } from "@flowstore/core/validation/ajv";
 import { debouncedLocalStorage, isPlainObject } from "./scopedStorage";
 
@@ -176,8 +177,25 @@ export const useSpecStore = create<SpecState>()(
               renamed = chainRename(state.lastRename, removed[0], added[0]);
             }
           }
+          const prev = state.spec.agent;
+          const agent = mergePatch(prev, patch);
+          // Going multilingual (1→many languages) seeds the default language-
+          // policy guardrail, so policy is author-owned spec data rather than
+          // compiler boilerplate. Here, not per-editor, so every languages
+          // mutation path (AgentSheet, ScriptsSheet column add, chat tool) gets
+          // it. Only on the transition: deleting or rewording the guardrail
+          // while multilingual is respected.
+          const wasMulti = (prev.meta.languages ?? []).length > 1;
+          const isMulti = (agent.meta.languages ?? []).length > 1;
+          if (
+            !wasMulti &&
+            isMulti &&
+            !(agent.guardrails ?? []).some((g) => g.id === MULTILINGUAL_POLICY_GUARDRAIL.id)
+          ) {
+            agent.guardrails = [...(agent.guardrails ?? []), { ...MULTILINGUAL_POLICY_GUARDRAIL }];
+          }
           return edit(state, {
-            spec: { ...state.spec, agent: mergePatch(state.spec.agent, patch) },
+            spec: { ...state.spec, agent },
             lastRename: renamed,
           });
         }),
