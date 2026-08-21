@@ -112,20 +112,13 @@ export function findDanglingReferences(spec: Spec, oldName: string): ProseRefere
   return findProseReferences(spec, oldName);
 }
 
-// One-click fix: replace `from` with `to` inside the single field `ref` points
-// at. Pure — returns a new Spec; the caller commits it to the store.
-export function applyProseReferenceFix(
-  spec: Spec,
-  ref: ProseFieldRef,
-  from: string,
-  to: string,
-): Spec {
-  const re = matcher(from);
+// Replace `from` with `to` inside the single field `ref` points at, mutating
+// `next` (a clone owned by the caller).
+function applyFixInPlace(next: Spec, ref: ProseFieldRef, re: RegExp, to: string): void {
   const fix = (t: string) => t.replace(re, to);
   const fixLocalized = (v: LocalizedString): LocalizedString =>
     typeof v === "string" ? fix(v) : Object.fromEntries(Object.entries(v).map(([l, t]) => [l, fix(t)]));
 
-  const next: Spec = structuredClone(spec);
   switch (ref.field) {
     case "faq-answer": {
       const faq =
@@ -166,7 +159,17 @@ export function applyProseReferenceFix(
       break;
     }
   }
-  return next;
+}
+
+// One-click fix: replace `from` with `to` inside the single field `ref` points
+// at. Pure — returns a new Spec; the caller commits it to the store.
+export function applyProseReferenceFix(
+  spec: Spec,
+  ref: ProseFieldRef,
+  from: string,
+  to: string,
+): Spec {
+  return applyAllProseReferenceFixes(spec, [{ ref, count: 0 }], from, to);
 }
 
 export function applyAllProseReferenceFixes(
@@ -175,5 +178,8 @@ export function applyAllProseReferenceFixes(
   from: string,
   to: string,
 ): Spec {
-  return refs.reduce((s, r) => applyProseReferenceFix(s, r.ref, from, to), spec);
+  const next: Spec = structuredClone(spec);
+  const re = matcher(from);
+  for (const r of refs) applyFixInPlace(next, r.ref, re, to);
+  return next;
 }

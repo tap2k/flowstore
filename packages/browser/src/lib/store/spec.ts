@@ -62,6 +62,8 @@ interface SpecState {
   updateFlow: (id: string, patch: Partial<Flow>) => void;
   updateAgent: (patch: Partial<Agent>) => void;
   updateExitPath: (flowId: string, exitPathId: string, patch: Partial<ExitPath>) => void;
+  // `seed` is a human-readable name: it seeds the generated id's slug AND
+  // becomes the flow's name (omitted → "New flow").
   addFlow: (select?: boolean, seed?: string) => string;
   removeFlow: (id: string) => void;
   addExitPath: (
@@ -72,10 +74,10 @@ interface SpecState {
   removeExitPath: (flowId: string, exitPathId: string) => void;
 }
 
-function blankFlow(id: string): Flow {
+function blankFlow(id: string, name?: string): Flow {
   return {
     id,
-    name: "New flow",
+    name: name ?? "New flow",
     type: "happy",
     exit_paths: [],
   };
@@ -90,12 +92,6 @@ function blankAgent(entryFlowId: string): Agent {
   };
 }
 
-// Persisted under "flowstore:spec" so an in-progress spec survives a reload
-// (crash safety) and, crucially, an HMR module re-eval — persist rehydrates at
-// store-creation time, where the old App-mount load effect could not. Only the
-// spec itself is persisted; selection / focusRequest are ephemeral UI. The
-// persisted spec is re-validated on rehydrate (merge), so a stale blob from an
-// older schema can't poison the store — it falls back to null.
 // Chain successive keystrokes of one rename: if the previous rename's `to` is
 // what we're now renaming away from, the user is still typing — keep the
 // original `from`. A rename that lands back on the original clears the record.
@@ -109,6 +105,20 @@ function chainRename(
   return { from: origin, to };
 }
 
+// Every spec mutation returns through this helper so "mutations record the
+// one-slot undo snapshot" is stated once — a mutator that skips it silently
+// breaks the undo toast (the snapshot-identity pin hides the omission).
+function edit(state: SpecState, patch: Partial<SpecState>): Partial<SpecState> {
+  return { ...patch, prevSpec: state.spec };
+}
+
+// Persisted under "flowstore:spec" so an in-progress spec survives a reload
+// (crash safety) and, crucially, an HMR module re-eval — persist rehydrates at
+// store-creation time, where the old App-mount load effect could not. Only the
+// spec itself is persisted; selection / focusRequest / prevSpec / lastRename
+// are ephemeral UI. The persisted spec is re-validated on rehydrate (merge),
+// so a stale blob from an older schema can't poison the store — it falls back
+// to null.
 export const useSpecStore = create<SpecState>()(
   persist(
     (set) => ({
@@ -119,7 +129,7 @@ export const useSpecStore = create<SpecState>()(
       focusRequest: null,
       setSpec: (spec) =>
         set({ spec, prevSpec: null, lastRename: null, selection: null, focusRequest: null }),
-      commitSpec: (spec) => set((state) => ({ spec, prevSpec: state.spec })),
+      commitSpec: (spec) => set((state) => edit(state, { spec })),
       undoLast: () =>
         set((state) => (state.prevSpec ? { spec: state.prevSpec, prevSpec: null } : {})),
       clearLastRename: () => set({ lastRename: null }),
@@ -136,14 +146,13 @@ export const useSpecStore = create<SpecState>()(
             target && patch.name !== undefined && patch.name !== target.name
               ? chainRename(state.lastRename, target.name, patch.name)
               : state.lastRename;
-          return {
+          return edit(state, {
             spec: {
               ...state.spec,
               flows: state.spec.flows.map((f) => (f.id === id ? mergePatch(f, patch) : f)),
             },
-            prevSpec: state.spec,
             lastRename: renamed,
-          };
+          });
         }),
       updateAgent: (patch) =>
         set((state) => {
@@ -152,7 +161,7 @@ export const useSpecStore = create<SpecState>()(
           // links entry_flow_id. entry_flow_id stays "" until the LLM links it
           // (validator will flag it; the chat loop surfaces that to the LLM).
           if (!state.spec) {
-            return { spec: { agent: mergePatch(blankAgent(""), patch), flows: [] } };
+            return edit(state, { spec: { agent: mergePatch(blankAgent(""), patch), flows: [] } });
           }
           // A variables patch that swaps exactly one key for another is a
           // variable rename (the sheet replaces the whole map) — record it for
@@ -167,16 +176,15 @@ export const useSpecStore = create<SpecState>()(
               renamed = chainRename(state.lastRename, removed[0], added[0]);
             }
           }
-          return {
+          return edit(state, {
             spec: { ...state.spec, agent: mergePatch(state.spec.agent, patch) },
-            prevSpec: state.spec,
             lastRename: renamed,
-          };
+          });
         }),
       updateExitPath: (flowId, exitPathId, patch) =>
         set((state) => {
           if (!state.spec) return {};
-          return {
+          return edit(state, {
             spec: {
               ...state.spec,
               flows: state.spec.flows.map((f) => {
@@ -189,30 +197,28 @@ export const useSpecStore = create<SpecState>()(
                 };
               }),
             },
-            prevSpec: state.spec,
-          };
+          });
         }),
       addFlow: (select = false, seed) => {
         const newId = genId("flow", seed);
         set((state) => {
-          const flow = blankFlow(newId);
+          const flow = blankFlow(newId, seed);
           const nextSelection: Selection = select ? { kind: "flow", id: newId } : state.selection;
           const focusBump = select
             ? { kind: "flow" as const, id: newId, nonce: (state.focusRequest?.nonce ?? 0) + 1 }
             : state.focusRequest;
           if (!state.spec) {
-            return {
+            return edit(state, {
               spec: { agent: blankAgent(newId), flows: [flow] },
               selection: nextSelection,
               focusRequest: focusBump,
-            };
+            });
           }
-          return {
+          return edit(state, {
             spec: { ...state.spec, flows: [...state.spec.flows, flow] },
-            prevSpec: state.spec,
             selection: nextSelection,
             focusRequest: focusBump,
-          };
+          });
         });
         return newId;
       },
@@ -231,15 +237,14 @@ export const useSpecStore = create<SpecState>()(
             state.spec.agent.entry_flow_id === id
               ? cleaned[0]?.id ?? ""
               : state.spec.agent.entry_flow_id;
-          return {
+          return edit(state, {
             spec: {
               ...state.spec,
               agent: { ...state.spec.agent, entry_flow_id: entry },
               flows: cleaned,
             },
-            prevSpec: state.spec,
             selection: null,
-          };
+          });
         }),
       addExitPath: (sourceFlowId, targetFlowId, select = false) => {
         const xpId = genId("xp");
@@ -248,7 +253,7 @@ export const useSpecStore = create<SpecState>()(
           if (!state.spec) return {};
           if (!state.spec.flows.some((f) => f.id === sourceFlowId)) return {};
           added = true;
-          return {
+          return edit(state, {
             spec: {
               ...state.spec,
               flows: state.spec.flows.map((f) => {
@@ -260,18 +265,17 @@ export const useSpecStore = create<SpecState>()(
                 return { ...f, exit_paths: [...f.exit_paths, newXp] };
               }),
             },
-            prevSpec: state.spec,
             selection: select
               ? { kind: "edge", flowId: sourceFlowId, exitPathId: xpId }
               : state.selection,
-          };
+          });
         });
         return added ? xpId : null;
       },
       removeExitPath: (flowId, exitPathId) =>
         set((state) => {
           if (!state.spec) return {};
-          return {
+          return edit(state, {
             spec: {
               ...state.spec,
               flows: state.spec.flows.map((f) =>
@@ -280,9 +284,8 @@ export const useSpecStore = create<SpecState>()(
                   : { ...f, exit_paths: f.exit_paths.filter((xp) => xp.id !== exitPathId) }
               ),
             },
-            prevSpec: state.spec,
             selection: null,
-          };
+          });
         }),
     }),
     {

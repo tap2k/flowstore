@@ -68,6 +68,6 @@ export function anchorLabel(at: IssueLocation, spec: Spec): string {
   return "spec";
 }
 
-function flowName(spec: Spec, flowId: string): string {
+export function flowName(spec: Spec, flowId: string): string {
   return spec.flows.find((f) => f.id === flowId)?.name || flowId;
 }

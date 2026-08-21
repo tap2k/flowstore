@@ -1,13 +1,22 @@
 import { Fragment, useMemo, useState } from "react";
 import { useSpecStore } from "@/lib/store/spec";
 import {
+  FAQ_A_PREFIX,
+  FAQ_Q_PREFIX,
+  GLOSSARY_PREFIX,
+  GLOSSARY_SEP,
+  SCRIPT_POST,
+  SCRIPT_PRE,
   blockParts,
   displayCtx,
   type BlockPart,
 } from "@flowstore/core/codegen/promptDoc";
-import { conditionFrame, type PromptSource } from "@flowstore/core/codegen/promptGenerator";
 import {
-  isFlowGoto,
+  END_TARGET_TEXT,
+  RETURN_TARGET_TEXT,
+  type PromptSource,
+} from "@flowstore/core/codegen/promptGenerator";
+import {
   setLanguage,
   GOTO_END,
   GOTO_RETURN,
@@ -15,16 +24,22 @@ import {
   type Spec,
 } from "@flowstore/core/schema/v0";
 import { genId } from "@flowstore/core/ids";
+import { DropdownMenu, type MenuItemSpec } from "@/components/ui";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Inline editing for the System Prompt panel's View mode.
 //
 // Renders a segment's displayed body from its BlockPart model (promptDoc)
 // instead of the raw text, swapping each entity-backed span for a
-// click-to-edit control. Every commit writes ONE spec content field through
-// the store; the whole prompt then re-renders from the spec, so part↔entity
-// associations only ever have to survive a single edit. Deletes are
-// toast-undoable (single-slot snapshot in the spec store) — no dialogs.
+// click-to-edit control. Display framing (prefixes, quote characters, routing
+// pre/mid/post) comes from the parts and core constants — this file states no
+// prompt literals of its own, so the editable view cannot drift from the
+// compiled prompt (promptDoc's round-trip tests pin the framing).
+//
+// Every commit writes ONE spec content field through the store; the whole
+// prompt then re-renders from the spec, so part↔entity associations only ever
+// have to survive a single edit. Deletes are toast-undoable (single-slot
+// snapshot in the spec store) — no dialogs.
 //
 // The panel gates this to: View mode, no Edit-raw override, pinned-language
 // render. promptDoc's builders assume exactly that state.
@@ -43,54 +58,37 @@ interface EditableBlockBodyProps {
   inkClass: string;
 }
 
-// Click-to-edit text. Commits the trimmed draft on blur / Enter (⌘Enter when
-// multiline); Escape cancels; an empty commit cancels rather than writing ""
-// (deletion is an explicit control, never an accidental clear).
-function InlineText({
-  value,
+// The draft textarea shared by InlineText and GhostAdd: autofocus with caret
+// at the end, auto-sized to the draft's lines, trimmed commit on blur / Enter
+// (⌘Enter when multiline), Escape cancels. An empty commit is a cancel, never
+// a write of "" — deletion is an explicit control, not an accidental clear.
+function CommitTextarea({
+  initial,
   onCommit,
+  onDone,
   multiline = false,
-  placeholder = "empty",
-  title,
+  placeholder,
+  className = "",
 }: {
-  value: string;
+  initial: string;
   onCommit: (text: string) => void;
+  onDone: () => void;
   multiline?: boolean;
   placeholder?: string;
-  title?: string;
+  className?: string;
 }) {
-  const [draft, setDraft] = useState<string | null>(null);
-
-  if (draft === null) {
-    return (
-      <span
-        role="button"
-        tabIndex={0}
-        title={title ?? "Click to edit"}
-        onClick={() => setDraft(value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            setDraft(value);
-          }
-        }}
-        className="cursor-text rounded px-px hover:bg-surface-hover focus:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring"
-      >
-        {value || <span className="italic text-text-tertiary">{placeholder}</span>}
-      </span>
-    );
-  }
-
+  const [draft, setDraft] = useState(initial);
   const commit = () => {
+    onDone();
     const text = draft.trim();
-    setDraft(null);
-    if (text && text !== value) onCommit(text);
+    if (text && text !== initial) onCommit(text);
   };
   return (
     <textarea
       autoFocus
       value={draft}
       rows={Math.max(1, draft.split("\n").length)}
+      placeholder={placeholder}
       onChange={(e) => setDraft(e.target.value)}
       onFocus={(e) => {
         const n = e.currentTarget.value.length;
@@ -100,55 +98,81 @@ function InlineText({
       onKeyDown={(e) => {
         if (e.key === "Escape") {
           e.preventDefault();
-          setDraft(null);
+          onDone();
         } else if (e.key === "Enter" && (!multiline || e.metaKey || e.ctrlKey)) {
           e.preventDefault();
           commit();
         }
       }}
       spellCheck={false}
-      className="block w-full resize-none rounded border border-border-default bg-surface-panel p-1 font-mono text-[10px] leading-snug text-text-primary focus:outline-none focus:ring-1 focus:ring-focus-ring"
+      className={`block w-full resize-none rounded border border-border-default bg-surface-panel p-1 font-mono text-[10px] leading-snug text-text-primary focus:outline-none focus:ring-1 focus:ring-focus-ring ${className}`}
+    />
+  );
+}
+
+// Click-to-edit text span.
+function InlineText({
+  value,
+  onCommit,
+  multiline = false,
+  title,
+}: {
+  value: string;
+  onCommit: (text: string) => void;
+  multiline?: boolean;
+  title?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+
+  if (!editing) {
+    return (
+      <span
+        role="button"
+        tabIndex={0}
+        title={title ?? "Click to edit"}
+        onClick={() => setEditing(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setEditing(true);
+          }
+        }}
+        className="cursor-text rounded px-px hover:bg-surface-hover focus:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring"
+      >
+        {value || <span className="italic text-text-tertiary">empty</span>}
+      </span>
+    );
+  }
+  return (
+    <CommitTextarea
+      initial={value}
+      multiline={multiline}
+      onCommit={onCommit}
+      onDone={() => setEditing(false)}
     />
   );
 }
 
 // "+ label" ghost row that opens an input; a non-empty commit calls onAdd.
 function GhostAdd({ label, onAdd }: { label: string; onAdd: (text: string) => void }) {
-  const [draft, setDraft] = useState<string | null>(null);
-  if (draft === null) {
+  const [editing, setEditing] = useState(false);
+  if (!editing) {
     return (
       <button
-        onClick={() => setDraft("")}
+        onClick={() => setEditing(true)}
         className="mt-0.5 rounded px-1 text-[10px] text-text-tertiary hover:bg-surface-hover hover:text-text-secondary"
       >
         + {label}
       </button>
     );
   }
-  const commit = () => {
-    const text = draft.trim();
-    setDraft(null);
-    if (text) onAdd(text);
-  };
   return (
-    <textarea
-      autoFocus
-      value={draft}
-      rows={Math.max(1, draft.split("\n").length)}
+    <CommitTextarea
+      initial=""
       placeholder={label}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          setDraft(null);
-        } else if (e.key === "Enter") {
-          e.preventDefault();
-          commit();
-        }
-      }}
-      spellCheck={false}
-      className="mt-0.5 block w-full resize-none rounded border border-border-default bg-surface-panel p-1 font-mono text-[10px] leading-snug text-text-primary focus:outline-none focus:ring-1 focus:ring-focus-ring"
+      onCommit={onAdd}
+      onDone={() => setEditing(false)}
+      className="mt-0.5"
     />
   );
 }
@@ -160,104 +184,78 @@ function DeleteX({ label, onClick }: { label: string; onClick: () => void }) {
       onClick={onClick}
       aria-label={`Delete ${label}`}
       title={`Delete ${label}`}
-      className="absolute right-0 top-0 rounded px-1 text-[10px] text-text-tertiary opacity-0 transition-opacity hover:bg-state-error-bg hover:text-state-error-fg group-hover/row:opacity-100"
+      className="absolute right-0 top-0 rounded px-1 text-[10px] text-text-tertiary opacity-0 transition-opacity hover:bg-state-error-bg hover:text-state-error-fg group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-focus-ring"
     >
       ×
     </button>
   );
 }
 
-// Routing target: the rendered target phrase as a button; picking rewires the
-// exit path's goto. An unknown flow target shows the goto-unknown inline flag
-// (warning styling) and this popover IS its quick-fix.
+// Routing target: the rendered target phrase as a button opening a menu of
+// flows + END/RETURN + new-flow. An unknown flow target shows the goto-unknown
+// inline flag (warning styling) and this menu IS its quick-fix. Labels come
+// from the spec and promptGenerator's target constants — never restated here.
 function TargetPicker({
   spec,
   flowId,
   exitPathId,
   goto,
   targetText,
+  targetUnknown,
 }: {
   spec: Spec;
   flowId: string;
   exitPathId: string;
   goto: string;
   targetText: string;
+  targetUnknown: boolean;
 }) {
   const updateExitPath = useSpecStore((s) => s.updateExitPath);
-  const updateFlow = useSpecStore((s) => s.updateFlow);
   const addFlow = useSpecStore((s) => s.addFlow);
-  const [open, setOpen] = useState(false);
-  const [newName, setNewName] = useState("");
-  const unknown = isFlowGoto(goto) && !spec.flows.some((f) => f.id === goto);
+  const [naming, setNaming] = useState(false);
 
-  const pick = (target: string) => {
-    updateExitPath(flowId, exitPathId, { goto: target });
-    setOpen(false);
-  };
-  const createFlow = () => {
-    const name = newName.trim();
-    if (!name) return;
-    const id = addFlow(false, name);
-    updateFlow(id, { name });
-    pick(id);
-    setNewName("");
-  };
+  const pick = (target: string) => updateExitPath(flowId, exitPathId, { goto: target });
+  const items: MenuItemSpec[] = [
+    ...spec.flows.map((f) => ({
+      label: f.name || f.id,
+      checked: f.id === goto,
+      onSelect: () => pick(f.id),
+    })),
+    { separator: true },
+    { label: END_TARGET_TEXT, checked: goto === GOTO_END, onSelect: () => pick(GOTO_END) },
+    { label: RETURN_TARGET_TEXT, checked: goto === GOTO_RETURN, onSelect: () => pick(GOTO_RETURN) },
+    { separator: true },
+    { label: "New flow…", onSelect: () => setNaming(true) },
+  ];
 
-  const option = (label: string, value: string, mono = false) => (
-    <button
-      key={value}
-      onClick={() => pick(value)}
-      className={`block w-full px-2 py-0.5 text-left text-[10px] hover:bg-surface-hover ${
-        mono ? "font-mono" : ""
-      } ${value === goto ? "font-semibold text-text-primary" : "text-text-secondary"}`}
-    >
-      {label}
-      {value === goto ? " ✓" : ""}
-    </button>
-  );
-
+  if (naming) {
+    return (
+      <CommitTextarea
+        initial=""
+        placeholder="new flow name"
+        onCommit={(name) => pick(addFlow(false, name))}
+        onDone={() => setNaming(false)}
+      />
+    );
+  }
   return (
-    <span className="relative inline-block">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        title={
-          unknown
-            ? `goto "${goto}" does not match any flow — pick a target to fix`
-            : "Change target"
-        }
-        className={`rounded px-px underline decoration-dotted underline-offset-2 hover:bg-surface-hover focus:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring ${
-          unknown ? "bg-state-warning-bg text-state-warning-fg" : ""
-        }`}
-      >
-        {unknown ? `⚠ ${targetText}` : targetText}
-      </button>
-      {open && (
-        <>
-          <span className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <span className="absolute left-0 top-full z-20 mt-1 block max-h-56 w-56 overflow-auto whitespace-normal rounded border border-border-default bg-surface-panel py-1 font-sans shadow-lg">
-            {spec.flows.map((f) => option(f.name || f.id, f.id))}
-            <span className="my-1 block border-t border-border-default" />
-            {option("end the conversation", GOTO_END)}
-            {option("return to the calling flow", GOTO_RETURN)}
-            <span className="my-1 block border-t border-border-default" />
-            <span className="flex items-center gap-1 px-2 py-0.5">
-              <input
-                value={newName}
-                placeholder="new flow…"
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    createFlow();
-                  }
-                }}
-                className="w-full rounded border border-border-default bg-surface-panel px-1 py-0.5 text-[10px] text-text-primary focus:outline-none focus:ring-1 focus:ring-focus-ring"
-              />
-            </span>
-          </span>
-        </>
-      )}
-    </span>
+    <DropdownMenu
+      trigger={
+        <button
+          title={
+            targetUnknown
+              ? `goto "${goto}" does not match any flow — pick a target to fix`
+              : "Change target"
+          }
+          className={`rounded px-px underline decoration-dotted underline-offset-2 hover:bg-surface-hover focus:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring ${
+            targetUnknown ? "bg-state-warning-bg text-state-warning-fg" : ""
+          }`}
+        >
+          {targetUnknown ? `⚠ ${targetText}` : targetText}
+        </button>
+      }
+      items={items}
+    />
   );
 }
 
@@ -304,21 +302,23 @@ export function EditableBlockBody({
     if (p.hasOtherLanguages) markStale(`${p.flowId}:${p.scriptId}`);
   };
 
-  const lastOfKind = (kind: BlockPart["kind"]) =>
-    parts.reduce((last, p, i) => (p.kind === kind ? i : last), -1);
-  const lastFaq = lastOfKind("faq");
-  const lastGlossary = lastOfKind("glossary");
+  // Add-row anchors, only relevant to the knowledge block.
+  const lastFaq = source.kind === "knowledge" ? parts.findLastIndex((p) => p.kind === "faq") : -1;
+  const lastGlossary =
+    source.kind === "knowledge" ? parts.findLastIndex((p) => p.kind === "glossary") : -1;
 
-  const renderPart = (p: BlockPart, i: number) => {
+  const renderPart = (p: BlockPart) => {
     switch (p.kind) {
       case "plain": {
         const text = p.lines.join("\n");
-        return text ? <div key={i}>{text}</div> : <div key={i}>{" "}</div>;
+        // An empty plain part is a block separator (e.g. FAQ vs GLOSSARY); the
+        // non-breaking space keeps the line height in the pre-wrap layout.
+        return text ? <div>{text}</div> : <div>{" "}</div>;
       }
 
       case "guardrail":
         return (
-          <div key={p.guardrailId} className="group/row relative pr-4">
+          <div className="group/row relative pr-4">
             {p.prefix}
             <InlineText
               value={p.statement}
@@ -342,8 +342,8 @@ export function EditableBlockBody({
 
       case "faq":
         return (
-          <div key={p.faqId} className="group/row relative pr-4">
-            {"- Q: "}
+          <div className="group/row relative pr-4">
+            {FAQ_Q_PREFIX}
             <InlineText
               value={p.question}
               onCommit={(q) =>
@@ -354,7 +354,7 @@ export function EditableBlockBody({
                 )
               }
             />
-            {"\n  A: "}
+            {"\n" + FAQ_A_PREFIX}
             <InlineText
               value={p.answer}
               onCommit={(a) =>
@@ -379,8 +379,8 @@ export function EditableBlockBody({
 
       case "glossary":
         return (
-          <div key={p.glossaryId} className="group/row relative pr-4">
-            {"- "}
+          <div className="group/row relative pr-4">
+            {GLOSSARY_PREFIX}
             <InlineText
               value={p.term}
               onCommit={(term) =>
@@ -391,7 +391,7 @@ export function EditableBlockBody({
                 )
               }
             />
-            {": "}
+            {GLOSSARY_SEP}
             <InlineText
               value={p.definition}
               onCommit={(definition) =>
@@ -414,7 +414,7 @@ export function EditableBlockBody({
 
       case "instructions":
         return (
-          <div key={i}>
+          <div>
             <InlineText
               multiline
               value={p.text}
@@ -426,15 +426,13 @@ export function EditableBlockBody({
 
       case "script": {
         // The display shows quote-escaped text; the editable value is the raw
-        // field. Variation lines trail the text's lines in p.lines.
-        const textLineCount = p.text.split("\n").length;
-        const variationLines = p.lines.slice(textLineCount);
+        // field. Variations are read-only display beneath the text line.
         const stale = staleScripts.has(`${p.flowId}:${p.scriptId}`);
         return (
-          <div key={p.scriptId}>
-            {'  - "'}
+          <div>
+            {SCRIPT_PRE}
             <InlineText value={p.text} onCommit={(text) => commitScript(p, text)} />
-            {'"'}
+            {SCRIPT_POST}
             {stale && (
               <span
                 title={`Edited in ${ctx.lang} only — translations in other languages may be stale.`}
@@ -443,7 +441,7 @@ export function EditableBlockBody({
                 translations stale?
               </span>
             )}
-            {variationLines.length > 0 && "\n" + variationLines.join("\n")}
+            {p.variationLines.length > 0 && "\n" + p.variationLines.join("\n")}
           </div>
         );
       }
@@ -452,7 +450,6 @@ export function EditableBlockBody({
         if (p.readOnly) {
           return (
             <div
-              key={p.exitPathId}
               title="Turn-budget escape — runtime-enforced, not model-facing. Edit via the flow inspector."
               className="opacity-70"
             >
@@ -461,13 +458,11 @@ export function EditableBlockBody({
           );
         }
         const xp = flow?.exit_paths.find((x) => x.id === p.exitPathId);
-        const frame = p.method ? conditionFrame(p.method) : null;
         return (
-          <div key={p.exitPathId} className="group/row relative pr-4">
-            {"- "}
-            {p.expression !== null && frame && xp?.condition ? (
+          <div className="group/row relative pr-4">
+            {p.pre}
+            {p.expression !== null && xp?.condition && (
               <>
-                {frame.pre}
                 <InlineText
                   value={p.expression}
                   title="Click to edit the condition (free text — the frame around it is generated)"
@@ -477,11 +472,8 @@ export function EditableBlockBody({
                     })
                   }
                 />
-                {frame.post}
-                {", "}
+                {p.mid}
               </>
-            ) : (
-              "Otherwise, "
             )}
             <TargetPicker
               spec={spec}
@@ -489,8 +481,9 @@ export function EditableBlockBody({
               exitPathId={p.exitPathId}
               goto={p.goto}
               targetText={p.targetText}
+              targetUnknown={p.targetUnknown}
             />
-            {"."}
+            {p.post}
             <DeleteX
               label="exit path"
               onClick={() => {
@@ -510,8 +503,8 @@ export function EditableBlockBody({
     >
       {parts.map((p, i) => (
         <Fragment key={i}>
-          {renderPart(p, i)}
-          {source.kind === "knowledge" && i === lastFaq && (
+          {renderPart(p)}
+          {i === lastFaq && (
             <GhostAdd
               label="Q&A (question first)"
               onAdd={(q) =>
@@ -519,7 +512,7 @@ export function EditableBlockBody({
               }
             />
           )}
-          {source.kind === "knowledge" && i === lastGlossary && (
+          {i === lastGlossary && (
             <GhostAdd
               label="glossary term"
               onAdd={(term) =>

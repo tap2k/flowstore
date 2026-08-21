@@ -15,20 +15,25 @@ import {
   applyProseReferenceFix,
   findDanglingReferences,
   type ProseFieldRef,
+  type ProseReference,
 } from "@flowstore/core/validation/proseRefs";
+import { INLINE_EDITABLE_KINDS } from "@flowstore/core/codegen/promptDoc";
 import { type Spec } from "@flowstore/core/schema/v0";
-import { styleForSource, isClickable, labelFor, type PromptKind } from "@/lib/promptColors";
-import { computeDiagnostics, diagnosticCounts, anchorLabel, type Diagnostic } from "@/lib/diagnostics";
-import { DisclosureCaret } from "@/components/ui";
+import { styleForSource, isClickable, labelFor } from "@/lib/promptColors";
+import {
+  computeDiagnostics,
+  diagnosticCounts,
+  anchorLabel,
+  flowName,
+  type Diagnostic,
+} from "@/lib/diagnostics";
+import { DisclosureCaret, Toast } from "@/components/ui";
 import { EditableBlockBody } from "./PromptBlockBody";
 
 interface SystemPromptPanelProps {
   open: boolean;
   onClose: () => void;
 }
-
-// Segment kinds with an inline-editing model (see promptDoc.blockParts).
-const EDITABLE_KINDS = new Set<PromptKind>(["guardrails", "knowledge", "flow", "interrupt"]);
 
 export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
   const spec = useSpecStore((s) => s.spec);
@@ -95,9 +100,11 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
   // Rename-aware reference check: prose mentions of the renamed-away name,
   // offered as non-blocking quick-fixes (never auto-applied — a prose mention
   // may be caller-facing wording).
+  // Gated on `open`: the scan walks every prose field and would otherwise run
+  // (and be discarded) on each store mutation while the panel is closed.
   const renameRefs = useMemo(
-    () => (spec && lastRename ? findDanglingReferences(spec, lastRename.from) : []),
-    [spec, lastRename],
+    () => (open && spec && lastRename ? findDanglingReferences(spec, lastRename.from) : []),
+    [open, spec, lastRename],
   );
 
   if (!open || !spec || !compiled) return null;
@@ -106,11 +113,12 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
   const editorValue = promptOverride ?? compiledText;
   const edited = promptOverride !== null && promptOverride !== compiledText;
 
-  // Inline editing needs a spec-faithful, single-language render: View mode,
-  // no whole-document override, and a pinned language (the multilingual "auto"
+  // Inline editing needs a spec-faithful, single-language render: no
+  // whole-document override, and a pinned language (the multilingual "auto"
   // view interleaves translations, which the per-line mapping doesn't model).
+  // Only consulted inside the View-mode branch.
   const multilingualView = availableLanguages.length > 1 && !language;
-  const inlineEnabled = mode === "view" && !edited && !multilingualView;
+  const inlineEnabled = !edited && !multilingualView;
   const specChangedSinceEdit =
     promptOverride !== null && promptOverrideSpecRef !== null && promptOverrideSpecRef !== spec;
   const charsDiff = Math.abs(editorValue.length - compiledText.length);
@@ -298,7 +306,7 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
             const clickable = isClickable(src.kind);
             const isEntry = src.kind === "flow" && src.flowId === spec.agent.entry_flow_id;
             const label = labelFor(src) + (isEntry ? " (entry)" : "");
-            const body = bodyForDisplay(src.kind, text);
+            const inline = inlineEnabled && INLINE_EDITABLE_KINDS.has(src.kind);
             return (
               <div key={i} className={`rounded-md px-2 py-1.5 ${style.block}`}>
                 {clickable ? (
@@ -323,7 +331,7 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
                     {label}
                   </div>
                 )}
-                {inlineEnabled && EDITABLE_KINDS.has(src.kind) ? (
+                {inline ? (
                   <EditableBlockBody
                     spec={spec}
                     source={src}
@@ -339,7 +347,7 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
                       style.body ?? "text-text-primary"
                     }`}
                   >
-                    {body}
+                    {bodyForDisplay(src.kind, text)}
                   </pre>
                 )}
               </div>
@@ -358,24 +366,16 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
       )}
 
       {toastLive && (
-        <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-md border border-border-default bg-surface-panel px-3 py-1.5 text-[11px] shadow-lg">
-          <span className="text-text-primary">{toast.label}</span>
-          <button
-            onClick={() => {
+        <div className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2">
+          <Toast
+            message={toast.label}
+            actionLabel="Undo"
+            action={() => {
               undoLast();
               setToast(null);
             }}
-            className="font-semibold text-text-primary underline underline-offset-2 hover:bg-surface-hover rounded px-1"
-          >
-            Undo
-          </button>
-          <button
-            onClick={() => setToast(null)}
-            aria-label="Dismiss"
-            className="rounded px-1 text-text-tertiary hover:bg-surface-hover"
-          >
-            ×
-          </button>
+            onDismiss={() => setToast(null)}
+          />
         </div>
       )}
     </aside>
@@ -396,24 +396,23 @@ function RenameFixups({
   spec: Spec;
   from: string;
   to: string;
-  refs: { ref: ProseFieldRef; count: number }[];
+  refs: ProseReference[];
   onFixOne: (ref: ProseFieldRef) => void;
   onFixAll: () => void;
   onDismiss: () => void;
 }) {
-  const flowName = (id: string) => spec.flows.find((f) => f.id === id)?.name || id;
   const label = (ref: ProseFieldRef): string => {
     switch (ref.field) {
       case "instructions":
-        return `instructions · ${flowName(ref.flowId)}`;
+        return `instructions · ${flowName(spec, ref.flowId)}`;
       case "entry-condition":
-        return `trigger · ${flowName(ref.flowId)}`;
+        return `trigger · ${flowName(spec, ref.flowId)}`;
       case "exit-condition":
-        return `exit condition · ${flowName(ref.flowId)}`;
+        return `exit condition · ${flowName(spec, ref.flowId)}`;
       case "faq-answer":
-        return ref.flowId ? `FAQ answer · ${flowName(ref.flowId)}` : "FAQ answer · agent";
+        return ref.flowId ? `FAQ answer · ${flowName(spec, ref.flowId)}` : "FAQ answer · agent";
       case "script":
-        return `script · ${flowName(ref.flowId)}`;
+        return `script · ${flowName(spec, ref.flowId)}`;
     }
   };
   const total = refs.reduce((n, r) => n + r.count, 0);

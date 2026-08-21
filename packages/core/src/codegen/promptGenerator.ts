@@ -309,10 +309,17 @@ function renderRole(spec: Spec): string {
   return lines.join(" ");
 }
 
+// Section headers, exported so bodyForDisplay (promptDoc) strips exactly what
+// the renderers emit — one definition, no hand-matched strings.
+export const GUARDRAILS_HEADER = "GUARDRAILS (apply at all times):";
+export const FLOWS_HEADER = "FLOW OF CALL:";
+export const BEGIN_WITH_PREFIX = "Begin with: ";
+export const INTERRUPTS_HEADER = "INTERRUPTS (fire at any point):";
+
 function renderGuardrails(spec: Spec): string {
   const items = spec.agent.guardrails ?? [];
   if (!items.length) return "";
-  const lines = ["GUARDRAILS (apply at all times):"];
+  const lines = [GUARDRAILS_HEADER];
   items.forEach((g, i) => lines.push(`${i + 1}. ${g.statement}`));
   return lines.join("\n");
 }
@@ -323,6 +330,12 @@ interface RenderedBlock {
   text: string;
 }
 
+// The flows the "FLOW OF CALL" section renders (and can name as inline
+// targets). Interrupts get their own section; utility flows are runtime-only.
+export function isConversationalFlow(f: Flow): boolean {
+  return f.type !== "interrupt" && f.type !== "utility";
+}
+
 // Returns the "FLOW OF CALL:" lead text plus one block per conversational
 // flow, in routing order. compileSystemPrompt joins them with BLOCK_SEP, which
 // reproduces the legacy single-string output byte-for-byte.
@@ -331,14 +344,14 @@ function flowsGroup(
   ctx: RenderCtx,
 ): { leadText: string; items: RenderedBlock[] } | null {
   const entry = spec.agent.entry_flow_id;
-  const conversational = spec.flows.filter((f) => f.type !== "interrupt" && f.type !== "utility");
+  const conversational = spec.flows.filter(isConversationalFlow);
   if (!conversational.length) return null;
 
   const ordered = orderFlows(conversational, entry);
   const flowNames = new Map(ordered.map((f) => [f.id, f.name || f.id]));
-  const leadLines = ["FLOW OF CALL:"];
+  const leadLines = [FLOWS_HEADER];
   if (entry && flowNames.has(entry)) {
-    leadLines.push(`Begin with: ${flowNames.get(entry)}.`);
+    leadLines.push(`${BEGIN_WITH_PREFIX}${flowNames.get(entry)}.`);
   }
 
   const items = ordered.map((flow, i) => {
@@ -417,9 +430,14 @@ export function renderFlowRoutingInline(flow: Flow, flowNames: Map<string, strin
   return lines.join("\n");
 }
 
+// Target phrasing for the two goto keywords — exported so the inline target
+// picker's menu labels can't drift from the compiled wording.
+export const END_TARGET_TEXT = "end the conversation";
+export const RETURN_TARGET_TEXT = "return to the calling flow";
+
 export function renderInlineTarget(ep: ExitPath, flowNames: Map<string, string>): string {
-  if (isEndGoto(ep.goto)) return "end the conversation";
-  if (isReturnGoto(ep.goto)) return "return to the calling flow";
+  if (isEndGoto(ep.goto)) return END_TARGET_TEXT;
+  if (isReturnGoto(ep.goto)) return RETURN_TARGET_TEXT;
   const name = flowNames.get(ep.goto) ?? ep.goto;
   return `go to ${name}`;
 }
@@ -538,7 +556,7 @@ function interruptsGroup(
     return { flowId: flow.id, name: flow.name || flow.id, text: lines.join("\n") };
   });
 
-  return { leadText: "INTERRUPTS (fire at any point):", items };
+  return { leadText: INTERRUPTS_HEADER, items };
 }
 
 function renderKnowledge(spec: Spec, ctx: RenderCtx): string {
@@ -567,6 +585,11 @@ function renderKnowledge(spec: Spec, ctx: RenderCtx): string {
   return blocks.join("\n\n");
 }
 
+// FAQ line framing, exported for the inline editor (promptDoc builds editable
+// FAQ lines from these, so the editable view can't drift from this renderer).
+export const FAQ_Q_PREFIX = "- Q: ";
+export const FAQ_A_PREFIX = "  A: ";
+
 export function formatFaqEntry(entry: FaqEntry, indent: string, ctx: RenderCtx): string {
   if (ctx.langs) {
     // Multilingual: question stays single (it isn't localized); answer emits
@@ -574,11 +597,11 @@ export function formatFaqEntry(entry: FaqEntry, indent: string, ctx: RenderCtx):
     const answers = locPerLang(entry.answer, ctx)
       .map(([lang, text]) => `${indent}    ${lang}: ${text}`)
       .join("\n");
-    return `${indent}- Q: ${entry.question}\n${indent}  A:\n${answers}`;
+    return `${indent}${FAQ_Q_PREFIX}${entry.question}\n${indent}  A:\n${answers}`;
   }
-  return `${indent}- Q: ${entry.question}\n${indent}  A: ${loc(entry.answer, ctx)}`;
+  return `${indent}${FAQ_Q_PREFIX}${entry.question}\n${indent}${FAQ_A_PREFIX}${loc(entry.answer, ctx)}`;
 }
 
-function escapeQuotes(text: string): string {
+export function escapeQuotes(text: string): string {
   return text.replace(/"/g, '\\"');
 }

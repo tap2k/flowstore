@@ -1,12 +1,21 @@
 import type { Flow, Method, Spec } from "@flowstore/core/schema/v0";
 import {
   defaultLanguage,
+  isFlowGoto,
   languagesPresent,
   resolveLocalized,
 } from "@flowstore/core/schema/v0";
 import {
+  BEGIN_WITH_PREFIX,
+  FAQ_A_PREFIX,
+  FAQ_Q_PREFIX,
+  FLOWS_HEADER,
+  GUARDRAILS_HEADER,
+  INTERRUPTS_HEADER,
   ROUTING_CHOICE_PREAMBLE,
-  formatFaqEntry,
+  conditionFrame,
+  escapeQuotes,
+  isConversationalFlow,
   renderFlowGuardrails,
   renderFlowKnowledge,
   renderFlowRoutingInline,
@@ -30,18 +39,29 @@ import {
 // ExitPath. That is safe because the panel re-renders from the spec after
 // every accepted edit — an association only ever has to survive one edit.
 //
-// Each part carries `lines`: its exact display lines. The invariant, pinned by
-// promptDoc.test.ts round-trip tests, is
+// Editable parts carry their display framing explicitly (`prefix`, `pre`/
+// `mid`/`post`, the script quote constants) and their `lines` are BUILT from
+// those pieces, while read-only content reuses promptGenerator's own
+// renderers on singleton lists. The invariant, pinned by promptDoc.test.ts:
 //     parts.flatMap(p => p.lines).join("\n") === bodyForDisplay(kind, segText)
-// so an editable render is byte-identical to the read-only one, and an
-// identity edit is byte-stable through render → write-back → re-render.
-// Builders reuse promptGenerator's own section renderers (called on singleton
-// lists) so per-entity text cannot drift from the compiled prompt.
+// so if a renderer's wording, framing, or indentation changes, the test fails
+// before either the editable or read-only view can drift from the compiled
+// prompt — and the editor components never restate a display literal.
 //
 // Builders assume a single-language render with no {{var}} substitution — the
 // panel gates inline editing to exactly that state (pinned language, no
 // whole-document override, vars undefined).
 // ─────────────────────────────────────────────────────────────────────────
+
+// Display framing for the editable line kinds, re-exported/owned here so the
+// editor components import all framing from one module. FAQ framing lives in
+// promptGenerator (its renderer composes it); glossary and script framing are
+// owned here and pinned against the renderers by the round-trip tests.
+export { FAQ_A_PREFIX, FAQ_Q_PREFIX } from "./promptGenerator";
+export const GLOSSARY_PREFIX = "- ";
+export const GLOSSARY_SEP = ": ";
+export const SCRIPT_PRE = '  - "';
+export const SCRIPT_POST = '"';
 
 export type BlockPart =
   // Non-editable decoration: section labels, frame lines, read-only sub-blocks.
@@ -49,25 +69,29 @@ export type BlockPart =
   // Agent guardrail line — "N. statement"; edit writes guardrail.statement.
   | { kind: "guardrail"; guardrailId: string; prefix: string; statement: string; lines: string[] }
   // Agent knowledge FAQ entry — Q edits question, A edits the answer in the
-  // rendered language.
+  // rendered language. Framing: FAQ_Q_PREFIX / FAQ_A_PREFIX.
   | { kind: "faq"; faqId: string; question: string; answer: string; lines: string[] }
+  // Framing: GLOSSARY_PREFIX term GLOSSARY_SEP definition.
   | { kind: "glossary"; glossaryId: string; term: string; definition: string; lines: string[] }
   // A flow's whole instructions prose, mapped to one field (opaque free text).
   | { kind: "instructions"; flowId: string; text: string; lines: string[] }
-  // One script line in the rendered language. `hasOtherLanguages` drives the
-  // session-transient "translations may be stale" badge. `lines` includes the
-  // read-only variation lines beneath the text.
+  // One script line in the rendered language: SCRIPT_PRE text SCRIPT_POST,
+  // followed by read-only variationLines. `text` is the raw field value (the
+  // display escapes quotes; the editor edits the raw text). `hasOtherLanguages`
+  // drives the session-transient "translations may be stale" badge.
   | {
       kind: "script";
       flowId: string;
       scriptId: string;
       text: string;
       hasOtherLanguages: boolean;
+      variationLines: string[];
       lines: string[];
     }
-  // One exit path. `expression` is the editable condition text inside its
-  // method frame (null for "Otherwise" fallbacks); turn-budget escapes are
-  // runtime-enforced and render read-only.
+  // One exit path, rendered as: pre [expression] mid [targetText] post.
+  // `expression` is the editable condition text (null for "Otherwise"
+  // fallbacks, whose pre already reads "- Otherwise, "). Turn-budget escapes
+  // are runtime-enforced and render read-only from the compiled line.
   | {
       kind: "routing";
       flowId: string;
@@ -76,9 +100,16 @@ export type BlockPart =
       method: Method | null;
       goto: string;
       targetText: string;
+      targetUnknown: boolean;
       readOnly: boolean;
+      pre: string;
+      mid: string;
+      post: string;
       lines: string[];
     };
+
+const dedentLines = (text: string): string[] =>
+  text.split("\n").map((l) => (l.startsWith("   ") ? l.slice(3) : l));
 
 // ─────────────────────────────────────────────────────────────────────────
 // DELIBERATE DIVERGENCE FROM THE RAW COMPILED PROMPT (moved here from
@@ -91,10 +122,6 @@ export type BlockPart =
 //     literal text from compileSystemPrompt — unaffected.
 //   • A manual select-all + copy inside the panel picks up this trimmed text.
 //     Accepted tradeoff (low likelihood).
-//
-// The matched strings mirror the headers emitted by promptGenerator.ts
-// (renderGuardrails / flowsGroup / interruptsGroup). If those headers change,
-// update them here too — the promptDoc round-trip tests catch the drift.
 //
 // Knowledge is intentionally left verbatim: its "FAQ:" / "GLOSSARY:" lines are
 // meaningful sub-structure, not a header that duplicates the "Knowledge" label.
@@ -110,16 +137,16 @@ export function bodyForDisplay(kind: PromptSource["kind"], text: string): string
 
   switch (kind) {
     case "flow":
-      dropWhile((l) => l === "FLOW OF CALL:" || l.startsWith("Begin with: "));
+      dropWhile((l) => l === FLOWS_HEADER || l.startsWith(BEGIN_WITH_PREFIX));
       if (lines.length && /^\d+\. /.test(lines[0])) lines.shift(); // "N. Name" header
       return dedent();
     case "interrupt":
-      dropWhile((l) => l === "INTERRUPTS (fire at any point):");
+      dropWhile((l) => l === INTERRUPTS_HEADER);
       if (lines.length && /^\d+\. /.test(lines[0])) lines.shift(); // "N. Name" header
       return dedent();
     case "guardrails":
       // Drop the header only; the numbered "1. …" lines are the guardrails.
-      dropWhile((l) => l === "GUARDRAILS (apply at all times):");
+      dropWhile((l) => l === GUARDRAILS_HEADER);
       return lines.join("\n");
     default:
       return text; // role, knowledge, runtimeContext — shown verbatim
@@ -133,9 +160,6 @@ export function displayCtx(spec: Spec, language?: string): RenderCtx {
   const defaultLang = defaultLanguage(spec.agent.meta.languages);
   return { lang: language ?? defaultLang, defaultLang };
 }
-
-const dedentLines = (text: string): string[] =>
-  text.split("\n").map((l) => (l.startsWith("   ") ? l.slice(3) : l));
 
 export function guardrailsBlockParts(spec: Spec): BlockPart[] {
   return (spec.agent.guardrails ?? []).map((g, i) => ({
@@ -153,12 +177,13 @@ export function knowledgeBlockParts(spec: Spec, ctx: RenderCtx): BlockPart[] {
   if (k?.faq?.length) {
     parts.push({ kind: "plain", lines: ["FAQ:"] });
     for (const e of k.faq) {
+      const answer = resolveLocalized(e.answer, ctx.lang, ctx.defaultLang);
       parts.push({
         kind: "faq",
         faqId: e.id,
         question: e.question,
-        answer: resolveLocalized(e.answer, ctx.lang, ctx.defaultLang),
-        lines: formatFaqEntry(e, "", ctx).split("\n"),
+        answer,
+        lines: `${FAQ_Q_PREFIX}${e.question}\n${FAQ_A_PREFIX}${answer}`.split("\n"),
       });
     }
   }
@@ -172,7 +197,7 @@ export function knowledgeBlockParts(spec: Spec, ctx: RenderCtx): BlockPart[] {
         glossaryId: g.id,
         term: g.term,
         definition: g.definition,
-        lines: [`- ${g.term}: ${g.definition}`],
+        lines: [`${GLOSSARY_PREFIX}${g.term}${GLOSSARY_SEP}${g.definition}`],
       });
     }
   }
@@ -185,9 +210,7 @@ export function knowledgeBlockParts(spec: Spec, ctx: RenderCtx): BlockPart[] {
 // conversational exit targeting an interrupt renders the raw id, and the parts
 // must reproduce that.
 function routingFlowNames(spec: Spec, isInterrupt: boolean): Map<string, string> {
-  const flows = isInterrupt
-    ? spec.flows
-    : spec.flows.filter((f) => f.type !== "interrupt" && f.type !== "utility");
+  const flows = isInterrupt ? spec.flows : spec.flows.filter(isConversationalFlow);
   return new Map(flows.map((f) => [f.id, f.name || f.id]));
 }
 
@@ -200,7 +223,7 @@ export function flowBlockParts(spec: Spec, flow: Flow, ctx: RenderCtx): BlockPar
   if (isInterrupt && flow.entry_condition) {
     parts.push({
       kind: "plain",
-      lines: dedentLines(`   Trigger: ${flow.entry_condition.expression}`),
+      lines: [`Trigger: ${flow.entry_condition.expression}`],
     });
   }
 
@@ -219,18 +242,22 @@ export function flowBlockParts(spec: Spec, flow: Flow, ctx: RenderCtx): BlockPar
   if (renderFlowScripts(flow, ctx)) {
     parts.push({ kind: "plain", lines: ["Scripts:"] });
     for (const s of flow.scripts ?? []) {
-      // Singleton render yields exactly this script's lines (text + its
-      // variations) under the header; drop the header line.
+      // The text line is built from the quote framing; the variation lines
+      // come from the singleton renderer (they are read-only display).
       const single = renderFlowScripts({ ...flow, scripts: [s] }, ctx);
       if (!single) continue; // no text in this language — skipped by the full render too
+      const text = resolveLocalized(s.text, ctx.lang, ctx.defaultLang);
+      const textLines = `${SCRIPT_PRE}${escapeQuotes(text)}${SCRIPT_POST}`.split("\n");
       const present = languagesPresent(s.text, ctx.defaultLang);
+      const variationLines = dedentLines(single).slice(1 + textLines.length);
       parts.push({
         kind: "script",
         flowId: flow.id,
         scriptId: s.id,
-        text: resolveLocalized(s.text, ctx.lang, ctx.defaultLang),
+        text,
         hasOtherLanguages: present.some((l) => l !== ctx.lang),
-        lines: dedentLines(single).slice(1),
+        variationLines,
+        lines: [...textLines, ...variationLines],
       });
     }
   }
@@ -252,21 +279,46 @@ export function flowBlockParts(spec: Spec, flow: Flow, ctx: RenderCtx): BlockPar
       parts.push({ kind: "plain", lines: dedentLines(ROUTING_CHOICE_PREAMBLE) });
     }
     for (const ep of exits) {
-      // Singleton render never re-adds the comparative preamble (decidable ≤ 1),
-      // so it yields exactly this exit's clause — including the turn-budget
-      // wording, which stays single-sourced in promptGenerator.
-      const single = renderFlowRoutingInline({ ...flow, exit_paths: [ep] }, flowNames);
       const budget = ep.max_turns !== undefined;
-      parts.push({
-        kind: "routing",
+      const targetText = renderInlineTarget(ep, flowNames);
+      const base = {
+        kind: "routing" as const,
         flowId: flow.id,
         exitPathId: ep.id,
-        expression: budget ? null : (ep.condition?.expression ?? null),
-        method: budget ? null : (ep.condition?.method ?? null),
         goto: ep.goto,
-        targetText: renderInlineTarget(ep, flowNames),
-        readOnly: budget,
-        lines: dedentLines(single),
+        targetText,
+        targetUnknown: isFlowGoto(ep.goto) && !spec.flows.some((f) => f.id === ep.goto),
+      };
+      if (budget) {
+        // Turn-budget wording stays single-sourced in promptGenerator; the
+        // singleton render never re-adds the comparative preamble.
+        parts.push({
+          ...base,
+          expression: null,
+          method: null,
+          readOnly: true,
+          pre: "",
+          mid: "",
+          post: "",
+          lines: dedentLines(renderFlowRoutingInline({ ...flow, exit_paths: [ep] }, flowNames)),
+        });
+        continue;
+      }
+      // Editable clause, built from its framing so the editor renders exactly
+      // pre + expression + mid + target + post with no literals of its own.
+      const frame = ep.condition ? conditionFrame(ep.condition.method) : null;
+      const expression = ep.condition?.expression ?? null;
+      const pre = frame ? `- ${frame.pre}` : "- Otherwise, ";
+      const mid = frame ? `${frame.post}, ` : "";
+      parts.push({
+        ...base,
+        expression,
+        method: ep.condition?.method ?? null,
+        readOnly: false,
+        pre,
+        mid,
+        post: ".",
+        lines: `${pre}${expression ?? ""}${mid}${targetText}.`.split("\n"),
       });
     }
   }
@@ -274,8 +326,15 @@ export function flowBlockParts(spec: Spec, flow: Flow, ctx: RenderCtx): BlockPar
   return parts;
 }
 
-// Convenience: parts for any segment source, or null for kinds with no inline
-// model (role, runtimeContext, multilingual, templateWrapper — shown verbatim).
+// Segment kinds with an inline model. blockParts returns null for the rest
+// (role, runtimeContext, multilingual, templateWrapper — shown verbatim).
+export const INLINE_EDITABLE_KINDS: ReadonlySet<PromptSource["kind"]> = new Set([
+  "guardrails",
+  "knowledge",
+  "flow",
+  "interrupt",
+]);
+
 export function blockParts(spec: Spec, source: PromptSource, ctx: RenderCtx): BlockPart[] | null {
   switch (source.kind) {
     case "guardrails":
