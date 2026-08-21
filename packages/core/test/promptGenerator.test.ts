@@ -3,6 +3,7 @@ import {
   compileSystemPrompt,
   generateSystemPrompt,
   ALL_LANGUAGES,
+  MULTILINGUAL_POLICY_GUARDRAIL,
 } from "@flowstore/core/codegen/promptGenerator";
 import type { Spec } from "@flowstore/core/schema/v0";
 import { loadExampleSpec, loadFixtureSpec } from "./fixtures";
@@ -164,8 +165,19 @@ describe("compileSystemPrompt — multilingual", () => {
     expect(text).toContain(`es-MX: "${esText}"`);
     // The en-US-only variation nests under en-US; es-MX has none.
     expect(text).toContain(`| "${enVariation}"`);
-    // The directive is present and lists the languages.
+    // The derived header is present and lists the languages.
     expect(text).toContain("MULTILINGUAL (languages: en-US, es-MX):");
+  });
+
+  it("language policy is a guardrail; the MULTILINGUAL section is format mechanics only", () => {
+    // fnol-min carries the seeded policy guardrail; it renders in the numbered
+    // GUARDRAILS list. The MULTILINGUAL section describes the labeled-translation
+    // format and fallback, but no which-language-to-speak policy.
+    const text = compileSystemPrompt(fnol, undefined, { language: ALL_LANGUAGES }).text;
+    expect(text).toContain(`. ${MULTILINGUAL_POLICY_GUARDRAIL.statement}`);
+    const section = text.split("\n\n---\n\n").find((s) => s.startsWith("MULTILINGUAL"))!;
+    expect(section).toContain("labeled by language code");
+    expect(section).not.toContain("detect the caller's current language");
   });
 
   it("multilingual on a single-language spec is a no-op (no labels, no directive)", () => {

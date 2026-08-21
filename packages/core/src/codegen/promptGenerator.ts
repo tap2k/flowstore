@@ -39,6 +39,18 @@ export const GENERATED_PLACEHOLDER = "{{generated}}";
 // exclusive by construction. Not a BCP-47 code, so it can't collide.
 export const ALL_LANGUAGES = "*";
 
+// Default language policy for multilingual agents. Deliberately a plain
+// guardrail rather than compiler-emitted text: policy must stay author-editable
+// like the rest of the prompt. The editor seeds it into agent.guardrails when a
+// second language is added; the author owns it from there (edit or delete).
+// codegen emits only the derived MULTILINGUAL header (language list + labeling
+// format), which is structural and stays in sync with agent.meta.languages.
+export const MULTILINGUAL_POLICY_GUARDRAIL = {
+  id: "gr_multilingual_policy",
+  statement:
+    "The caller may use any of the agent's languages and may switch mid-conversation. Each turn, detect the caller's current language and reply in it.",
+};
+
 export interface PromptSegment {
   start: number; // inclusive offset into text
   end: number; // exclusive
@@ -259,13 +271,17 @@ function locPerLang(
   return out;
 }
 
-// One-time guidance, emitted only in multilingual mode, telling the model the
-// caller may code-switch and to pick the matching translation per turn.
+// Derived header, emitted only in multilingual mode: which languages, how the
+// labeled translations below are laid out, and how to use them. These are
+// mechanics of the emission format the compiler owns, and are policy-neutral —
+// they apply whichever language the agent is speaking. Language *policy* (which
+// language to speak when) is not emitted here; it lives in an ordinary
+// guardrail (see MULTILINGUAL_POLICY_GUARDRAIL) so authors can edit it.
 function renderMultilingual(ctx: RenderCtx): string {
   if (!ctx.langs) return "";
   return [
     `MULTILINGUAL (languages: ${ctx.langs.join(", ")}):`,
-    "The caller may use any listed language and may switch mid-conversation. Each turn, detect the caller's current language and reply in it, using the matching translation shown for each script line and FAQ answer below. If a translation is missing for that language, translate the default faithfully.",
+    "Script lines and FAQ answers below are shown per language, labeled by language code. When speaking one of these languages, use its labeled translation where shown; where one is missing, translate the default-language text faithfully.",
   ].join("\n");
 }
 

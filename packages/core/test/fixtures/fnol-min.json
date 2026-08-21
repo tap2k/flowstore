@@ -24,7 +24,8 @@
       "claim_id": { "type": "string", "description": "Filed claim reference." }
     },
     "guardrails": [
-      { "id": "gr_no_payout_preverify", "statement": "Never quote a payout estimate before identity is verified." }
+      { "id": "gr_no_payout_preverify", "statement": "Never quote a payout estimate before identity is verified." },
+      { "id": "gr_multilingual_policy", "statement": "The caller may use any of the agent's languages and may switch mid-conversation. Each turn, detect the caller's current language and reply in it." }
     ],
     "capabilities": [
       {

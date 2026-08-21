@@ -98,12 +98,13 @@ exports[`compileSystemPrompt — multilingual > multilingual prompt matches the 
 ---
 
 MULTILINGUAL (languages: en-US, es-MX):
-The caller may use any listed language and may switch mid-conversation. Each turn, detect the caller's current language and reply in it, using the matching translation shown for each script line and FAQ answer below. If a translation is missing for that language, translate the default faithfully.
+Script lines and FAQ answers below are shown per language, labeled by language code. When speaking one of these languages, use its labeled translation where shown; where one is missing, translate the default-language text faithfully.
 
 ---
 
 GUARDRAILS (apply at all times):
 1. Never quote a payout estimate before identity is verified.
+2. The caller may use any of the agent's languages and may switch mid-conversation. Each turn, detect the caller's current language and reply in it.
 
 ---
 
