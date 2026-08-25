@@ -48,9 +48,8 @@ describe("buildReportHtml", () => {
     expect(html).not.toContain("conversations/month");
   });
 
-  it("never inlines the prompt text — only its length", () => {
+  it("never inlines the prompt text", () => {
     expect(html).not.toContain("You are Asha.");
-    expect(html).toContain("13</span>prompt chars");
   });
 
   it("surface opts override the default copy", () => {
@@ -139,26 +138,6 @@ describe("buildReportHtml", () => {
     expect(buildReportHtml(slow)).toContain(">5s<");
     // A fast study still shows the 2s mark rather than collapsing the axis.
     expect(html).toContain(">2s<");
-  });
-
-  it("calls out a tail only when the p95 is both slow and well past the mean", () => {
-    expect(html).not.toContain("Averages hide this");
-    const tailed: Study = {
-      ...study,
-      models: ["only-model"],
-      cells: {
-        [cellKey("s1", 0)]: cell({
-          turns: [100, 150, 200, 4600].map((ms) => ({
-            role: "agent" as const,
-            text: "x",
-            ts: 0,
-            events: [],
-            latencyMs: ms,
-          })),
-        }),
-      },
-    };
-    expect(buildReportHtml(tailed)).toContain("Averages hide this");
   });
 
   // ---------------------------------------------------------------- cost

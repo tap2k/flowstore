@@ -137,25 +137,6 @@ function firstDivergentReply(
   return undefined;
 }
 
-// Explains the chart in the reader's terms, but only where the tail actually
-// tells a story the mean hides — a model whose p95 is both past the interrupt
-// mark and well clear of its own average. Silent otherwise rather than
-// manufacturing a finding.
-function tailNote(perModel: ModelSummary[]): string | undefined {
-  const worst = perModel
-    .filter((r) => r.lat.p95 !== undefined && r.lat.avg !== undefined)
-    .sort((a, b) => (b.lat.p95 ?? 0) - (a.lat.p95 ?? 0))[0];
-  if (!worst) return undefined;
-  const p95 = worst.lat.p95!;
-  const avg = worst.lat.avg!;
-  if (p95 < INTERRUPT_MARK_MS || p95 < avg * 1.5) return undefined;
-  return (
-    `Averages hide this. ${esc(worst.model)} averages ${fmtSec(avg)}, but one reply in twenty ` +
-    `takes <strong>${fmtSec(p95)}</strong> — long enough on a live call that the caller ` +
-    `assumes the line dropped.`
-  );
-}
-
 // opts let the surface own surface-specific copy (the browser page claims
 // "runs in your browser"; a CLI must not). Defaults are surface-neutral.
 export function buildReportHtml(
@@ -258,7 +239,6 @@ export function buildReportHtml(
     .map((t) => `<span style="left:${posOf(t).toFixed(2)}%">${(t / 1000).toFixed(0)}s</span>`)
     .join("");
 
-  const note = tailNote(perModel);
 
   // ---------------------------------------------------------------- cost
   const costMax = Math.max(0, ...perModel.map((r) => r.costPerConv ?? 0));
@@ -475,8 +455,6 @@ export function buildReportHtml(
   .k-hollow{background:transparent;border:2px solid var(--fg-2)}
   .k-tick{width:2px;height:11px;border-radius:1px;background:var(--fg-3);display:inline-block}
   .k-line{width:12px;height:0;border-top:1px dashed var(--line-3);display:inline-block}
-  .takeaway{font-size:14px;line-height:22px;color:var(--fg-2);margin:16px 2px 0}
-  .takeaway strong{color:var(--warn);font-weight:560}
 
   .cost{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 24px}
   .c-row{display:flex;align-items:center;margin-bottom:12px}
@@ -489,21 +467,30 @@ export function buildReportHtml(
   .c-val{width:76px;flex:none;text-align:right;font-size:13px;font-weight:500}
   .c-val.good{color:var(--ok)}
 
-  table{border-collapse:collapse;width:100%}
-  .tw{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+  /* One table skin for both tables: no outer frame, a shaded header band
+     with rounded top corners, hairline row rules. separate+border-spacing:0
+     rather than collapse — collapsed borders ignore radius on cells. */
+  table{border-collapse:separate;border-spacing:0;width:100%}
+  .tw{overflow-x:auto}
+  .grid th,.data th{background:var(--node);border-bottom:1px solid var(--line-2)}
+  .grid thead tr:first-child th:first-child,
+  .data thead tr:first-child th:first-child{border-top-left-radius:6px}
+  .grid thead tr:first-child th:last-child,
+  .data thead tr:first-child th:last-child{border-top-right-radius:6px}
+  .grid td,.data td{border-bottom:1px solid var(--line);color:var(--fg-2)}
+  .grid tbody tr:last-child td,.data tbody tr:last-child td{border-bottom:none}
   .grid{font-size:13px}
   .grid th{font-size:10px;font-weight:560;letter-spacing:.06em;text-transform:uppercase;color:var(--fg-3);
-    text-align:left;padding:11px 14px;border-bottom:1px solid var(--line-2);background:var(--node);white-space:nowrap}
+    text-align:left;padding:11px 14px;white-space:nowrap}
   .grid th.c,.grid td.c{text-align:center}
-  .grid td{padding:12px 14px;border-bottom:1px solid var(--line);color:var(--fg-2)}
-  .grid tbody tr:last-child td{border-bottom:none}
+  .grid td{padding:12px 14px}
   .pill{display:inline-block;font-size:11px;font-weight:500;border-radius:999px;padding:2px 10px;text-decoration:none}
   .pill.ok{color:var(--fg-3);background:var(--raised)}
   .pill.none{color:var(--fg-4);background:transparent;border:1px dashed var(--line-2)}
   .pill.warn{color:var(--warn);background:var(--warn-bg);border:1px solid var(--warn-line)}
   .lang{font-size:11px;color:var(--fg-4);margin-left:4px}
 
-  .convo{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .convo{margin-top:16px;border:1px solid var(--line);border-radius:6px;overflow:hidden}
   .cv-head{padding:12px 16px;background:var(--node);border-bottom:1px solid var(--line);
     font-size:13px;font-weight:500}
   .cv-cols{display:grid;gap:10px;padding:10px 16px;background:var(--bg);border-bottom:1px solid var(--line)}
@@ -528,14 +515,13 @@ export function buildReportHtml(
     margin-top:7px;padding-top:7px;border-top:1px solid rgba(198,138,21,.3)}
 
   .data{font-size:12px;min-width:640px}
-  .data th{background:var(--node);font-size:11px;font-weight:500;color:var(--fg-3);text-align:left;
-    padding:10px 12px;border-bottom:1px solid var(--line-2);white-space:nowrap;vertical-align:bottom}
+  .data th{font-size:11px;font-weight:500;color:var(--fg-3);text-align:left;
+    padding:10px 12px;white-space:nowrap;vertical-align:bottom}
   .data th span{font-weight:450;color:var(--fg-4)}
-  .data th.grp{text-align:center;font-size:10px;font-weight:560;letter-spacing:.06em;text-transform:uppercase;
-    padding-bottom:6px;border-bottom:1px solid var(--line)}
+  .data th.grp{text-align:center;border-bottom:1px solid var(--line);font-size:10px;font-weight:560;letter-spacing:.06em;text-transform:uppercase;
+    padding-bottom:6px}
   .data th.sm{padding-top:0;font-size:10px;color:var(--fg-4)}
-  .data td{padding:11px 12px;border-bottom:1px solid var(--line);color:var(--fg-2)}
-  .data tbody tr:last-child td{border-bottom:none}
+  .data td{padding:11px 12px}
   .data .n,.data th.n{text-align:right;white-space:nowrap}
   .data .mdl{color:var(--fg);font-weight:500;white-space:nowrap}
   .data .best{color:var(--ok);font-weight:640}
@@ -580,8 +566,6 @@ export function buildReportHtml(
     <div class="m"><span>${models.length}</span>model${models.length === 1 ? "" : "s"}</div>
     <div class="m"><span>${scenarios.length}</span>scenario${scenarios.length === 1 ? "" : "s"}</div>
     ${multiLang ? `<div class="m"><span>${languages.length}</span>languages</div>` : ""}
-    <div class="m"><span>${perModel.reduce((a, r) => a + r.n, 0)}/${models.length * scenarios.length}</span>cells run</div>
-    <div class="m"><span>${study.prompt.length.toLocaleString()}</span>prompt chars</div>
   </div>
 </header>
 
@@ -598,7 +582,6 @@ export function buildReportHtml(
       <span><i class="k-line"></i>${(INTERRUPT_MARK_MS / 1000).toFixed(0)}s — the point a caller starts talking over the agent</span>
     </div>
   </div>
-  ${note ? `<p class="takeaway">${note}</p>` : ""}
 </section>
 
 <section>
