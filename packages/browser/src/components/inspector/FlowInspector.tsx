@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { X } from "@phosphor-icons/react";
+import { IconButton } from "@/components/ui";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSettingsStore } from "@/lib/store/settings";
 import type { Flow, FlowType, Guardrail, Condition } from "@flowstore/core/schema/v0";
@@ -68,12 +70,13 @@ export function FlowInspector() {
       <div className="sticky top-0 bg-surface-panel border-b border-border-default px-4 py-3 flex items-center gap-2">
         <span className="text-[10px] uppercase tracking-wide text-text-tertiary">Flow</span>
         <span className="fs-data text-text-tertiary truncate">{flow.id}</span>
-        <button
+        <IconButton
+          icon={X}
+          label="Close"
+          size="sm"
+          className="ml-auto"
           onClick={() => setSelection(null)}
-          className="ml-auto fs-caption text-text-tertiary hover:text-text-primary"
-        >
-          close
-        </button>
+        />
       </div>
 
       <div className="p-4 space-y-4">

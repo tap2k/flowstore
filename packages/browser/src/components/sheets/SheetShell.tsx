@@ -85,12 +85,15 @@ export function SheetShell({
     >
       <div className="min-w-0">
         <div className="flex items-baseline gap-2">
-          <h2 className={`m-0 truncate text-text-primary ${docked ? "fs-sectionTitle" : "fs-pageTitle"}`}>
+          <h2 className={`m-0 truncate text-text-primary ${docked ? "fs-label" : "fs-pageTitle"}`}>
             {title}
           </h2>
           {inlineMeta && <span className="fs-data truncate text-text-tertiary">{inlineMeta}</span>}
         </div>
-        {subtitle && <p className="fs-caption m-0 mt-0.5 truncate text-text-secondary">{subtitle}</p>}
+        {/* Docked panels skip the subtitle: the rail already named the section,
+            and a second one-line description just adds height for no new
+            information at 320px wide. */}
+        {subtitle && !docked && <p className="fs-caption m-0 mt-0.5 truncate text-text-secondary">{subtitle}</p>}
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {headerActions}

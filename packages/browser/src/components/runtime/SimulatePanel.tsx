@@ -18,7 +18,7 @@ import type { RuntimeEvent } from "@flowstore/core/runtime/eventTypes";
 import { formatEvent, formatValueTruncated } from "@flowstore/core/runtime/formatEvent";
 import { translateBatch } from "@flowstore/core/runtime/translate";
 import { IconButton, StopButton } from "@/components/ui";
-import { ArrowClockwise, Play } from "@phosphor-icons/react";
+import { ArrowClockwise, Play, X } from "@phosphor-icons/react";
 import { ModelPicker } from "./ModelPicker";
 import { PersonaForm } from "./PersonaForm";
 import { PersonasPanel } from "./PersonasPanel";
@@ -672,7 +672,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
           subtitle wraps in status/usage states. */}
       <div className="flex items-start justify-between border-b border-border-default px-4 py-2">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-text-primary truncate">
+          <div className="fs-label text-text-primary truncate">
             Run
           </div>
           <div className="text-[11px] text-text-tertiary truncate">
@@ -704,12 +704,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
               </button>
             </>
           )}
-          <button
-            onClick={onClose}
-            className="rounded px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover"
-          >
-            close
-          </button>
+          <IconButton icon={X} label="Close" size="sm" onClick={onClose} />
         </div>
       </div>
 

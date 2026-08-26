@@ -9,7 +9,8 @@ import {
 import { type Spec } from "@flowstore/core/schema/v0";
 import { styleForSource, isClickable, labelFor, type PromptKind } from "@/lib/promptColors";
 import { computeDiagnostics, diagnosticCounts, anchorLabel, type Diagnostic } from "@/lib/diagnostics";
-import { DisclosureCaret } from "@/components/ui";
+import { DisclosureCaret, IconButton } from "@/components/ui";
+import { BracketsCurly, BracketsSquare, Check, X } from "@phosphor-icons/react";
 
 interface SystemPromptPanelProps {
   onClose: () => void;
@@ -176,32 +177,23 @@ export function SystemPromptPanel({ onClose }: SystemPromptPanelProps) {
     // and the border it sits against (see LeftPanel).
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between border-b border-border-subtle px-3 py-2">
-        <div className="fs-sectionTitle text-text-primary">System prompt</div>
+        <div className="fs-label text-text-primary">System prompt</div>
         <div className="flex items-center gap-1">
-          <button
+          <IconButton
+            icon={copied === "double" ? Check : BracketsCurly}
+            label="Copy the prompt with {{variable}} placeholders (flowstore's convention)."
+            size="sm"
             onClick={() => copy(false)}
-            title="Copy the prompt with {{variable}} placeholders (flowstore's convention)."
-            className={`rounded px-2 py-1 text-[11px] ${
-              copied === "double" ? "text-state-success-fg" : "text-text-secondary hover:bg-surface-hover"
-            }`}
-          >
-            {copied === "double" ? "copied ✓" : "copy"}
-          </button>
-          <button
+            className={copied === "double" ? "text-state-success-fg" : undefined}
+          />
+          <IconButton
+            icon={copied === "single" ? Check : BracketsSquare}
+            label="Copy with {{variable}} down-converted to single-brace {variable}, for runtimes with single-brace interpolation. Note: literal single braces in the prompt become ambiguous on those runtimes."
+            size="sm"
             onClick={() => copy(true)}
-            title="Copy with {{variable}} down-converted to single-brace {variable}, for runtimes with single-brace interpolation. Note: literal single braces in the prompt become ambiguous on those runtimes."
-            className={`rounded px-2 py-1 text-[11px] ${
-              copied === "single" ? "text-state-success-fg" : "text-text-secondary hover:bg-surface-hover"
-            }`}
-          >
-            {copied === "single" ? "copied ✓" : "copy (single-bracket)"}
-          </button>
-          <button
-            onClick={onClose}
-            className="rounded px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover"
-          >
-            close
-          </button>
+            className={copied === "single" ? "text-state-success-fg" : undefined}
+          />
+          <IconButton icon={X} label="Close" size="sm" onClick={onClose} />
         </div>
       </div>
 

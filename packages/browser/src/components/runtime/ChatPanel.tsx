@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { X } from "@phosphor-icons/react";
+import { IconButton } from "@/components/ui";
 import { useSpecStore } from "@/lib/store/spec";
 import { loadSpec } from "@/lib/store/loadSpec";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
@@ -297,7 +299,7 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
       )}
       <div className="flex items-center justify-between border-b border-border-default px-4 py-2">
         <div>
-          <div className="text-sm font-semibold text-text-primary">Assistant</div>
+          <div className="fs-label text-text-primary">Assistant</div>
           <ModelPicker
             value={model}
             onChange={setChatModel}
@@ -312,12 +314,7 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
           >
             clear
           </button>
-          <button
-            onClick={onClose}
-            className="rounded px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover"
-          >
-            close
-          </button>
+          <IconButton icon={X} label="Close" size="sm" onClick={onClose} />
         </div>
       </div>
 
