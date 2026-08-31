@@ -84,7 +84,7 @@ export function VariablesEditor({ variables, onChange, scope }: VariablesEditorP
         </div>
       )}
       {rows.map((row, i) => (
-        <div key={i} className="rounded border border-border-default p-2 space-y-1.5">
+        <div key={i} className="fs-item-card p-2 space-y-1.5">
           <div className="flex gap-2">
             <input
               className={inputClass}

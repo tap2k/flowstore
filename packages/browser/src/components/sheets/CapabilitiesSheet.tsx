@@ -36,7 +36,7 @@ export function CapabilitiesSheet({ onClose, docked }: SectionSheetProps) {
         })}
         addLabel="add capability"
         renderItem={(c, update, remove) => (
-          <div className="rounded border border-border-default p-3 space-y-2">
+          <div className="fs-item-card p-3 space-y-2">
             <div className="flex items-start gap-2">
               <input
                 className={inputClass}

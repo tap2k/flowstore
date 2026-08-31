@@ -146,7 +146,7 @@ export function EdgeInspector() {
             addLabel="add assignment"
             emptyLabel="(no assignments)"
             renderItem={(row, update, remove) => (
-              <div className="rounded border border-border-default p-2 space-y-1.5">
+              <div className="fs-item-card p-2 space-y-1.5">
                 <div className="flex items-center gap-2">
                   <input
                     className={inputClass}

@@ -260,6 +260,28 @@ body {
   min-width: 0;
 }
 
+/* Item card: one entry in a repeated list (an FAQ pair, a capability, a
+   variable) in the sheets and the inspector.
+
+   Grouping is a FILL here, not an outline. These cards wrap fields that carry
+   their own 1px border, so an outlined card put two greys a few pixels apart
+   and the eye read them as one broken frame. The prompt panel's section blocks
+   already solve the same problem the same way — a recessed fill, no border —
+   so this matches them rather than inventing a third treatment.
+
+   Fields inside then LIFT to --surface-raised: at rest they share the card's
+   sunken fill, so leaving them recessed would dissolve them into it. This is
+   the surface model's own stacking rule (panels advance by fill, not shadow),
+   applied one level deeper — and it holds in both themes, where the sunken/
+   raised relationship inverts in value but not in role. */
+.fs-item-card {
+  background: var(--surface-sunken);
+  border-radius: var(--r-3);
+}
+.fs-item-card :is(input, textarea, select) {
+  background: var(--surface-raised);
+}
+
 /* Canvas collapse. A canvas narrower than --w-canvas-min is a strip that shows
    nothing useful, so past that point it is dropped entirely and the open panels
    divide the full width between them.
