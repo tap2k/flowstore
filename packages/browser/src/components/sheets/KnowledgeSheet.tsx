@@ -15,6 +15,7 @@ import {
   parseTableRowsCsv,
   tableToCsv,
 } from "@flowstore/core/codegen/knowledgeCsv";
+import { AutoTextarea } from "@/components/ui";
 
 export function KnowledgeSheet({ onClose, docked }: SectionSheetProps) {
   const knowledge = useSpecStore((s) => s.spec?.agent.knowledge ?? null);
@@ -86,8 +87,8 @@ export function KnowledgeSheet({ onClose, docked }: SectionSheetProps) {
                 onChange={(e) => update({ ...entry, term: e.target.value })}
                 placeholder="term"
               />
-              <textarea
-                className={`${inputClass} resize-y min-h-[40px]`}
+              <AutoTextarea
+                className={`${inputClass} min-h-[40px]`}
                 value={entry.definition}
                 onChange={(e) => update({ ...entry, definition: e.target.value })}
                 placeholder="definition"
@@ -194,8 +195,8 @@ function TableEditor({
         </button>
       </div>
       <Field label="Notes">
-        <textarea
-          className={`${inputClass} resize-y min-h-[40px]`}
+        <AutoTextarea
+          className={`${inputClass} min-h-[40px]`}
           value={table.notes ?? ""}
           onChange={(e) =>
             onChange({ ...table, notes: e.target.value || undefined })
@@ -257,8 +258,8 @@ function TableEditor({
         <summary className="cursor-pointer text-text-secondary hover:text-text-primary">
           Edit rows as JSON ({table.rows.length})
         </summary>
-        <textarea
-          className={`${inputClass} font-mono resize-y min-h-[80px] mt-2`}
+        <AutoTextarea
+          className={`${inputClass} font-mono min-h-[80px] mt-2`}
           defaultValue={JSON.stringify(table.rows, null, 2)}
           onBlur={(e) => {
             try {

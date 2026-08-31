@@ -3,6 +3,7 @@ import { resolveLocalized, setLanguage } from "@flowstore/core/schema/v0";
 import { genId } from "@flowstore/core/ids";
 import { ListEditor } from "./ListEditor";
 import { inputClass } from "./primitives";
+import { AutoTextarea } from "@/components/ui";
 
 interface Props {
   entries: FaqEntry[];
@@ -45,8 +46,8 @@ export function FaqListEditor({
               ×
             </button>
           </div>
-          <textarea
-            className={`${inputClass} resize-y min-h-[50px]`}
+          <AutoTextarea
+            className={`${inputClass} min-h-[50px]`}
             value={resolveLocalized(entry.answer, defaultLang, defaultLang)}
             onChange={(e) =>
               update({

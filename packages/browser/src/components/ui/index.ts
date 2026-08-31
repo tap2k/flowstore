@@ -27,6 +27,7 @@ export { Button, type ButtonProps, type ButtonVariant, type ButtonSize } from ".
 export { IconButton, type IconButtonProps, type IconButtonSize } from "./IconButton";
 export { Input, type InputProps } from "./Input";
 export { Textarea, type TextareaProps } from "./Textarea";
+export { AutoTextarea, type AutoTextareaProps } from "./AutoTextarea";
 export { Select, type SelectProps, type SelectOption } from "./Select";
 export { Checkbox, type CheckboxProps } from "./Checkbox";
 export { Switch, type SwitchProps } from "./Switch";

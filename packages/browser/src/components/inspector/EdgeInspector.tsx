@@ -5,6 +5,7 @@ import { GOTO_END, GOTO_RETURN, isReturnGoto } from "@flowstore/core/schema/v0";
 import { ListEditor } from "./ListEditor";
 import { ConditionEditor } from "./ConditionEditor";
 import { LoadInSimButton } from "./LoadInSimButton";
+import { AutoTextarea } from "@/components/ui";
 
 const METHODS: Method[] = ["llm", "calculation", "direct"];
 
@@ -128,8 +129,8 @@ export function EdgeInspector() {
         </Field>
 
         <Field label="Notes">
-          <textarea
-            className={`${inputClass} resize-y min-h-[60px]`}
+          <AutoTextarea
+            className={`${inputClass} min-h-[60px]`}
             value={exitPath.notes ?? ""}
             onChange={(e) => patch({ notes: e.target.value || undefined })}
             placeholder="Why this branch exists — audit rationale, stakeholder ask, tradeoff."

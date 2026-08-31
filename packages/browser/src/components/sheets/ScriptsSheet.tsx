@@ -6,6 +6,7 @@ import { defaultLanguage, getLanguage, setLanguage } from "@flowstore/core/schem
 import { flowToScriptsCsv, mergeScriptsCsv } from "@flowstore/core/codegen/scriptsCsv";
 import { downloadCsv, sanitizeFilename, useCsvFileInput } from "./csvIO";
 import { SheetShell } from "./SheetShell";
+import { AutoTextarea } from "@/components/ui";
 
 interface ScriptsSheetProps {
   flow: Flow;
@@ -251,7 +252,7 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
                         key={lang}
                         className="border-b border-r border-border-default last:border-r-0 p-0 align-top"
                       >
-                        <textarea
+                        <AutoTextarea
                           className="block w-full bg-transparent px-2 py-1.5 text-xs resize-none focus:outline-none focus:bg-state-running-bg/40 [field-sizing:content]"
                           value={cellValue}
                           onChange={(e) => editCell(line.id, lang, e.target.value)}
@@ -263,7 +264,7 @@ export function ScriptsSheet({ flow, onClose }: ScriptsSheetProps) {
                             key={i}
                             className="group/var relative border-t border-dashed border-border-default"
                           >
-                            <textarea
+                            <AutoTextarea
                               className="block w-full bg-transparent px-2 py-1 pr-6 text-[11px] text-text-secondary italic resize-none focus:outline-none focus:bg-state-running-bg/40 focus:not-italic focus:text-text-primary [field-sizing:content]"
                               value={v}
                               onChange={(e) =>

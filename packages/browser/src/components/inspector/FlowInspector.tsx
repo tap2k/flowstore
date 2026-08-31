@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { X } from "@phosphor-icons/react";
-import { IconButton } from "@/components/ui";
+import { IconButton, AutoTextarea } from "@/components/ui";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSettingsStore } from "@/lib/store/settings";
 import { useUiStore } from "@/lib/store/ui";
@@ -19,7 +19,7 @@ const FLOW_TYPES: FlowType[] = ["happy", "sad", "off", "utility", "interrupt"];
 const labelClass = "block fs-label text-text-secondary mb-1";
 const inputClass =
   "w-full rounded border border-border-default px-2 py-1 fs-caption bg-surface-panel focus:outline-none focus:ring-1 focus:ring-focus-ring";
-const textareaClass = `${inputClass} font-mono resize-y min-h-[80px]`;
+const textareaClass = `${inputClass} font-mono min-h-[80px]`;
 
 export function FlowInspector() {
   const selection = useSpecStore((s) => s.selection);
@@ -142,7 +142,7 @@ export function FlowInspector() {
         )}
 
         <Field label="Instructions">
-          <textarea
+          <AutoTextarea
             className={textareaClass}
             value={flow.instructions ?? ""}
             onChange={(e) => patch({ instructions: e.target.value || undefined })}
@@ -201,9 +201,9 @@ export function FlowInspector() {
                   key={g.id}
                   className="space-y-1.5 rounded border border-border-strong px-2 py-1.5"
                 >
-                  <textarea
+                  <AutoTextarea
                     autoFocus
-                    className={`${inputClass} resize-y min-h-[60px]`}
+                    className={`${inputClass} min-h-[60px]`}
                     value={g.statement}
                     onChange={(e) => updateGuardrail(g.id, e.target.value)}
                     placeholder="Behavioral invariant that applies only while this flow is active"
@@ -267,8 +267,8 @@ export function FlowInspector() {
         </Field>
 
         <Field label="Notes">
-          <textarea
-            className={`${inputClass} resize-y min-h-[60px]`}
+          <AutoTextarea
+            className={`${inputClass} min-h-[60px]`}
             value={flow.notes ?? ""}
             onChange={(e) => patch({ notes: e.target.value || undefined })}
             placeholder="Notes, comments, etc."
@@ -469,7 +469,7 @@ export function FlowInspector() {
         )}
 
         <Field label="Example transcript">
-          <textarea
+          <AutoTextarea
             className={textareaClass}
             value={flow.example ?? ""}
             onChange={(e) => patch({ example: e.target.value || undefined })}

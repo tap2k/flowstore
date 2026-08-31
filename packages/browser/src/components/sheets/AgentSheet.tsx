@@ -4,6 +4,7 @@ import type { Agent, Modality } from "@flowstore/core/schema/v0";
 import { Field, inputClass } from "@/components/inspector/primitives";
 import { SingleFlowPicker } from "@/components/inspector/FlowPicker";
 import { SheetShell, type SectionSheetProps } from "./SheetShell";
+import { AutoTextarea } from "@/components/ui";
 
 export function AgentSheet({ onClose, docked }: SectionSheetProps) {
   const agent = useSpecStore((s) => s.spec?.agent ?? null);
@@ -34,8 +35,8 @@ export function AgentSheet({ onClose, docked }: SectionSheetProps) {
         />
       </Field>
       <Field label="Purpose">
-        <textarea
-          className={`${inputClass} resize-y min-h-[60px]`}
+        <AutoTextarea
+          className={`${inputClass} min-h-[60px]`}
           value={agent.meta.purpose}
           onChange={(e) => patch({ meta: { ...agent.meta, purpose: e.target.value } })}
         />
@@ -92,8 +93,8 @@ export function AgentSheet({ onClose, docked }: SectionSheetProps) {
         </label>
       </div>
       <Field label="System prompt template">
-        <textarea
-          className={`${inputClass} resize-y min-h-[50px] font-mono`}
+        <AutoTextarea
+          className={`${inputClass} min-h-[50px] font-mono`}
           value={agent.system_prompt ?? ""}
           onChange={(e) => patch({ system_prompt: e.target.value || undefined })}
           placeholder={"{{generated}}"}
@@ -109,8 +110,8 @@ export function AgentSheet({ onClose, docked }: SectionSheetProps) {
         </p>
       </Field>
       <Field label="Notes">
-        <textarea
-          className={`${inputClass} resize-y min-h-[60px]`}
+        <AutoTextarea
+          className={`${inputClass} min-h-[60px]`}
           value={agent.notes ?? ""}
           onChange={(e) => patch({ notes: e.target.value || undefined })}
           placeholder="Author-facing only. Not included in the compiled system prompt."

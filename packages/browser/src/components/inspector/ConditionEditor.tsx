@@ -1,4 +1,5 @@
 import type { Condition, Method } from "@flowstore/core/schema/v0";
+import { AutoTextarea } from "@/components/ui";
 
 const METHODS: Method[] = ["llm", "calculation", "direct"];
 
@@ -35,8 +36,8 @@ export function ConditionEditor({ condition, onChange, placeholder, required }: 
           </option>
         ))}
       </select>
-      <textarea
-        className="w-full rounded border border-border-default px-2 py-1 fs-data resize-y min-h-[50px] focus:outline-none focus:ring-1 focus:ring-focus-ring"
+      <AutoTextarea
+        className="w-full rounded border border-border-default px-2 py-1 fs-data min-h-[50px] focus:outline-none focus:ring-1 focus:ring-focus-ring"
         value={expression}
         onChange={(e) => update({ expression: e.target.value })}
         placeholder={placeholder ?? (method === "llm" ? "Plain-language description" : "Expression")}

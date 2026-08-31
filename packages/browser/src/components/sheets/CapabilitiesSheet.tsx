@@ -5,6 +5,7 @@ import type { Capability, CapabilityKind } from "@flowstore/core/schema/v0";
 import { ListEditor } from "@/components/inspector/ListEditor";
 import { inputClass, StringListEditor } from "@/components/inspector/primitives";
 import { SheetShell, type SectionSheetProps } from "./SheetShell";
+import { AutoTextarea } from "@/components/ui";
 
 export function CapabilitiesSheet({ onClose, docked }: SectionSheetProps) {
   const capabilities = useSpecStore((s) => s.spec?.agent.capabilities) ?? [];
@@ -58,8 +59,8 @@ export function CapabilitiesSheet({ onClose, docked }: SectionSheetProps) {
                 ×
               </button>
             </div>
-            <textarea
-              className={`${inputClass} resize-y min-h-[40px]`}
+            <AutoTextarea
+              className={`${inputClass} min-h-[40px]`}
               value={c.description}
               onChange={(e) => update({ ...c, description: e.target.value })}
               placeholder="when/why this is used"

@@ -4,6 +4,7 @@ import type { BusinessGoal, Method } from "@flowstore/core/schema/v0";
 import { ListEditor } from "@/components/inspector/ListEditor";
 import { inputClass } from "@/components/inspector/primitives";
 import { SheetShell, type SectionSheetProps } from "./SheetShell";
+import { AutoTextarea } from "@/components/ui";
 
 const METHODS: Method[] = ["llm", "calculation", "direct"];
 
@@ -50,8 +51,8 @@ export function BusinessGoalsSheet({ onClose, docked }: SectionSheetProps) {
                   <option key={m} value={m}>{m}</option>
                 ))}
               </select>
-              <textarea
-                className="flex-1 rounded border border-border-default px-2 py-1 fs-data resize-y min-h-[40px] focus:outline-none focus:ring-1 focus:ring-focus-ring"
+              <AutoTextarea
+                className="flex-1 rounded border border-border-default px-2 py-1 fs-data min-h-[40px] focus:outline-none focus:ring-1 focus:ring-focus-ring"
                 value={g.expression}
                 onChange={(e) => update({ ...g, expression: e.target.value })}
                 placeholder={

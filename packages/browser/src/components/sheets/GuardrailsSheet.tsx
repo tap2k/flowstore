@@ -4,6 +4,7 @@ import type { Guardrail } from "@flowstore/core/schema/v0";
 import { ListEditor } from "@/components/inspector/ListEditor";
 import { inputClass } from "@/components/inspector/primitives";
 import { SheetShell, type SectionSheetProps } from "./SheetShell";
+import { AutoTextarea } from "@/components/ui";
 
 export function GuardrailsSheet({ onClose, docked }: SectionSheetProps) {
   const guardrails = useSpecStore((s) => s.spec?.agent.guardrails) ?? [];
@@ -24,8 +25,8 @@ export function GuardrailsSheet({ onClose, docked }: SectionSheetProps) {
         addLabel="add guardrail"
         renderItem={(g, update, remove) => (
           <div className="flex items-start gap-2">
-            <textarea
-              className={`${inputClass} resize-y min-h-[40px]`}
+            <AutoTextarea
+              className={`${inputClass} min-h-[40px]`}
               value={g.statement}
               onChange={(e) => update({ ...g, statement: e.target.value })}
               placeholder="Behavioral invariant"

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useCommentsStore } from "@/lib/store/comments";
 import type { Comment, CommentAnchor } from "@flowstore/core/schema/files/comment";
 import { anchorKey } from "@flowstore/core/schema/files/comment";
+import { AutoTextarea } from "@/components/ui";
 
 interface CommentsSectionProps {
   anchor: CommentAnchor;
@@ -83,13 +84,13 @@ export function CommentsSection({ anchor }: CommentsSectionProps) {
       )}
 
       <div className="space-y-1 pt-2">
-        <textarea
+        <AutoTextarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Add a comment…"
           rows={2}
           disabled={posting}
-          className="w-full resize-y rounded border border-border-default p-2 fs-caption focus:outline-none focus:ring-1 focus:ring-focus-ring disabled:bg-state-disabled-bg"
+          className="w-full rounded border border-border-default p-2 fs-caption focus:outline-none focus:ring-1 focus:ring-focus-ring disabled:bg-state-disabled-bg"
         />
         {error && <p className="text-[11px] text-state-error-fg">{error}</p>}
         <div className="flex justify-end">
