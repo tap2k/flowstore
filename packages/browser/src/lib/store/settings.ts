@@ -22,7 +22,7 @@ const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
 // value starts empty so an empty field communicates "configure to enable
 // runner mode" rather than "this is set, ready to go."
 export const DEFAULT_RUNNER_URL = "http://localhost:8000";
-export const DEFAULT_MODEL_ID = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
+export const DEFAULT_MODEL_ID = BUILT_IN_MODELS.default ?? "gemini-3.6-flash";
 
 // The voice (Live) model is provider-locked to Gemini Live, so unlike the
 // other per-location picks it is NOT seeded from defaultModel — it defaults

@@ -88,7 +88,11 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     "llama-3.3-70b":            { name: "Llama 3.3 70B", endpoint: "openrouter", model_id: "meta-llama/llama-3.3-70b-instruct" },
     "gpt-oss-120b":             { name: "GPT-OSS 120B", endpoint: "openrouter", model_id: "openai/gpt-oss-120b" },
   },
-  default: "gemini-2.5-flash",
+  // Google retired 2.5-flash for accounts that didn't already have access
+  // ("no longer available to new users"), so it can't be the out-of-box
+  // default any more. It stays LISTED — accounts with prior access still
+  // dispatch to it fine, and dropping the id would break their saved pick.
+  default: "gemini-3.6-flash",
   roles: {},
 };
 
