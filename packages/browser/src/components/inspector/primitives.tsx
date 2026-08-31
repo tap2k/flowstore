@@ -56,7 +56,7 @@ export function StringListEditor({
   return (
     <div className="space-y-1">
       {items.map((s, i) => (
-        <div key={i} className="flex items-center gap-1">
+        <div key={i} className="group/row flex items-center gap-1">
           <input
             className={inputClass}
             value={s}
@@ -67,6 +67,10 @@ export function StringListEditor({
             icon={X}
             label="Remove"
             size="sm"
+            // Visible on hover/focus of THIS row only — group/row is scoped per
+            // item, not shared across the list, so hovering one row's remove
+            // button doesn't light up every other row's.
+            className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
             onClick={() => onChange(items.filter((_, j) => j !== i))}
           />
         </div>
