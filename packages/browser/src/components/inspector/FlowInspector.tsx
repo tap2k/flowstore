@@ -3,10 +3,10 @@ import { X } from "@phosphor-icons/react";
 import { IconButton } from "@/components/ui";
 import { useSpecStore } from "@/lib/store/spec";
 import { useSettingsStore } from "@/lib/store/settings";
+import { useUiStore } from "@/lib/store/ui";
 import type { Flow, FlowType, Guardrail, Condition } from "@flowstore/core/schema/v0";
 import { defaultLanguage, isEndGoto, isReturnGoto } from "@flowstore/core/schema/v0";
 import { genId } from "@flowstore/core/ids";
-import { ListEditor } from "./ListEditor";
 import { FaqListEditor } from "./FaqListEditor";
 import { VariablesEditor } from "./VariablesEditor";
 import { ConditionEditor } from "./ConditionEditor";
@@ -33,10 +33,17 @@ export function FlowInspector() {
     [capabilities],
   );
   const flows = useSpecStore((s) => s.spec?.flows) ?? [];
+  const agentGuardrails = useSpecStore((s) => s.spec?.agent.guardrails);
   const updateFlow = useSpecStore((s) => s.updateFlow);
   const removeFlow = useSpecStore((s) => s.removeFlow);
   const setSelection = useSpecStore((s) => s.setSelection);
+  const setLeftTab = useUiStore((s) => s.setLeftTab);
   const [scriptsOpen, setScriptsOpen] = useState(false);
+  // Which guardrail card is expanded for editing. Unlike an exit path — which
+  // is a canvas entity, so its card navigates via setSelection to the
+  // EdgeInspector — a guardrail has nowhere to navigate TO, so it expands in
+  // place instead.
+  const [editingGuardrailId, setEditingGuardrailId] = useState<string | null>(null);
   const [retrievalPickerOpen, setRetrievalPickerOpen] = useState(false);
   const [toolsPickerOpen, setToolsPickerOpen] = useState(false);
   const runnerUrl = useSettingsStore((s) => s.runnerUrl);
@@ -58,6 +65,28 @@ export function FlowInspector() {
 
   const isInterrupt = flow.type === "interrupt";
   const flowId = flow.id;
+  const agentCount = (agentGuardrails ?? []).length;
+
+  // Arrow consts, not function declarations: these close over `flow` after the
+  // null guard above, and only a const binding keeps that narrowing (the
+  // hoisted `patch` below has to re-check for the same reason).
+  const addGuardrail = () => {
+    const g: Guardrail = { id: genId("g"), statement: "" };
+    patch({ guardrails: [...(flow.guardrails ?? []), g] });
+    setEditingGuardrailId(g.id);
+  };
+  const updateGuardrail = (id: string, statement: string) => {
+    patch({
+      guardrails: (flow.guardrails ?? []).map((g) => (g.id === id ? { ...g, statement } : g)),
+    });
+  };
+  const removeGuardrail = (id: string) => {
+    const next = (flow.guardrails ?? []).filter((g) => g.id !== id);
+    // Undefined rather than [] — an empty list would serialize a meaningless
+    // key into the flow file on every save.
+    patch({ guardrails: next.length ? next : undefined });
+    setEditingGuardrailId(null);
+  };
 
   function destLabel(goto: string): string {
     if (isEndGoto(goto)) return "End conversation";
@@ -156,6 +185,87 @@ export function FlowInspector() {
           )}
         </Field>
 
+        {/* Flow-scoped behavioral invariants. Compiled into this flow's prompt
+            section ON TOP OF the agent-level list — neither overrides the
+            other — which is why the agent-level count sits underneath: seeing
+            only the local rules here would misrepresent what actually
+            constrains this turn. */}
+        <Field label="Flow-level guardrails">
+          <div className="space-y-1.5">
+            {(flow.guardrails ?? []).length === 0 && (
+              <div className="fs-caption text-text-tertiary italic">(none)</div>
+            )}
+            {(flow.guardrails ?? []).map((g) =>
+              editingGuardrailId === g.id ? (
+                <div
+                  key={g.id}
+                  className="space-y-1.5 rounded border border-border-strong px-2 py-1.5"
+                >
+                  <textarea
+                    autoFocus
+                    className={`${inputClass} resize-y min-h-[60px]`}
+                    value={g.statement}
+                    onChange={(e) => updateGuardrail(g.id, e.target.value)}
+                    placeholder="Behavioral invariant that applies only while this flow is active"
+                  />
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => removeGuardrail(g.id)}
+                      className="fs-caption text-text-tertiary hover:text-state-error-fg"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingGuardrailId(null)}
+                      className="fs-caption text-text-secondary hover:text-text-primary"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => setEditingGuardrailId(g.id)}
+                  className="block w-full rounded border border-border-default px-2 py-1.5 text-left fs-caption hover:border-border-strong hover:bg-surface-hover"
+                >
+                  {g.statement ? (
+                    <span className="text-text-secondary">{g.statement}</span>
+                  ) : (
+                    <span className="italic text-text-tertiary">(empty — click to write)</span>
+                  )}
+                </button>
+              ),
+            )}
+            <button
+              type="button"
+              onClick={addGuardrail}
+              className="fs-caption text-text-secondary underline hover:text-text-primary"
+            >
+              + add guardrail
+            </button>
+          </div>
+
+          <div className="mt-2 flex items-center gap-1.5 border-t border-border-subtle pt-2 fs-caption text-text-tertiary">
+            <span>
+              {agentCount === 0
+                ? "No agent-level guardrails"
+                : `${agentCount} agent-level guardrail${agentCount === 1 ? "" : "s"} also apply here`}
+            </span>
+            <button
+              type="button"
+              onClick={() => setLeftTab("guardrails")}
+              className="rounded border border-border-default px-1.5 py-0.5 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+              title="Open the agent-level Guardrails editor in the left panel"
+            >
+              Show
+            </button>
+          </div>
+        </Field>
+
         <Field label="Notes">
           <textarea
             className={`${inputClass} resize-y min-h-[60px]`}
@@ -174,35 +284,6 @@ export function FlowInspector() {
             title="Author-named capability requirement; the execution layer's roles map resolves it to a concrete model. The spec never names a model id."
           />
         </Field>
-
-        {import.meta.env.VITE_DEV === "1" && (
-          <Field label="Guardrails">
-            <ListEditor<Guardrail>
-              items={flow.guardrails ?? []}
-              onChange={(g) => patch({ guardrails: g.length ? g : undefined })}
-              newItem={() => ({ id: genId("g"), statement: "" })}
-              addLabel="add guardrail"
-              emptyLabel="(none)"
-              renderItem={(g, update, remove) => (
-                <div className="flex items-start gap-2">
-                  <textarea
-                    className={`${inputClass} resize-y min-h-[40px]`}
-                    value={g.statement}
-                    onChange={(e) => update({ ...g, statement: e.target.value })}
-                    placeholder="Behavioral invariant"
-                  />
-                  <button
-                    onClick={remove}
-                    className="fs-caption text-text-tertiary hover:text-state-error-fg mt-1"
-                    title="remove"
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
-            />
-          </Field>
-        )}
 
         {import.meta.env.VITE_DEV === "1" && (
           <Field label="FAQ">
