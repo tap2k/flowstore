@@ -40,6 +40,7 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
   agents: {},
   models: {
     // Google
+    "gemini-3.8-flash":         { name: "Gemini 3.8 Flash", endpoint: "google" },
     "gemini-3.7-flash":         { name: "Gemini 3.7 Flash", endpoint: "google" },
     "gemini-3.6-flash":         { name: "Gemini 3.6 Flash", endpoint: "google" },
     "gemini-3.5-flash":         { name: "Gemini 3.5 Flash", endpoint: "google" },
@@ -105,7 +106,7 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     "llama-3.3-70b":            { name: "Llama 3.3 70B", endpoint: "openrouter", model_id: "meta-llama/llama-3.3-70b-instruct" },
     "gpt-oss-120b":             { name: "GPT-OSS 120B", endpoint: "openrouter", model_id: "openai/gpt-oss-120b" },
   },
-  default: "gemini-3.7-flash",
+  default: "gemini-3.8-flash",
   roles: {},
 };
 
