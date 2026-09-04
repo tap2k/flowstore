@@ -94,7 +94,7 @@ V0 SCHEMA
         {
           "id": "tbl_<snake_case>",
           "name": "string",
-          "purpose": "string",
+          "notes": "string (optional)",
           "structure": [{ "field": "string", "description": "string", "type": "string" }],
           "rows": [{ "field_name": "value" }],
           "scaling_rule": "string (optional)"

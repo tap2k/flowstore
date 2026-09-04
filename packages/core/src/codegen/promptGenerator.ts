@@ -566,9 +566,19 @@ function renderKnowledge(spec: Spec, ctx: RenderCtx): string {
     blocks.push(lines.join("\n"));
   }
 
-  // Tables are intentionally not inlined — they belong behind a retrieval
-  // capability. Inlining bloats the prompt and the row format would likely
-  // need re-authoring if revived.
+  if (k.tables?.length) {
+    for (const t of k.tables) {
+      const lines = [`TABLE — ${t.name}:`];
+      if (t.notes) lines.push(`(${t.notes})`);
+      for (const row of t.rows) {
+        const cells = t.structure
+          .filter((f) => row[f.field] !== undefined && row[f.field] !== "")
+          .map((f) => `${f.field}: ${String(row[f.field])}`);
+        lines.push(`- ${cells.join(" | ")}`);
+      }
+      blocks.push(lines.join("\n"));
+    }
+  }
 
   return blocks.join("\n\n");
 }

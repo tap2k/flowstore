@@ -89,6 +89,15 @@ GLOSSARY:
 - Drip: Filter-brewed black coffee from the day's batch.
 - Americano: Espresso shots topped with hot water — drip-strength but espresso-flavored.
 - Latte: Espresso with steamed milk and a thin layer of microfoam.
+
+TABLE — Drink menu:
+(Catalog of drink styles available, used by the order flows to validate patron requests and quote prices.)
+- drink_type: coffee | drink_style: drip | price_small: 3 | price_large: 4
+- drink_type: coffee | drink_style: americano | price_small: 3.5 | price_large: 4.5
+- drink_type: coffee | drink_style: latte | price_small: 4.5 | price_large: 5.5
+- drink_type: tea | drink_style: black | price_small: 3 | price_large: 4
+- drink_type: tea | drink_style: green | price_small: 3 | price_large: 4
+- drink_type: tea | drink_style: herbal | price_small: 3.5 | price_large: 4.5
 "
 `;
 

@@ -216,7 +216,7 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
       {
         "id": "string",
         "name": "string",
-        "purpose": "string (optional)",
+        "notes": "string (optional)",
         "structure": [
           {
             "field": "string",
