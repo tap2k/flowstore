@@ -70,6 +70,7 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     "grok-voice":                      { name: "Grok Voice (voice)", endpoint: "xai", voice: true, model_id: "grok-voice-latest" },
 
     // OpenAI
+    "gpt-6-astra":              { name: "GPT-6 Astra", endpoint: "openai" },
     "gpt-5.6-luna":             { name: "GPT-5.6 Luna", endpoint: "openai" },
     "gpt-5.6-terra":            { name: "GPT-5.6 Terra", endpoint: "openai" },
     "gpt-5.6-sol":              { name: "GPT-5.6 Sol", endpoint: "openai" },
