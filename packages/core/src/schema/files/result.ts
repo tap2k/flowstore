@@ -98,6 +98,13 @@ export const ResultSchema = Type.Object(
     // files remain self-describing when copied or diffed in isolation —
     // same rationale as `model` above.
     prompt_source: Type.Optional(Type.String()),
+    // Compile provenance (see spec/provenance.ts): the hash of the spec's
+    // canonical normal form and of the emitted system prompt, copied from
+    // `flowstore-compile --format prompt`'s `provenance`. They bind the run to
+    // exactly what was tested, so a result stays attributable across releases
+    // and across whichever platform stored it.
+    spec_hash: Type.Optional(Type.String()),
+    prompt_hash: Type.Optional(Type.String()),
     // Language of the run (echoes the case's language for the same
     // self-description rationale as `model` — result files stay meaningful
     // when copied or diffed in isolation).

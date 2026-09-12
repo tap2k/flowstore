@@ -5,6 +5,9 @@ import type { LoadResult } from "@flowstore/core/files";
 import { generateSystemPrompt } from "@flowstore/core/codegen/promptGenerator";
 import { capabilityToolDefinitions } from "@flowstore/core/llm/capabilityTools";
 import type { Spec } from "@flowstore/core/schema/v0";
+import { compileProvenance, specHash } from "@flowstore/core/spec/provenance";
+
+const COMPILER = `flowstore-compile ${(JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }).version}`;
 
 interface Args {
   format: "prompt" | "spec" | "tests";
@@ -108,6 +111,7 @@ function emit(text: string, out?: string): void {
   else process.stdout.write(text);
 }
 
+async function main(): Promise<void> {
 const args = parseArgs(process.argv.slice(2));
 const loaded = loadResult(args.input);
 const spec = loaded.spec!;
@@ -117,6 +121,7 @@ if (args.format === "tests") {
   // reads test files or the models config itself.
   const t = loaded.testingArtifacts;
   emit(JSON.stringify({
+    spec_hash: await specHash(spec),
     cases: t.testCases, personas: t.personas, rubrics: t.rubrics, golds: t.golds, decisions: t.decisions,
     models: loaded.modelsConfig ? { default: loaded.modelsConfig.default, roles: loaded.modelsConfig.roles, models: Object.keys(loaded.modelsConfig.models) } : null,
   }, null, 2) + "\n", args.out);
@@ -125,7 +130,13 @@ if (args.format === "tests") {
     language: args.language,
   });
   const tool_schemas = capabilityToolDefinitions(spec, { closed: true });
-  emit(JSON.stringify({ system_prompt, tool_schemas }, null, 2) + "\n", args.out);
+  // Provenance binds a run to this compile: hash of the spec's canonical
+  // normal form, hash of the emitted prompt. A runtime logs both per call.
+  const provenance = await compileProvenance(spec, system_prompt, { language: args.language, compiler: COMPILER });
+  emit(JSON.stringify({ system_prompt, tool_schemas, provenance }, null, 2) + "\n", args.out);
 } else {
   emit(JSON.stringify(spec, null, 2) + "\n", args.out);
 }
+}
+
+main().catch((e) => { console.error(e instanceof Error ? e.message : String(e)); process.exit(1); });

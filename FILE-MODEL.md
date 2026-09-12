@@ -136,7 +136,7 @@ One line grammar serves a gold's transcript, a case's turns, and the compare too
 
 ## Compiled artifact
 
-`flowstore-compile --format spec <dir>` emits the resolved JSON spec; `--format prompt` emits `{ system_prompt, tool_schemas }`; `--format tests` emits `{ cases, personas, rubrics, golds, decisions, models }`. A harness reads those and never parses source files. Compiled output goes to `dist/`, gitignored.
+`flowstore-compile --format spec <dir>` emits the resolved JSON spec; `--format prompt` emits `{ system_prompt, tool_schemas, provenance }`, where `provenance` carries `spec_hash` (SHA-256 of the spec's canonical JSON normal form, keys sorted, first 16 hex; never of the markdown bytes, so a whitespace or key-order edit does not change it and a content edit does) and `prompt_hash` (of the emitted prompt), plus `agent_id`, `compiled_at`, and the compiler version; a runtime logs the pair per call and a run result carries it; `--format tests` emits `{ cases, personas, rubrics, golds, decisions, models }`. A harness reads those and never parses source files. Compiled output goes to `dist/`, gitignored.
 
 ## Migration
 
