@@ -189,7 +189,9 @@ export interface ListItem {
   text: string;
 }
 
-const ITEM_RE = /^- ([^\s:]+):(?: (.*))?$/;
+// Whitespace after the colon is not content: `- id:  text` and `- id: text`
+// are the same item, so a spacing edit does not move the spec hash.
+const ITEM_RE = /^- ([^\s:]+):(?:\s+(.*))?$/;
 
 export function parseItems(body: string, keyFilter?: (key: string) => boolean): { items: ListItem[]; rest: string } {
   const lines = body.split(/\r?\n/);
@@ -201,7 +203,7 @@ export function parseItems(body: string, keyFilter?: (key: string) => boolean): 
     const m = ITEM_RE.exec(line);
     if (m && (!keyFilter || keyFilter(m[1]))) {
       if (current) items.push(current);
-      current = { key: m[1], text: m[2] ?? "" };
+      current = { key: m[1], text: (m[2] ?? "").trim() };
       pendingBlank = 0;
       continue;
     }
