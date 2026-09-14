@@ -8,22 +8,30 @@ Visual editor for flowstore behavioral specs. A Vite-built React SPA that author
 
 ## Forward direction
 
-**flowstore — a Behavioral IDE for Conversational Agents.** flowstore owns the open, Git-backed development section of the agent pipeline: visual spec authoring, Git-shaped collaboration across stakeholders, structured testing, client sharing. Runtime execution (a runtime that consumes the compiled spec) and production monitoring (handled by the runtime's event stream and dedicated eval/observability tools) are separate concerns. flowstore may integrate with production-monitoring tools post-pilot, but those integrations are not in MVP.
+**flowstore — a Behavioral IDE for Conversational Agents.** flowstore owns the open, Git-backed development section of the agent pipeline: spec authoring, Git-shaped collaboration across stakeholders, structured testing, client sharing. Runtime execution (a runtime that consumes the compiled spec) and production monitoring (the runtime's event stream, dedicated eval/observability tools) are separate concerns and stay outside.
 
-The Phase 0 MVP (canvas-first single-file spec editor) shipped 2026-05-08. The organizing vision now is the **flowstore MVP** — GitHub-backed multi-agent projects (one client repo holds N agents, e.g. purpose × language combinations), the spec decomposed into per-concern files with project / agent / flow scope levels ([FILE-MODEL.md](./FILE-MODEL.md)), multi-provider model config, a testing surface that drives compiled system prompts via Python scripts vendored per agent, comments anchored to spec entities, and a static client share view. The rest of this document describes the current state.
+Since 2026-09-10 flowstore is the **Systems lane** of the Convovo program: the spec as a behavioral program, open source, no business model. Two audiences, two artifacts:
+
+- **The editor (flowstore.org/create)** is the designer and teaching surface — conversation designers authoring flows (client pilots, classroom use, the Conversation Engineering course).
+- **The spec + CLI** is the engineering-facing artifact — a portable spec with a public, vendor-neutral compliance-assertion vocabulary, and a CLI any harness (Claude Code included) drives over a project repo: compile, simulate, regress, diff, score, emitting conformance evidence. Engineering shops keep their own authoring and regression; flowstore sits beside their stack as the spec of record, not in place of it.
+
+The current work is the **compliance order (2026-09-11)**: bound compile (spec-hash provenance, shipped 2026-09-12; deploy record next), compliance assertions as a public jurisdiction-tagged vocabulary, one-assertion-one-scenario-one-gold as the pre-deploy battery, a rationale field per instruction, and an exported contract for post-deploy conformance. Design of record: `convovo-notes/flowstore.md`. Backlog and reading order: `~/Desktop/projects/flowstore/planning/TODO.md`.
 
 ## Product Context
 
-flowstore is the **authoring** surface of the broader flowstore product (browser editor for specs across one or many agents per project). **Testing** happens via Python scripts vendored into each agent's Git repo by `flowstore-init-project` — tooling that compiles the spec to a system prompt + tool schemas and drives an LLM through test cases. Sibling repos:
+flowstore is the **authoring** surface of the broader flowstore product (browser editor for specs across one or many agents per project) plus the **CLI** (`flowstore-init-project`, `flowstore-compile`, `flowstore-migrate` in `packages/core`). **Testing** runs against the compiled artifacts: `flowstore-compile --format prompt` / `--format tests` produce the system prompt, tool schemas, and test bundle, and harness scripts vendored into each agent's Git repo drive an LLM through the cases ([docs/testing-from-scripts.md](./docs/testing-from-scripts.md)). Any harness operating the repo (a human, a script, Claude Code) is a first-class user of the CLI. Sibling repos:
 
-- `flowstore/` (this repo) — visual editor + `@flowstore/core` libraries (files, schema, codegen, providers).
-- **Per-agent or multi-agent Git repos** (customer-owned, flowstore-scaffolded) — hold the markdown spec(s) under `agents/<id>/` (multi-agent) or at root (single-agent), shared resources at root (capabilities, project-level guardrails, knowledge, personas, evaluators, rubrics), testing artifacts, run history, comments, and Python scripts.
+- `flowstore/` (this repo) — visual editor + `@flowstore/core` libraries (files, schema, codegen, providers) + `@flowstore/studies` (the compare/regression engine).
+- **Per-agent or multi-agent Git repos** (customer-owned, flowstore-scaffolded) — hold the markdown spec(s) under `agents/<id>/` (multi-agent) or at root (single-agent), shared resources at root (capabilities, project-level guardrails, knowledge, personas, evaluators, rubrics), testing artifacts, run history, comments, and harness scripts.
+- `flowstore-runner/` (Python graph-native runtime) — **parked since 2026-09-14.** Its loader predates the markdown layout and several schema fields; do not sync it or revive it without an explicit decision.
 
 Production monitoring (real-time event stream consumption, dashboards, alerting) is **explicitly out of scope** for flowstore — the runtime emits events; eval/observability tools consume them.
 
-The schema is the contract across flowstore and any runtime that consumes it. They all defer to [SCHEMA.md](./SCHEMA.md) in this repo.
+The schema is the contract across flowstore and any runtime that consumes it. They all defer to [SCHEMA.md](./SCHEMA.md) in this repo. The markdown layout in [FILE-MODEL.md](./FILE-MODEL.md) is the only accepted on-disk form; the pre-markdown layout is refused and its reader lives only behind `flowstore-migrate`.
 
-**Schema-change propagation:** a change to spec or testing-artifact schemas must sync (1) `flowstore-runner` — strict pydantic mirrors in `src/flowstore_runner/spec/types.py` reject unknown fields, so new fields break the runner's loader until added there; (2) the example/customer agent repos (`flowstore-example-fnol` and the private customer agent repos) when the change needs spec edits (e.g. `provided: true` markers on `agent.variables` for vars that should seed at session start) or renames testing-artifact fields (e.g. decision-test `vars` → `state`).
+**Compile provenance (shipped 2026-09-12):** `flowstore-compile --format prompt` emits `provenance` — `spec_hash` over the canonical JSON normal form (never the markdown bytes, so whitespace and key order do not move it), `prompt_hash` over the emitted text, agent id, language, compiler version, time. `--format tests` carries `spec_hash`; `run/result/v0` accepts both. This is the binding between a deployed prompt and the spec it was compiled from; keep it deterministic.
+
+**Schema-change propagation:** a change to spec or testing-artifact schemas must sync the example/customer agent repos (`flowstore-example-fnol` and the private customer agent repos) when the change needs spec edits (e.g. `provided: true` markers on `agent.variables` for vars that should seed at session start) or renames testing-artifact fields (e.g. decision-test `vars` → `state`).
 
 ## Mission
 
@@ -37,7 +45,7 @@ Narrative sharing with stakeholders is expected to happen *outside* the app for 
 
 The canvas is the canonical editing surface. Text views are entry and export only — never a live mirror of the spec. Re-importing replaces the current spec; we do not merge text edits back into a live graph. The round-trip fragility that forces tools like Stately into heavy AST machinery is avoided by keeping the canvas canonical.
 
-- **Canvas + inspectors + sheets** — the only place users edit graph structure. Round-trips with the in-memory spec, which saves as markdown files.
+- **Canvas + inspectors + sheets** (flowstore.org/create) — the only place users edit graph structure. Round-trips with the in-memory spec, which saves as markdown files in the [FILE-MODEL.md](./FILE-MODEL.md) layout.
 - **Declarative text import** — paste a resolved spec (JSON or YAML matching the schema), or import a project folder or zip in the markdown layout. Mechanical parse, no LLM. [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) produces the resolved JSON the user pastes here.
 - **Imperative text import** — paste free-form source: an analyst's script, a process doc, a system prompt, supporting docs. An LLM converts it directly to v0 JSON in one shot, schema-constrained.
 - **Export as JSON** — the exported file is the same shape the declarative import accepts; round-trip preserves the spec.
@@ -171,15 +179,18 @@ A new flow boundary earns its keep when at least one is true:
 
 If none of these apply, decomposing is busywork. The canvas makes nodes feel like the "correct" granularity; resist the reflex.
 
-## MVP Scope
+## Compliance assertions
 
-The end-to-end loop flowstore supports:
+The compliance-assertion vocabulary (disclosure at open, self-ID on ask, opt-out honored within N turns, jurisdiction-aware recording notice, mandated read-backs, no PHI in summary, escalation on request) is a **public, vendor-neutral artifact**: first-class `capability_assertions`, jurisdiction-tagged. Requirements come from regulation; the codebook for each assertion is derived from a labeling round, and no codebook is published before one. Receptionist/SMB pilots must not define the vocabulary. One assertion, one scenario, one gold: the persona simulator is the pre-deploy battery. Post-deploy conformance stays outside flowstore; flowstore owes it the exported contract (assertion list, spec hash, golds).
+
+## The core loop
 
 1. **Ingest** — paste a system prompt and attach supporting docs (PDFs, spreadsheets, Word, Figma exports, plain text).
-2. **Parse** — a behavioral parser (LLM-assisted) converts inputs to a structured spec, driven by [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt). Two ways to run it: in-app (attach source files in the Assistant and click **Build from source**, which runs that exact prompt against your configured model and loads the validated spec), or the manual round-trip (paste the prompt plus source material into an external LLM, then paste the JSON it returns into the editor's Import).
+2. **Parse** — a behavioral parser (LLM-assisted) converts inputs to a structured spec, driven by [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt). Two ways to run it: in-app (attach source files in the Assistant and click **Build from source**, which runs that exact prompt against your configured model and loads the validated spec), or the manual round-trip (paste the prompt plus source material into an external LLM, then import what it returns).
 3. **Review and configure** — user reviews the parsed spec on the canvas, edits inline.
-4. **Test** — compile spec to system prompt (or graph-native runtime); run test cases through it; diff against assertions and against legacy / baseline prompts.
-5. **Share** — internal findings report + client-facing shareable document. (Post-MVP flowstore surface.)
+4. **Test** — compile spec to system prompt; run test cases through it; diff against assertions and against legacy / baseline prompts.
+5. **Deploy** — a deploy script in the deploying project (e.g. `deploy-retell` in `mailbot`) pushes the compiled prompt and tools onto the live agent; the deploy record carrying the spec hash is the open item.
+6. **Share** — internal findings report + client-facing shareable document. (Post-MVP flowstore surface.)
 
 ## Related Docs in This Repo
 
