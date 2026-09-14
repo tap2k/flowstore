@@ -489,6 +489,19 @@ extracted, format each turn as "Agent: ..." or "User: ..." on its
 own line, and use {{variable_name}} placeholders for any specific
 values that come from variables.
 
+
+STEPS
+
+Only when a flow has more than one agent turn (see the sequencing
+rule under flow boundaries). Under `## Steps`, one `### step_id: name`
+heading per turn, in order; the body is that turn's instructions; a
+`- scripts: s_a, s_b` line names the flow-level scripts the turn uses.
+Scripts themselves stay under `## Scripts` with their usual ids. The
+flow's own `instructions` keep what applies to the whole flow. The
+compiler puts an explicit stop-and-wait between turns; do not write
+"wait for the customer" into the prose as well. Exit conditions never
+mention a step. A flow with one turn has no `## Steps` section.
+
 ---
 
 NOTES vs INSTRUCTIONS
@@ -537,13 +550,27 @@ the source warrants it.
   the caller, plus the closing utterance in that caller's scripts.
   Source-document section labels (STEP 1, STEP 2, "INTRODUCTION_GREETING")
   are author scaffolding, not flow boundaries — collapse them unless
-  a seam above actually applies. Exception: if two sequential steps
-  inside one section have distinct exit conditions — what marks
-  "step 1 done" differs from what marks "step 2 done" — keep them
-  as separate flows. The routing engine evaluates exits per turn
-  with no notion of sub-state, so a bundled flow's later-step exits
-  will misfire on earlier-step replies (e.g. an "identity confirmed"
-  exit firing on a "how are you?" greeting reply).
+  a seam above actually applies. The one thing they may mark is a
+  turn boundary: the agent says something, waits for the customer,
+  then says something else. The routing engine evaluates exits per
+  turn with no notion of sub-state, so never write that sequence in
+  prose ("STEP 2 has already been delivered AND …" in an exit
+  condition is the tell that it happened). Decide by the exits:
+    - same exits after every utterance (greet, wait, disclose, then
+      route on the reply) → one flow with `## Steps`, one step per
+      turn, each step naming its scripts; exits stay on the flow.
+    - what marks "step 1 done" differs from what marks "step 2 done"
+      → separate flows; the difference is routing, and routing is
+      an exit path, not a step.
+  Be sparing with steps. A step is a turn the agent must complete
+  before the customer replies, nothing smaller. Not steps: several
+  sentences the agent says in one message (disclosure + question is
+  one turn); alternative phrasings of the same turn (those are
+  script variations); a re-ask or repeat of the same turn (the flow
+  re-enters its own turn; interrupts and the blank-response handler
+  cover it); a wait for something other than the customer's reply
+  (that is a runtime hint, not spec). Most flows are one turn and
+  have no `## Steps` section at all.
 - source prompt content: decompose everything into structured fields.
   The repo/display label for the agent (a slug or short title, never
   fed to the model) → top-level `agent.name`. The name the agent
