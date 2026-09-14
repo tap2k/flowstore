@@ -10,16 +10,16 @@ Visual editor for flowstore behavioral specs. A Vite-built React SPA that author
 
 **flowstore — a Behavioral IDE for Conversational Agents.** flowstore owns the open, Git-backed development section of the agent pipeline: spec authoring, Git-shaped collaboration across stakeholders, structured testing, client sharing. Runtime execution (a runtime that consumes the compiled spec) and production monitoring (the runtime's event stream, dedicated eval/observability tools) are separate concerns and stay outside.
 
-Since 2026-09-10 flowstore is the **Systems lane** of the Convovo program: the spec as a behavioral program, open source, no business model. Two audiences, two artifacts:
+Two audiences, two artifacts:
 
-- **The editor (flowstore.org/create)** is the designer and teaching surface — conversation designers authoring flows (client pilots, classroom use, the Conversation Engineering course).
-- **The spec + CLI** is the engineering-facing artifact — a portable spec with a public, vendor-neutral compliance-assertion vocabulary, and a CLI any harness (Claude Code included) drives over a project repo: compile, simulate, regress, diff, score, emitting conformance evidence. Engineering shops keep their own authoring and regression; flowstore sits beside their stack as the spec of record, not in place of it.
+- **The editor (flowstore.org/create)** — for conversation designers authoring flows on the canvas and testing them in the simulator.
+- **The spec + CLI** — for engineering teams that already have their own authoring and regression tooling. The spec is a portable, hashed, version-controlled artifact; the CLI compiles it, runs the test bundle, and emits conformance evidence. flowstore sits beside an existing stack as the spec of record; it does not replace the stack.
 
-The current work is the **compliance order (2026-09-11)**: bound compile (spec-hash provenance, shipped 2026-09-12; deploy record next), compliance assertions as a public jurisdiction-tagged vocabulary, one-assertion-one-scenario-one-gold as the pre-deploy battery, a rationale field per instruction, and an exported contract for post-deploy conformance. Design of record: `convovo-notes/flowstore.md`. Backlog and reading order: `~/Desktop/projects/flowstore/planning/TODO.md`.
+Current direction: the spec as the auditable record of what an agent is supposed to do. In order: compile provenance (spec-hash on every compiled prompt — shipped; a deploy record carrying it — next), compliance assertions as a public, jurisdiction-tagged vocabulary, one scenario and one gold per assertion as the pre-deploy battery, a rationale field per instruction, and an exported contract (assertions, spec hash, golds) for post-deploy conformance checks that run outside flowstore.
 
 ## Product Context
 
-flowstore is the **authoring** surface of the broader flowstore product (browser editor for specs across one or many agents per project) plus the **CLI** (`flowstore-init-project`, `flowstore-compile`, `flowstore-migrate` in `packages/core`). **Testing** runs against the compiled artifacts: `flowstore-compile --format prompt` / `--format tests` produce the system prompt, tool schemas, and test bundle, and harness scripts vendored into each agent's Git repo drive an LLM through the cases ([docs/testing-from-scripts.md](./docs/testing-from-scripts.md)). Any harness operating the repo (a human, a script, Claude Code) is a first-class user of the CLI. Sibling repos:
+flowstore is the **authoring** surface of the broader flowstore product (browser editor for specs across one or many agents per project) plus the **CLI** (`flowstore-init-project`, `flowstore-compile`, `flowstore-migrate` in `packages/core`). **Testing** runs against the compiled artifacts: `flowstore-compile --format prompt` / `--format tests` produce the system prompt, tool schemas, and test bundle, and harness scripts vendored into each agent's Git repo drive an LLM through the cases ([docs/testing-from-scripts.md](./docs/testing-from-scripts.md)). Any harness operating the repo (a human, a script, a coding agent) is a first-class user of the CLI. Sibling repos:
 
 - `flowstore/` (this repo) — visual editor + `@flowstore/core` libraries (files, schema, codegen, providers) + `@flowstore/studies` (the compare/regression engine).
 - **Per-agent or multi-agent Git repos** (customer-owned, flowstore-scaffolded) — hold the markdown spec(s) under `agents/<id>/` (multi-agent) or at root (single-agent), shared resources at root (capabilities, project-level guardrails, knowledge, personas, evaluators, rubrics), testing artifacts, run history, comments, and harness scripts.
@@ -181,7 +181,7 @@ If none of these apply, decomposing is busywork. The canvas makes nodes feel lik
 
 ## Compliance assertions
 
-The compliance-assertion vocabulary (disclosure at open, self-ID on ask, opt-out honored within N turns, jurisdiction-aware recording notice, mandated read-backs, no PHI in summary, escalation on request) is a **public, vendor-neutral artifact**: first-class `capability_assertions`, jurisdiction-tagged. Requirements come from regulation; the codebook for each assertion is derived from a labeling round, and no codebook is published before one. Receptionist/SMB pilots must not define the vocabulary. One assertion, one scenario, one gold: the persona simulator is the pre-deploy battery. Post-deploy conformance stays outside flowstore; flowstore owes it the exported contract (assertion list, spec hash, golds).
+The compliance-assertion vocabulary (disclosure at open, self-ID on ask, opt-out honored within N turns, jurisdiction-aware recording notice, mandated read-backs, no PHI in summary, escalation on request) is a **public, vendor-neutral artifact**: first-class `capability_assertions`, jurisdiction-tagged. Requirements come from regulation; the codebook for each assertion is derived from a labeling round, and no codebook is published before one. Individual pilots do not define the vocabulary. One assertion, one scenario, one gold: the persona simulator is the pre-deploy battery. Post-deploy conformance stays outside flowstore; flowstore owes it the exported contract (assertion list, spec hash, golds).
 
 ## The core loop
 
@@ -189,7 +189,7 @@ The compliance-assertion vocabulary (disclosure at open, self-ID on ask, opt-out
 2. **Parse** — a behavioral parser (LLM-assisted) converts inputs to a structured spec, driven by [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt). Two ways to run it: in-app (attach source files in the Assistant and click **Build from source**, which runs that exact prompt against your configured model and loads the validated spec), or the manual round-trip (paste the prompt plus source material into an external LLM, then import what it returns).
 3. **Review and configure** — user reviews the parsed spec on the canvas, edits inline.
 4. **Test** — compile spec to system prompt; run test cases through it; diff against assertions and against legacy / baseline prompts.
-5. **Deploy** — a deploy script in the deploying project (e.g. `deploy-retell` in `mailbot`) pushes the compiled prompt and tools onto the live agent; the deploy record carrying the spec hash is the open item.
+5. **Deploy** — a deploy script in the deploying project pushes the compiled prompt and tools onto the live agent; the deploy record carrying the spec hash is the open item.
 6. **Share** — internal findings report + client-facing shareable document. (Post-MVP flowstore surface.)
 
 ## Related Docs in This Repo
