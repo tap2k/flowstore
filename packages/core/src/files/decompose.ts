@@ -120,6 +120,7 @@ export function emitFlow(flow: Flow): string {
     id: _id,
     name,
     instructions,
+    steps,
     scripts,
     guardrails,
     knowledge,
@@ -132,6 +133,14 @@ export function emitFlow(flow: Flow): string {
   const parts: string[] = [`# ${name}`];
   if (instructions !== undefined) parts.push("", instructions.replace(/\s+$/, ""));
 
+  if (steps && steps.length > 0) {
+    parts.push("", "## Steps");
+    for (const st of steps) {
+      parts.push("", `### ${st.id}${st.name ? `: ${st.name}` : ""}`);
+      if (st.instructions !== undefined) parts.push(st.instructions.replace(/\s+$/, ""));
+      if (st.scripts && st.scripts.length > 0) parts.push(formatItem("scripts", st.scripts.join(", ")));
+    }
+  }
   if (scripts && scripts.length > 0) {
     parts.push("", "## Scripts");
     for (const s of scripts) parts.push("", ...emitScript(s));

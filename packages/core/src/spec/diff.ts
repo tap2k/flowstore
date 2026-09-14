@@ -233,6 +233,7 @@ function diffFlow(base: Flow, head: Flow, ctx: Ctx): EntityDiff | null {
   pushScalar(fields, "entry_condition", conditionStr(base.entry_condition), conditionStr(head.entry_condition));
   pushScalar(fields, "retrieve_on_turn", joinArr(base.retrieve_on_turn), joinArr(head.retrieve_on_turn));
   pushScalar(fields, "tools", joinArr(base.tools), joinArr(head.tools));
+  pushCollection(fields, "steps", countList(base.steps, head.steps, (s) => s.id));
   pushCollection(fields, "scripts", countList(base.scripts, head.scripts, (s) => s.id));
 
   const parent: RefLabel = { id: head.id, name: head.name };

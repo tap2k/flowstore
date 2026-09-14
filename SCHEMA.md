@@ -272,6 +272,15 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
 
   "instructions": "string",
 
+  "steps": [
+    {
+      "id": "string",
+      "name": "string (optional)",
+      "instructions": "string (optional)",
+      "scripts": ["<script_id>"]
+    }
+  ],
+
   "entry_condition": {
     "expression": "string",
     "method": "llm | calculation | direct"
@@ -344,6 +353,7 @@ In multi-agent projects, the compiler merges across scope levels (project ∪ ag
 
 - **`type`** — flow's category label. `happy` / `sad` / `off` / `utility` describe the role of the flow in the conversation (success path, failure path, off-topic handler, helper). `interrupt` is structurally distinct: an interrupt flow is **globally callable** — any flow may pivot into it when its `entry_condition` matches at any turn. The other four types carry no structural meaning beyond canvas color/badge.
 - **`instructions`** — behavioral prose directing the LLM: what to do, how to behave, what to ask. Compiles into a system prompt fragment for this flow.
+- **`steps`** — optional ordered agent turns inside the flow. A flow without `steps` is one turn: the agent says one thing (its `instructions` and `scripts`) and the customer replies. A flow with `steps` says several things in order and waits for the customer after each. Each step has an `id`, an optional `name`, optional `instructions`, and `scripts`: ids from the flow's own `scripts` array, so scripts stay flow-level (one translation sheet, stable ids for tests and golds). Steps carry no routing: `exit_paths` belong to the flow and are evaluated after the last step; interrupts fire on any turn. The compiler renders every step boundary as an explicit stop-and-wait at the point of speaking, which is where small models honor it: the same instruction written once in the flow's prose or as a global guardrail is dropped by the weakest deployer models, and they run the turns together. A step-aware runtime tracks the step index instead of asking the model to remember which step was delivered. Linear inside, branching outside: anything that branches on the reply is a flow exit, not a step. Out of scope here and still in Open Questions: `tool` / `call` steps, per-step `captures` and `condition`, and waits other than "wait for the reply", which are runtime hints, not spec.
 - **`entry_condition`** — required iff `type === "interrupt"`. For interrupts, this is the trigger phrase/intent the runtime checks every turn to decide whether to pivot. Non-interrupt flows are entered via their incoming `goto` edges and have no entry condition.
 - **`exit_paths`** — how the flow ends. Each has a `condition` and a `goto` destination.
 - **`exit_paths[].goto`** — one of:
@@ -537,7 +547,7 @@ Lives in [`packages/core/src/schema/files/mockBehavior.ts`](./packages/core/src/
 
 Forward-looking concepts surfaced by mapping the schema against runtimes or by deferred MVP work. Not designed yet — recorded so they aren't invented twice. When any of these ship, they enter the schema as an additive `$schema` version bump; the schema today does not reserve placeholder fields.
 
-- **Structured `steps` field on a flow.** A richer authoring surface than flat `instructions` + `scripts`: ordered `turn` / `tool` / `call` steps with per-turn `condition` and `captures`, mid-conversation capability dispatch, and sub-flow invocation with input/output mapping. Reserved in the past as an optional field; removed pending real implementation pressure. When it lands, the open design questions are how `steps` interacts with the existing `instructions` / `scripts` (replace? augment?) and how `turn.utterances` relates to `flow.scripts`.
+- **Structured `steps` field on a flow — partly resolved (2026-09-14).** Ordered turn steps landed as `flow.steps[]` (see Flow Schema): each step is one agent turn with its own instructions and a list of flow-level script ids; the compiler renders stop-and-wait between them. That answered the two design questions: steps augment rather than replace (`instructions` stay flow-level context, scripts stay in `flow.scripts` and are referenced by id), and a step's utterances are the flow's scripts it names. The pressure was a two-turn identity flow written as STEP 1 / STEP 2 prose that a small deployer-tier model ran together in half its trials; one stop line placed between the two scripts eliminated the failure. Still open: `tool` / `call` steps (mid-conversation capability dispatch, sub-flow invocation with input/output mapping), per-step `captures` and `condition`, and runtime tracking of the step index.
 - **Runtime hints (e.g., Pipecat).** Some runtimes need vendor-specific node configuration (Pipecat: `context_strategy`, `respond_immediately`, pre/post actions). These were briefly modeled as `flow.pipecat` but contradicted the "execution separate from spec" principle. The right home is an export-time sidecar keyed by flow id, not the spec itself. Revisit when an export to a hint-requiring runtime is concretely needed.
 - **Accumulator / reducer semantics on variables.** flowstore variables hold values; some runtimes (notably LangGraph state) let a variable accumulate across turns. If this becomes a real authoring need, the natural home is a field on the variable declaration.
 - **Human-in-the-loop / mid-flow external pause.** Distinct from `type: "interrupt"` flows, which model user-initiated topic switches. This is "halt the run awaiting external approval, then resume." First-class flow-level concept, not a hint.

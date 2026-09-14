@@ -77,6 +77,7 @@ export function findPromptPlaceholders(spec: Spec | null): string[] {
   const sources: string[] = [];
   for (const flow of spec.flows ?? []) {
     collectLocalizedStrings(flow.instructions, sources);
+    for (const st of flow.steps ?? []) collectLocalizedStrings(st.instructions, sources);
     for (const line of flow.scripts ?? []) {
       collectLocalizedStrings(line.text, sources);
     }

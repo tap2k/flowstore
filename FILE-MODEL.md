@@ -81,7 +81,20 @@ Authoring annotation. Never compiled.
 - The `# ` heading is the flow's name. Everything between it and the first `## ` section is the instructions.
 - Frontmatter holds every other schema field: `type`, `entry_condition`, `exit_paths`, `variables`, `retrieve_on_turn`, `tools`, `model_role`, `version`.
 - Two shorthands: a bare string `condition` means `{ expression, method: llm }`, and an `actions` list of capability ids means `[{ capability_id }]`. The long forms are accepted too; only `llm` conditions collapse to a string.
-- The sections are `Scripts`, `Guardrails`, `FAQ`, `Example`, `Notes`. Anything else is an error.
+- The sections are `Steps`, `Scripts`, `Guardrails`, `FAQ`, `Example`, `Notes`. Anything else is an error.
+- `## Steps` lists the flow's agent turns in order when there is more than one: a `### step_id: name` heading per turn, its instructions as the body, and a `- scripts: s_a, s_b` line naming the flow-level scripts that turn uses. The compiler puts an explicit stop-and-wait between turns. A flow without `## Steps` is one turn.
+
+```markdown
+## Steps
+
+### greet: Greeting
+Greet with one short line and nothing else.
+- scripts: s_greeting
+
+### disclose: Recording disclosure and identity
+Say who you are, give the recording disclosure, ask them to confirm their name.
+- scripts: s_identity_confirm
+```
 
 ## Localized text
 

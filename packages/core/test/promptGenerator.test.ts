@@ -215,3 +215,45 @@ describe("compileSystemPrompt — segments", () => {
     expect(segments[0].source.kind).toBe("templateWrapper");
   });
 });
+
+describe("compileSystemPrompt — flow steps (ordered turns)", () => {
+  function withSteps(): Spec {
+    const s = structuredClone(coffee);
+    const f = s.flows[0];
+    f.scripts = [
+      { id: "s_greet", text: "Hi there!" },
+      { id: "s_disclose", text: "This call is recorded. Are you Sam?" },
+      { id: "s_spare", text: "One more thing." },
+    ];
+    f.steps = [
+      { id: "greet", name: "Greeting", instructions: "Greet only.", scripts: ["s_greet"] },
+      { id: "disclose", name: "Disclosure", instructions: "Disclose and ask for the name.", scripts: ["s_disclose"] },
+    ];
+    return s;
+  }
+
+  it("renders each step as a numbered turn with its own scripts", () => {
+    const text = compileSystemPrompt(withSteps()).text;
+    expect(text).toContain("Turn 1 of 2 — Greeting:");
+    expect(text).toContain("Turn 2 of 2 — Disclosure:");
+    expect(text.indexOf('"Hi there!"')).toBeLessThan(text.indexOf("Turn 2 of 2"));
+    expect(text.indexOf('"This call is recorded. Are you Sam?"')).toBeGreaterThan(text.indexOf("Turn 2 of 2"));
+  });
+
+  it("puts an explicit stop-and-wait line between steps, not after the last", () => {
+    const text = compileSystemPrompt(withSteps()).text;
+    const waits = text.split("Then stop: send only that as your whole message").length - 1;
+    expect(waits).toBe(1);
+    expect(text.indexOf("Then stop:")).toBeGreaterThan(text.indexOf('"Hi there!"'));
+    expect(text.indexOf("Then stop:")).toBeLessThan(text.indexOf("Turn 2 of 2"));
+  });
+
+  it("renders scripts no step names as ordinary flow scripts after the steps", () => {
+    const text = compileSystemPrompt(withSteps()).text;
+    expect(text.indexOf('"One more thing."')).toBeGreaterThan(text.indexOf('"This call is recorded. Are you Sam?"'));
+  });
+
+  it("changes nothing for flows without steps", () => {
+    expect(compileSystemPrompt(coffee).text).toBe(baseline);
+  });
+});

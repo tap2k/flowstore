@@ -444,3 +444,32 @@ describe("validateGraph — single-brace placeholder lint", () => {
     expect(braceWarnings(issues)).toHaveLength(1);
   });
 });
+
+describe("validateGraph — flow steps", () => {
+  const flowWith = (extra: Record<string, unknown>) => spec({ flows: [{ id: "f1", type: "happy", exit_paths: [], ...extra }] });
+
+  it("accepts steps that name declared scripts", () => {
+    const s = flowWith({
+      scripts: [{ id: "s_a", text: "a" }, { id: "s_b", text: "b" }],
+      steps: [{ id: "one", scripts: ["s_a"] }, { id: "two", scripts: ["s_b"] }],
+    });
+    expect(validateGraph(s).filter((i) => i.code.startsWith("step"))).toEqual([]);
+  });
+
+  it("rejects a step naming a script the flow does not declare", () => {
+    const s = flowWith({ scripts: [{ id: "s_a", text: "a" }], steps: [{ id: "one", scripts: ["s_a"] }, { id: "two", scripts: ["s_zzz"] }] });
+    expect(byCode(validateGraph(s), "step-script-unknown")).toHaveLength(1);
+  });
+
+  it("warns on a single step", () => {
+    expect(byCode(validateGraph(flowWith({ steps: [{ id: "only" }] })), "steps-too-few")).toHaveLength(1);
+  });
+
+  it("warns when sequencing is written as STEP 1 / STEP 2 prose or exit conditions", () => {
+    const prose = flowWith({ instructions: "STEP 1 — greet. STEP 2 — disclose." });
+    expect(byCode(validateGraph(prose), "prose-step-markers")).toHaveLength(1);
+    const exits = flowWith({ exit_paths: [{ id: "x", goto: "END", condition: { method: "llm", expression: "STEP 2 has already been delivered AND the customer confirms" } }] });
+    expect(byCode(validateGraph(exits), "prose-step-markers")).toHaveLength(1);
+    expect(byCode(validateGraph(flowWith({ instructions: "Greet, then disclose." })), "prose-step-markers")).toHaveLength(0);
+  });
+});

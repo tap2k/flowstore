@@ -24,7 +24,10 @@ export type GraphIssueCode =
   | "unreachable-flow"
   | "variable-casing"
   | "provided-on-flow-variable"
-  | "single-brace-placeholder";
+  | "single-brace-placeholder"
+  | "step-script-unknown"
+  | "steps-too-few"
+  | "prose-step-markers";
 
 export interface GraphIssue {
   code: GraphIssueCode;
@@ -64,6 +67,8 @@ export function validateGraph(spec: Spec): GraphIssue[] {
   }
 
   const importedProject = isImportedFlowless(spec);
+
+  issues.push(...lintSteps(spec));
 
   if (!spec.agent.entry_flow_id) {
     if (!importedProject) {
@@ -214,6 +219,46 @@ export function validateGraph(spec: Spec): GraphIssue[] {
   return issues;
 }
 
+// Ordered turns. A step may only name scripts the flow declares; a single
+// step is just a flow (drop the section); and a flow whose prose or exit
+// conditions carry "STEP 1 / STEP 2" sequencing is the failure `steps` exists
+// to remove — the routing engine has no sub-state, so an exit written as
+// "STEP 2 has already been delivered AND …" is guarded by nothing but the
+// model's memory, and the weakest deployer models run the steps together.
+const PROSE_STEP_RE = /\bSTEP\s*\d/i;
+
+function lintSteps(spec: Spec): GraphIssue[] {
+  const issues: GraphIssue[] = [];
+  for (const f of spec.flows) {
+    const at = { kind: "flow", flowId: f.id } as const;
+    const steps = f.steps ?? [];
+    if (steps.length === 1) {
+      issues.push({ code: "steps-too-few", at, message: "A single step is just the flow's own turn; drop the ## Steps section", severity: "warning" });
+    }
+    const declared = new Set((f.scripts ?? []).map((s) => s.id));
+    for (const st of steps) {
+      for (const id of st.scripts ?? []) {
+        if (!declared.has(id)) {
+          issues.push({ code: "step-script-unknown", at, message: `Step "${st.id}" names script "${id}", which the flow does not declare` });
+        }
+      }
+    }
+    if (steps.length === 0) {
+      const inProse = PROSE_STEP_RE.test(f.instructions ?? "");
+      const inExits = (f.exit_paths ?? []).some((ep) => ep.condition && PROSE_STEP_RE.test(ep.condition.expression));
+      if (inProse || inExits) {
+        issues.push({
+          code: "prose-step-markers",
+          at,
+          message: "Sequenced agent turns written in prose (STEP 1 / STEP 2); the runtime tracks no sub-state, so write them as ## Steps",
+          severity: "warning",
+        });
+      }
+    }
+  }
+  return issues;
+}
+
 // Legacy single-brace {var} references. Substitution is double-brace {{var}}
 // (substituteVars), so a single-brace token naming a declared variable is
 // almost certainly a pre-migration leftover or an import from a single-brace
@@ -250,6 +295,7 @@ function lintSingleBracePlaceholders(spec: Spec): GraphIssue[] {
   for (const f of spec.flows) {
     const flowAt: IssueLocation = { kind: "flow", flowId: f.id };
     scan(f.instructions, flowAt);
+    for (const st of f.steps ?? []) scan(st.instructions, flowAt);
     scan(f.example, flowAt);
     scan(f.entry_condition?.expression, flowAt);
     for (const g of f.guardrails ?? []) scan(g.statement, flowAt);

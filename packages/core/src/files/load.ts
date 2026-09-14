@@ -1,4 +1,4 @@
-import type { Spec, Agent, Flow } from "@flowstore/core/schema/v0";
+import type { Spec, Agent, Flow, FlowStep } from "@flowstore/core/schema/v0";
 import { validateSpec, validateFile, formatErrors } from "@flowstore/core/validation/ajv";
 import { ProjectManifestSchema } from "@flowstore/core/schema/files/project";
 import { coerceCell } from "@flowstore/core/codegen/knowledgeCsv";
@@ -240,6 +240,9 @@ export function parseFlow(id: string, text: string, path: string, languages: str
   };
   if (instructions) flow.instructions = instructions;
 
+  const steps = findSection(sections, "Steps");
+  if (steps) flow.steps = parseSteps(steps.body, path);
+
   const scripts = findSection(sections, "Scripts");
   if (scripts) flow.scripts = parseScripts(scripts.body, languages, path);
 
@@ -255,11 +258,29 @@ export function parseFlow(id: string, text: string, path: string, languages: str
   const notes = findSection(sections, "Notes");
   if (notes) flow.notes = notes.body.trim();
 
-  const known = new Set(["scripts", "guardrails", "faq", "example", "notes"]);
+  const known = new Set(["steps", "scripts", "guardrails", "faq", "example", "notes"]);
   for (const s of sections) {
     if (!known.has(s.title.toLowerCase())) throw new Error(`${path}: unknown section "## ${s.title}"`);
   }
   return flow as unknown as Flow;
+}
+
+// `## Steps`: one `### step_id: name` entry per agent turn, in order. The
+// entry body is the step's instructions; a `- scripts: s_a, s_b` line names
+// the flow-level scripts this turn uses.
+function parseSteps(body: string, path: string): FlowStep[] {
+  const { lead, entries } = splitEntries(body);
+  if (lead.trim() !== "") throw new Error(`${path}: text before the first "### step_id: name" heading under ## Steps`);
+  return entries.map((e) => {
+    const { items, rest } = parseItems(e.body, (k) => k === "scripts");
+    const step: Record<string, unknown> = { id: e.id };
+    if (e.title) step.name = e.title;
+    const instructions = rest.trim();
+    if (instructions) step.instructions = instructions;
+    const ids = items.flatMap((it) => it.text.split(",").map((s) => s.trim()).filter(Boolean));
+    if (ids.length > 0) step.scripts = ids;
+    return step as unknown as FlowStep;
+  });
 }
 
 function parseScripts(body: string, languages: string[], path: string): ScriptLine[] {

@@ -250,6 +250,25 @@ const ScriptLineSchema = Type.Object(
   strict
 );
 
+// An ordered agent turn inside a flow. A flow without `steps` is one turn:
+// its instructions and scripts describe the single thing the agent says
+// before the customer replies. A flow with `steps` says several things in
+// order, waiting for the customer after each; the compiler renders every
+// boundary as an explicit stop-and-wait; a step-aware runtime can track the
+// index. Steps carry no routing: exit paths belong to the flow and are
+// evaluated after the last step (interrupts fire on any turn). `scripts`
+// references ids in the flow's own `scripts` array, so scripts stay flow-level
+// (one translation sheet, stable ids for tests and golds).
+const FlowStepSchema = Type.Object(
+  {
+    id: Type.String(),
+    name: Type.Optional(Type.String()),
+    instructions: Type.Optional(Type.String()),
+    scripts: Type.Optional(Type.Array(Type.String())),
+  },
+  strict
+);
+
 const FlowKnowledgeSchema = Type.Object(
   {
     faq: Type.Optional(Type.Array(FaqEntrySchema)),
@@ -265,6 +284,7 @@ export const FlowSchema = Type.Object(
     name: Type.String(),
     type: FlowType,
     instructions: Type.Optional(Type.String()),
+    steps: Type.Optional(Type.Array(FlowStepSchema)),
     entry_condition: Type.Optional(ConditionSchema),
     exit_paths: Type.Array(ExitPathSchema),
     scripts: Type.Optional(Type.Array(ScriptLineSchema)),
@@ -515,5 +535,6 @@ export type ExitPath = Static<typeof ExitPathSchema>;
 export type ScriptLine = Static<typeof ScriptLineSchema>;
 export type FlowKnowledge = Static<typeof FlowKnowledgeSchema>;
 export type Flow = Static<typeof FlowSchema>;
+export type FlowStep = Static<typeof FlowStepSchema>;
 export type Agent = Static<typeof AgentSchema>;
 export type Spec = Static<typeof SpecSchema>;

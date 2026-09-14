@@ -1,10 +1,4 @@
-import type {
-  Spec,
-  Flow,
-  ExitPath,
-  Condition,
-  FaqEntry,
-} from "@flowstore/core/schema/v0";
+import type { Spec, Flow, ExitPath, Condition, FaqEntry, ScriptLine } from "@flowstore/core/schema/v0";
 import {
   isEndGoto,
   isReturnGoto,
@@ -363,8 +357,8 @@ function flowsGroup(
     if (instructions.trim()) {
       lines.push(`   ${instructions.trim().split("\n").join("\n   ")}`);
     }
-    const scripts = renderFlowScripts(flow, ctx);
-    if (scripts) lines.push(scripts);
+    const body = renderFlowTurns(flow, ctx);
+    if (body) lines.push(body);
     const guardrails = renderFlowGuardrails(flow);
     if (guardrails) lines.push(guardrails);
     const knowledge = renderFlowKnowledge(flow, ctx);
@@ -473,8 +467,47 @@ function orderFlows(flows: Flow[], entryId: string | undefined): Flow[] {
   return ordered;
 }
 
-function renderFlowScripts(flow: Flow, ctx: RenderCtx): string {
-  const scripts = flow.scripts ?? [];
+// Ordered turns inside one flow. Each step is rendered as its own numbered
+// turn with the scripts it names, and every boundary between steps carries an
+// explicit stop-and-wait line at the point of speaking — the one place a
+// small model reliably honors it (a global "one message per turn" guardrail
+// and a "wait" sentence inside the instructions were both ignored by
+// gemini-2.5-flash-lite; the same sentence placed between the two scripts
+// eliminated the failure). Flow-level scripts no step names render after the
+// steps as ordinary flow scripts.
+const STEP_WAIT_LINE =
+  "   Then stop: send only that as your whole message and wait for the customer to reply before the next turn.";
+
+// What the agent says in this flow: its ordered turns when it has `steps`,
+// otherwise its flat scripts (one turn).
+function renderFlowTurns(flow: Flow, ctx: RenderCtx): string {
+  return flow.steps && flow.steps.length > 0 ? renderFlowSteps(flow, ctx) : renderScriptLines(flow.scripts ?? [], ctx);
+}
+
+function renderFlowSteps(flow: Flow, ctx: RenderCtx): string {
+  const steps = flow.steps ?? [];
+  const byId = new Map((flow.scripts ?? []).map((s) => [s.id, s]));
+  const used = new Set<string>();
+  const lines: string[] = [];
+  steps.forEach((st, i) => {
+    const title = st.name ? ` — ${st.name}` : "";
+    lines.push(`   Turn ${i + 1} of ${steps.length}${title}:`);
+    if (st.instructions?.trim()) {
+      lines.push(`   ${st.instructions.trim().split("\n").join("\n   ")}`);
+    }
+    const scripts = (st.scripts ?? []).map((id) => byId.get(id)).filter((s): s is ScriptLine => !!s);
+    for (const s of scripts) used.add(s.id);
+    const rendered = renderScriptLines(scripts, ctx);
+    if (rendered) lines.push(rendered);
+    if (i < steps.length - 1) lines.push(STEP_WAIT_LINE);
+  });
+  const rest = (flow.scripts ?? []).filter((s) => !used.has(s.id));
+  const restRendered = renderScriptLines(rest, ctx);
+  if (restRendered) lines.push(restRendered);
+  return lines.join("\n");
+}
+
+function renderScriptLines(scripts: ScriptLine[], ctx: RenderCtx): string {
   if (!scripts.length) return "";
   const lines: string[] = ["   Scripts:"];
   for (const s of scripts) {
@@ -535,8 +568,8 @@ function interruptsGroup(
     if (instructions.trim()) {
       lines.push(`   ${instructions.trim().split("\n").join("\n   ")}`);
     }
-    const scripts = renderFlowScripts(flow, ctx);
-    if (scripts) lines.push(scripts);
+    const body = renderFlowTurns(flow, ctx);
+    if (body) lines.push(body);
     const knowledge = renderFlowKnowledge(flow, ctx);
     if (knowledge) lines.push(knowledge);
     const routing = renderFlowRoutingInline(flow, flowNames);

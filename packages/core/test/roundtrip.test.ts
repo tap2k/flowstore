@@ -116,3 +116,50 @@ describe("gold transcript grammar", () => {
     ]);
   });
 });
+
+describe("flow steps round-trip (## Steps)", () => {
+  it("parses ## Steps into flow.steps and emits it back identically", async () => {
+    const { parseFlow } = await import("@flowstore/core/files/load");
+    const { emitFlow } = await import("@flowstore/core/files/decompose");
+    const md = [
+      "---",
+      "type: happy",
+      "exit_paths:",
+      "  - id: x",
+      "    goto: END",
+      "---",
+      "# Identity",
+      "",
+      "Confirm who is on the line.",
+      "",
+      "## Steps",
+      "",
+      "### greet: Greeting",
+      "Greet only.",
+      "- scripts: s_greet",
+      "",
+      "### disclose: Disclosure",
+      "Disclose and ask for the name.",
+      "- scripts: s_disclose, s_disclose_alt",
+      "",
+      "## Scripts",
+      "",
+      "### s_greet",
+      "Hi there!",
+      "",
+      "### s_disclose",
+      "This call is recorded. Are you Sam?",
+      "",
+      "### s_disclose_alt",
+      "Recorded call. Sam?",
+      "",
+    ].join("\n");
+    const flow = parseFlow("identity", md, "flows/identity.md", ["EN"]);
+    expect(flow.steps).toEqual([
+      { id: "greet", name: "Greeting", instructions: "Greet only.", scripts: ["s_greet"] },
+      { id: "disclose", name: "Disclosure", instructions: "Disclose and ask for the name.", scripts: ["s_disclose", "s_disclose_alt"] },
+    ]);
+    const again = parseFlow("identity", emitFlow(flow), "flows/identity.md", ["EN"]);
+    expect(again).toEqual(flow);
+  });
+});
