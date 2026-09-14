@@ -492,15 +492,11 @@ values that come from variables.
 
 STEPS
 
-Only when a flow has more than one agent turn (see the sequencing
-rule under flow boundaries). Under `## Steps`, one `### step_id: name`
-heading per turn, in order; the body is that turn's instructions; a
-`- scripts: s_a, s_b` line names the flow-level scripts the turn uses.
-Scripts themselves stay under `## Scripts` with their usual ids. The
-flow's own `instructions` keep what applies to the whole flow. The
-compiler puts an explicit stop-and-wait between turns; do not write
-"wait for the customer" into the prose as well. Exit conditions never
-mention a step. A flow with one turn has no `## Steps` section.
+Only for a flow with more than one agent turn. `## Steps`, then one
+`### step_id: name` per turn in order; body = that turn's
+instructions; `- scripts: s_a, s_b` names its scripts, which stay under
+`## Scripts`. The compiler adds the stop-and-wait between turns; exit
+conditions never mention a step.
 
 ---
 
@@ -549,28 +545,15 @@ the source warrants it.
   one caller is not a flow — it's an exit_path with goto: "END" on
   the caller, plus the closing utterance in that caller's scripts.
   Source-document section labels (STEP 1, STEP 2, "INTRODUCTION_GREETING")
-  are author scaffolding, not flow boundaries — collapse them unless
-  a seam above actually applies. The one thing they may mark is a
-  turn boundary: the agent says something, waits for the customer,
-  then says something else. The routing engine evaluates exits per
-  turn with no notion of sub-state, so never write that sequence in
-  prose ("STEP 2 has already been delivered AND …" in an exit
-  condition is the tell that it happened). Decide by the exits:
-    - same exits after every utterance (greet, wait, disclose, then
-      route on the reply) → one flow with `## Steps`, one step per
-      turn, each step naming its scripts; exits stay on the flow.
-    - what marks "step 1 done" differs from what marks "step 2 done"
-      → separate flows; the difference is routing, and routing is
-      an exit path, not a step.
-  Be sparing with steps. A step is a turn the agent must complete
-  before the customer replies, nothing smaller. Not steps: several
-  sentences the agent says in one message (disclosure + question is
-  one turn); alternative phrasings of the same turn (those are
-  script variations); a re-ask or repeat of the same turn (the flow
-  re-enters its own turn; interrupts and the blank-response handler
-  cover it); a wait for something other than the customer's reply
-  (that is a runtime hint, not spec). Most flows are one turn and
-  have no `## Steps` section at all.
+  are author scaffolding, not flow boundaries — collapse them. The one
+  thing they may mark is a turn boundary (the agent speaks, waits for
+  the customer, speaks again). The routing engine has no sub-state,
+  so never sequence turns in prose; decide by the exits: same exits
+  after every turn → one flow with `## Steps`; exits that differ per
+  turn → separate flows. A step is a whole turn, nothing smaller:
+  not the sentences of one message, not phrasing variations, not a
+  re-ask, not a wait for anything but the reply. Most flows are one
+  turn and have no `## Steps`.
 - source prompt content: decompose everything into structured fields.
   The repo/display label for the agent (a slug or short title, never
   fed to the model) → top-level `agent.name`. The name the agent
