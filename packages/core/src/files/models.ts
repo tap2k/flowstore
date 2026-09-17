@@ -98,6 +98,7 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     "grok-4.5":                 { name: "Grok 4.5", endpoint: "openrouter", model_id: "x-ai/grok-4.5" },
     "grok-4.3":                 { name: "Grok 4.3", endpoint: "openrouter", model_id: "x-ai/grok-4.3" },
     "deepseek-v4-pro":          { name: "DeepSeek V4 Pro", endpoint: "openrouter", model_id: "deepseek/deepseek-v4-pro" },
+    "deepseek-v4.1-flash":      { name: "DeepSeek V4.1 Flash", endpoint: "openrouter", model_id: "deepseek/deepseek-v4.1-flash" },
     "deepseek-v4-flash":        { name: "DeepSeek V4 Flash", endpoint: "openrouter", model_id: "deepseek/deepseek-v4-flash" },
     "kimi-k3":                  { name: "Kimi K3", endpoint: "openrouter", model_id: "moonshotai/kimi-k3" },
     "kimi-k2.6":                { name: "Kimi K2.6", endpoint: "openrouter", model_id: "moonshotai/kimi-k2.6" },
