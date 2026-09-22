@@ -76,6 +76,8 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
 
     // OpenAI
     "gpt-6-astra":              { name: "GPT-6 Astra", endpoint: "openai" },
+    "gpt-6-sol":                { name: "GPT-6 Sol", endpoint: "openai" },
+    "gpt-6-luna":               { name: "GPT-6 Luna", endpoint: "openai" },
     "gpt-5.6-luna":             { name: "GPT-5.6 Luna", endpoint: "openai" },
     "gpt-5.6-terra":            { name: "GPT-5.6 Terra", endpoint: "openai" },
     "gpt-5.6-sol":              { name: "GPT-5.6 Sol", endpoint: "openai" },
@@ -88,12 +90,14 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     // Anthropic (via OpenRouter — Anthropic blocks browser-direct CORS)
     "claude-fable-5.1":         { name: "Claude Fable 5.1", endpoint: "openrouter", model_id: "anthropic/claude-fable-5.1" },
     "claude-fable-5":           { name: "Claude Fable 5", endpoint: "openrouter", model_id: "anthropic/claude-fable-5" },
+    "claude-opus-5.5":          { name: "Claude Opus 5.5", endpoint: "openrouter", model_id: "anthropic/claude-opus-5.5" },
     "claude-opus-5":            { name: "Claude Opus 5", endpoint: "openrouter", model_id: "anthropic/claude-opus-5" },
     "claude-opus-4.8":          { name: "Claude Opus 4.8", endpoint: "openrouter", model_id: "anthropic/claude-opus-4.8" },
     "claude-sonnet-5":          { name: "Claude Sonnet 5", endpoint: "openrouter", model_id: "anthropic/claude-sonnet-5" },
     "claude-haiku-4.5":         { name: "Claude Haiku 4.5", endpoint: "openrouter", model_id: "anthropic/claude-haiku-4.5" },
 
     // Open-weight on OpenRouter. The :free suffix routes to the free tier.
+    "grok-4.7":                 { name: "Grok 4.7", endpoint: "openrouter", model_id: "x-ai/grok-4.7" },
     "grok-4.6":                 { name: "Grok 4.6", endpoint: "openrouter", model_id: "x-ai/grok-4.6" },
     "grok-4.5":                 { name: "Grok 4.5", endpoint: "openrouter", model_id: "x-ai/grok-4.5" },
     "grok-4.3":                 { name: "Grok 4.3", endpoint: "openrouter", model_id: "x-ai/grok-4.3" },
