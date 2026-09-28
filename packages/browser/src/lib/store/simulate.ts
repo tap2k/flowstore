@@ -883,9 +883,6 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
     // rest of the vars buffer is character sheet, which the agent must earn
     // through conversation or mocks.
     const shippedVars = providedVars(spec, contextVars);
-    // The editable prompt override is produced by the Prompt panel and lives in
-    // the ui store; use it if present, else compile fresh from the spec.
-    const existingOverride = useUiStore.getState().promptOverride;
     const cleanedMocks = cleanMockReturns(mockReturns, spec);
     // Tear down any prior voice session before a new Start (mode may have
     // changed, or this is a re-run).
@@ -930,9 +927,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         return;
       }
       try {
-        const systemPrompt =
-          existingOverride ??
-          generateSystemPrompt(spec, shippedVars, { language: language ?? ALL_LANGUAGES });
+        const systemPrompt = generateSystemPrompt(spec, shippedVars, { language: language ?? ALL_LANGUAGES });
         const sessionId = `voice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         set({ sessionId, systemPrompt, specSnapshot: spec });
         // Same config shape both ways; Gemini rides @google/genai's Live
@@ -1023,9 +1018,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
         return;
       }
       try {
-        const systemPrompt =
-          existingOverride ??
-          generateSystemPrompt(spec, shippedVars, { language: language ?? ALL_LANGUAGES });
+        const systemPrompt = generateSystemPrompt(spec, shippedVars, { language: language ?? ALL_LANGUAGES });
         const sessionId = `prompt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         // Light the entry flow immediately — the sim starts there, so the graph
         // shouldn't sit dark until the first decode resolves. The watcher walks

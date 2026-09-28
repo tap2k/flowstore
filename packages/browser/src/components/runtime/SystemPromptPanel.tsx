@@ -19,7 +19,7 @@ interface SystemPromptPanelProps {
 // ─────────────────────────────────────────────────────────────────────────
 // DELIBERATE DIVERGENCE FROM THE RAW COMPILED PROMPT.
 //
-// The panel's View mode does NOT show the literal compiled prompt. It strips
+// The panel does NOT show the literal compiled prompt. It strips
 // the section headers and per-flow/per-interrupt numbering that merely restate
 // the block's own colored label, so each block reads as just its content. This
 // is a *display transform only*:
@@ -66,12 +66,8 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
   const spec = useSpecStore((s) => s.spec);
   const requestFocus = useSpecStore((s) => s.requestFocus);
   const setSelection = useSpecStore((s) => s.setSelection);
-  const promptOverride = useUiStore((s) => s.promptOverride);
-  const setPromptOverride = useUiStore((s) => s.setPromptOverride);
-  const promptOverrideSpecRef = useUiStore((s) => s.promptOverrideSpecRef);
   const setOpenSheet = useUiStore((s) => s.setOpenSheet);
 
-  const [mode, setMode] = useState<"view" | "edit">("view");
   const [problemsOpen, setProblemsOpen] = useState(true);
   const [copied, setCopied] = useState<"double" | "single" | null>(null);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -105,27 +101,15 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
   if (!open || !spec || !compiled) return null;
 
   const compiledText = compiled.text;
-  const editorValue = promptOverride ?? compiledText;
-  const edited = promptOverride !== null && promptOverride !== compiledText;
-  const specChangedSinceEdit =
-    promptOverride !== null && promptOverrideSpecRef !== null && promptOverrideSpecRef !== spec;
-  const charsDiff = Math.abs(editorValue.length - compiledText.length);
-
-  function revert() {
-    setPromptOverride(null);
-    setMode("view");
-  }
 
   function copy(singleBracket = false) {
-    // Copy yields the LITERAL prompt (compiledText / the edit buffer), never the
-    // display-trimmed text — what you paste must match what the LLM receives.
-    // See bodyForDisplay for the deliberate View-mode divergence.
-    const text = mode === "edit" ? editorValue : compiledText;
+    // Copy yields the LITERAL prompt, never the display-trimmed text — what you
+    // paste must match what the LLM receives. See bodyForDisplay.
     // Single-bracket export down-converts {{var}} → {var} for runtimes whose
     // interpolation is single-brace. Lossy by nature: any literal
     // single brace in the prompt becomes indistinguishable from a placeholder on
     // such a runtime — flowstore stays {{var}} internally; this is export-only.
-    const out = singleBracket ? text.replace(/\{\{([A-Za-z_]\w*)\}\}/g, "{$1}") : text;
+    const out = singleBracket ? compiledText.replace(/\{\{([A-Za-z_]\w*)\}\}/g, "{$1}") : compiledText;
     void navigator.clipboard.writeText(out);
     setCopied(singleBracket ? "single" : "double");
     if (copiedTimer.current) clearTimeout(copiedTimer.current);
@@ -202,26 +186,13 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 border-b border-border-default px-4 py-1.5 text-[11px]">
-        <div className="flex overflow-hidden rounded border border-border-default">
-          <ToggleButton active={mode === "view"} onClick={() => setMode("view")}>
-            View
-          </ToggleButton>
-          <ToggleButton active={mode === "edit"} onClick={() => setMode("edit")} dot={edited}>
-            Edit raw
-          </ToggleButton>
-        </div>
-        {availableLanguages.length > 1 && (
+      {availableLanguages.length > 1 && (
+        <div className="flex items-center gap-2 border-b border-border-default px-4 py-1.5 text-[11px]">
           <select
             value={language ?? ""}
             onChange={(e) => setLanguage(e.target.value || undefined)}
-            disabled={mode === "edit"}
-            title={
-              mode === "edit"
-                ? "Revert to change language"
-                : "auto: every declared language (what an unpinned session sends). Pin a code to render scripts and FAQ in one language."
-            }
-            className="ml-auto rounded border border-border-default bg-surface-panel px-1.5 py-0.5 text-[11px] text-text-secondary hover:bg-surface-hover disabled:opacity-50"
+            title="auto: every declared language (what an unpinned session sends). Pin a code to render scripts and FAQ in one language."
+            className="ml-auto rounded border border-border-default bg-surface-panel px-1.5 py-0.5 text-[11px] text-text-secondary hover:bg-surface-hover"
           >
             <option value="">auto</option>
             {availableLanguages.map((code) => (
@@ -230,8 +201,8 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
               </option>
             ))}
           </select>
-        )}
-      </div>
+        </div>
+      )}
 
       {diagnostics.length > 0 && (
         <ProblemsSection
@@ -244,82 +215,55 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
         />
       )}
 
-      {(specChangedSinceEdit || edited) && (
-        <div className="flex items-center justify-between gap-2 border-b border-state-warning-line bg-state-warning-bg px-3 py-2 text-[11px] text-state-warning-fg">
-          <span>
-            {specChangedSinceEdit
-              ? "Spec changed since edit"
-              : `Edited · ${charsDiff.toLocaleString()} chars different`}
-          </span>
-          <button
-            onClick={revert}
-            className="rounded border border-state-warning-line bg-surface-panel px-2 py-0.5 text-state-warning-fg hover:bg-state-warning-bg"
-          >
-            {specChangedSinceEdit ? "Revert to recompile" : "Revert"}
-          </button>
-        </div>
-      )}
-
-      {mode === "view" ? (
-        <div className="flex-1 space-y-2 overflow-auto p-3">
-          {compiled.segments.map((seg, i) => {
-            const text = compiledText.slice(seg.start, seg.end);
-            const src = seg.source;
-            const flowId =
-              src.kind === "flow" || src.kind === "interrupt" ? src.flowId : undefined;
-            const flowType = flowId
-              ? spec.flows.find((f) => f.id === flowId)?.type
-              : undefined;
-            const style = styleForSource(src, flowType);
-            const clickable = isClickable(src.kind);
-            const isEntry = src.kind === "flow" && src.flowId === spec.agent.entry_flow_id;
-            const label = labelFor(src) + (isEntry ? " (entry)" : "");
-            const body = bodyForDisplay(src.kind, text);
-            return (
-              <div key={i} className={`rounded-md px-2 py-1.5 ${style.block}`}>
-                {clickable ? (
-                  <button
-                    type="button"
-                    onClick={() => onSegmentClick(seg.source)}
-                    title="Open"
-                    className={`group/seg mb-1 flex w-full cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-left text-[10px] font-semibold uppercase tracking-wide focus:outline-none focus-visible:ring-2 ${style.header} ${style.hover} ${style.ring}`}
-                  >
-                    <span className="flex-1 truncate">{label}</span>
-                    <span className="truncate text-[9px] font-normal normal-case opacity-60 transition-opacity group-hover/seg:opacity-100">
-                      Open
-                    </span>
-                    <span aria-hidden className="transition-transform group-hover/seg:translate-x-0.5">
-                      →
-                    </span>
-                  </button>
-                ) : (
-                  <div
-                    className={`mb-1 px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${style.header}`}
-                  >
-                    {label}
-                  </div>
-                )}
-                <pre
-                  className={`whitespace-pre-wrap break-words font-mono text-[10px] leading-snug ${
-                    style.body ?? "text-text-primary"
-                  }`}
+      <div className="flex-1 space-y-2 overflow-auto p-3">
+        {compiled.segments.map((seg, i) => {
+          const text = compiledText.slice(seg.start, seg.end);
+          const src = seg.source;
+          const flowId =
+            src.kind === "flow" || src.kind === "interrupt" ? src.flowId : undefined;
+          const flowType = flowId
+            ? spec.flows.find((f) => f.id === flowId)?.type
+            : undefined;
+          const style = styleForSource(src, flowType);
+          const clickable = isClickable(src.kind);
+          const isEntry = src.kind === "flow" && src.flowId === spec.agent.entry_flow_id;
+          const label = labelFor(src) + (isEntry ? " (entry)" : "");
+          const body = bodyForDisplay(src.kind, text);
+          return (
+            <div key={i} className={`rounded-md px-2 py-1.5 ${style.block}`}>
+              {clickable ? (
+                <button
+                  type="button"
+                  onClick={() => onSegmentClick(seg.source)}
+                  title="Open"
+                  className={`group/seg mb-1 flex w-full cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-left text-[10px] font-semibold uppercase tracking-wide focus:outline-none focus-visible:ring-2 ${style.header} ${style.hover} ${style.ring}`}
                 >
-                  {body}
-                </pre>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="flex flex-1 flex-col p-3">
-          <textarea
-            value={editorValue}
-            onChange={(e) => setPromptOverride(e.target.value)}
-            spellCheck={false}
-            className="block h-full w-full resize-none whitespace-pre-wrap rounded border border-border-default bg-surface-panel p-2 font-mono text-[10px] leading-snug text-text-secondary focus:outline-none focus:ring-1 focus:ring-focus-ring"
-          />
-        </div>
-      )}
+                  <span className="flex-1 truncate">{label}</span>
+                  <span className="truncate text-[9px] font-normal normal-case opacity-60 transition-opacity group-hover/seg:opacity-100">
+                    Open
+                  </span>
+                  <span aria-hidden className="transition-transform group-hover/seg:translate-x-0.5">
+                    →
+                  </span>
+                </button>
+              ) : (
+                <div
+                  className={`mb-1 px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${style.header}`}
+                >
+                  {label}
+                </div>
+              )}
+              <pre
+                className={`whitespace-pre-wrap break-words font-mono text-[10px] leading-snug ${
+                  style.body ?? "text-text-primary"
+                }`}
+              >
+                {body}
+              </pre>
+            </div>
+          );
+        })}
+      </div>
     </aside>
   );
 }
@@ -394,29 +338,5 @@ function Count({ tone, n }: { tone: "error" | "warning"; n: number }) {
     <span className={`rounded px-1.5 py-0.5 ${cls}`}>
       {n} {n === 1 ? noun : `${noun}s`}
     </span>
-  );
-}
-
-function ToggleButton({
-  active,
-  onClick,
-  dot,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  dot?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-1 px-2 py-0.5 text-[11px] ${
-        active ? "bg-emphasis text-emphasis-fg" : "bg-surface-panel text-text-secondary hover:bg-surface-hover"
-      }`}
-    >
-      {children}
-      {dot && <span className="inline-block h-1.5 w-1.5 rounded-full bg-state-warning-line" aria-hidden />}
-    </button>
   );
 }
