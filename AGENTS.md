@@ -12,10 +12,10 @@ Visual editor for flowstore behavioral specs. A Vite-built React SPA that author
 
 Two audiences, two artifacts:
 
-- **The editor (flowstore.org/create)** — for conversation designers authoring flows on the canvas and testing them in the simulator.
+- **The editor (flowstore.org/create)** — for conversation designers authoring flows on the canvas and testing them in the simulator. This includes conversation design courses that teach with it in place of Voiceflow.
 - **The spec + CLI** — for engineering teams that already have their own authoring and regression tooling. The spec is a portable, hashed, version-controlled artifact; the CLI compiles it, runs the test bundle, and emits conformance evidence. flowstore sits beside an existing stack as the spec of record; it does not replace the stack.
 
-Current direction: the spec as the auditable record of what an agent is supposed to do. In order: compile provenance (spec-hash on every compiled prompt — shipped; a deploy record carrying it — next), compliance assertions as a public, jurisdiction-tagged vocabulary, one scenario and one gold per assertion as the pre-deploy battery, a rationale field per instruction, and an exported contract (assertions, spec hash, golds) for post-deploy conformance checks that run outside flowstore.
+Current priority: the editor as a teaching tool for the fall 2026 conversation design courses, led by a share link that lets testers talk to a student's agent and returns their transcripts as test material. Behind it, the spec as the auditable record of what an agent is supposed to do. In order: compile provenance (spec-hash on every compiled prompt — shipped; a deploy record carrying it — next), compliance assertions as a public, jurisdiction-tagged vocabulary, one scenario and one gold per assertion as the pre-deploy battery, a rationale field per instruction, and an exported contract (assertions, spec hash, golds) for post-deploy conformance checks that run outside flowstore.
 
 ## Product Context
 
@@ -23,7 +23,7 @@ flowstore is the **authoring** surface of the broader flowstore product (browser
 
 - `flowstore/` (this repo) — visual editor + `@flowstore/core` libraries (files, schema, codegen, providers) + `@flowstore/studies` (the compare/regression engine).
 - **Per-agent or multi-agent Git repos** (customer-owned, flowstore-scaffolded) — hold the markdown spec(s) under `agents/<id>/` (multi-agent) or at root (single-agent), shared resources at root (capabilities, project-level guardrails, knowledge, personas, evaluators, rubrics), testing artifacts, run history, comments, and harness scripts.
-- `flowstore-runner/` (Python graph-native runtime) — **parked since 2026-09-14.** Its loader predates the markdown layout and several schema fields; do not sync it or revive it without an explicit decision.
+- `flowstore-runner/` (Python graph-native runtime) — **parked since 2026-09-14.** Its loader predates the markdown layout and several schema fields; do not sync it or revive it without an explicit decision. The runtime direction is prompt-centric: the compiled prompt is what runs, on whatever model or voice platform hosts it.
 
 Production monitoring (real-time event stream consumption, dashboards, alerting) is **explicitly out of scope** for flowstore — the runtime emits events; eval/observability tools consume them.
 
@@ -43,14 +43,18 @@ Narrative sharing with stakeholders is expected to happen *outside* the app for 
 
 ### Authoring surfaces
 
-The canvas is the canonical editing surface. Text views are entry and export only — never a live mirror of the spec. Re-importing replaces the current spec; we do not merge text edits back into a live graph. The round-trip fragility that forces tools like Stately into heavy AST machinery is avoided by keeping the canvas canonical.
+Edits flow one way. The markdown files in the [FILE-MODEL.md](./FILE-MODEL.md) layout are the source. The parser turns them into the resolved JSON spec, which is the intermediate form that validation, hashing, and every compile target read. The compiler turns the JSON into the system prompt. In the editor, the canvas, inspectors, and sheets are where the spec is edited, and the prompt view shows the compiled result read-only.
 
-- **Canvas + inspectors + sheets** (flowstore.org/create) — the only place users edit graph structure. Round-trips with the in-memory spec, which saves as markdown files in the [FILE-MODEL.md](./FILE-MODEL.md) layout.
+Text views are entry and export only. Re-importing replaces the current spec; we do not merge text edits back into a live spec. An imported prompt that has not been structured yet lives verbatim as the `system_prompt` body of `agent.md` and is edited in the agent sheet. Structuring it means moving its text into flows, guardrails, and knowledge through the inspectors. Inline editing in the prompt view is shelved: one direction keeps one mental model, which matters for students learning what the compiler does with their design.
+
+- **Canvas + inspectors + sheets** (flowstore.org/create) — the editing surface. The in-memory spec saves as markdown files in the [FILE-MODEL.md](./FILE-MODEL.md) layout.
+- **Prompt view** — the compiled system prompt, read-only, color-coded by source. Clicking a block opens the entity that produced it. Its copy buttons are the prompt export.
 - **Declarative text import** — paste a resolved spec (JSON or YAML matching the schema), or import a project folder or zip in the markdown layout. Mechanical parse, no LLM. [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) produces the resolved JSON the user pastes here.
 - **Imperative text import** — paste free-form source: an analyst's script, a process doc, a system prompt, supporting docs. An LLM converts it directly to v0 JSON in one shot, schema-constrained.
 - **Export as JSON** — the exported file is the same shape the declarative import accepts; round-trip preserves the spec.
-- **Export as system prompt** — deterministic codegen ([packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts)) that flattens the spec into a single monolithic system prompt. For copy-paste into runtimes that take a system prompt (OpenAI, Claude, Voiceflow, etc.); a graph-native runtime consumes the JSON directly.
+- **Export as system prompt** — deterministic codegen ([packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts)) that flattens the spec into a single monolithic system prompt. For copy-paste into runtimes that take a system prompt (OpenAI, Claude, Retell, Voiceflow, etc.). This prompt is what a prompt-centric runtime runs.
 - **Simulate panel** — text chat against a paired runtime, BYOK (any configured provider; OpenRouter falls in when a native key is absent), against the spec currently being edited. Canvas highlights the active flow and last-traversed edge live during the run.
+- **Share link (planned)** — publishes a frozen snapshot of the compiled prompt at a public URL. Testers chat with it without a key or account; their transcripts come back to the editor as test material. It is the one planned server piece: snapshots and transcripts in storage, model calls through an endpoint holding a class-scoped key with a budget.
 - **Compare** (`compare/index.html`, deployed at flowstore.org/compare) — the evaluation entry point: paste a system prompt (run verbatim), edit scenarios, run a small-N model matrix on the user's key. Engine in `@flowstore/studies` (isomorphic; never reads stores); the page is a browser surface sharing the editor's settings store and chrome. Studies export as `.flowstore.json` bundles / GitHub repos the editor opens — git is the graduation bus.
 - **Eval-on-canvas (post-MVP).** Findings from the testing surface (test cases, personas, rubrics, run results — all in flowstore per [FILE-MODEL.md](./FILE-MODEL.md)) overlay onto the same node and edge IDs the spec defines — guardrail-fail rates pinned to guardrail nodes, test coverage on flow nodes. The canvas is the eval view; there is no separate findings tab.
 
@@ -63,7 +67,7 @@ The canvas is the canonical editing surface. Text views are entry and export onl
 - **`@radix-ui/react-*`** — behavior primitives under the interactive ui atoms (dialog, dropdown-menu, tooltip, tabs); never imported outside `components/ui/` and `lib/githubUi.tsx`
 - **`@phosphor-icons/react`** + self-hosted Geist — icons and type for the design system
 - **`@sinclair/typebox` + `ajv` + `ajv-formats`** — schema-as-code + runtime validation
-- **localStorage** for autosave; local-first; no server persistence in MVP
+- **localStorage** for autosave; local-first. The only planned server persistence is the share link's snapshots and tester transcripts
 
 Don't add infrastructure before the need. The design doc's MVP discipline is the rule.
 
@@ -72,7 +76,7 @@ Don't add infrastructure before the need. The design doc's MVP discipline is the
 - **Ajv + TypeBox validation pipeline** (`packages/core/src/validation/`) — two layers: schema validation, then custom graph rules (unique IDs, valid references).
 - **Codegen structure** (`packages/core/src/codegen/promptGenerator.ts` today; future targets like Pipecat/LiveKit follow the same pattern) — pure functions that walk the schema and emit a string. No LLM.
 - **Schema-driven inspector form pattern** (`packages/browser/src/components/inspector/`) — one form component per schema shape.
-- **Local-first persistence** — autosave to `localStorage`, debounced. No server calls. Good model for our MVP.
+- **Local-first persistence** — autosave to `localStorage`, debounced. No server calls outside the share link.
 
 ## Repository Layout
 
@@ -190,7 +194,7 @@ The compliance-assertion vocabulary (disclosure at open, self-ID on ask, opt-out
 3. **Review and configure** — user reviews the parsed spec on the canvas, edits inline.
 4. **Test** — compile spec to system prompt; run test cases through it; diff against assertions and against legacy / baseline prompts.
 5. **Deploy** — a deploy script in the deploying project pushes the compiled prompt and tools onto the live agent; the deploy record carrying the spec hash is the open item.
-6. **Share** — internal findings report + client-facing shareable document. (Post-MVP flowstore surface.)
+6. **Share** — a share link for user testing: testers talk to a frozen snapshot, and their transcripts return as transcripts and golds under `tests/` (planned). Findings reports and client-facing documents stay outside the app.
 
 ## Related Docs in This Repo
 
