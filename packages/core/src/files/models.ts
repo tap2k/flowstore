@@ -76,6 +76,7 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
 
     // OpenAI
     "gpt-6-astra":              { name: "GPT-6 Astra", endpoint: "openai" },
+    "gpt-6.1-sol":              { name: "GPT-6.1 Sol", endpoint: "openai" },
     "gpt-6-sol":                { name: "GPT-6 Sol", endpoint: "openai" },
     "gpt-6-luna":               { name: "GPT-6 Luna", endpoint: "openai" },
     "gpt-5.6-luna":             { name: "GPT-5.6 Luna", endpoint: "openai" },
