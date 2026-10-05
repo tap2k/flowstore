@@ -60,7 +60,7 @@ export function toRepoSlug(name: string, fallback: string): string {
 }
 
 // One in-flight/settled listing per PAT: the open→save flow (and every modal
-// re-open) reuses the result instead of re-fetching ~100 repos each mount.
+// re-open) reuses the result instead of re-fetching every repo page each mount.
 // Keyed by cacheKey (the PAT) since each modal builds its own client.
 let repoListCache: { key: string; promise: Promise<RepoSummary[]> } | null = null;
 
@@ -73,10 +73,14 @@ export function useRepoList(client: Octokit | null, cacheKey: string) {
     if (!repoListCache || repoListCache.key !== cacheKey) {
       repoListCache = {
         key: cacheKey,
-        promise: client.rest.repos
-          .listForAuthenticatedUser({ sort: "updated", per_page: 100, type: "all" })
-          .then((res) =>
-            res.data.map((r) => ({
+        promise: client
+          .paginate(client.rest.repos.listForAuthenticatedUser, {
+            sort: "updated",
+            per_page: 100,
+            type: "all",
+          })
+          .then((data) =>
+            data.map((r) => ({
               full_name: r.full_name,
               owner: r.owner.login,
               repo: r.name,
