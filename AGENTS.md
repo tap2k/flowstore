@@ -15,7 +15,7 @@ Two audiences, two artifacts:
 - **The editor (flowstore.org/create)** — for conversation designers authoring flows on the canvas and testing them in the simulator. This includes conversation design courses that teach with it in place of Voiceflow.
 - **The spec + CLI** — for engineering teams that already have their own authoring and regression tooling. The spec is a portable, hashed, version-controlled artifact; the CLI compiles it, runs the test bundle, and emits conformance evidence. flowstore sits beside an existing stack as the spec of record; it does not replace the stack.
 
-Current priority: the editor as a teaching tool for the fall 2026 conversation design courses, led by a share link that lets testers talk to a student's agent and returns their transcripts as test material. Behind it, the spec as the auditable record of what an agent is supposed to do. In order: compile provenance (spec-hash on every compiled prompt — shipped; a deploy record carrying it — next), compliance assertions as a public, jurisdiction-tagged vocabulary, one scenario and one gold per assertion as the pre-deploy battery, a rationale field per instruction, and an exported contract (assertions, spec hash, golds) for post-deploy conformance checks that run outside flowstore.
+Current priority: flowstore as a pedagogical tool. The fall 2026 conversation design courses come first, led by a share link that lets testers talk to a student's agent and returns their transcripts as test material. The compliance track is parked as of 2026-10-05: the deploy record carrying the spec hash, compliance assertions as a public vocabulary, and the per-assertion battery. Compile provenance shipped and stays deterministic. Do not start compliance work without an explicit decision to resume it.
 
 ## Product Context
 
@@ -183,7 +183,9 @@ A new flow boundary earns its keep when at least one is true:
 
 If none of these apply, decomposing is busywork. The canvas makes nodes feel like the "correct" granularity; resist the reflex.
 
-## Compliance assertions
+## Compliance assertions (parked 2026-10-05)
+
+Kept as the design of record for when the track resumes. Not current work.
 
 The compliance-assertion vocabulary (disclosure at open, self-ID on ask, opt-out honored within N turns, jurisdiction-aware recording notice, mandated read-backs, no PHI in summary, escalation on request) is a **public, vendor-neutral artifact**: first-class `capability_assertions`, jurisdiction-tagged. Requirements come from regulation; the codebook for each assertion is derived from a labeling round, and no codebook is published before one. Individual pilots do not define the vocabulary. One assertion, one scenario, one gold: the persona simulator is the pre-deploy battery. Post-deploy conformance stays outside flowstore; flowstore owes it the exported contract (assertion list, spec hash, golds).
 
@@ -193,7 +195,7 @@ The compliance-assertion vocabulary (disclosure at open, self-ID on ask, opt-out
 2. **Parse** — a behavioral parser (LLM-assisted) converts inputs to a structured spec, driven by [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt). Two ways to run it: in-app (attach source files in the Assistant and click **Build from source**, which runs that exact prompt against your configured model and loads the validated spec), or the manual round-trip (paste the prompt plus source material into an external LLM, then import what it returns).
 3. **Review and configure** — user reviews the parsed spec on the canvas, edits inline.
 4. **Test** — compile spec to system prompt; run test cases through it; diff against assertions and against legacy / baseline prompts.
-5. **Deploy** — a deploy script in the deploying project pushes the compiled prompt and tools onto the live agent; the deploy record carrying the spec hash is the open item.
+5. **Deploy** — a deploy script in the deploying project pushes the compiled prompt and tools onto the live agent; the deploy record carrying the spec hash is parked with the compliance track.
 6. **Share** — a share link for user testing: testers talk to a frozen snapshot, and their transcripts return as transcripts and golds under `tests/` (planned). Findings reports and client-facing documents stay outside the app.
 
 ## Related Docs in This Repo

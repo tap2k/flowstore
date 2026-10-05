@@ -26,7 +26,7 @@ export interface LicensedTransition {
   kind: TransitionKind;
   // A conditionless, non-budget exit — the "Otherwise…" catch-all.
   isFallback: boolean;
-  // A `max_turns` turn-budget escape (runtime-enforced, not model-decided).
+  // A `max_turns` turn-budget escape (gated on turns spent, not on the message).
   isBudget: boolean;
 }
 

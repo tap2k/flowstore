@@ -36,6 +36,18 @@ describe("compileSystemPrompt — baseline", () => {
   });
 });
 
+describe("compileSystemPrompt — turn budget", () => {
+  it("renders max_turns as an instruction to the model, not a catch-all", () => {
+    const s = structuredClone(coffee);
+    s.flows[0].exit_paths!.push({ id: "xp_greet_budget", goto: "END", max_turns: 3 });
+    const text = compileSystemPrompt(s).text;
+    expect(text).toContain(
+      "   - Turn budget: if you have taken 3 turns in this flow and no other transition has applied,",
+    );
+    expect(text).not.toContain("runtime-enforced");
+  });
+});
+
 describe("compileSystemPrompt — system_prompt template", () => {
   it("unset template is byte-for-byte the baseline", () => {
     expect(coffee.agent.system_prompt).toBeUndefined();

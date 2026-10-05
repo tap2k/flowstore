@@ -375,25 +375,20 @@ function renderFlowRoutingInline(flow: Flow, flowNames: Map<string, string>): st
   const exits = flow.exit_paths ?? [];
   if (!exits.length) return "";
   const lines: string[] = [];
-  // Count the transitions the model actually chooses among (everything except
-  // runtime-enforced turn-budget escapes).
+  // Count the transitions the model chooses among by the customer's message
+  // (everything except turn-budget escapes).
   let decidable = 0;
   for (const ep of exits) {
     const target = renderInlineTarget(ep, flowNames);
     if (ep.max_turns !== undefined) {
-      // Turn-budget escape. The runtime dispatcher counts agent turns per flow
-      // frame and fires this deterministically — the agent cannot reliably
-      // self-count, so we attribute it to the runtime rather than phrasing it
-      // as an instruction the model should execute (matches the Python
-      // prompt_builder, which hides max_turns from the LLM entirely). It is
-      // rendered at all only so this human-facing artifact (preview / export)
-      // documents that the budget exists. Crucially, do NOT fall through to
-      // the "Otherwise" branch — a budget exit has no condition because it is
-      // turn-gated, not because it is a catch-all, and rendering it as an
-      // unconditional fallback inverts its meaning.
+      // Turn-budget escape. In prompt mode nothing outside the model counts
+      // turns, so this is an instruction the model carries out. It stays out
+      // of `decidable` and never renders as "Otherwise": it is gated on turns
+      // spent, not on the customer's message, and treating it as a catch-all
+      // inverts its meaning.
       const t = ep.max_turns === 1 ? "turn" : "turns";
       lines.push(
-        `   - Turn-budget escape (runtime-enforced): if no other exit fires within ${ep.max_turns} ${t} in this flow, ${target}.`,
+        `   - Turn budget: if you have taken ${ep.max_turns} ${t} in this flow and no other transition has applied, ${target}.`,
       );
     } else if (ep.condition) {
       decidable++;
