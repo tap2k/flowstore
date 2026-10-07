@@ -3,6 +3,7 @@ import { useSpecStore } from "@/lib/store/spec";
 import { loadSpec } from "@/lib/store/loadSpec";
 import { resolveDispatch, useSettingsStore } from "@/lib/store/settings";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
+import { markProjectBaseline } from "@/lib/store/dirty";
 import { useSimulateStore, type SimulateMode, type TranscriptTurn } from "@/lib/store/simulate";
 import { useTestsStore } from "@/lib/store/tests";
 import { useChatStore } from "@/lib/store/chat";
@@ -130,8 +131,12 @@ export function ChatPanel({ open, onClose, onOpenSettings }: ChatPanelProps) {
         return;
       }
       // Brand-new spec built from source — a bare load, so clear any prior
-      // tests/comments/sim session rather than orphaning them onto it.
+      // tests/comments/sim session rather than orphaning them onto it. Same
+      // policy as a portable import: it has no claim to the repo that was
+      // open, so the next Save creates a new repo instead of overwriting.
       loadSpec(res.spec);
+      useGithubProjectStore.getState().clear();
+      markProjectBaseline();
       setAttachments([]);
       setInput("");
       const builtFrom =
