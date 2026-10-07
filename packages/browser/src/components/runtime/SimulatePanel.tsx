@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useSpecStore, type Selection } from "@/lib/store/spec";
 import type { Spec } from "@flowstore/core/schema/v0";
 import { DEFAULT_MODEL_ID, resolveDispatch, useSettingsStore } from "@/lib/store/settings";
@@ -182,17 +182,15 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     setLanguage(undefined);
   }
 
-  // Capture "was at bottom" before the new turn renders (layout effect runs
-  // before paint; a plain effect would see the already-grown scrollHeight and
-  // think the user had scrolled up). Only auto-scroll if they were pinned to
-  // the bottom; otherwise let them stay where they were reading.
+  // Pinned state comes from scroll events. Measuring in a layout effect sees
+  // the new turn already in the DOM, which reads as "scrolled up" and stops
+  // the follow. Only auto-scroll while pinned to the bottom.
   const wasAtBottomRef = useRef(true);
-  useLayoutEffect(() => {
+  const onTranscriptScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    wasAtBottomRef.current = distanceFromBottom < 32;
-  });
+    wasAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 32;
+  };
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -873,7 +871,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
         />
       )}
 
-      <div ref={scrollRef} className="flex-1 overflow-auto p-3 space-y-3 text-sm">
+      <div ref={scrollRef} onScroll={onTranscriptScroll} className="flex-1 overflow-auto p-3 space-y-3 text-sm">
         {!hasSession && status !== "starting" && (
           <EmptyState
             mode={mode}
