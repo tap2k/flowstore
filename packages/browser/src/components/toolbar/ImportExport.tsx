@@ -571,7 +571,7 @@ function ImportModal({ onClose, onCommit }: ImportModalProps) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           className="h-56 w-full"
-          placeholder="Paste JSON or YAML…"
+          placeholder="Paste project files (from AGENT-SPEC-PROMPT), JSON or YAML…"
         />
         {errors.length > 0 && (
           <div className="max-h-48 overflow-auto rounded-3 border border-state-error-line bg-state-error-bg p-3 text-state-error-fg">

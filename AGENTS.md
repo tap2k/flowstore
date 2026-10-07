@@ -45,7 +45,7 @@ Text views are entry and export only. Re-importing replaces the current spec; we
 
 - **Canvas + inspectors + sheets** (flowstore.org/create) — the editing surface. The in-memory spec saves as markdown files in the [FILE-MODEL.md](./FILE-MODEL.md) layout.
 - **Prompt view** — the compiled system prompt, read-only, color-coded by source. Clicking a block opens the entity that produced it. Its copy buttons are the prompt export.
-- **Declarative text import** — paste a resolved spec (JSON or YAML matching the schema), or import a project folder or zip in the markdown layout. Mechanical parse, no LLM. [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) produces the resolved JSON the user pastes here.
+- **Declarative text import** — paste project files in the markdown layout (the `--- file:` bundle), a resolved spec (JSON or YAML matching the schema), or import a project folder or zip. Mechanical parse, no LLM. [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) produces the file bundle, inside one code block so it copies cleanly from a chat window.
 - **Imperative text import** — paste free-form source: an analyst's script, a process doc, a system prompt, supporting docs. An LLM converts it directly to v0 JSON in one shot, schema-constrained.
 - **Export as JSON** — the exported file is the same shape the declarative import accepts; round-trip preserves the spec.
 - **Export as system prompt** — deterministic codegen ([packages/core/src/codegen/promptGenerator.ts](./packages/core/src/codegen/promptGenerator.ts)) that flattens the spec into a single monolithic system prompt. For copy-paste into runtimes that take a system prompt (OpenAI, Claude, Retell, Voiceflow, etc.). This prompt is what a prompt-centric runtime runs.
@@ -199,7 +199,7 @@ The compliance-assertion vocabulary (disclosure at open, self-ID on ask, opt-out
 - [GETTING-STARTED.md](./GETTING-STARTED.md) — first pass through the core loop: author a spec, simulate it, export a system prompt.
 - [SCHEMA.md](./SCHEMA.md) — authoritative spec data model.
 - [FILE-MODEL.md](./FILE-MODEL.md) — the markdown source layout a project is written in; the serialization contract for SCHEMA.md.
-- [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) — LLM prompt for converting source material into a resolved spec (any frontier LLM); import it and save to get the markdown layout.
+- [AGENT-SPEC-PROMPT.txt](./AGENT-SPEC-PROMPT.txt) — LLM prompt for converting source material into project files in the markdown layout (any frontier LLM); Build from source runs it in-app, or paste its output into Import.
 
 ## Running
 

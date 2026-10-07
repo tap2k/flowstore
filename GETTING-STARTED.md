@@ -74,9 +74,9 @@ Use this when you already have raw material — an analyst's script, a process d
 
 **Manual round-trip.** No key in the app, or want to use a model you haven't configured:
 
-1. Open [`AGENT-SPEC-PROMPT.txt`](./AGENT-SPEC-PROMPT.txt). It instructs an LLM to read your material and emit a v0 spec as a single JSON object.
-2. Paste that prompt plus your source material into an external LLM (Claude, Gemini, etc.). Copy the JSON it returns.
-3. In flowstore, click the **Import** icon, paste the JSON into the box, and choose **Parse & import**. The import is a mechanical, schema-validated parse — no LLM runs in the app — so a malformed object is rejected with errors rather than silently loaded.
+1. Open [`AGENT-SPEC-PROMPT.txt`](./AGENT-SPEC-PROMPT.txt). It instructs an LLM to read your material and return the project's files (in the [FILE-MODEL.md](./FILE-MODEL.md) layout) inside one code block.
+2. Paste that prompt plus your source material into an external LLM chat (Claude, ChatGPT, Gemini). Click the code block's **Copy** button. Copying the rendered text instead loses the file structure.
+3. In flowstore, click the **Import** icon, paste into the box, and choose **Parse & import**. The import is a mechanical, schema-validated parse — no LLM runs in the app — so malformed files are rejected with errors rather than silently loaded.
 
 The Import path is the *declarative* one: it also accepts hand-written JSON or YAML that matches the schema.
 

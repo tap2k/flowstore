@@ -26,16 +26,20 @@ read everything, then emit every file in one response.
 
 OUTPUT FORMAT
 
-A sequence of files. Each file starts with a delimiter line naming its
-path, followed by its content verbatim:
+One code block fenced with four backticks, holding a sequence of
+files. Each file starts with a delimiter line naming its path, followed
+by its content verbatim:
 
+````
 --- file: agent.md ---
 <content>
 --- file: flows/greeting.md ---
 <content>
+````
 
-No code fences around the whole thing. Nothing before the first
-delimiter or after the last file. Emit only the files the source
+The fence lets a chat window show the files as raw text with a copy
+button. Nothing outside the fence, and nothing inside it before the
+first delimiter or after the last file. Emit only the files the source
 warrants: a project with no capabilities has no capabilities/ files,
 a project with no FAQ has no knowledge/faq.md.
 
@@ -779,5 +783,5 @@ isn't.
 
 ---
 
-When you receive the source material, output the files directly.
+When you receive the source material, output the code block of files.
 Output nothing else.

@@ -83,7 +83,15 @@ export function isFileBundleText(text: string): boolean {
   return /^--- file: .+ ---\s*$/m.test(text);
 }
 
+// A chat window renders bare markdown, so the prompt asks for the bundle
+// inside one code block; strip that fence (any length, any info string).
+function unwrapFence(text: string): string {
+  const m = text.trim().match(/^(`{3,})[^\n`]*\n([\s\S]*?)\n\1\s*$/);
+  return m ? m[2] : text;
+}
+
 export function parseFileBundleText(text: string): Record<string, string> {
+  text = unwrapFence(text);
   const out: Record<string, string> = {};
   let current: string | null = null;
   let lines: string[] = [];
