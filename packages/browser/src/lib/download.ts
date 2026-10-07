@@ -1,5 +1,5 @@
-// Shared browser download helper. (Three older private copies exist in
-// csvIO.tsx, ImportExport.tsx, and SimulatePanel.tsx — migrate them here
+// Shared browser download helper. (Two older private copies exist in
+// csvIO.tsx and ImportExport.tsx — migrate them here
 // when touched; the appendChild/remove dance matters on some Safari
 // versions.)
 export function downloadBlob(filename: string, content: string, mime: string): void {

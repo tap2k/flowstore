@@ -7,6 +7,7 @@ import { BUILT_IN_MODELS } from "@flowstore/core/files/models";
 import {
   isPromptMode,
   PROMPT_MODE_BEGIN,
+  transcriptTurns,
   useSimulateStore,
   type SimulateMode,
   type SimulateStatus,
@@ -43,6 +44,8 @@ import { judgeGuardrails, type GuardrailVerdict } from "@flowstore/core/runtime/
 import { judgeGoldTurn, type GoldTurnVerdict } from "@flowstore/core/runtime/judgeGoldTurn";
 import type { Rubric } from "@flowstore/core/schema/files/rubric";
 import type { AgentEndpoint } from "@flowstore/core/files/models";
+import { formatTranscript } from "@flowstore/core/files";
+import { downloadBlob } from "@/lib/download";
 
 // Stable empty fallback so Zustand selector never returns a new {} reference.
 const NO_AGENTS: Record<string, AgentEndpoint> = {};
@@ -82,12 +85,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const sessionId = useSimulateStore((s) => s.sessionId);
   const status = useSimulateStore((s) => s.status);
   const transcript = useSimulateStore((s) => s.transcript);
-  const events = useSimulateStore((s) => s.events);
-  const variables = useSimulateStore((s) => s.variables);
-  const contextVars = useSimulateStore((s) => s.contextVars);
-  const mockReturns = useSimulateStore((s) => s.mockReturns);
   const currentFlowId = useSimulateStore((s) => s.currentFlowId);
-  const systemPrompt = useSimulateStore((s) => s.systemPrompt);
   const specSnapshot = useSimulateStore((s) => s.specSnapshot);
   const sessionUsage = useSimulateStore((s) => s.sessionUsage);
   const voicePhase = useSimulateStore((s) => s.voicePhase);
@@ -503,8 +501,8 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     // run behavior re-load the persona manually in Simulate.
     const defaultName = `Captured case ${useTestsStore.getState().cases.length + 1}`;
     const id = uniqueCaseId(defaultName);
-    const user_turns = transcript
-      .filter((t) => t.role === "user" && t.text !== PROMPT_MODE_BEGIN)
+    const user_turns = transcriptTurns(transcript)
+      .filter((t) => t.role === "user")
       .map((t) => t.text);
     const testCase: TestCase = {
       $schema: "flowstore://test/case/v0",
@@ -524,9 +522,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
     // evident — no blocking alert needed.
     const defaultName = `Captured gold ${useTestsStore.getState().golds.length + 1}`;
     const id = uniqueGoldId(defaultName);
-    const turns = transcript
-      .filter((t) => t.text.trim().length > 0 && t.text !== PROMPT_MODE_BEGIN)
-      .map((t) => ({ role: t.role, text: t.text }));
+    const turns = transcriptTurns(transcript);
     const gold: Gold = {
       $schema: "flowstore://test/gold/v0",
       id,
@@ -539,29 +535,9 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   }
 
   function onDownload() {
-    const current = useSpecStore.getState().spec;
-    const payload = {
-      exported_at: new Date().toISOString(),
-      spec: current,
-      session: { id: sessionId, status, current_flow_id: currentFlowId },
-      system_prompt: systemPrompt,
-      transcript,
-      events,
-      variables,
-      context_vars: contextVars,
-      mock_returns: mockReturns,
-    };
-    const json = JSON.stringify(payload, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const agentId = current?.agent.id ?? "unknown";
-    const shortId = sessionId ? sessionId.slice(0, 8) : "nosess";
+    const agentId = useSpecStore.getState().spec?.agent.id ?? "transcript";
     const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `flowstore-trace-${agentId}-${shortId}-${ts}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(`${agentId}-${ts}.txt`, formatTranscript(transcriptTurns(transcript)) + "\n", "text/plain");
   }
 
   async function onSend() {
@@ -699,7 +675,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             <>
               <button
                 onClick={onDownload}
-                title="Download the full trace (spec snapshot, transcript, events, variables) as JSON."
+                title="Download the transcript as Agent: / User: lines, the format golds, cases, and compare share."
                 className="rounded px-2 py-1 text-[11px] text-text-secondary hover:bg-surface-hover"
               >
                 download

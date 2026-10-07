@@ -88,6 +88,15 @@ export const PROMPT_MODE_BEGIN = "[begin]";
 // seeing a blank turn and returning nothing. Sent verbatim as the user turn.
 export const NO_INPUT_MARKER = "[user did not respond]";
 
+// A session's turns in the transcript grammar's terms (FILE-MODEL.md): the
+// [begin] trigger was never said, a no-input turn is an empty `User:`, and an
+// agent turn with no text (a tool-only reply) has nothing to transcribe.
+export function transcriptTurns(turns: TranscriptTurn[]): Array<{ role: "agent" | "user"; text: string }> {
+  return turns
+    .filter((t) => t.text !== PROMPT_MODE_BEGIN && (t.role === "user" || t.text.trim() !== ""))
+    .map((t) => ({ role: t.role, text: t.text === NO_INPUT_MARKER ? "" : t.text }));
+}
+
 // Transcript events for the capability calls a prompt-mode turn made, so mocked
 // tool calls show in the timeline the same way runner-mode capability calls do.
 function capabilityEvents(
