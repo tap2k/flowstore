@@ -6,7 +6,8 @@ import type { RouteTarget } from "@flowstore/core/runtime/routeToTarget";
 // simulated conversation toward this flow/edge, hydrate the Simulate persona
 // buffers, and open the panel for review. Key-gated: synthesis (and the persona
 // loop it feeds) both need a persona LLM key, so with none the button is inert
-// with a tooltip pointing at Settings.
+// with a tooltip pointing at Settings. Dev mode only for now: it needs a key
+// and a persona model, which is too much for a first-run student.
 export function LoadInSimButton({ target }: { target: RouteTarget }) {
   const personaModel = useSettingsStore((s) => s.simulatePersonaModel);
   // Subscribe to the key fields so the gate reacts when a key is added/removed;

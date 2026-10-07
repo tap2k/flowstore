@@ -227,7 +227,7 @@ export function EdgeInspector() {
         )}
 
         <div className="pt-2 border-t border-border-default space-y-2">
-          <LoadInSimButton target={{ kind: "exit", flowId: flow.id, exitPathId: exitPath.id }} />
+          {import.meta.env.VITE_DEV === "1" && <LoadInSimButton target={{ kind: "exit", flowId: flow.id, exitPathId: exitPath.id }} />}
           <button
             onClick={() => {
               if (window.confirm("Delete this exit path?")) removeExitPath(flow!.id, exitPath!.id);

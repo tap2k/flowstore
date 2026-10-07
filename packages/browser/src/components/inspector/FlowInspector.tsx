@@ -409,7 +409,7 @@ export function FlowInspector() {
           >
             Open scripts sheet
           </button>
-          <LoadInSimButton target={{ kind: "flow", flowId: flow.id }} />
+          {import.meta.env.VITE_DEV === "1" && <LoadInSimButton target={{ kind: "flow", flowId: flow.id }} />}
           <button
             onClick={() => {
               if (window.confirm(`Delete flow "${flow!.name}"?`)) removeFlow(flow!.id);
