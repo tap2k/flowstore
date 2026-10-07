@@ -1,52 +1,43 @@
 ---
 import Base from "../layouts/Base.astro";
 
-const compareUrl = "/compare/";
+const startUrl = "/start/";
 const editorUrl = "/create/";
 const repoUrl = "https://github.com/tap2k/flowstore";
 ---
 
 <Base
-  title="flowstore — a Behavioral IDE for Conversational Agents"
-  description="Compare the cost and behavior of different models, author conversation specs on a canvas, decompose them into per-concern files in a Git repo, and compile a system prompt as a pure function of the spec."
+  title="flowstore — design conversational agents"
+  description="Design conversational agents on a canvas, test them as you build, and compile to a system prompt you can use anywhere."
 >
   <main class="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-20">
     <p class="font-mono text-sm font-semibold tracking-tight text-slate-500">flowstore</p>
-    <h1 class="mt-6 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
-      A Behavioral IDE for Conversational Agents.
+    <h1 class="mt-6 text-4xl font-semibold tracking-tight text-balance text-slate-900 sm:text-5xl">
+      Design conversational agents on a canvas.
     </h1>
     <p class="mt-6 max-w-2xl text-lg text-slate-600">
-      Author conversation specs on a canvas, decompose them into per-concern files in a Git repo, and compile a system prompt as a pure function of the spec.
+      Graph the conversation, test your agent as you build it, and compile to a
+      system prompt you can use anywhere. It runs in your browser with your own API keys.
     </p>
-    <div class="mt-10 grid items-stretch gap-4 sm:grid-cols-2">
+    <div class="mt-10 flex flex-wrap items-center gap-3">
       <a
-        href={compareUrl}
-        class="flex flex-col rounded-xl border border-slate-300 bg-slate-50 p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-md"
+        href={startUrl}
+        class="rounded-md bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-black"
       >
-        <p class="text-base font-semibold text-slate-900">Compare →</p>
-        <p class="mt-2 text-sm leading-relaxed text-slate-600">
-          Paste a system prompt, run it across models side by side — behavior,
-          latency, and cost, including speech-to-speech. 
-        </p>
+        Get started →
       </a>
       <a
         href={editorUrl}
-        class="flex flex-col rounded-xl border border-slate-300 bg-slate-50 p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-md"
+        class="rounded-md border border-slate-300 px-5 py-3 text-sm font-medium text-slate-900 transition hover:border-slate-400 hover:bg-slate-50"
       >
-        <p class="text-base font-semibold text-slate-900">Create →</p>
-        <p class="mt-2 text-sm leading-relaxed text-slate-600">
-          Author the behavioral spec on a canvas, simulate conversations interactively,
-          and compile the system prompt from the spec.
-        </p>
+        Open the editor
       </a>
     </div>
-    <div class="mt-6">
-      <a
-        href={repoUrl}
-        class="rounded-md border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-900 hover:bg-slate-50"
-      >
-        View on GitHub
-      </a>
-    </div>
+    <p class="mt-4 text-sm text-slate-500">
+      <a href={startUrl} class="underline decoration-slate-300 underline-offset-4 hover:text-slate-900 hover:decoration-slate-900">New here? Start with the three-minute tour and a 15-minute walkthrough.</a>
+    </p>
+    <p class="mt-10 text-sm text-slate-500">
+      <a href={repoUrl} class="underline decoration-slate-300 underline-offset-4 hover:text-slate-900 hover:decoration-slate-900">View on GitHub</a>
+    </p>
   </main>
 </Base>

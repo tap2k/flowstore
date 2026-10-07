@@ -1,0 +1,292 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base
+  title="Getting started with flowstore"
+  description="Getting started with flowstore: a three-minute tour, the Voiceflow mapping, a 15-minute walkthrough, and answers for running it in a course."
+>
+<style is:global>
+/* Layout: one reading column with a compact section index; screenshots break wider than the text. */
+:root {
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --sunken: #f1f1f1;
+  --fg: #111111;
+  --fg-2: #4a4a4a;
+  --fg-3: #6b6b6b;
+  --line: #e4e4e4;
+  --line-strong: #c6c6c6;
+  --happy: #0f9d6b;
+  --happy-bg: #e3f7ee;
+  --interrupt: #7c3aed;
+  --interrupt-bg: #f1eafe;
+  --kbd-bg: #ffffff;
+  --font-display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --text: 17px;
+  --measure: 66ch;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: var(--text); line-height: 1.6;
+  padding-inline: 20px; padding-block: 0 96px;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 920px; margin: 0 auto; }
+.col { max-width: var(--measure); }
+
+header.top {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  padding-block: 22px; border-bottom: 1px solid var(--line); margin-bottom: 56px;
+}
+.top a.brand { border-bottom: 0; }
+.brand { color: var(--fg); text-decoration: none; font-family: var(--font-mono); font-size: 15px; font-weight: 500; letter-spacing: -0.01em; }
+.brand span { color: var(--fg-3); font-weight: 400; }
+.top a { color: var(--fg-2); font-size: 14px; text-decoration: none; border-bottom: 1px solid var(--line-strong); }
+.top a:hover { color: var(--fg); border-color: var(--fg); }
+
+h1 {
+  font-family: var(--font-display); font-weight: 600; font-size: clamp(30px, 5vw, 44px);
+  line-height: 1.12; letter-spacing: -0.025em; margin: 0 0 18px; text-wrap: balance;
+}
+.lede { font-size: 19px; color: var(--fg-2); margin: 0 0 28px; }
+h2 {
+  font-family: var(--font-display); font-weight: 600; font-size: 26px; letter-spacing: -0.015em;
+  line-height: 1.25; margin: 72px 0 14px; text-wrap: balance; scroll-margin-top: 24px;
+}
+h3 {
+  font-family: var(--font-display); font-weight: 600; font-size: 19px; letter-spacing: -0.01em;
+  margin: 40px 0 8px; display: flex; align-items: baseline; gap: 12px; scroll-margin-top: 24px;
+}
+h3 .n {
+  font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--happy);
+  background: var(--happy-bg); border-radius: 5px; padding: 1px 7px; flex: none;
+}
+p { margin: 0 0 14px; }
+a { color: inherit; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
+a:hover { text-decoration-color: currentColor; }
+:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; border-radius: 3px; }
+
+.ui { font-weight: 600; white-space: nowrap; }
+kbd {
+  font-family: var(--font-mono); font-size: 13px; background: var(--kbd-bg); border: 1px solid var(--line-strong);
+  border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px;
+}
+code {
+  font-family: var(--font-mono); font-size: 0.86em; background: var(--sunken); border: 1px solid var(--line);
+  border-radius: 5px; padding: 1px 5px; overflow-wrap: anywhere;
+}
+.say { font-family: var(--font-mono); font-size: 0.9em; }
+
+nav.index {
+  display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; color: var(--fg-3);
+  padding-block: 14px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-bottom: 8px;
+}
+nav.index a { color: var(--fg-2); text-decoration: none; }
+nav.index a:hover { color: var(--fg); }
+
+.video {
+  margin: 8px 0 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface);
+}
+.video video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; background: #000; }
+.video figcaption { font-size: 14px; color: var(--fg-3); padding: 10px 14px; border-top: 1px solid var(--line); }
+
+figure.shot { margin: 18px 0 26px; }
+figure.shot img {
+  display: block; width: 100%; max-width: 100%; height: auto;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+}
+figure.shot figcaption { font-size: 14px; color: var(--fg-3); margin-top: 8px; }
+
+.tablewrap { overflow-x: auto; margin: 18px 0 22px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 15px; min-width: 520px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-3); background: var(--sunken); }
+tr:last-child td { border-bottom: 0; }
+td:first-child { color: var(--fg-2); width: 42%; }
+
+ol.habits, ol.turns, ol.steps { list-style: decimal; padding-left: 22px; margin: 10px 0 18px; display: grid; gap: 10px; }
+ol.habits li::marker, ol.turns li::marker, ol.steps li::marker { font-family: var(--font-mono); color: var(--fg-3); font-size: 14px; }
+.chip { font-family: var(--font-mono); font-size: 12px; font-weight: 500; border-radius: 4px; padding: 1px 6px; letter-spacing: 0.02em; }
+.chip.happy { color: var(--happy); background: var(--happy-bg); }
+.chip.interrupt { color: var(--interrupt); background: var(--interrupt-bg); }
+
+.note {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 14px 16px; margin: 16px 0;
+  font-size: 15px; color: var(--fg-2);
+}
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-top: 8px; }
+.pair > div { min-width: 0; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 18px 20px 10px; }
+.pair h3 { margin-top: 0; }
+.class-grid { display: grid; gap: 4px; }
+.class-grid p strong { font-weight: 600; }
+footer { margin-top: 80px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--fg-2); font-size: 15px; }
+.mail { font-family: var(--font-mono); font-size: 14px; user-select: all; }
+
+@media (max-width: 560px) {
+  body { --text: 16px; padding-inline: 16px; }
+  header.top { margin-bottom: 36px; }
+  h2 { margin-top: 56px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="/">flowstore <span>/ getting started</span></a>
+    <a href="/create/">Open the editor</a>
+  </header>
+
+  <div class="col">
+    <h1>Getting started with flowstore</h1>
+    <p class="lede">flowstore is a browser tool for designing conversational agents. You design the agent on a canvas, and flowstore compiles the design into the system prompt a language model runs. You can talk to the agent, test it, and copy the prompt into any platform that takes one. There is no account, and you use your own API keys.</p>
+
+  </div>
+
+  <figure class="video">
+    <video controls preload="metadata" playsinline poster="/start/images/poster.jpg" src="/start/flowstore-tour.mp4"></video>
+  </figure>
+
+  <div class="col">
+    <h2 id="voiceflow">If you know Voiceflow</h2>
+  </div>
+  <div class="tablewrap col">
+    <table>
+      <thead><tr><th>Voiceflow</th><th>flowstore</th></tr></thead>
+      <tbody>
+        <tr><td>Workflow, topic, component</td><td>Flow</td></tr>
+        <tr><td>Intent and training utterances</td><td>Exit path condition, in plain language</td></tr>
+        <tr><td>Speak or text step</td><td>Script (exact wording) or instructions (the model phrases it)</td></tr>
+        <tr><td>Global intent</td><td>Interrupt flow, which returns to where it left off</td></tr>
+        <tr><td>Happy and unhappy paths</td><td>Flow types: happy, sad, off, utility, interrupt</td></tr>
+        <tr><td>Knowledge base</td><td>Knowledge: FAQ, glossary, tables</td></tr>
+        <tr><td>API or function step</td><td>Capability, with mock results during testing</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="col">
+    <p>Three habits from Voiceflow work differently here.</p>
+    <ol class="habits">
+      <li><strong>A flow is a stage of the conversation.</strong> It can span many turns. In the example, Coffee order is one flow that collects drink, size, milk and syrup. Drawing one node per turn makes a spec harder to read and gains nothing.</li>
+      <li><strong>Routing uses plain-language conditions.</strong> There are no intents or training phrases. “The customer wants tea” can be the whole condition, and the model decides when it is true. Precision comes from writing the condition well and testing it.</li>
+      <li><strong>The design compiles to one prompt, and you can read it.</strong> A system prompt is the set of instructions a language model reads before every conversation, and almost every platform takes one, so a design that compiles to a prompt can run anywhere. The prompt view shows exactly what the model sees, block by block, with a link from each block back to the part of the design that produced it.</li>
+    </ol>
+
+    <h2 id="try">Try it (about 15 minutes)</h2>
+
+    <h3 id="step-1"><span class="n">1</span>Open the coffee example</h3>
+    <p>Go to <a href="/create/">flowstore.org/create</a> and click <span class="ui">load example (coffee agent)</span>.</p>
+  </div>
+  <figure class="shot"><img src="/start/images/canvas.png" alt="The coffee example on the canvas: Greet &amp; route leads to Coffee order and Tea order, which both lead to Confirm &amp; place, with a purple menu interrupt below." width="1440" height="900" loading="lazy"><figcaption>The coffee example on the canvas.</figcaption></figure>
+  <div class="col">
+    <p>The example is a barista at Bluebird Coffee. Greet &amp; route sends the customer to Coffee order or Tea order. Both lead to Confirm &amp; place. The <span class="chip interrupt">INTERRUPT</span> box is a flow for “what’s on the menu?”</p>
+
+    <h3 id="step-2"><span class="n">2</span>Look inside a flow</h3>
+    <p>Click <span class="ui">Greet &amp; route</span>. The inspector on the right shows the flow’s instructions and its exit paths. Exact lines, such as the greeting, are in <span class="ui">Open scripts sheet</span> at the bottom of the inspector.</p>
+  </div>
+  <figure class="shot"><img src="/start/images/inspector.png" alt="The inspector for Greet &amp; route, showing its instructions and three exit paths." width="1440" height="900" loading="lazy"><figcaption>The inspector for Greet &amp; route.</figcaption></figure>
+  <div class="col">
+    <p>Click an exit path to see its condition and where it goes.</p>
+  </div>
+  <figure class="shot"><img src="/start/images/exit-path.png" alt="The exit path from Greet &amp; route to Tea order: a plain-language condition and the destination Tea order." width="1440" height="440" loading="lazy"><figcaption>The tea exit path goes to Tea order when the customer wants tea.</figcaption></figure>
+  <div class="col">
+    <h3 id="step-3"><span class="n">3</span>Look at the agent and its guardrails</h3>
+    <p>Click <span class="ui">Agent</span> in the top bar. The agent sheet sets the agent’s identity, purpose and tone for the whole conversation.</p>
+  </div>
+  <figure class="shot"><img src="/start/images/agent.png" alt="The Agent sheet for the coffee example: identity Skye, a barista at Bluebird Coffee, with purpose and tone." width="1440" height="900" loading="lazy"><figcaption>The agent sheet.</figcaption></figure>
+  <div class="col">
+    <p>Click <span class="ui">Guardrails</span> in the top bar. Guardrails are rules that apply across the whole conversation, such as “Bluebird only sells coffee and tea.”</p>
+  </div>
+  <figure class="shot"><img src="/start/images/guardrails.png" alt="The Guardrails dialog listing six rules, including that Bluebird only sells coffee and tea." width="1440" height="900" loading="lazy"><figcaption>Guardrails.</figcaption></figure>
+  <div class="col">
+    <h3 id="step-4"><span class="n">4</span>Read the compiled prompt</h3>
+    <p>Click <span class="ui">Prompt</span> above the canvas. Each block is colored by its source and has an <span class="ui">Open</span> link back to it.</p>
+  </div>
+  <figure class="shot"><img src="/start/images/prompt.png" alt="The compiled system prompt beside the canvas, with the Coffee order block and its Open link." width="1440" height="900" loading="lazy"><figcaption>The compiled system prompt.</figcaption></figure>
+  <div class="col">
+    <h3 id="step-5"><span class="n">5</span>Add a key</h3>
+    <p>Talking to the agent needs a model, and the simplest setup is one OpenRouter key.</p>
+    <ol class="steps">
+      <li>Make an account at <a href="https://openrouter.ai" target="_blank" rel="noopener">openrouter.ai</a>, add a few dollars of credit, and create a key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>. You can set a credit limit on the key.</li>
+      <li>In flowstore, click the gear icon, paste the key under <span class="ui">OpenRouter API key</span>, and click <span class="ui">Save</span> at the bottom of the dialog. Closing the dialog without saving discards the key.</li>
+    </ol>
+  </div>
+  <figure class="shot"><img src="/start/images/settings.png" alt="The Settings dialog with fields for Google, OpenAI, OpenRouter and xAI keys." width="1440" height="900" loading="lazy"><figcaption>Settings.</figcaption></figure>
+  <div class="col">
+    <p>One OpenRouter key covers every text model in the model picker, including Gemini and GPT. A conversation like the one below costs about a cent on the default model.</p>
+
+    <h3 id="step-6"><span class="n">6</span>Talk to the agent</h3>
+    <p>Click <span class="ui">Run</span>, then <span class="ui">Start session</span>. Type as the customer and click <span class="ui">Send</span>. Try this order:</p>
+    <ol class="turns">
+      <li><span class="say">“Hi, a large latte please.”</span></li>
+      <li><span class="say">“What’s on the menu?”</span> The interrupt answers and returns to your order.</li>
+      <li><span class="say">“Do you have croissants?”</span> A guardrail keeps the agent to coffee and tea.</li>
+    </ol>
+  </div>
+  <figure class="shot"><img src="/start/images/conversation.png" alt="A test conversation in the Run panel: the customer orders a large latte, asks for the menu, and asks for croissants, which the agent declines." width="1440" height="900" loading="lazy"><figcaption>A test conversation.</figcaption></figure>
+  <div class="col">
+    <h3 id="step-7"><span class="n">7</span>Change the design with the Assistant</h3>
+    <p>Open the <span class="ui">Assistant</span> (the sparkle button next to <span class="ui">Run</span>) and ask for “a pastry flow, with croissants and blueberry muffins.” The assistant adds the flow, connects it, and updates the instructions and guardrail that said Bluebird only sells coffee and tea. The parts it changed are outlined on the canvas.</p>
+  </div>
+  <figure class="shot"><img src="/start/images/assistant-pastry.png" alt="The canvas with a new Pastry order flow connected from Greet &amp; route to Confirm &amp; place, and the Assistant’s summary of its changes." width="1440" height="900" loading="lazy"><figcaption>The Assistant adds a Pastry order flow.</figcaption></figure>
+  <div class="col">
+    <h3 id="step-8"><span class="n">8</span>Save a gold standard conversation</h3>
+    <p>When a conversation goes the way you want, click <span class="ui">+ capture as gold</span> under it. A gold is a saved conversation you can replay after later edits to make sure it still works as expected.</p>
+    <p>To replay it after an edit, open <span class="ui">Golds</span>, click <span class="ui">Open in Sim ▶</span>, click the replay button, then click <span class="ui">Evaluate</span>. Your side of the conversation replays, and each reply is checked against the gold, with a note on anything that changed.</p>
+
+    <h2 id="next">Next steps</h2>
+  </div>
+  <div class="col">
+    <h3>Build from your own material</h3>
+    <p>Click the sparkle button next to <span class="ui">Run</span> to open the <span class="ui">Assistant</span>. Attach text or markdown files with <span class="ui">Attach source files</span>, such as a script, a design doc exported as text, or a flow diagram written in Mermaid. Then click <span class="ui">Build from source</span>. The assistant drafts a spec on the canvas that you can review and edit. You can also ask it for changes in plain language, such as “add a flow for pastries.”</p>
+  </div>
+  <figure class="shot"><img src="/start/images/assistant.png" alt="The Assistant panel with a call script attached and the Build from source button." width="1440" height="900" loading="lazy"><figcaption>The Assistant, with a call script attached.</figcaption></figure>
+  <div class="col">
+    <h3>Open a larger example</h3>
+    <p><a href="https://github.com/tap2k/flowstore-example-fnol" target="_blank" rel="noopener">flowstore-example-fnol</a> is a car insurance claims agent. It has 16 flows, 4 interrupts, 6 capabilities that are mocked during testing, and scripts in English and Spanish.</p>
+    <ol class="steps">
+      <li>Click <span class="ui">Open a flowstore project from GitHub</span>, the cloud with a down arrow in the top bar.</li>
+      <li>Paste <code>https://github.com/tap2k/flowstore-example-fnol</code> under <span class="ui">Public repo URL</span> and open it.</li>
+    </ol>
+    <p>No key or GitHub account is needed to open it. Talking to it needs an OpenRouter key (step 5 above).</p>
+  </div>
+
+  <div class="col">
+    <h2 id="github">Saving to GitHub</h2>
+    <p>There is no flowstore server. The editor runs in the browser, keys stay in the browser, and model calls go straight from the browser to the provider. Work autosaves in the browser. You can also import and export files, or save to GitHub.</p>
+    <p>To save, add a GitHub token in Settings. The hint under the field links to the token page and lists the permissions it needs.</p>
+  </div>
+  <figure class="shot"><img src="/start/images/github-settings.png" alt="The GitHub section of Settings with a masked token and the permissions hint." width="1440" height="900" loading="lazy"><figcaption>The GitHub token in Settings.</figcaption></figure>
+  <div class="col">
+    <p>Then click <span class="ui">Save to GitHub</span> (the cloud with an up arrow) and name a new repo. Later saves go to the same repo. The cloud with a down arrow opens a project from GitHub.</p>
+  </div>
+  <figure class="shot"><img src="/start/images/github-save.png" alt="The Save to GitHub dialog with a project name, Private selected, and Create project." width="1440" height="900" loading="lazy"><figcaption>Saving a project to a new repo.</figcaption></figure>
+  <div class="col">
+    <p>A project is a folder of plain files: <code>agent.md</code>, <code>guardrails.md</code>, one markdown file per flow under <code>flows/</code>, and golds, cases and personas under <code>tests/</code>. Each save is a commit, so the repo history shows every change to the design. A team can share one repo, and the <span class="ui">Share</span> button adds collaborators. New repos are private by default, so a student submits work by adding the instructor as a collaborator, or by making the repo public.</p>
+
+    <h2 id="questions">Questions for your class</h2>
+
+    <h3>How will students get API keys?</h3>
+    <p>Each student can make an <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter key</a> and put a credit limit on it. A term of text-based testing on the default model should cost a few dollars.</p>
+    <p>An instructor can instead share one class key. Put a credit limit on it, and tell students which models to use, since some models in the picker cost far more than the default. Keys stay in each student’s browser.</p>
+
+    <h3>How will students work together?</h3>
+    <p>A team shares one GitHub repo. The <span class="ui">Share</span> button adds collaborators. Each save is a commit, so the history shows who changed what.</p>
+    <p>Students can also clone the repo and work on it with their own coding agent, such as Claude Code, Codex or Copilot. The refresh button next to <span class="ui">Save to GitHub</span> pulls those changes into the editor.</p>
+
+    <h3>How will students test their agents?</h3>
+    <p>They talk to the agent in <span class="ui">Run</span>, save good conversations as golds, and replay the golds after each edit. The Run panel also has test cases, which script the user’s side, and personas, which simulate users. These are the same kinds of tests that are used in production.</p>
+    <p>To test with real users, students can deploy the agent on a platform like Retell, or through a planned flowstore share link.</p>
+
+    <h3>How will students submit work?</h3>
+    <p>By sharing the repo link. New repos are private by default, so a student adds the instructor as a collaborator or makes the repo public. Or by sharing the planned testing link. A harness for automated testing of assignments is also planned.</p>
+
+    <footer>
+      <p>Questions and feedback: write to <span class="mail">info@flowstore.org</span>. Comments on this guide are welcome, especially where something didn’t match what you saw.</p>
+    </footer>
+  </div>
+</div>
+</Base>
