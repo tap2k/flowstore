@@ -69,7 +69,7 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
   const setOpenSheet = useUiStore((s) => s.setOpenSheet);
 
   const [problemsOpen, setProblemsOpen] = useState(true);
-  const [copied, setCopied] = useState<"double" | "single" | null>(null);
+  const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const availableLanguages = spec?.agent.meta.languages ?? [];
@@ -102,18 +102,13 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
 
   const compiledText = compiled.text;
 
-  function copy(singleBracket = false) {
+  function copy() {
     // Copy yields the LITERAL prompt, never the display-trimmed text — what you
     // paste must match what the LLM receives. See bodyForDisplay.
-    // Single-bracket export down-converts {{var}} → {var} for runtimes whose
-    // interpolation is single-brace. Lossy by nature: any literal
-    // single brace in the prompt becomes indistinguishable from a placeholder on
-    // such a runtime — flowstore stays {{var}} internally; this is export-only.
-    const out = singleBracket ? compiledText.replace(/\{\{([A-Za-z_]\w*)\}\}/g, "{$1}") : compiledText;
-    void navigator.clipboard.writeText(out);
-    setCopied(singleBracket ? "single" : "double");
+    void navigator.clipboard.writeText(compiledText);
+    setCopied(true);
     if (copiedTimer.current) clearTimeout(copiedTimer.current);
-    copiedTimer.current = setTimeout(() => setCopied(null), 1500);
+    copiedTimer.current = setTimeout(() => setCopied(false), 1500);
   }
 
   // A diagnostic is jumpable unless it's a schema error with no entity anchor.
@@ -160,22 +155,13 @@ export function SystemPromptPanel({ open, onClose }: SystemPromptPanelProps) {
         <div className="text-sm font-semibold text-text-primary">System prompt</div>
         <div className="flex items-center gap-1">
           <button
-            onClick={() => copy(false)}
+            onClick={copy}
             title="Copy the prompt with {{variable}} placeholders (flowstore's convention)."
             className={`rounded px-2 py-1 text-[11px] ${
-              copied === "double" ? "text-state-success-fg" : "text-text-secondary hover:bg-surface-hover"
+              copied ? "text-state-success-fg" : "text-text-secondary hover:bg-surface-hover"
             }`}
           >
-            {copied === "double" ? "copied ✓" : "copy"}
-          </button>
-          <button
-            onClick={() => copy(true)}
-            title="Copy with {{variable}} down-converted to single-brace {variable}, for runtimes with single-brace interpolation. Note: literal single braces in the prompt become ambiguous on those runtimes."
-            className={`rounded px-2 py-1 text-[11px] ${
-              copied === "single" ? "text-state-success-fg" : "text-text-secondary hover:bg-surface-hover"
-            }`}
-          >
-            {copied === "single" ? "copied ✓" : "copy (single-bracket)"}
+            {copied ? "copied ✓" : "copy"}
           </button>
           <button
             onClick={onClose}
