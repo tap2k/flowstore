@@ -208,6 +208,10 @@ export interface WriteResult {
 
 export interface ReadOptions {
   includePath?: (path: string) => boolean;
+  // Fetch file contents from raw.githubusercontent.com instead of the blobs
+  // API. Public repos only. An unauthenticated client gets 60 API calls an
+  // hour, which a project with dozens of files exhausts in one open.
+  raw?: boolean;
 }
 
 export interface WriteOptions {
@@ -278,6 +282,12 @@ export async function readRepoAtTree(
   );
   const entries = await Promise.all(
     blobs.map(async (e) => {
+      if (opts.raw) {
+        const path = e.path!.split("/").map(encodeURIComponent).join("/");
+        const res = await fetch(`https://raw.githubusercontent.com/${loc.owner}/${loc.repo}/${commitSha}/${path}`);
+        if (!res.ok) throw new Error(`Failed to read ${e.path} (${res.status})`);
+        return [e.path!, await res.text()] as const;
+      }
       const blob = await loc.client.rest.git.getBlob({
         owner: loc.owner,
         repo: loc.repo,

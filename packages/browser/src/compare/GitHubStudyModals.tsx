@@ -47,11 +47,11 @@ export function GitHubStudyOpenModal({
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function open(owner: string, repo: string, ref: string, readClient: Octokit) {
+  async function open(owner: string, repo: string, ref: string, readClient: Octokit, raw = false) {
     setOpening(true);
     setError(null);
     try {
-      const { files } = await readRepoToFileMap({ client: readClient, owner, repo, ref });
+      const { files } = await readRepoToFileMap({ client: readClient, owner, repo, ref }, { raw });
       if (!files["agent.md"]) {
         setError("No flowstore project found in this repo (missing agent.md).");
         return;
@@ -81,7 +81,7 @@ export function GitHubStudyOpenModal({
       const readClient = client ?? new Octokit();
       try {
         const meta = await readClient.rest.repos.get({ owner: parsed.owner, repo: parsed.repo });
-        await open(parsed.owner, parsed.repo, parsed.branch ?? meta.data.default_branch, readClient);
+        await open(parsed.owner, parsed.repo, parsed.branch ?? meta.data.default_branch, readClient, !client);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to open study");
       }

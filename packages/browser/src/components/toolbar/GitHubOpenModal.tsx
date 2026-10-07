@@ -167,12 +167,10 @@ export function GitHubOpenModal({ onClose, onOpenSettings }: GitHubOpenModalProp
       let files: Record<string, string>;
       let commitSha: string | null;
       try {
-        const read = await readRepoToFileMap({
-          client: readClient,
-          owner: parsed.owner,
-          repo: parsed.repo,
-          ref: branch,
-        });
+        const read = await readRepoToFileMap(
+          { client: readClient, owner: parsed.owner, repo: parsed.repo, ref: branch },
+          { raw: !client },
+        );
         files = read.files;
         commitSha = read.commitSha;
       } catch (e: unknown) {
