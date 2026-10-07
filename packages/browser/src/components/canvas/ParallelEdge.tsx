@@ -1,4 +1,4 @@
-import { BaseEdge, EdgeLabelRenderer, type EdgeProps } from "@xyflow/react";
+import { BaseEdge, type EdgeProps } from "@xyflow/react";
 
 // Spacing (px) between parallel edges that share the same source→target pair.
 const SPACING = 28;
@@ -11,7 +11,7 @@ const SPACING = 28;
  * exits (e.g. a flow with both `xp_50p_cannot_pay_anything` and
  * `xp_50p_date_after_grace` → `unable_to_pay`). This edge offsets each sibling
  * perpendicular to the source→target line by its index in the group, so every
- * exit (and its label) is visible and individually clickable.
+ * exit is visible and individually clickable.
  *
  * Only assigned to edges in a group of 2+; lone edges keep React Flow's
  * built-in default bezier (see Canvas `buildGraph`). `data.offsetIndex` /
@@ -23,9 +23,6 @@ export function ParallelEdge({
   sourceY,
   targetX,
   targetY,
-  label,
-  labelStyle,
-  labelBgStyle,
   style,
   markerEnd,
   data,
@@ -52,30 +49,5 @@ export function ParallelEdge({
   const cy = 2 * offY - midY;
   const path = `M ${sourceX},${sourceY} Q ${cx},${cy} ${targetX},${targetY}`;
 
-  return (
-    <>
-      <BaseEdge id={id} path={path} style={style} markerEnd={markerEnd} />
-      {label ? (
-        <EdgeLabelRenderer>
-          <div
-            className="nodrag nopan"
-            style={{
-              position: "absolute",
-              transform: `translate(-50%, -50%) translate(${offX}px, ${offY}px)`,
-              fontSize: 11,
-              color: "#52525b",
-              background: "#fafafa",
-              padding: "0 3px",
-              borderRadius: 3,
-              pointerEvents: "all",
-              ...(labelStyle as Record<string, unknown>),
-              ...(labelBgStyle as Record<string, unknown>),
-            }}
-          >
-            {label}
-          </div>
-        </EdgeLabelRenderer>
-      ) : null}
-    </>
-  );
+  return <BaseEdge id={id} path={path} style={style} markerEnd={markerEnd} />;
 }

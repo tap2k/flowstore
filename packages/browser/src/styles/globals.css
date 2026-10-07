@@ -99,7 +99,6 @@
   --color-edge-default: var(--edge-default);
   --color-edge-hover: var(--edge-hover);
   --color-edge-selected: var(--edge-selected);
-  --color-edge-label-bg: var(--edge-label-bg);
   --color-minimap-bg: var(--minimap-bg);
   --color-minimap-node: var(--minimap-node);
   --color-minimap-mask: var(--minimap-mask);
@@ -255,11 +254,22 @@ body {
   border-radius: var(--r-3);
   box-shadow: var(--elev-2);
 }
-/* Edge labels are part of the graph, but their chip sits on the canvas plane
-   rather than on a node, so it has to follow the plane to stay legible. */
-.react-flow__edge-textbg {
-  fill: var(--edge-label-bg);
+/* Whole-node connection target (FlowNode DropTarget). Outlined on every
+   candidate while a connection is dragged; solid on the one under the cursor. */
+.react-flow__handle.flow-drop-target {
+  inset: 0;
+  width: auto;
+  height: auto;
+  transform: none;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
 }
-.react-flow__edge-text {
-  fill: var(--text-secondary);
+.react-flow__handle.flow-drop-target.is-armed {
+  outline: 2px dashed var(--edge-hover);
+  outline-offset: 4px;
+}
+.react-flow__handle.flow-drop-target.is-armed.connectingto.valid {
+  outline-style: solid;
+  outline-color: var(--edge-selected);
 }

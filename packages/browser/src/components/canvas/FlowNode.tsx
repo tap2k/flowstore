@@ -1,4 +1,4 @@
-import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { Handle, Position, useConnection, type NodeProps } from "@xyflow/react";
 import type { FlowType } from "@flowstore/core/schema/v0";
 import type { ResolvedAttribution } from "@flowstore/core/runtime/flowWatcher";
 import { useSimulateStore } from "@/lib/store/simulate";
@@ -125,7 +125,7 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
       }`}
     >
       {unresolvedComments > 0 && <CommentBadge count={unresolvedComments} />}
-      <Handle type="target" position={Position.Left} className="!bg-zinc-400" />
+      <DropTarget id={id} />
       <div className="flex items-center justify-between gap-2 mb-1">
         <span className={`text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 ${style.badge}`}>
           {style.label}
@@ -148,6 +148,7 @@ export function FlowNode({ id, data, selected }: NodeProps & { data: FlowNodeDat
 }
 
 function JunctionNode({
+  id,
   name,
   issueLevel,
   issueTitle,
@@ -195,12 +196,7 @@ function JunctionNode({
         }}
         aria-hidden
       />
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="!bg-zinc-400"
-        style={{ top: "50%" }}
-      />
+      <DropTarget id={id} />
       <Handle
         type="source"
         position={Position.Right}
@@ -212,6 +208,29 @@ function JunctionNode({
         <span className="text-[10px] font-medium leading-tight text-zinc-700">{name}</span>
       </div>
     </div>
+  );
+}
+
+// The target handle covers the whole node, so a dragged connection lands
+// anywhere on it. It only takes the pointer while a connection from another
+// node is in progress; otherwise it would swallow clicks and node drags.
+// A Left handle anchors at its left-edge midpoint, so edges still attach
+// where the visible dot sits.
+function DropTarget({ id }: { id: string }) {
+  const armed = useConnection((c) => c.inProgress && c.fromNode.id !== id);
+  return (
+    <>
+      <span
+        aria-hidden
+        className="absolute left-0 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-zinc-400"
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        className={`flow-drop-target${armed ? " is-armed" : ""}`}
+        style={{ pointerEvents: armed ? "all" : "none" }}
+      />
+    </>
   );
 }
 

@@ -12,6 +12,7 @@ import {
   useReactFlow,
   type Edge,
   type Node,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import type { Spec } from "@flowstore/core/schema/v0";
 import { isFlowGoto } from "@flowstore/core/schema/v0";
@@ -149,10 +150,6 @@ function useCanvasTokens() {
 
 const SAVE_DEBOUNCE_MS = 300;
 
-function truncate(s: string, n: number) {
-  return s.length <= n ? s : s.slice(0, n - 1) + "…";
-}
-
 // Edge color follows the destination flow's type. Matches the FlowNode
 // border palette so an edge visually inherits the node it points at.
 const EDGE_STROKE_BY_TYPE: Record<string, string> = {
@@ -199,9 +196,6 @@ function buildGraph(spec: Spec): { nodes: Node[]; edges: Edge[] } {
           : edgeLevel === "warning"
           ? "#f59e0b"
           : EDGE_STROKE_BY_TYPE[targetType ?? ""] ?? "#a1a1aa";
-      const label = xp.condition?.expression
-        ? truncate(xp.condition.expression, 32)
-        : undefined;
       edges.push({
         id: edgeId,
         source: f.id,
@@ -210,11 +204,6 @@ function buildGraph(spec: Spec): { nodes: Node[]; edges: Edge[] } {
         // Carried so later styling passes can tell an issue-colored stroke
         // from a plain type-colored one (issues must not be restyled over).
         data: { issueLevel: edgeLevel },
-        label,
-        // Colours deliberately omitted: an inline `fill` would beat the
-        // themed rules in globals.css, and the label chip sits on the canvas
-        // plane, so it has to follow the plane between light and dark.
-        labelStyle: { fontSize: 11 },
         style: { stroke, strokeWidth: 1.5 },
         markerEnd: { type: MarkerType.ArrowClosed, color: stroke, width: 18, height: 18 },
       });
@@ -455,6 +444,8 @@ function NewFlowButton() {
   );
 }
 
+const MAX_ZOOM = 2;
+
 function CanvasInner({ spec }: { spec: Spec }) {
   const specId = spec.agent.id;
   const t = useCanvasTokens();
@@ -466,6 +457,7 @@ function CanvasInner({ spec }: { spec: Spec }) {
   }, [spec, specId]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes);
+  const rfRef = useRef<ReactFlowInstance | null>(null);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
   const traversedEdgeIds = useSimulateStore((s) => s.traversedEdgeIds);
   const simulateStatus = useSimulateStore((s) => s.status);
@@ -560,6 +552,12 @@ function CanvasInner({ spec }: { spec: Spec }) {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={(_, n) => useSpecStore.getState().setSelection({ kind: "flow", id: n.id })}
+        onInit={(rf) => (rfRef.current = rf)}
+        // React Flow marks draggable nodes `nopan`, so its pane double-click
+        // zoom never fires over a node. Center and zoom on the node instead.
+        onNodeDoubleClick={(_, n) =>
+          rfRef.current?.fitView({ nodes: [{ id: n.id }], padding: 0.3, maxZoom: MAX_ZOOM, duration: 300 })
+        }
         onEdgeClick={(_, e) => {
           const [flowId, exitPathId] = e.id.split("__");
           if (flowId && exitPathId) {
@@ -579,7 +577,7 @@ function CanvasInner({ spec }: { spec: Spec }) {
         // uncapped, a two-node graph fills the viewport at 2x.
         fitViewOptions={{ padding: 0.2, maxZoom: 1.0 }}
         minZoom={0.2}
-        maxZoom={2}
+        maxZoom={MAX_ZOOM}
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={20} size={1} color={t.dot} bgColor={t.bg} />

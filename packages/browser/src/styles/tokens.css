@@ -333,7 +333,6 @@
   --edge-default: #b4b4b4;
   --edge-hover: #6b6b6b;
   --edge-selected: #111111;
-  --edge-label-bg: #ffffff;
   --minimap-bg: rgba(255, 255, 255, 0.86);
   --minimap-node: #c6c6c6;
   --minimap-mask: rgba(17, 17, 17, 0.06);
@@ -345,7 +344,6 @@
   --edge-default: #4a4a4a;
   --edge-hover: #8e8e8e;
   --edge-selected: #f2f2f2;
-  --edge-label-bg: #181818;
   --minimap-bg: rgba(10, 10, 10, 0.86);
   --minimap-node: #3d3d3d;
   --minimap-mask: rgba(242, 242, 242, 0.06);
