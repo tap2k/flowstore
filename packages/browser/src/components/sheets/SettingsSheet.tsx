@@ -349,7 +349,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
       <Section
         title="GitHub"
         summary={pat.trim() ? "connected" : "not connected"}
-        defaultOpen={!pat.trim()}
+        defaultOpen={false}
       >
       <div className="space-y-2">
         <label className="fs-label text-text-secondary">GitHub PAT</label>

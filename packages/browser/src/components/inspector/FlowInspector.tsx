@@ -111,7 +111,7 @@ export function FlowInspector() {
 
         <Field label="Instructions">
           <textarea
-            className={textareaClass}
+            className={`${textareaClass} [field-sizing:content] max-h-[60vh]`}
             value={flow.instructions ?? ""}
             onChange={(e) => patch({ instructions: e.target.value || undefined })}
             placeholder="Behavioral prose: what to do, how to behave, what to ask."

@@ -209,7 +209,7 @@ export function PersonasPanel() {
         {personas.length === 0 ? (
           <div className="px-3 py-6 text-center text-[11px] text-text-tertiary">
             No saved personas yet. Click <span className="font-medium">+ New</span> to add one,
-            or save the current Simulate-tab persona via the PersonaForm.
+            or save the persona you set up in the Simulate tab.
           </div>
         ) : (
           <ul className="divide-y divide-border-default">

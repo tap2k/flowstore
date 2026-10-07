@@ -307,10 +307,10 @@ export function PersonaForm({ spec, disabled, hideRunControls = false }: Persona
               ? loadedPersona.name || loadedPersona.id
               : configured
                 ? "configured"
-                : "empty"}
+                : "not set"}
           </span>
         </button>
-        {!hideRunControls && (
+        {!hideRunControls && (configured || autoRun) && (
           <div className="flex items-center gap-1">
             <span className="text-[10px] text-text-tertiary">Turns:</span>
             <input

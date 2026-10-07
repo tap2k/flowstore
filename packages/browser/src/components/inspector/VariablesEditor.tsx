@@ -57,6 +57,8 @@ function rowsTo(rows: Row[], scope: "agent" | "flow"): Record<string, VariableDe
   return out;
 }
 
+const labelClass = "mb-0.5 block fs-micro text-text-tertiary";
+
 export function VariablesEditor({ variables, onChange, scope }: VariablesEditorProps) {
   // Local state holds draft rows (including unnamed ones); only named rows are committed to spec.
   const [rows, setRows] = useState<Row[]>(() => rowsFrom(variables));
@@ -85,65 +87,77 @@ export function VariablesEditor({ variables, onChange, scope }: VariablesEditorP
       )}
       {rows.map((row, i) => (
         <div key={i} className="rounded border border-border-default p-2 space-y-1.5">
-          <div className="flex gap-2">
-            <input
-              className={inputClass}
-              value={row.name}
-              onChange={(e) =>
-                commit(rows.map((r, j) => (j === i ? { ...r, name: e.target.value } : r)))
-              }
-              placeholder="variable_name"
-            />
-            <select
-              className={`${inputClass} w-28`}
-              value={row.type}
-              onChange={(e) =>
-                commit(
-                  rows.map((r, j) =>
-                    j === i ? { ...r, type: e.target.value as VariableType | "" } : r
+          <div className="flex items-end gap-2">
+            <label className="block flex-1">
+              <span className={labelClass}>Name</span>
+              <input
+                className={inputClass}
+                value={row.name}
+                onChange={(e) =>
+                  commit(rows.map((r, j) => (j === i ? { ...r, name: e.target.value } : r)))
+                }
+                placeholder="variable_name"
+              />
+            </label>
+            <label className="block w-28">
+              <span className={labelClass}>Type</span>
+              <select
+                className={inputClass}
+                value={row.type}
+                onChange={(e) =>
+                  commit(
+                    rows.map((r, j) =>
+                      j === i ? { ...r, type: e.target.value as VariableType | "" } : r
+                    )
                   )
-                )
-              }
-            >
-              <option value="">—</option>
-              {VARIABLE_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+                }
+              >
+                <option value="">—</option>
+                {VARIABLE_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button
               onClick={() => commit(rows.filter((_, j) => j !== i))}
-              className="fs-caption text-text-tertiary hover:text-state-error-fg"
+              className="pb-1.5 fs-caption text-text-tertiary hover:text-state-error-fg"
               title="remove"
             >
               ×
             </button>
           </div>
-          <input
-            className={inputClass}
-            value={row.description}
-            onChange={(e) =>
-              commit(rows.map((r, j) => (j === i ? { ...r, description: e.target.value } : r)))
-            }
-            placeholder="description (optional)"
-          />
-          {row.type === "enum" && (
+          <label className="block">
+            <span className={labelClass}>Description</span>
             <input
               className={inputClass}
-              value={row.values}
+              value={row.description}
               onChange={(e) =>
-                commit(rows.map((r, j) => (j === i ? { ...r, values: e.target.value } : r)))
+                commit(rows.map((r, j) => (j === i ? { ...r, description: e.target.value } : r)))
               }
-              placeholder="values: foo, bar, baz"
+              placeholder="optional"
             />
+          </label>
+          {row.type === "enum" && (
+            <label className="block">
+              <span className={labelClass}>Allowed values, comma-separated</span>
+              <input
+                className={inputClass}
+                value={row.values}
+                onChange={(e) =>
+                  commit(rows.map((r, j) => (j === i ? { ...r, values: e.target.value } : r)))
+                }
+                placeholder="small, medium, large"
+              />
+            </label>
           )}
           {(scope === "agent" || showVisibleWhen) && (
             <div className="flex items-center gap-2">
               {scope === "agent" && (
                 <label
                   className="flex shrink-0 items-center gap-1 fs-caption text-text-secondary"
-                  title="provided: the deployment hands this value to the session at start (dialer payload, screen-pop, caller ID). Only provided vars from a persona/case fixture ship to the agent at session start; everything else must be earned through conversation or capability returns. Distinct from visible_when: provided = known at start; visible_when = known but withheld until the gate clears."
+                  title="The deployment hands this value to the agent when the session starts (caller ID, account number). Other variables are filled during the conversation or by capability returns. In a run, the value comes from the persona or test case."
                 >
                   <input
                     type="checkbox"
@@ -154,7 +168,7 @@ export function VariablesEditor({ variables, onChange, scope }: VariablesEditorP
                       )
                     }
                   />
-                  provided at start
+                  provided at start (e.g. caller ID)
                 </label>
               )}
               {showVisibleWhen && (

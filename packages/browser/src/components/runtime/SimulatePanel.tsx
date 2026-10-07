@@ -1627,6 +1627,7 @@ function EmptyState({
   onStart: () => void;
   onOpenSettings: () => void;
 }) {
+  const hasAnyKey = useSettingsStore((s) => !!(s.googleApiKey || s.openaiApiKey || s.openrouterApiKey));
   if (!specLoaded) {
     return (
       <div className="text-xs text-text-tertiary">
@@ -1638,8 +1639,10 @@ function EmptyState({
     <div className="text-xs text-text-tertiary space-y-4">
       {isPromptMode(mode) && !apiKey && (
         <p>
-          <button onClick={onOpenSettings} className="underline hover:text-text-primary">
-            Requires a {providerLabel} API key in Settings.
+          <button onClick={onOpenSettings} className="text-left underline hover:text-text-primary">
+            {hasAnyKey
+              ? `This model needs a ${providerLabel} key in Settings, or pick another model above.`
+              : "Add an API key in Settings to run your agent."}
           </button>
         </p>
       )}

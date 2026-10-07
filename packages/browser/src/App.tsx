@@ -33,7 +33,6 @@ export function App() {
   const hasLlmKey = useSettingsStore(
     (s) => !!(s.googleApiKey || s.openaiApiKey || s.openrouterApiKey),
   );
-  const runnerUrl = useSettingsStore((s) => s.runnerUrl);
   const githubLocation = useGithubProjectStore((s) => s.location);
   const githubCanWrite = useGithubProjectStore((s) => s.canWrite);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -192,7 +191,7 @@ export function App() {
                   ) : null}
                 </Button>
               )}
-              {spec && (hasLlmKey || runnerUrl) && !simulateOpen && (
+              {spec && !simulateOpen && (
                 <Button icon={Play} onClick={() => setSimulateOpen(true)} className="shadow-elev-1">
                   Run
                 </Button>

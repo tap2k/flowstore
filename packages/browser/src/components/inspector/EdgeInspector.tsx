@@ -220,7 +220,7 @@ export function EdgeInspector() {
           />
           {capabilities.length === 0 && (
             <p className="mt-1 text-[10px] text-text-tertiary">
-              No capabilities defined yet — add them in the agent sidebar.
+              No capabilities defined yet. Add them under Capabilities in the header.
             </p>
           )}
         </Field>
