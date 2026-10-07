@@ -17,7 +17,7 @@
     "variables": {
       "drink_type": {
         "type": "enum",
-        "description": "Top-level drink category the patron wants.",
+        "description": "Top-level drink category the customer wants.",
         "values": [
           "coffee",
           "tea"
@@ -49,7 +49,7 @@
       },
       "syrup": {
         "type": "string",
-        "description": "Optional flavored syrup (e.g. 'vanilla', 'caramel', 'hazelnut'). 'none' if patron declines."
+        "description": "Optional flavored syrup (e.g. 'vanilla', 'caramel', 'hazelnut'). 'none' if customer declines."
       },
       "honey": {
         "type": "boolean",
@@ -67,7 +67,7 @@
     "guardrails": [
       {
         "id": "gr_short_replies",
-        "statement": "Keep replies to one or two sentences. Patrons want their coffee, not a conversation."
+        "statement": "Keep replies to one or two sentences. Customers want their coffee, not a conversation."
       },
       {
         "id": "gr_no_offmenu",
@@ -75,7 +75,7 @@
       },
       {
         "id": "gr_no_inventing_items",
-        "statement": "Never invent menu items or specifics not listed in the drink menu table. If a patron asks what pastries, syrups, or anything else we have, only mention what's in the table — and if it isn't there, say we don't have it today."
+        "statement": "Never invent menu items or specifics not listed in the drink menu table. If a customer asks what pastries, syrups, or anything else we have, only mention what's in the table — and if it isn't there, say we don't have it today."
       },
       {
         "id": "gr_recap_before_place",
@@ -99,8 +99,8 @@
       },
       {
         "id": "goal_order_matches_intent",
-        "name": "Placed order matches patron intent",
-        "expression": "The drink that was placed (style, size, milk, customizations) matches what the patron actually asked for — no silent substitutions, defaults applied without consent, or mis-orders.",
+        "name": "Placed order matches customer intent",
+        "expression": "The drink that was placed (style, size, milk, customizations) matches what the customer actually asked for — no silent substitutions, defaults applied without consent, or mis-orders.",
         "method": "llm"
       }
     ],
@@ -122,7 +122,7 @@
       {
         "id": "cap_log_walkaway",
         "name": "log_walkaway",
-        "description": "Record that the patron left without completing an order.",
+        "description": "Record that the customer left without completing an order.",
         "kind": "function",
         "inputs": []
       }
@@ -171,7 +171,7 @@
         {
           "id": "tbl_menu",
           "name": "Drink menu",
-          "notes": "Catalog of drink styles available, used by the order flows to validate patron requests and quote prices.",
+          "notes": "Catalog of drink styles available, used by the order flows to validate customer requests and quote prices.",
           "structure": [
             {
               "field": "drink_type",
@@ -244,7 +244,7 @@
       "version": "0.1.0",
       "name": "Greet & route",
       "type": "happy",
-      "instructions": "Open warmly. Ask the patron what they'd like today. From their reply, determine drink_type (coffee or tea). If unclear, ask one short clarifying question and try again. Patrons asking for anything off-menu (pastries, food, smoothies): say we don't carry that and offer coffee or tea.",
+      "instructions": "Open warmly. Ask the customer what they'd like today. From their reply, determine drink_type (coffee or tea). If unclear, ask one short clarifying question and try again. Customers asking for anything off-menu (pastries, food, smoothies): say we don't carry that and offer coffee or tea.",
       "scripts": [
         {
           "id": "gr_s1",
@@ -259,7 +259,7 @@
         {
           "id": "xp_greet_to_coffee",
           "condition": {
-            "expression": "Patron has indicated they want a coffee drink (drip, americano, latte, espresso, or any coffee-style beverage).",
+            "expression": "Customer has indicated they want a coffee drink (drip, americano, latte, espresso, or any coffee-style beverage).",
             "method": "llm"
           },
           "assigns": {
@@ -273,7 +273,7 @@
         {
           "id": "xp_greet_to_tea",
           "condition": {
-            "expression": "Patron has indicated they want tea (black, green, herbal, or any tea variety).",
+            "expression": "Customer has indicated they want tea (black, green, herbal, or any tea variety).",
             "method": "llm"
           },
           "assigns": {
@@ -287,7 +287,7 @@
         {
           "id": "xp_greet_walkaway",
           "condition": {
-            "expression": "Patron is not ordering anything, asked to leave, or repeatedly cannot decide between coffee and tea.",
+            "expression": "Customer is not ordering anything, asked to leave, or repeatedly cannot decide between coffee and tea.",
             "method": "llm"
           },
           "actions": [
@@ -305,7 +305,7 @@
       "version": "0.1.0",
       "name": "Coffee order",
       "type": "happy",
-      "instructions": "Capture drink_style (drip / americano / latte), size (small / medium / large), milk (regular / oat / almond / soy / none), and syrup (vanilla / caramel / hazelnut / none). Don't ask for milk on a black drip unless the patron mentions it. If size is large and milk is not oat, casually mention oat milk pairs nicely with a large — once, not twice; the patron can decline. When you have all four slots, move to confirmation.",
+      "instructions": "Capture drink_style (drip / americano / latte), size (small / medium / large), milk (regular / oat / almond / soy / none), and syrup (vanilla / caramel / hazelnut / none). Don't ask for milk on a black drip unless the customer mentions it. If size is large and milk is not oat, casually mention oat milk pairs nicely with a large — once, not twice; the customer can decline. When you have all four slots, move to confirmation.",
       "scripts": [
         {
           "id": "co_s1",
@@ -336,7 +336,7 @@
         {
           "id": "xp_co_to_confirm",
           "condition": {
-            "expression": "Patron has provided drink style, size, milk, and syrup choice (or explicitly skipped syrup).",
+            "expression": "Customer has provided drink style, size, milk, and syrup choice (or explicitly skipped syrup).",
             "method": "llm"
           },
           "goto": "flow_confirm"
@@ -344,7 +344,7 @@
         {
           "id": "xp_co_cancel",
           "condition": {
-            "expression": "Patron changed their mind, asked to cancel, or wants to leave.",
+            "expression": "Customer changed their mind, asked to cancel, or wants to leave.",
             "method": "llm"
           },
           "actions": [
@@ -362,7 +362,7 @@
       "version": "0.1.0",
       "name": "Tea order",
       "type": "happy",
-      "instructions": "Capture drink_style (black / green / herbal), size (small / medium / large), and honey (true if the patron wants honey, false if not). Move to confirmation when all three are set.",
+      "instructions": "Capture drink_style (black / green / herbal), size (small / medium / large), and honey (true if the customer wants honey, false if not). Move to confirmation when all three are set.",
       "scripts": [
         {
           "id": "te_s1",
@@ -385,7 +385,7 @@
         {
           "id": "xp_te_to_confirm",
           "condition": {
-            "expression": "Patron has provided tea style, size, and answered the honey question.",
+            "expression": "Customer has provided tea style, size, and answered the honey question.",
             "method": "llm"
           },
           "goto": "flow_confirm"
@@ -393,7 +393,7 @@
         {
           "id": "xp_te_cancel",
           "condition": {
-            "expression": "Patron changed their mind, asked to cancel, or wants to leave.",
+            "expression": "Customer changed their mind, asked to cancel, or wants to leave.",
             "method": "llm"
           },
           "actions": [
@@ -411,7 +411,7 @@
       "version": "0.1.0",
       "name": "Confirm & place",
       "type": "happy",
-      "instructions": "Recap the full order in one sentence, including size, drink_style, and customizations (milk + syrup for coffee; honey y/n for tea). Skip 'none' fields naturally — say 'no syrup' rather than 'syrup: none'. Ask 'sound right?' and wait for an explicit yes/no. On yes, place the order. If the patron wants to change a slot ('actually make it oat milk', 'medium not large'), update the slot in place and re-recap — stay in this flow. On cancel or walkaway, log it.",
+      "instructions": "Recap the full order in one sentence, including size, drink_style, and customizations (milk + syrup for coffee; honey y/n for tea). Skip 'none' fields naturally — say 'no syrup' rather than 'syrup: none'. Ask 'sound right?' and wait for an explicit yes/no. On yes, place the order. If the customer wants to change a slot ('actually make it oat milk', 'medium not large'), update the slot in place and re-recap — stay in this flow. On cancel or walkaway, log it.",
       "scripts": [
         {
           "id": "cf_s1",
@@ -438,7 +438,7 @@
         {
           "id": "xp_cf_placed",
           "condition": {
-            "expression": "Patron confirmed the recap is correct.",
+            "expression": "Customer confirmed the recap is correct.",
             "method": "llm"
           },
           "assigns": {
@@ -457,7 +457,7 @@
         {
           "id": "xp_cf_cancel",
           "condition": {
-            "expression": "Patron asked to cancel the order or walk away.",
+            "expression": "Customer asked to cancel the order or walk away.",
             "method": "llm"
           },
           "assigns": {
@@ -481,7 +481,7 @@
       "version": "0.1.0",
       "name": "Interrupt — what's on the menu",
       "type": "interrupt",
-      "instructions": "Give a quick rundown: drip, americano, or latte for coffee; black, green, or herbal for tea; all come small, medium, or large. Don't list prices unless asked. Keep it to one sentence. Once the patron has heard the menu and either picked a category or moved on, invoke take_exit_path with xp_int_menu_return to hand control back to the caller flow.",
+      "instructions": "Give a quick rundown: drip, americano, or latte for coffee; black, green, or herbal for tea; all come small, medium, or large. Don't list prices unless asked. Keep it to one sentence. Once the customer has heard the menu and either picked a category or moved on, invoke take_exit_path with xp_int_menu_return to hand control back to the caller flow.",
       "scripts": [
         {
           "id": "int_menu_s1",
@@ -489,7 +489,7 @@
         }
       ],
       "entry_condition": {
-        "expression": "Patron asks what's on the menu, what the options are, or what's good.",
+        "expression": "Customer asks what's on the menu, what the options are, or what's good.",
         "method": "llm"
       },
       "exit_paths": [
