@@ -203,8 +203,8 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
         onChange={setOpenrouter}
         help={
           <>
-            For any
-            other model OpenRouter hosts. Get a key at{" "}
+            One key for every text model, including Gemini and GPT when their own key is
+            empty. Get a key at{" "}
             <a
               href="https://openrouter.ai/keys"
               target="_blank"

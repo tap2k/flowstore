@@ -299,9 +299,8 @@ export function resolveDispatch(modelId: string, keyOverrides?: KeyOverrides): R
   // OpenRouter key covers the whole matrix" true (and those calls return
   // measured $). Voice (s2s) entries are excluded — they dispatch over their
   // vendor's live socket, and a fallback would swap the crisp "needs a key"
-  // error for a confusing OpenRouter 404. Structured-output callers are
-  // unaffected: provider resolves to openai-compatible, which their gate
-  // already rejects.
+  // error for a confusing OpenRouter 404. Structured-output callers get the
+  // validated-chat route (chatJson) instead of the native strict schema.
   const isVoice = entry?.voice === true;
   const openrouterFallback = (vendor: string): ResolvedDispatch | null => {
     const orKey = keyFor("openrouter", s.openrouterApiKey);
