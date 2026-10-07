@@ -61,7 +61,7 @@ Flags: `--format prompt|spec|tests` (required), `--language <code>` (defaults to
 ## Examples
 
 - [`examples/coffee`](./examples/coffee) — a minimal single-file spec; the ten-minute introduction.
-- [`flowstore-example-fnol`](https://github.com/tap2k/flowstore-example-fnol) — the comprehensive worked example (Northwind FNOL insurance-intake agent), maintained as its own repository. Exercises every flow type and every test type, full file-model decomposition, multilingual scripts, and a self-contained Python testing harness. It compiles against any flowstore checkout via its `FLOWSTORE_COMPILE_CMD` override, and carries the gold-standard extraction prompt (`prompts/GOLD-EXTRACTION-PROMPT.txt`) that previously lived here.
+- [`flowstore-example-fnol`](https://github.com/tap2k/flowstore-example-fnol) — the comprehensive worked example (Northwind FNOL insurance-intake agent), maintained as its own repository. Exercises every flow type and every test type, full file-model decomposition, multilingual scripts, and a self-contained Python testing harness.
 
 ## Stack
 

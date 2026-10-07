@@ -1,7 +1,3 @@
-# Do not keep agent memory for this project
-
-Do not write to the agent memory system for this project. If prior memories exist, ignore them. Persistent guidance, principles, and project context belong in this file (and the related docs listed below), not in per-conversation memory files. When the user tells you something worth remembering across conversations, propose adding it here instead.
-
 # flowstore
 
 Visual editor for flowstore behavioral specs. A Vite-built React SPA that authors, simulates, and exports specs conforming to [SCHEMA.md](./SCHEMA.md), read from and written to the markdown source layout in [FILE-MODEL.md](./FILE-MODEL.md).
