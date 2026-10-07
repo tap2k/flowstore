@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useCommentsStore } from "@/lib/store/comments";
+import { useGithubProjectStore } from "@/lib/store/githubProject";
 import type { Comment, CommentAnchor } from "@flowstore/core/schema/files/comment";
 import { anchorKey } from "@flowstore/core/schema/files/comment";
 
@@ -16,6 +17,7 @@ export function CommentsSection({ anchor }: CommentsSectionProps) {
   const commentsByAnchor = useCommentsStore((s) => s.commentsByAnchor);
   const createComment = useCommentsStore((s) => s.createComment);
   const setResolved = useCommentsStore((s) => s.setResolved);
+  const onGithub = useGithubProjectStore((s) => s.location !== null);
 
   const key = anchorKey(anchor);
   const all = useMemo(() => commentsByAnchor.get(key) ?? [], [commentsByAnchor, key]);
@@ -26,6 +28,9 @@ export function CommentsSection({ anchor }: CommentsSectionProps) {
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showResolved, setShowResolved] = useState(false);
+
+  // Comments are files in the project's repo; a local project can't post them.
+  if (!onGithub) return null;
 
   async function onPost() {
     const text = draft.trim();

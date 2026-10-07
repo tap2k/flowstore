@@ -387,14 +387,18 @@ export function FlowInspector() {
           </Field>
         )}
 
-        <Field label="Example transcript">
-          <textarea
-            className={textareaClass}
-            value={flow.example ?? ""}
-            onChange={(e) => patch({ example: e.target.value || undefined })}
-            placeholder="Plain-text transcript illustrating intended behavior. Optional."
-          />
-        </Field>
+        {/* Annotation-only: nothing compiles or runs it, so it reads as few-shot
+            examples the model never sees. Golds carry reference transcripts. */}
+        {import.meta.env.VITE_DEV === "1" && (
+          <Field label="Example transcript">
+            <textarea
+              className={textareaClass}
+              value={flow.example ?? ""}
+              onChange={(e) => patch({ example: e.target.value || undefined })}
+              placeholder="Plain-text transcript illustrating intended behavior. Optional."
+            />
+          </Field>
+        )}
 
         <CommentsSection anchor={{ kind: "flow", id: flow.id }} />
 
