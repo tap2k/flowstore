@@ -240,6 +240,18 @@ footer { margin-top: 80px; padding-top: 22px; border-top: 1px solid var(--line);
     <h3 id="step-9"><span class="n">9</span>Test, fix, repeat</h3>
     <p>Designing in flowstore is an iterative testing loop. When a reply is off, ask the <span class="ui">Assistant</span> why, such as “Why did the agent skip the milk question?” It sees the design and the conversation, so it can make the fix. Then test again.</p>
 
+    <h3 id="step-10"><span class="n">10</span>Save to GitHub</h3>
+    <p>There is no flowstore server. The editor runs in the browser, keys stay in the browser, and model calls go straight from the browser to the provider. Work autosaves in the browser. You can also import and export files, or save to GitHub.</p>
+    <p>To save, add a GitHub token in Settings. The hint under the field links to the token page and lists the permissions it needs.</p>
+  </div>
+  <figure class="shot"><img src="/start/images/github-settings.png" alt="The GitHub section of Settings with a masked token and the permissions hint." width="1440" height="900" loading="lazy"><figcaption>The GitHub token in Settings.</figcaption></figure>
+  <div class="col">
+    <p>Then click <span class="ui">Save to GitHub</span> (the cloud with an up arrow) and name a new repo. Later saves go to the same repo. The cloud with a down arrow opens a project from GitHub.</p>
+  </div>
+  <figure class="shot"><img src="/start/images/github-save.png" alt="The Save to GitHub dialog with a project name, Private selected, and Create project." width="1440" height="900" loading="lazy"><figcaption>Saving a project to a new repo.</figcaption></figure>
+  <div class="col">
+    <p>A project is a folder of plain files: <code>agent.md</code>, <code>guardrails.md</code>, one markdown file per flow under <code>flows/</code>, and golds, cases and personas under <code>tests/</code>. Each save is a commit, so the repo history shows every change to the design.</p>
+
     <h2 id="next">Next steps</h2>
   </div>
   <div class="col">
@@ -258,18 +270,6 @@ footer { margin-top: 80px; padding-top: 22px; border-top: 1px solid var(--line);
   </div>
 
   <div class="col">
-    <h2 id="github">Saving to GitHub</h2>
-    <p>There is no flowstore server. The editor runs in the browser, keys stay in the browser, and model calls go straight from the browser to the provider. Work autosaves in the browser. You can also import and export files, or save to GitHub.</p>
-    <p>To save, add a GitHub token in Settings. The hint under the field links to the token page and lists the permissions it needs.</p>
-  </div>
-  <figure class="shot"><img src="/start/images/github-settings.png" alt="The GitHub section of Settings with a masked token and the permissions hint." width="1440" height="900" loading="lazy"><figcaption>The GitHub token in Settings.</figcaption></figure>
-  <div class="col">
-    <p>Then click <span class="ui">Save to GitHub</span> (the cloud with an up arrow) and name a new repo. Later saves go to the same repo. The cloud with a down arrow opens a project from GitHub.</p>
-  </div>
-  <figure class="shot"><img src="/start/images/github-save.png" alt="The Save to GitHub dialog with a project name, Private selected, and Create project." width="1440" height="900" loading="lazy"><figcaption>Saving a project to a new repo.</figcaption></figure>
-  <div class="col">
-    <p>A project is a folder of plain files: <code>agent.md</code>, <code>guardrails.md</code>, one markdown file per flow under <code>flows/</code>, and golds, cases and personas under <code>tests/</code>. Each save is a commit, so the repo history shows every change to the design. A team can share one repo, and the <span class="ui">Share</span> button adds collaborators. New repos are private by default, so a student submits work by adding the instructor as a collaborator, or by making the repo public.</p>
-
     <h2 id="questions">Questions</h2>
 
     <h3>How do I get an API key?</h3>
