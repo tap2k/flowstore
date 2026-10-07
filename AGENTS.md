@@ -213,7 +213,5 @@ Opens at http://127.0.0.1:5173.
 ## Style
 
 - Only add comments when the *why* is non-obvious. Never docstring-style multi-paragraph comments.
-- Prefer editing existing files over creating new ones.
-- Don't add backwards-compat shims. It's early — break freely.
 - Match conventions across the codebase where reasonable. The spec is the contract.
 - Keep the spec schema evolution discussions in SCHEMA.md.
