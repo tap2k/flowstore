@@ -168,7 +168,7 @@ From the product design doc. The ones that most affect editor decisions:
 
 A spec at the right level of detail uses the coarsest level that still captures the seams that matter. Levels:
 
-- **Level 1** — One free-form flow, whole script in `instructions`, no `scripts`. Single coherent conversation, no branching observability needed. The floor: a pasted monolithic prompt enters the spec as this flow's `instructions`, not as an agent-level field.
+- **Level 1** — One free-form flow, whole script in `instructions`, no `scripts`. Single coherent conversation, no branching observability needed. An imported prompt sits below this level, verbatim as the `system_prompt` body of `agent.md`; moving its text into flows is the first structuring step.
 - **Level 2** — A few flows split where routing actually branches.
 - **Level 3** — One flow per agent turn; distinct guardrails or captures per turn.
 - **Level 4 (steps)** — One flow with ordered `steps` and per-turn `condition` / `captures`.
