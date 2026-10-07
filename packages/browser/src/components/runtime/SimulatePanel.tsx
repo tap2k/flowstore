@@ -794,7 +794,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             showUnconfigured={mode === "runner"}
           />
         ) : null}
-        {mode === "text" && (
+        {mode === "text" && import.meta.env.VITE_DEV === "1" && (
           <label
             title="Animate the canvas during simulation — one small LLM call per agent turn (default model) lights the current flow, transitions, and off-spec jumps. Turn off to save a call per turn (rate-limited keys, persona batch runs)."
             className="flex items-center gap-1 text-[11px] text-text-secondary cursor-pointer select-none"

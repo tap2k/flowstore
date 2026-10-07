@@ -431,7 +431,9 @@ export function loadSavedSettings(): void {
       patch.simulateJudgeModel = defaultModel;
     }
     if (runner !== null) patch.runnerUrl = runner;
-    if (window.localStorage.getItem(SIM_ATTRIBUTION_KEY) === "1") {
+    // Canvas animation is dev-only (the flow watcher isn't reliable yet), so a
+    // stored "on" must not outlive the hidden toggle.
+    if (import.meta.env.VITE_DEV === "1" && window.localStorage.getItem(SIM_ATTRIBUTION_KEY) === "1") {
       patch.simulateAttribution = true;
     }
     if (pat) patch.githubPat = pat;
