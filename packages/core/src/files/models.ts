@@ -96,6 +96,7 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     "claude-opus-4.8":          { name: "Claude Opus 4.8", endpoint: "openrouter", model_id: "anthropic/claude-opus-4.8" },
     "claude-sonnet-5.5":        { name: "Claude Sonnet 5.5", endpoint: "openrouter", model_id: "anthropic/claude-sonnet-5.5" },
     "claude-sonnet-5":          { name: "Claude Sonnet 5", endpoint: "openrouter", model_id: "anthropic/claude-sonnet-5" },
+    "claude-haiku-5.5":         { name: "Claude Haiku 5.5", endpoint: "openrouter", model_id: "anthropic/claude-haiku-5.5" },
     "claude-haiku-4.5":         { name: "Claude Haiku 4.5", endpoint: "openrouter", model_id: "anthropic/claude-haiku-4.5" },
 
     // Open-weight on OpenRouter. The :free suffix routes to the free tier.
