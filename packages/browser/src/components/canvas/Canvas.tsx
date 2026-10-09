@@ -292,12 +292,22 @@ function EmptyCanvas() {
           <div className="text-sm text-text-tertiary">
             Add a flow with +, import a project, or start from the example.
           </div>
-          <button
-            onClick={() => void loadExample()}
-            className="rounded-full border border-border-default bg-surface-panel px-4 py-1.5 text-xs font-medium text-text-primary hover:bg-surface-hover"
-          >
-            load example (coffee agent)
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => void loadExample()}
+              className="rounded-full border border-border-default bg-surface-panel px-4 py-1.5 text-xs font-medium text-text-primary hover:bg-surface-hover"
+            >
+              load example (coffee agent)
+            </button>
+            <a
+              href="https://flowstore.org/start/"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full border border-border-default bg-surface-panel px-4 py-1.5 text-xs font-medium text-text-primary hover:bg-surface-hover"
+            >
+              getting started guide ↗
+            </a>
+          </div>
           {error && <div className="text-xs text-state-error-fg">{error}</div>}
         </div>
       </div>
