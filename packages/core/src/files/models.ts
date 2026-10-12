@@ -115,6 +115,8 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     "mistral-large-2512":       { name: "Mistral Large 2512", endpoint: "openrouter", model_id: "mistralai/mistral-large-2512" },
     "gemma-4-31b":              { name: "Gemma 4 31B", endpoint: "openrouter", model_id: "google/gemma-4-31b-it" },
     "gemma-4-26b-a4b":          { name: "Gemma 4 26B A4B", endpoint: "openrouter", model_id: "google/gemma-4-26b-a4b-it" },
+    "muse-wonder-1.0":          { name: "Muse Wonder", endpoint: "openrouter", model_id: "meta/muse-wonder" },
+    "muse-spark-1.3":           { name: "Muse Spark 1.3", endpoint: "openrouter", model_id: "meta/muse-spark-1.3" },
     "llama-4-maverick":         { name: "Llama 4 Maverick", endpoint: "openrouter", model_id: "meta-llama/llama-4-maverick" },
     "llama-4-scout":            { name: "Llama 4 Scout", endpoint: "openrouter", model_id: "meta-llama/llama-4-scout" },
     "llama-3.3-70b":            { name: "Llama 3.3 70B", endpoint: "openrouter", model_id: "meta-llama/llama-3.3-70b-instruct" },
