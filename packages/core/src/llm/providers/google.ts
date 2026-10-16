@@ -45,18 +45,18 @@ type GeminiRequestBody = {
 
 // Defaults chosen so Gemini doesn't burn the whole output budget on thinking
 // and return a candidate with no `parts`. 2.5 Pro can't disable thinking
-// (min 128); 3.x uses thinkingLevel instead of a numeric budget.
+// (min 128); 3.x and 4 use thinkingLevel instead of a numeric budget.
 function generationConfigFor(model: string): GeminiRequestBody["generationConfig"] {
-  const is3 = /(^|[^0-9])3(\.|-|$)/.test(model);
+  const usesThinkingLevel = /(^|[^0-9])[34](\.|-|$)/.test(model);
   const is25 = model.includes("2.5");
-  if (!is3 && !is25) return undefined;
+  if (!usesThinkingLevel && !is25) return undefined;
 
   const isPro = model.includes("pro");
   const cfg: NonNullable<GeminiRequestBody["generationConfig"]> = {
     maxOutputTokens: 65536,
   };
   // TODO: Set modest thinking budget to leave room for result
-  if (is3) {
+  if (usesThinkingLevel) {
     cfg.thinkingConfig = { thinkingLevel: isPro ? "MEDIUM" : "LOW" };
   } else {
     cfg.thinkingConfig = { thinkingBudget: isPro ? 8192 : 1024 };
