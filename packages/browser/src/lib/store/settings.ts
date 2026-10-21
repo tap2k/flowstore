@@ -31,7 +31,7 @@ const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
 // value starts empty so an empty field communicates "configure to enable
 // runner mode" rather than "this is set, ready to go."
 export const DEFAULT_RUNNER_URL = "http://localhost:8000";
-export const DEFAULT_MODEL_ID = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
+export const DEFAULT_MODEL_ID = BUILT_IN_MODELS.default ?? "gemini-3.8-flash";
 
 // The simulate voice model is provider-locked to Gemini Live (VoiceSession
 // dispatches through @google/genai), so unlike the other per-location picks
@@ -41,7 +41,7 @@ export const DEFAULT_MODEL_ID = BUILT_IN_MODELS.default ?? "gemini-2.5-flash";
 // order must not decide whether simulate gets a model it can drive.
 export const DEFAULT_VOICE_MODEL_ID =
   Object.entries(BUILT_IN_MODELS.models).find(([, e]) => e.voice && e.endpoint === "google")?.[0] ??
-  "gemini-3.1-flash-live-preview";
+  "gemini-3.8-live";
 
 interface SettingsState {
   googleApiKey: string;

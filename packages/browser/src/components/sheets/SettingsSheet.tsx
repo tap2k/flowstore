@@ -246,7 +246,7 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           onChange={setGenerateModel}
           showUnconfigured
           keyOverrides={{ google: google.trim(), openai: openai.trim() }}
-          className="w-full rounded border border-border-default px-2 py-1.5 fs-body focus:outline-none focus:ring-1 focus:ring-focus-ring"
+          className="w-full rounded border border-border-default bg-surface-panel px-2 py-1.5 fs-body text-text-primary focus:outline-none focus:ring-1 focus:ring-focus-ring"
         />
         <p className="text-[11px] text-text-tertiary">
           Used wherever no explicit model is picked — generating personas,

@@ -46,11 +46,9 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
   models: {
     // Google
     "gemini-3.8-flash":         { name: "Gemini 3.8 Flash", endpoint: "google" },
-    "gemini-3.7-flash":         { name: "Gemini 3.7 Flash", endpoint: "google" },
     "gemini-3.6-flash":         { name: "Gemini 3.6 Flash", endpoint: "google" },
-    "gemini-3.5-flash":         { name: "Gemini 3.5 Flash", endpoint: "google" },
     "gemini-3.1-pro-preview":   { name: "Gemini 3.1 Pro", endpoint: "google" },
-    "gemini-3.1-flash-lite":    { name: "Gemini 3.1 Flash-Lite", endpoint: "google" },
+    "gemini-3.5-flash-lite":    { name: "Gemini 3.5 Flash-Lite", endpoint: "google" },
     "gemini-3-flash-preview":   { name: "Gemini 3 Flash", endpoint: "google" },
     "gemini-2.5-pro":           { name: "Gemini 2.5 Pro", endpoint: "google" },
     "gemini-2.5-flash":         { name: "Gemini 2.5 Flash", endpoint: "google" },
@@ -60,10 +58,9 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     // mode drives all three vendors (Gemini via @google/genai Live; GPT
     // Realtime and Grok Voice via the shared Realtime session). The first
     // voice-tagged google entry is the default voice model; bump ids as
-    // vendors rotate previews. Gemini ships two flavors: half-cascade Live
-    // and native-audio (more natural prosody) — keep both to A/B.
-    "gemini-3.1-flash-live-preview":   { name: "Gemini 3.1 Flash Live (voice)", endpoint: "google", voice: true },
-    "gemini-2.5-flash-native-audio":   { name: "Gemini 2.5 Flash Native Audio (voice)", endpoint: "google", voice: true, model_id: "gemini-2.5-flash-native-audio-preview-09-2025" },
+    // Newer voice model replaces the legacy 3.1 Live preview and 2.5 native
+    // audio preview entries.
+    "gemini-3.8-live":                 { name: "Gemini 3.8 Live (voice)", endpoint: "google", voice: true },
     // OpenAI Realtime — browser-direct over WebSocket (the key rides the
     // openai-insecure-api-key subprotocol; no server-minted token needed).
     "gpt-realtime":                    { name: "GPT Realtime (voice)", endpoint: "openai", voice: true },

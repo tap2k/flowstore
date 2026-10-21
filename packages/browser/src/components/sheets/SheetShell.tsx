@@ -46,14 +46,15 @@ export function SheetShell({
   return (
     <div
       className="fixed inset-0 z-50 flex animate-fs-fade-in items-center justify-center bg-surface-scrim p-4"
-      onClick={onClose}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
         className={`flex max-h-[85vh] w-full animate-fs-pop-in flex-col rounded-4 border border-border-default bg-surface-raised shadow-elev-3 ${maxWidth}`}
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border-subtle px-5 py-3">
           <div className="min-w-0">
