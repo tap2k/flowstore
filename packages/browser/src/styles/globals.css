@@ -172,6 +172,19 @@ body {
   font: var(--fw-book) var(--fs-13) / var(--lh-13) var(--font-sans);
   letter-spacing: var(--tr-snug);
 }
+
+/* Native option popups can otherwise keep the browser's light foreground or
+   surface after the editor switches themes. Keep every select menu on tokens. */
+select {
+  color-scheme: inherit;
+  color: var(--text-primary);
+}
+option,
+optgroup {
+  color: var(--text-primary);
+  background-color: var(--surface-panel);
+}
+
 .fs-root a {
   color: var(--text-primary);
   text-decoration: underline;

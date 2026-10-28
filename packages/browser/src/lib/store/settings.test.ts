@@ -40,7 +40,7 @@ describe("resolveDispatch — OpenRouter fallback", () => {
 
   it("voice (Live) entries never fall back — Google-only, crisp error upstream", () => {
     useSettingsStore.setState({ openrouterApiKey: "ork" });
-    const d = resolveDispatch("gemini-3.1-flash-live-preview");
+    const d = resolveDispatch("gemini-3.8-live");
     expect(d.provider).toBe("google");
     expect(d.apiKey).toBe("");
   });
