@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { toRepoSlug } from "@/lib/githubUi";
+import { Shell, toRepoSlug } from "@/lib/githubUi";
 import { useSettingsStore } from "@/lib/store/settings";
 import { useSpecStore } from "@/lib/store/spec";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
@@ -38,7 +38,7 @@ export function SaveToNewRepoModal({ onClose, onOpenSettings }: SaveToNewRepoMod
 
   if (!pat) {
     return (
-      <Shell onClose={onClose}>
+      <Shell onClose={onClose} title="Save to GitHub">
         <p className="fs-body text-text-secondary">
           Connect GitHub to save this project. Add a token in Settings.
         </p>
@@ -99,8 +99,7 @@ export function SaveToNewRepoModal({ onClose, onOpenSettings }: SaveToNewRepoMod
   }
 
   return (
-    <Shell onClose={onClose}>
-      <h2 className="text-lg font-semibold text-text-primary mb-2">Save to GitHub</h2>
+    <Shell onClose={onClose} title="Save to GitHub">
       <label className="fs-label text-text-secondary">Project name</label>
       <input
         autoFocus
@@ -162,19 +161,3 @@ const primaryBtn =
   "rounded-md bg-emphasis px-3 py-1.5 fs-label text-emphasis-fg hover:bg-emphasis-hover";
 const secondaryBtn =
   "rounded-md border border-border-default px-3 py-1.5 fs-label text-text-secondary hover:bg-surface-hover";
-
-function Shell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-surface-scrim flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-surface-panel rounded-lg shadow-lg w-full max-w-md p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}

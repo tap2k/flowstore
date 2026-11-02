@@ -19,6 +19,7 @@ import { loadProject } from "@flowstore/core/files";
 import { diffSpecs, renderSpecDiff, diffTestingArtifacts, renderTestingArtifactsDiff } from "@flowstore/core/spec/diff";
 import { useTestsStore } from "@/lib/store/tests";
 import { markProjectBaseline } from "@/lib/store/dirty";
+import { Dialog } from "@/components/ui/Dialog";
 
 type State =
   | { phase: "loading" }
@@ -89,21 +90,8 @@ export function SpecChangesModal({ onClose }: { onClose: () => void }) {
   }, []);
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-surface-scrim flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-surface-panel rounded-lg shadow-lg w-full max-w-lg p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-lg font-semibold text-text-primary">Changes since last save</h2>
-          <button onClick={onClose} className="fs-caption text-text-tertiary hover:text-text-primary">
-            close
-          </button>
-        </div>
-
+    <Dialog open title="Changes since last save" width={512} onClose={onClose}>
+      <div className="pb-4">
         {state.phase === "loading" && (
           <p className="fs-body text-text-tertiary">Comparing with GitHub…</p>
         )}
@@ -133,6 +121,6 @@ export function SpecChangesModal({ onClose }: { onClose: () => void }) {
           </>
         )}
       </div>
-    </div>
+    </Dialog>
   );
 }
