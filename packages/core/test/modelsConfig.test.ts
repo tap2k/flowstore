@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { servedModelDiffers } from "../src/llm/types";
 import {
   decomposeModelsConfig,
   loadModelsConfig,
@@ -106,5 +107,18 @@ describe("resolveEndpoint — inference (matches the documented rule)", () => {
     expect(resolveEndpoint("grok-4.3", undefined)).toBeNull();
     expect(resolveEndpoint("llama-4-scout", undefined)).toBeNull();
     expect(resolveEndpoint("meta-llama/llama-4-maverick", undefined)).toBeNull();
+  });
+});
+
+describe("servedModelDiffers", () => {
+  it("treats snapshots and vendor prefixes as the same model", () => {
+    expect(servedModelDiffers("gpt-4o", "gpt-4o-2024-08-06")).toBe(false);
+    expect(servedModelDiffers("gemini-3.8-flash", "google/gemini-3.8-flash")).toBe(false);
+    expect(servedModelDiffers("gpt-4o", undefined)).toBe(false);
+  });
+
+  it("flags a reroute to another model", () => {
+    expect(servedModelDiffers("gemini-3.7-flash", "gemini-3.8-flash")).toBe(true);
+    expect(servedModelDiffers("google/gemini-2.5-flash", "gemini-3.5-flash-lite")).toBe(true);
   });
 });

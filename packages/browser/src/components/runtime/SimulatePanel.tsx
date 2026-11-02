@@ -88,6 +88,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
   const currentFlowId = useSimulateStore((s) => s.currentFlowId);
   const specSnapshot = useSimulateStore((s) => s.specSnapshot);
   const sessionUsage = useSimulateStore((s) => s.sessionUsage);
+  const servedModel = useSimulateStore((s) => s.servedModel);
   const voicePhase = useSimulateStore((s) => s.voicePhase);
   const micMuted = useSimulateStore((s) => s.micMuted);
   const setMicMuted = useSimulateStore((s) => s.setMicMuted);
@@ -664,7 +665,7 @@ export function SimulatePanel({ open, onClose, onOpenSettings }: SimulatePanelPr
             {mode === "voice" && hasSession
               ? `${subtitle}${voicePhase && voicePhase !== "idle" ? ` · ${voicePhase}` : ""}`
               : isPromptMode(mode) && sessionUsage
-                ? `${subtitle} · ${sessionUsage.inputTokens.toLocaleString()} in / ${sessionUsage.outputTokens.toLocaleString()} out${sessionUsage.cost !== undefined ? ` · $${sessionUsage.cost.toFixed(4)}` : ""}`
+                ? `${subtitle} · ${sessionUsage.inputTokens.toLocaleString()} in / ${sessionUsage.outputTokens.toLocaleString()} out${sessionUsage.cost !== undefined ? ` · $${sessionUsage.cost.toFixed(4)}` : ""}${servedModel ? ` · answered by ${servedModel}` : ""}`
                 : currentFlowId
                   ? `${subtitle} · ${currentFlowId}`
                   : subtitle}

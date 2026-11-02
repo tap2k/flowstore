@@ -295,6 +295,7 @@ Required: `$schema`, `test_case_id`, `timestamp`, `transcript`.
 Optional:
 
 - `agent_id`, `model` — traceability.
+- `served_model` — the model the provider reported answering: `response.model` on OpenAI-shaped APIs, `response.model_version` (REST `modelVersion`) on Gemini. Record it as reported. Providers reroute retired models to a successor without an error, so this is how a result shows which model actually ran.
 - `spec_hash`, `prompt_hash` — compile provenance, copied from `flowstore-compile --format prompt`'s `provenance` (hash of the spec's canonical JSON normal form; hash of the emitted prompt). Bind the result to exactly what was tested; a runtime logs the same pair per call.
 - `prompt_source` — `"flowstore-compile"` for the default, or a free-form string (a file path, `"vendor-x-prompt-v2"`) for comparison runs against hand-authored or third-party prompts. Tool schemas always come from the spec; comparison runs vary only the prose.
 - `capability_calls` — one per tool call. **`capability` is the stable capability id**, not the runtime name — so evaluators pivot on a stable identifier. Populated on both targets.

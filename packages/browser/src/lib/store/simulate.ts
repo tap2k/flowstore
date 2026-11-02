@@ -55,7 +55,7 @@ import { useModelsStore } from "@/lib/store/models";
 import { useUiStore } from "@/lib/store/ui";
 import { useSpecStore } from "@/lib/store/spec";
 import { createScopedJsonStorage, isPlainObject } from "@/lib/store/scopedStorage";
-import type { ChatUsage, ProviderId } from "@flowstore/core/llm/types";
+import { servedModelDiffers, type ChatUsage, type ProviderId } from "@flowstore/core/llm/types";
 
 export type { TranscriptTurn };
 
@@ -166,6 +166,9 @@ interface SimulateState {
   // everywhere, dollars where free — cost sums only when the provider
   // reports it, i.e. OpenRouter routes).
   sessionUsage: ChatUsage | null;
+  // Set when the provider answered with a different model than requested
+  // (a retired model rerouted to its successor). Shown beside the usage.
+  servedModel: string | null;
   // Voice-mode indicator: who currently holds the floor on the live socket.
   // null in text/runner mode and between voice sessions.
   voicePhase: VoicePhase | null;
@@ -375,6 +378,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
   specSnapshot: null,
   lastUsage: null,
   sessionUsage: null,
+  servedModel: null,
   voicePhase: null,
   micMuted: false,
   personaPrompt: "",
@@ -917,6 +921,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       specSnapshot: null,
       lastUsage: null,
       sessionUsage: null,
+      servedModel: null,
       voicePhase: null,
       micMuted: false,
       guardrailVerdict: null,
@@ -1083,6 +1088,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
             transcript: [openerTurn, agentTurn],
             lastUsage: res.usage ?? null,
             sessionUsage: addUsage(get().sessionUsage ?? undefined, res.usage) ?? null,
+            servedModel: servedModelDiffers(model, res.servedModel) ? res.servedModel! : get().servedModel,
             status: "ready",
           });
           // Attribute the opener so the graph lights up before the first user turn.
@@ -1285,6 +1291,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
           transcript: [...get().transcript, agentTurn],
           lastUsage: res.usage ?? null,
           sessionUsage: addUsage(get().sessionUsage ?? undefined, res.usage) ?? null,
+          servedModel: servedModelDiffers(creds.model, res.servedModel) ? res.servedModel! : get().servedModel,
           status: endsConvo ? "ended" : "ready",
           ...(endsConvo ? { autoRun: false } : {}),
         });
@@ -1430,6 +1437,7 @@ export const useSimulateStore = create<SimulateState>((set, get) => ({
       specSnapshot: null,
       lastUsage: null,
       sessionUsage: null,
+      servedModel: null,
       voicePhase: null,
       micMuted: false,
       autoStepping: false,

@@ -1,5 +1,6 @@
 import type { CellState, Study } from "./types";
 import { cellKey } from "./types";
+import { servedModelDiffers } from "@flowstore/core/llm/types";
 import { SPEECH_WPM, estimateVoiceCost } from "./voiceCost";
 import { estimateS2sCost } from "./s2sRates";
 
@@ -79,7 +80,8 @@ export function buildReportHtml(
       voiceEstimates.length > 0
         ? voiceEstimates.reduce((a, e) => a + e.total, 0) / voiceEstimates.length
         : undefined;
-    return { model: m, avgLatency, tokensIn, tokensOut, audioIn, audioOut, costPerConv, liveEstPerConv, voicePerConv, divergent, judged, n: modelCells.length };
+    const rerouted = [...new Set(modelCells.map((c) => c.servedModel).filter((s): s is string => servedModelDiffers(m, s)))];
+    return { model: m, rerouted, avgLatency, tokensIn, tokensOut, audioIn, audioOut, costPerConv, liveEstPerConv, voicePerConv, divergent, judged, n: modelCells.length };
   });
   const withLiveEst = perModel.some((r) => r.liveEstPerConv !== undefined);
 
@@ -89,7 +91,7 @@ export function buildReportHtml(
   const summaryRows = perModel
     .map((r) => {
       return `<tr>
-        <td>${esc(r.model)}</td>
+        <td>${esc(r.model)}${r.rerouted.length ? `<span class="sub">answered by ${esc(r.rerouted.join(", "))}</span>` : ""}</td>
         <td>${r.n}/${scenarios.length}</td>
         <td>${r.judged === 0 ? "n/a" : r.divergent > 0 ? `${r.divergent} scenario${r.divergent > 1 ? "s" : ""}` : `none flagged (of ${r.judged} judged)`}</td>
         <td>${r.avgLatency !== undefined ? r.avgLatency.toFixed(1) + "s" : "—"}</td>

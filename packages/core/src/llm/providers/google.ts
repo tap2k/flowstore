@@ -74,6 +74,7 @@ type GeminiResponseBody = {
     candidatesTokenCount?: number;
     cachedContentTokenCount?: number;
   };
+  modelVersion?: string;
   error?: { code?: number; message?: string; status?: string };
 };
 
@@ -104,7 +105,7 @@ export async function callGoogle(
       lastReason = candidate.finishReason;
       continue;
     }
-    return parseCandidate(candidate, candidate._usage);
+    return { ...parseCandidate(candidate, candidate._usage), servedModel: candidate._modelVersion };
   }
   throw new Error(
     `Gemini returned empty content (finishReason: ${lastReason}) after ${
@@ -115,6 +116,7 @@ export async function callGoogle(
 
 type ParsedCandidate = NonNullable<GeminiResponseBody["candidates"]>[number] & {
   _usage: GeminiResponseBody["usageMetadata"];
+  _modelVersion: string | undefined;
 };
 
 async function requestCandidate(
@@ -161,7 +163,7 @@ async function requestCandidate(
 
   const candidate = json.candidates?.[0];
   if (!candidate) throw new Error("Gemini returned no candidates");
-  return { ...candidate, _usage: json.usageMetadata };
+  return { ...candidate, _usage: json.usageMetadata, _modelVersion: json.modelVersion };
 }
 
 function serializeMessages(messages: ChatMessage[]): GeminiContent[] {

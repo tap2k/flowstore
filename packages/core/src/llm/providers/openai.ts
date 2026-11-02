@@ -51,6 +51,7 @@ type OpenAIResponseBody = {
     prompt_tokens_details?: { cached_tokens?: number };
     cost?: number;
   };
+  model?: string;
   error?: { message?: string; type?: string };
 };
 
@@ -122,6 +123,7 @@ export async function callOpenAI(
           ...(json.usage.cost !== undefined ? { cost: json.usage.cost } : {}),
         }
       : undefined,
+    servedModel: json.model,
   };
 }
 

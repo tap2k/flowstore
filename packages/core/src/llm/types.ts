@@ -49,7 +49,23 @@ export type ChatResponse = {
   toolCalls: ToolCall[];
   stopReason: StopReason;
   usage?: ChatUsage;
+  // The model the provider says answered (OpenAI `model`, Gemini
+  // `modelVersion`). Differs from the requested id when the provider resolves
+  // an alias to a snapshot or reroutes a retired model; see servedModelDiffers.
+  servedModel?: string;
 };
+
+// True when the provider answered with a different model than the one
+// requested. A snapshot of the requested id ("gpt-4o" served as
+// "gpt-4o-2024-08-06") is the same model; a vendor prefix ("google/") is
+// ignored on both sides.
+export function servedModelDiffers(requested: string, served: string | undefined): boolean {
+  if (!served) return false;
+  const bare = (id: string) => id.replace(/^[^/]+\//, "");
+  const r = bare(requested);
+  const s = bare(served);
+  return s !== r && !s.startsWith(`${r}-`);
+}
 
 // "xai" chats through the OpenAI-compatible adapter (api.x.ai is
 // OpenAI-compatible); it exists as a distinct id so the s2s driver registry

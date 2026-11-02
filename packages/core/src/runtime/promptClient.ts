@@ -18,6 +18,7 @@ export interface PromptTurnResponse {
   text: string;
   usage?: ChatUsage;
   invocations: CapabilityInvocation[];
+  servedModel?: string;
 }
 
 // Cap on tool round-trips per user turn, so a misbehaving model can't loop
@@ -46,6 +47,7 @@ export async function sendPromptTurn(args: {
   const invocations: CapabilityInvocation[] = [];
   let usage: ChatUsage | undefined;
   let text = "";
+  let servedModel: string | undefined;
 
   for (let i = 0; i < MAX_TOOL_LOOPS; i++) {
     const res = await chat(
@@ -57,6 +59,7 @@ export async function sendPromptTurn(args: {
     );
     usage = addUsage(usage, res.usage);
     text = res.text;
+    servedModel = res.servedModel ?? servedModel;
 
     if (res.toolCalls.length === 0) break;
 
@@ -74,7 +77,7 @@ export async function sendPromptTurn(args: {
     }
   }
 
-  return { text, usage, invocations };
+  return { text, usage, invocations, servedModel };
 }
 
 // Exported: the studies matrix runner accumulates usage across turns with the

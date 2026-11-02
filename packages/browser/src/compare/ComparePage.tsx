@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { TranscriptTurn } from "@flowstore/core/runtime/transcript";
+import { servedModelDiffers } from "@flowstore/core/llm/types";
 import {
   buildReportHtml,
   buildStudyBundle,
@@ -584,6 +585,14 @@ export function ComparePage() {
                       />
                     )}
                     {colTurns.some((t) => t.text) && <CopyTranscript turns={colTurns} model={m} />}
+                    {c && servedModelDiffers(m, c.servedModel) && (
+                      <span
+                        className="rounded-full bg-state-warning-bg px-1.5 text-[9px] text-state-warning-fg"
+                        title={`The provider answered with ${c.servedModel}, not ${m} — usually a retired model rerouted to its successor`}
+                      >
+                        answered by {c.servedModel}
+                      </span>
+                    )}
                     {c?.divergent && (
                       <span
                         className="rounded-full bg-state-warning-bg px-1.5 text-[9px] text-state-warning-fg"

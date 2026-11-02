@@ -86,6 +86,9 @@ export type CellState = {
   usage?: ChatUsage;
   totalMs: number;
   error?: string;
+  // The model the provider reported answering (last turn wins). Absent for
+  // s2s cells, whose sockets don't report one.
+  servedModel?: string;
   // Set by the divergence pass: true when this cell's agent behavior
   // diverges from the scenario's gold turns (cheap lexical signal — a
   // "look here" marker, not a verdict). Absent when the scenario has no

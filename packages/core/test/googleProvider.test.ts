@@ -74,3 +74,19 @@ describe("callGoogle MALFORMED_FUNCTION_CALL handling", () => {
     expect(res.text).toBe("");
   });
 });
+
+describe("callGoogle served model", () => {
+  it("reports modelVersion as servedModel", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          candidates: [{ content: { role: "model", parts: [{ text: "hi" }] }, finishReason: "STOP" }],
+          modelVersion: "gemini-3.8-flash",
+        }),
+      ),
+    );
+    const res = await callGoogle("key", "gemini-3.7-flash", REQ);
+    expect(res.servedModel).toBe("gemini-3.8-flash");
+  });
+});

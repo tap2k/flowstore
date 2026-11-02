@@ -181,6 +181,7 @@ export function buildStudyBundle(args: {
         test_case_id: s.id,
         timestamp: stamp,
         model: m,
+        served_model: c.servedModel,
         prompt_source: "agent.system_prompt (imported override)",
         language: s.language,
         // JSON.stringify drops undefined members — plain assignment suffices.

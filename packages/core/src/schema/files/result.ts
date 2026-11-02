@@ -89,6 +89,10 @@ export const ResultSchema = Type.Object(
     timestamp: Type.String(),
     agent_id: Type.Optional(Type.String()),
     model: Type.Optional(Type.String()),
+    // The model the provider reported answering, when it differs in name from
+    // `model`: a dated snapshot, or a retired model rerouted to its successor.
+    // Recorded as reported; servedModelDiffers says which case it is.
+    served_model: Type.Optional(Type.String()),
     // Where the system prompt came from for this run. "flowstore-compile" for the
     // default (compiled from the spec), or a free-form string (e.g. a file
     // path, "claude-3.5-handcrafted", "vendor-x-prompt-v2") for comparison

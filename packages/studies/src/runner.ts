@@ -101,7 +101,7 @@ export async function runCell(args: {
       totalMs += latencyMs;
       usage = addUsage(usage, res.usage);
       history.push(userTurn, { role: "agent", text: res.text, ts: Date.now(), events: [], latencyMs });
-      onUpdate({ turns: [...history], usage, totalMs });
+      onUpdate({ turns: [...history], usage, totalMs, ...(res.servedModel ? { servedModel: res.servedModel } : {}) });
     }
     onUpdate({ status: "done" });
   } catch (err) {

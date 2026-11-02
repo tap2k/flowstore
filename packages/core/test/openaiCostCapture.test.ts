@@ -19,6 +19,7 @@ function stubFetch(usage: Record<string, unknown> = {}) {
         ok: true,
         status: 200,
         json: async () => ({
+          model: "gpt-4o-2024-08-06",
           choices: [{ message: { role: "assistant", content: "hi" }, finish_reason: "stop" }],
           usage: { prompt_tokens: 5, completion_tokens: 3, ...usage },
         }),
@@ -60,5 +61,13 @@ describe("callOpenAI — OpenRouter cost capture", () => {
     stubFetch({ prompt_tokens_details: { cached_tokens: 4 } });
     const res = await callOpenAI("k", "m", req);
     expect(res.usage?.cachedInputTokens).toBe(4);
+  });
+});
+
+describe("callOpenAI served model", () => {
+  it("reports the response's model as servedModel", async () => {
+    stubFetch();
+    const res = await callOpenAI("k", "gpt-4o", req);
+    expect(res.servedModel).toBe("gpt-4o-2024-08-06");
   });
 });
