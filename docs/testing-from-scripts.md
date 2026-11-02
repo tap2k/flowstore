@@ -43,7 +43,7 @@ Three things are load-bearing across the seam:
 
 1. **The compiler** produces a stable `{system_prompt, tool_schemas}` JSON. Your runner drives any LLM with that.
 2. **Test cases** (`test/case`) define what to run; **personas** (`test/persona`) own the *world* a case runs in — seeded `vars` and per-capability `mocks` — plus an optional user-side `system_prompt`. A case binds a persona by `persona_id`.
-3. **Result files** (`run/result`) are what your runner writes. The shape is contract — the editor's result viewer reads exactly this shape.
+3. **Result files** (`run/result`) are what your runner writes. The shape is a contract.
 
 Everything else (the evaluator set, multi-trial aggregation, gold loading, endpoint mode) is yours to build.
 
@@ -265,7 +265,7 @@ A verbatim reference transcript — the canonical example of how a conversation 
 
 ### `tests/runs/<timestamp>-<label>/<id>.result.json` — `flowstore://run/result/v0`
 
-**The contract your runner writes.** The editor's result viewer reads exactly this shape.
+**The contract your runner writes.**
 
 ```json
 {

@@ -1,7 +1,6 @@
 import { Type, type Static } from "@sinclair/typebox";
 
-// What a testing script writes after one run of a test case. The editor's
-// result viewer reads exactly this shape — the contract is load-bearing.
+// What a testing script writes after one run of a test case.
 // final_variables is optional because not every script tracks a variable
 // scope; state_check-style evaluation needs it, simpler scripts don't.
 // Modality-aware usage, shared by per-turn and whole-run rollup. Unit-typed
