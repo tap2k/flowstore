@@ -186,7 +186,7 @@ export class RealtimeVoiceSession {
             instructions: this.cfg.systemPrompt,
             audio: {
               ...audio,
-              input: { ...audio.input, transcription: { model: "gpt-4o-mini-transcribe" } },
+              input: { ...audio.input, transcription: { model: "gpt-transcribe" } },
               ...(voice ? { output: { ...audio.output, voice } } : {}),
             },
             ...(tools.length > 0 ? { tools, tool_choice: "auto" } : {}),

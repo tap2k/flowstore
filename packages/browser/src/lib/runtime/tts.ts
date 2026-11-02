@@ -1,4 +1,4 @@
-import { pcm16ChunksToWav } from "./audio";
+import { base64ToBytes, pcm16ChunksToWav } from "./audio";
 
 // Browser-direct TTS for the ear test — compare's cascade columns and
 // simulate's transcripts both synthesize replies on demand so the spoken
@@ -24,20 +24,24 @@ export type ResolvedTts = {
   apiKey: string;
 };
 
-const GEMINI_TTS_MODEL = "gemini-2.5-flash-preview-tts";
+const GEMINI_TTS_MODEL = "gemini-3.8-flash-tts";
 
 type GenerateResponse = {
   candidates?: {
-    content?: { parts?: { inlineData?: { data?: string } }[] };
+    content?: { parts?: { inlineData?: { data?: string; mimeType?: string } }[] };
   }[];
   error?: { message?: string };
 };
 
-// Pure extractor, split out for tests.
-export function extractPcmChunks(resp: GenerateResponse): string[] {
-  return (resp.candidates?.[0]?.content?.parts ?? [])
-    .map((p) => p.inlineData?.data)
-    .filter((d): d is string => Boolean(d));
+// Pure extractor, split out for tests. Gemini 3.8 TTS returns one complete
+// WAV; earlier models returned headerless PCM16 chunks that need a header.
+export function extractWav(resp: GenerateResponse): Uint8Array | null {
+  const parts = (resp.candidates?.[0]?.content?.parts ?? [])
+    .map((p) => p.inlineData)
+    .filter((d): d is { data: string; mimeType?: string } => Boolean(d?.data));
+  if (parts.length === 0) return null;
+  if (parts.length === 1 && /wav/i.test(parts[0].mimeType ?? "")) return base64ToBytes(parts[0].data);
+  return pcm16ChunksToWav(parts.map((p) => p.data));
 }
 
 async function ttsError(
@@ -67,9 +71,8 @@ async function synthesizeGemini(text: string, voice: string, apiKey: string): Pr
   if (!res.ok) {
     throw await ttsError(res, "Gemini", (b) => (b as GenerateResponse).error?.message);
   }
-  const chunks = extractPcmChunks((await res.json()) as GenerateResponse);
-  if (chunks.length === 0) throw new Error("Gemini TTS returned no audio.");
-  const wav = pcm16ChunksToWav(chunks);
+  const wav = extractWav((await res.json()) as GenerateResponse);
+  if (!wav) throw new Error("Gemini TTS returned no audio.");
   return new Blob([wav.buffer as ArrayBuffer], { type: "audio/wav" });
 }
 

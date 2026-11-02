@@ -285,7 +285,7 @@ export function resolveDispatch(modelId: string, keyOverrides?: KeyOverrides): R
   const builtinEntry = BUILT_IN_MODELS.models[modelId];
   const projectEntry = useModelsStore.getState().config?.models[modelId];
   // Project entry wins — allows endpoints.json to override a built-in (e.g.
-  // point gemini-2.5-flash at a staging base_url).
+  // point gemini-3.8-flash at a staging base_url).
   const entry = projectEntry ?? builtinEntry;
   const endpoint = resolveEndpoint(modelId, entry);
   const wireModel = wireModelId(modelId, entry);

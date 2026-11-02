@@ -136,6 +136,8 @@ describe("s2s rates (realtime)", () => {
   it("matches realtime models, mini row before full", () => {
     expect(s2sRatesFor("gpt-realtime")?.audioOutPerM).toBe(64);
     expect(s2sRatesFor("gpt-realtime-mini")?.audioOutPerM).toBe(20);
+    expect(s2sRatesFor("gpt-realtime-2.1-mini")?.audioOutPerM).toBe(20);
+    expect(s2sRatesFor("gpt-realtime-2.1")?.textOutPerM).toBe(24);
     expect(s2sRatesFor("gpt-4o-realtime-preview")?.audioOutPerM).toBe(64);
     expect(s2sRatesFor("gpt-5.5")).toBeNull();
   });

@@ -7,7 +7,8 @@ import type { ChatUsage } from "@flowstore/core/llm/types";
 //
 // Extensible by adding a row: first regex match against the model id wins,
 // so keep narrower patterns (mini variants) above their parents. Rates are
-// $/1M tokens, published pricing as of 2026-07; update as vendors move.
+// $/1M tokens, published pricing as of 2026-07 (Realtime 2.1 as of 2026-11);
+// update as vendors move.
 export type S2sRates =
   // Token-priced vendors ($/1M tokens by modality)…
   | {
@@ -27,8 +28,12 @@ const RATE_TABLE: { match: RegExp; rates: S2sRates }[] = [
   },
   // OpenAI Realtime — mini before full (first match wins)
   {
-    match: /gpt-realtime-mini|gpt-4o-mini-realtime/i,
+    match: /gpt-realtime(-[\d.]+)?-mini|gpt-4o-mini-realtime/i,
     rates: { textInPerM: 0.6, textOutPerM: 2.4, audioInPerM: 10.0, audioOutPerM: 20.0 },
+  },
+  {
+    match: /gpt-realtime-2\.1/i,
+    rates: { textInPerM: 4.0, textOutPerM: 24.0, audioInPerM: 32.0, audioOutPerM: 64.0 },
   },
   {
     match: /gpt-realtime|gpt-4o-realtime/i,

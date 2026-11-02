@@ -29,7 +29,7 @@ export type ModelRole = "agent" | "judge" | "user_simulation" | "authoring";
 //
 // Anthropic native is intentionally absent: browser-direct calls fail CORS,
 // so Claude routes through `openrouter` with model_id like
-// "anthropic/claude-sonnet-4-5".
+// "anthropic/claude-sonnet-5.5".
 export type EndpointId =
   | "google"
   | "openai"
@@ -52,23 +52,18 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     "gemini-3.5-flash-lite":    { name: "Gemini 3.5 Flash-Lite", endpoint: "google" },
     "gemini-3.1-flash-lite":    { name: "Gemini 3.1 Flash-Lite", endpoint: "google" },
     "gemini-3-flash-preview":   { name: "Gemini 3 Flash", endpoint: "google" },
-    "gemini-2.5-pro":           { name: "Gemini 2.5 Pro", endpoint: "google" },
-    "gemini-2.5-flash":         { name: "Gemini 2.5 Flash", endpoint: "google" },
 
     // Voice-tagged (s2s) models. In compare these are ordinary columns
     // (dispatch.live routes to the vendor's live driver); simulate's voice
     // mode drives all three vendors (Gemini via @google/genai Live; GPT
     // Realtime and Grok Voice via the shared Realtime session). The first
     // voice-tagged google entry is the default voice model, so keep the
-    // newest Live model first. Gemini ships two flavors: half-cascade Live
-    // and native-audio (more natural prosody) — keep both to A/B.
+    // newest Live model first.
     "gemini-3.8-live":                 { name: "Gemini 3.8 Live (voice)", endpoint: "google", voice: true },
-    "gemini-3.1-flash-live-preview":   { name: "Gemini 3.1 Flash Live (voice)", endpoint: "google", voice: true },
-    "gemini-2.5-flash-native-audio":   { name: "Gemini 2.5 Flash Native Audio (voice)", endpoint: "google", voice: true, model_id: "gemini-2.5-flash-native-audio-preview-09-2025" },
     // OpenAI Realtime — browser-direct over WebSocket (the key rides the
     // openai-insecure-api-key subprotocol; no server-minted token needed).
-    "gpt-realtime":                    { name: "GPT Realtime (voice)", endpoint: "openai", voice: true },
-    "gpt-realtime-mini":               { name: "GPT Realtime Mini (voice)", endpoint: "openai", voice: true },
+    "gpt-realtime-2.1":                { name: "GPT Realtime 2.1 (voice)", endpoint: "openai", voice: true },
+    "gpt-realtime-2.1-mini":           { name: "GPT Realtime 2.1 Mini (voice)", endpoint: "openai", voice: true },
     // Grok Voice — OpenAI-Realtime-compatible socket at api.x.ai. Browser
     // connects mint an ephemeral client secret first (their mint endpoint
     // allows browser CORS, so still zero-backend). Billed per MINUTE, not
@@ -86,8 +81,6 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     "gpt-5.5":                  { name: "GPT-5.5", endpoint: "openai" },
     "gpt-5.4":                  { name: "GPT-5.4", endpoint: "openai" },
     "gpt-5.4-mini":             { name: "GPT-5.4 Mini", endpoint: "openai" },
-    "gpt-4o":                   { name: "GPT-4o", endpoint: "openai" },
-    "gpt-4o-mini":              { name: "GPT-4o Mini", endpoint: "openai" },
 
     // Anthropic (via OpenRouter — Anthropic blocks browser-direct CORS)
     "claude-fable-5.1":         { name: "Claude Fable 5.1", endpoint: "openrouter", model_id: "anthropic/claude-fable-5.1" },
@@ -164,7 +157,7 @@ export function resolveEndpoint(
 
 // Wire id used at dispatch time. Entry's `model_id` overrides the catalog
 // key — entry keyed "claude-sonnet-on-openrouter" can carry the actual wire
-// id "anthropic/claude-sonnet-4-5".
+// id "anthropic/claude-sonnet-5.5".
 export function wireModelId(catalogKey: string, entry: ModelEntry | undefined): string {
   return entry?.model_id ?? catalogKey;
 }

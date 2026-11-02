@@ -11,31 +11,31 @@ beforeEach(() => useSettingsStore.setState({ ...KEYS }));
 describe("resolveDispatch — OpenRouter fallback", () => {
   it("native key present: the picked route wins unchanged", () => {
     useSettingsStore.setState({ googleApiKey: "gk", openrouterApiKey: "ork" });
-    const d = resolveDispatch("gemini-2.5-flash");
+    const d = resolveDispatch("gemini-3.8-flash");
     expect(d.provider).toBe("google");
     expect(d.apiKey).toBe("gk");
-    expect(d.wireModel).toBe("gemini-2.5-flash");
+    expect(d.wireModel).toBe("gemini-3.8-flash");
   });
 
   it("no native key + OpenRouter key: falls back under the vendor-prefixed id", () => {
     useSettingsStore.setState({ openrouterApiKey: "ork" });
-    const g = resolveDispatch("gemini-2.5-flash");
+    const g = resolveDispatch("gemini-3.8-flash");
     expect(g.provider).toBe("openai-compatible");
     expect(g.endpoint).toBe("openrouter");
     expect(g.apiKey).toBe("ork");
-    expect(g.wireModel).toBe("google/gemini-2.5-flash");
+    expect(g.wireModel).toBe("google/gemini-3.8-flash");
     expect(g.baseUrl).toContain("openrouter.ai");
 
-    const o = resolveDispatch("gpt-4o-mini");
+    const o = resolveDispatch("gpt-6-luna");
     expect(o.provider).toBe("openai-compatible");
-    expect(o.wireModel).toBe("openai/gpt-4o-mini");
+    expect(o.wireModel).toBe("openai/gpt-6-luna");
   });
 
   it("no keys at all: the native route returns with an empty key (no fallback)", () => {
-    const d = resolveDispatch("gemini-2.5-flash");
+    const d = resolveDispatch("gemini-3.8-flash");
     expect(d.provider).toBe("google");
     expect(d.apiKey).toBe("");
-    expect(hasKeyForModel("gemini-2.5-flash")).toBe(false);
+    expect(hasKeyForModel("gemini-3.8-flash")).toBe(false);
   });
 
   it("voice (Live) entries never fall back — Google-only, crisp error upstream", () => {
@@ -47,6 +47,6 @@ describe("resolveDispatch — OpenRouter fallback", () => {
 
   it("fallback makes the model dispatchable for the picker filter", () => {
     useSettingsStore.setState({ openrouterApiKey: "ork" });
-    expect(hasKeyForModel("gemini-2.5-flash")).toBe(true);
+    expect(hasKeyForModel("gemini-3.8-flash")).toBe(true);
   });
 });

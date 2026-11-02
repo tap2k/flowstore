@@ -149,7 +149,7 @@ Scripted user turns + a bound persona (the world) + which evaluators to run + (o
   "evaluators": ["stayed_on_menu"],
   "gold_id": "happy_latte",
   "persona_id": "regular-customer",
-  "model": "gemini-2.5-flash",
+  "model": "gemini-3.8-flash",
   "language": "en-US",
   "tags": ["happy", "src:gold:happy_latte"]
 }
@@ -224,7 +224,7 @@ Pins one conversational prefix and fans out a matrix of branch inputs to probe a
       "capability_assertions": [{ "capability": "cap_log_walkaway", "invoked": false }] }
   ],
   "persona_id": "regular-customer",
-  "model": "gemini-2.5-flash",
+  "model": "gemini-3.8-flash",
   "language": "en-US"
 }
 ```
@@ -272,7 +272,7 @@ A verbatim reference transcript — the canonical example of how a conversation 
   "$schema": "flowstore://run/result/v0",
   "test_case_id": "happy-latte",
   "timestamp": "2026-05-31T16:45:43Z",
-  "model": "gemini-2.5-flash",
+  "model": "gemini-3.8-flash",
   "prompt_source": "flowstore-compile",
   "transcript": [
     { "role": "agent", "content": "Morning! What can I get started for you?" },

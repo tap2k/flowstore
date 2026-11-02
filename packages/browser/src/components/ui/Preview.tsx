@@ -187,7 +187,7 @@ export function Preview() {
           <Input icon={MagnifyingGlass} placeholder="Search" className="w-40" />
           <Input defaultValue="3000" mono suffix="ms" className="w-28" />
           <Input defaultValue="bad value" invalid className="w-32" />
-          <Select options={["gpt-4o-mini", "gemini-2.5-flash"]} mono defaultValue="gpt-4o-mini" />
+          <Select options={["gpt-6-luna", "gemini-3.8-flash"]} mono defaultValue="gpt-6-luna" />
           <Checkbox
             label="Trace every turn"
             hint="Adds ~40 ms per turn"
@@ -198,7 +198,7 @@ export function Preview() {
         </Row>
 
         <Row title="Data">
-          <DataChip>gpt-4o-mini</DataChip>
+          <DataChip>gpt-6-luna</DataChip>
           <DataChip label="temperature:">0.7</DataChip>
           <DataChip tone="error">502</DataChip>
           <Badge status="running">running</Badge>
