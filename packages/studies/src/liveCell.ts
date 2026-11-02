@@ -1,4 +1,5 @@
 import type { ChatUsage } from "@flowstore/core/llm/types";
+import type { ThinkingLevel } from "@google/genai";
 import { runS2sCell, type RunS2sCellArgs, type S2sConnect, type TurnAccumulator } from "./s2sCell";
 
 // Gemini Live vendor half of the s2s cell: the parser (Live message stream →
@@ -65,6 +66,16 @@ export function feedLiveEvent(acc: TurnAccumulator, msg: LiveServerEvent, now: n
   return Boolean(msg.setupComplete);
 }
 
+// The extended-thinking Live model refuses a session without a thinking
+// level, and the plain Live model refuses one with it. MEDIUM costs about the
+// same latency as LOW on a short turn; HIGH roughly doubles it. Shared with
+// the editor's voice session.
+export function liveThinkingConfig(model: string): { thinkingConfig?: { thinkingLevel: ThinkingLevel } } {
+  return /live-extended-thinking/.test(model)
+    ? { thinkingConfig: { thinkingLevel: "MEDIUM" as ThinkingLevel } }
+    : {};
+}
+
 const connectGeminiLive: S2sConnect = async ({ dispatch, systemPrompt, acc, onReady, onFatal }) => {
   // SDK loaded lazily: only a live run pays for it, and importing the engine
   // (runner → liveCell) stays side-effect-free for node tests.
@@ -91,6 +102,7 @@ const connectGeminiLive: S2sConnect = async ({ dispatch, systemPrompt, acc, onRe
       responseModalities: [Modality.AUDIO],
       systemInstruction: systemPrompt,
       outputAudioTranscription: {},
+      ...liveThinkingConfig(dispatch.wireModel),
       ...(dispatch.voice
         ? { speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: dispatch.voice } } } }
         : {}),

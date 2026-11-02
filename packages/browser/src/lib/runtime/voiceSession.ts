@@ -9,6 +9,7 @@
 // so the runner's source-silence problem doesn't arise here (see TODO T2a).
 import { GoogleGenAI, Modality, type LiveServerMessage, type Session } from "@google/genai";
 import type { ToolDefinition } from "@flowstore/core/llm/types";
+import { liveThinkingConfig } from "@flowstore/studies/liveCell";
 import type { CapabilityInvocation } from "@flowstore/core/runtime/promptClient";
 
 export type VoicePhase = "listening" | "speaking" | "idle";
@@ -117,6 +118,7 @@ export class VoiceSession {
           systemInstruction: this.cfg.systemPrompt,
           inputAudioTranscription: {},
           outputAudioTranscription: {},
+          ...liveThinkingConfig(this.cfg.model),
           ...(this.cfg.voice
             ? { speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: this.cfg.voice } } } }
             : {}),

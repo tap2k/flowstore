@@ -60,6 +60,7 @@ export const BUILT_IN_MODELS: ResolvedModelsConfig = {
     // voice-tagged google entry is the default voice model, so keep the
     // newest Live model first.
     "gemini-3.8-live":                 { name: "Gemini 3.8 Live (voice)", endpoint: "google", voice: true },
+    "gemini-3.8-live-extended-thinking": { name: "Gemini 3.8 Live Extended Thinking (voice)", endpoint: "google", voice: true },
     // OpenAI Realtime — browser-direct over WebSocket (the key rides the
     // openai-insecure-api-key subprotocol; no server-minted token needed).
     "gpt-realtime-2.1":                { name: "GPT Realtime 2.1 (voice)", endpoint: "openai", voice: true },

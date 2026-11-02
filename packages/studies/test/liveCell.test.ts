@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { feedLiveEvent, usageFromLiveMetadata, type LiveServerEvent } from "../src/liveCell";
+import { feedLiveEvent, liveThinkingConfig, usageFromLiveMetadata, type LiveServerEvent } from "../src/liveCell";
 import { TurnAccumulator, type S2sTurn } from "../src/s2sCell";
 import { estimateS2sCost, s2sRatesFor } from "../src/s2sRates";
 
@@ -121,5 +121,14 @@ describe("s2s rates (gemini)", () => {
       estimateS2sCost({ inputTokens: 100, outputTokens: 100 }, "gemini-3.1-flash-live-preview"),
     ).toBeNull();
     expect(estimateS2sCost(undefined, "gemini-3.1-flash-live-preview")).toBeNull();
+  });
+});
+
+describe("liveThinkingConfig", () => {
+  it("sets a thinking level only on the extended-thinking Live model", () => {
+    expect(liveThinkingConfig("gemini-3.8-live-extended-thinking")).toEqual({
+      thinkingConfig: { thinkingLevel: "MEDIUM" },
+    });
+    expect(liveThinkingConfig("gemini-3.8-live")).toEqual({});
   });
 });
