@@ -12,6 +12,7 @@ import {
 import { parse as parseYaml } from "yaml";
 import { useSpecStore } from "@/lib/store/spec";
 import { useGithubProjectStore } from "@/lib/store/githubProject";
+import { markProjectBaseline } from "@/lib/store/dirty";
 import { validateSpec, formatErrors } from "@flowstore/core/validation/ajv";
 import { AgentSheet } from "@/components/sheets/AgentSheet";
 import { VariablesSheet } from "@/components/sheets/VariablesSheet";
@@ -250,6 +251,7 @@ export function ImportExportToolbar({
   function clearSpec() {
     if (!window.confirm("Clear the current spec? This cannot be undone.")) return;
     loadSpec(null);
+    markProjectBaseline();
     clearGithubProject();
   }
 
