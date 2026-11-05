@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ClockCounterClockwise,
+  GithubLogo,
   Play,
   Sparkle,
   TextAlignLeft,
@@ -136,9 +137,12 @@ export function App() {
                   target="_blank"
                   rel="noreferrer"
                   title={`${githubLocation.owner}/${githubLocation.repo}@${githubLocation.ref}`}
-                  className="fs-data truncate text-text-tertiary no-underline hover:text-text-primary"
+                  className="fs-data flex min-w-0 items-center gap-1 font-medium text-text-secondary no-underline hover:text-text-primary hover:underline"
                 >
-                  {githubLocation.owner}/{githubLocation.repo}@{githubLocation.ref}
+                  <GithubLogo size={14} weight="fill" className="shrink-0" aria-hidden />
+                  <span className="truncate">
+                    {githubLocation.owner}/{githubLocation.repo}@{githubLocation.ref}
+                  </span>
                 </a>
                 {!githubCanWrite && (
                   <span className="fs-micro shrink-0 text-text-tertiary">· read-only</span>
