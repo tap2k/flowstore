@@ -1,0 +1,97 @@
+---
+import Base from "../layouts/Base.astro";
+import "../styles/guide.css";
+---
+
+<Base
+  title="Saving with GitHub · flowstore"
+  description="How flowstore saves projects to GitHub: what a repo, a save, history and a draft mean, setting up a token, and sharing a project."
+>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="/">flowstore <span>/ saving with GitHub</span></a>
+    <a href="/create/">Open the editor</a>
+  </header>
+
+  <div class="col">
+    <h1>Saving with GitHub</h1>
+    <p class="lede">flowstore has no server, so it keeps your projects on GitHub, a free service for storing files and their history. You don't need to learn all of git. This page covers the few ideas you need and how to set it up once.</p>
+
+
+    <h2 id="words">What the words mean</h2>
+  </div>
+  <div class="tablewrap col">
+    <table>
+      <thead><tr><th>Word</th><th>In flowstore</th></tr></thead>
+      <tbody>
+        <tr><td>Repo</td><td>Your project's folder on GitHub. One project, one repo.</td></tr>
+        <tr><td>Save</td><td>A snapshot of the project. Every save is kept, so earlier work is never lost.</td></tr>
+        <tr><td>History</td><td>The list of your saves. The repo's page on GitHub shows each one and what changed.</td></tr>
+        <tr><td>Draft (branch)</td><td>A separate copy for trying something without touching the main version. You will need one to collaborate with people so you don't overwrite each other's work.</td></tr>
+        <tr><td>Share</td><td>Adds people to the repo so they can open and save the project.</td></tr>
+        <tr><td>Token</td><td>A password-like string that lets flowstore save to your GitHub account. It stays in your browser. You will have to input it on any new machine where you want to work with your projects.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="col">
+    <h2 id="setup">Set up (once)</h2>
+
+    <h3 id="step-1"><span class="n">1</span>Make a GitHub account</h3>
+    <p>Sign up at <a href="https://github.com/signup" target="_blank" rel="noopener">github.com/signup</a>. The free plan is all you need.</p>
+
+    <h3 id="step-2"><span class="n">2</span>Create a token</h3>
+    <p>Open <a href="https://github.com/settings/tokens/new?description=flowstore&amp;scopes=repo" target="_blank" rel="noopener">GitHub's new token page</a>. The link fills in the note and the scope for you.</p>
+    <ol class="steps">
+      <li><span class="ui">Note</span>: “flowstore”, already filled in.</li>
+      <li><span class="ui">Expiration</span>: the end of your course or project.</li>
+      <li><span class="ui">Select scopes</span>: <span class="ui">repo</span>, already ticked. It lets flowstore create repos, save to them, and add collaborators. Leave the other boxes empty.</li>
+      <li>Scroll down, click <span class="ui">Generate token</span>, and copy it. GitHub shows it only once, so keep a copy somewhere safe.</li>
+    </ol>
+  </div>
+  <figure class="shot"><img src="/start/images/github-token.png" alt="GitHub's new classic token page with the note flowstore and the repo scope ticked." width="1389" height="830" loading="lazy"><figcaption>The token settings flowstore needs.</figcaption></figure>
+  <div class="col">
+
+    <h3 id="step-3"><span class="n">3</span>Add the token to flowstore</h3>
+    <p>In the editor, click the gear icon, paste the token under <span class="ui">GitHub PAT</span>, and click <span class="ui">test</span>. “Connected as” and your GitHub name confirm it works. Then click <span class="ui">Save</span> at the bottom of the dialog.</p>
+  </div>
+  <figure class="shot narrow"><img src="/start/images/github-settings.png" alt="The GitHub section of Settings with a masked token and the hint asking for a classic token with the repo scope." width="600" height="484" loading="lazy"><figcaption>The GitHub token in Settings.</figcaption></figure>
+
+  <div class="col">
+    <h2 id="save">Save a project</h2>
+    <p>Click <span class="ui">Save to GitHub</span>, the cloud with an up arrow, and name the project. New repos are private. Click <span class="ui">Create project</span>.</p>
+  </div>
+  <figure class="shot"><img src="/start/images/github-save.png" alt="The Save to GitHub dialog with a project name, Private selected, and Create project." width="1440" height="900" loading="lazy"><figcaption>Saving a project to a new repo.</figcaption></figure>
+  <div class="col">
+    <p>The repo's name now shows under the project name, top left, with the GitHub mark. That tells you whose project you are in. Later saves go to the same repo. Click the cloud and choose <span class="ui">Save to main</span> to save with a short note describing the change. Or press <kbd>Cmd</kbd>+<kbd>S</kbd> (<kbd>Ctrl</kbd>+<kbd>S</kbd> on Windows) to save right away.</p>
+
+    <h2 id="everyday">Everyday use</h2>
+    <ol class="steps">
+      <li><strong>Open a project.</strong> The cloud with a down arrow opens any of your repos, or a public one by its URL.</li>
+      <li><strong>Make your own branch (or stay on main).</strong> Click the cloud and choose <span class="ui">Save to a new branch</span>. That makes a draft; the main version stays as it was.</li>
+      <li><strong>Work with others.</strong> The <span class="ui">Share</span> button (a person with a plus) adds collaborators by GitHub username. Make sure to coordinate your work with them, ideally in your own branches.</li>
+      <li><strong>Stay updated.</strong> Click <span class="ui">Refresh from GitHub</span> to get their latest saves.</li>
+      <li><strong>“Someone else saved changes.”</strong> Two people saved at once. Choose <span class="ui">Save as a new draft</span> and nothing is lost on either side.</li>
+      <li><strong>When you are ready to merge.</strong> Merging happens on GitHub, not in flowstore. Open the repo on GitHub, go to <span class="ui">Pull requests</span>, click <span class="ui">New pull request</span>, and pick your branch. Then click <span class="ui">Create pull request</span>, then <span class="ui">Merge pull request</span>. If two branches changed the same lines, GitHub asks you to pick which version to keep.</li>
+    </ol>
+
+    <h2 id="sharing">Sharing</h2>
+    <p>Click <span class="ui">Share</span>, the person with a plus, and type a GitHub username. Choose <span class="ui">Read &amp; write</span> to let them edit and save, or <span class="ui">Read</span> to let them only open the project. GitHub sends them an invitation, and the list shows “invite pending” until they accept it.</p>
+
+    <h3 id="visibility">Public and private repos</h3>
+    <p>When you save a new project, you choose <span class="ui">Private</span> or <span class="ui">Public</span>. Private is the default.</p>
+    <ol class="steps">
+      <li><strong>Private.</strong> Only you and the people you share it with can see the repo.</li>
+      <li><strong>Public.</strong> Anyone with the link can see it. They can open it in flowstore without a GitHub account by pasting the URL under <span class="ui">Public repo URL</span>. Only the people you share it with can save to it.</li>
+    </ol>
+    <p>To change it later, open the repo on GitHub, go to <span class="ui">Settings</span>, and use <span class="ui">Change visibility</span> at the bottom of the page. Your API keys and GitHub token stay in your browser and are never saved to the repo, so making a repo public does not expose them.</p>
+
+    <h2 id="more">Learn more</h2>
+    <p>GitHub's own <a href="https://docs.github.com/en/get-started/start-your-journey/hello-world" target="_blank" rel="noopener">Hello World</a> guide explains repos, branches and commits in more depth. You don't need it to use flowstore.</p>
+
+    <footer>
+      <p>Back to <a href="/start/">Getting started</a>. Questions and feedback: write to <span class="mail">info@flowstore.org</span>.</p>
+    </footer>
+  </div>
+</div>
+</Base>

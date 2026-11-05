@@ -388,19 +388,24 @@ export function SettingsSheet({ onClose }: SettingsSheetProps) {
           <p className="text-[11px] text-state-error-fg">{ghStatus.message}</p>
         )}
         <p className="text-[11px] text-text-tertiary">
-          Fine-grained PAT. Set <span className="font-medium">Repository access</span> to
-          {" "}<span className="font-medium">All repositories</span> (needed to create new
-          projects), and grant these <span className="font-medium">Permissions</span>:
-          {" "}<span className="font-mono">Contents: Read &amp; write</span> and
-          {" "}<span className="font-mono">Administration: Read &amp; write</span> (for
-          creating repos and managing collaborators). Create at{" "}
+          Classic token with the <span className="font-mono">repo</span> scope, which
+          covers creating repos, saving, and adding collaborators. Create one at{" "}
           <a
-            href="https://github.com/settings/personal-access-tokens/new"
+            href="https://github.com/settings/tokens/new?description=flowstore&scopes=repo"
             target="_blank"
             rel="noreferrer"
             className="underline hover:text-text-primary"
           >
-            github.com/settings/personal-access-tokens
+            github.com/settings/tokens/new
+          </a>
+          . Step by step:{" "}
+          <a
+            href="https://flowstore.org/github/"
+            target="_blank"
+            rel="noreferrer"
+            className="underline hover:text-text-primary"
+          >
+            Saving with GitHub
           </a>
           .
         </p>

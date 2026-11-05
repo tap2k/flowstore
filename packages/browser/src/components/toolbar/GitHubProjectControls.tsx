@@ -404,7 +404,15 @@ function ConflictModal({
       <p className="fs-body text-text-secondary mb-4 mt-0">
         Another collaborator saved to this project while you were editing.
         Save yours as a separate <strong>draft</strong> — nothing gets lost,
-        and the two versions can be combined later.
+        and the two versions can be combined later.{" "}
+        <a
+          href="https://flowstore.org/github/#everyday"
+          target="_blank"
+          rel="noreferrer"
+          className="underline hover:text-text-primary"
+        >
+          More on saving
+        </a>
       </p>
       <div className="space-y-2">
         <Button variant="primary" fullWidth onClick={onSaveAsDraft}>

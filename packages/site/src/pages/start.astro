@@ -1,139 +1,12 @@
 ---
 import Base from "../layouts/Base.astro";
+import "../styles/guide.css";
 ---
 
 <Base
   title="Getting started with flowstore"
   description="Getting started with flowstore: a three-minute tour, the Voiceflow mapping, a 15-minute walkthrough, and answers for running it in a course."
 >
-<style is:global>
-/* Layout: one reading column with a compact section index; screenshots break wider than the text. */
-:root {
-  --bg: #fafafa;
-  --surface: #ffffff;
-  --sunken: #f1f1f1;
-  --fg: #111111;
-  --fg-2: #4a4a4a;
-  --fg-3: #6b6b6b;
-  --line: #e4e4e4;
-  --line-strong: #c6c6c6;
-  --happy: #0f9d6b;
-  --happy-bg: #e3f7ee;
-  --interrupt: #7c3aed;
-  --interrupt-bg: #f1eafe;
-  --kbd-bg: #ffffff;
-  --font-display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --text: 17px;
-  --measure: 66ch;
-}
-
-* { box-sizing: border-box; }
-body {
-  background: var(--bg); color: var(--fg);
-  font-family: var(--font-body); font-size: var(--text); line-height: 1.6;
-  padding-inline: 20px; padding-block: 0 96px;
-  -webkit-font-smoothing: antialiased;
-}
-.wrap { max-width: 920px; margin: 0 auto; }
-.col { max-width: var(--measure); }
-
-header.top {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-  padding-block: 22px; border-bottom: 1px solid var(--line); margin-bottom: 56px;
-}
-.top a.brand { border-bottom: 0; }
-.brand { color: var(--fg); text-decoration: none; font-family: var(--font-mono); font-size: 15px; font-weight: 500; letter-spacing: -0.01em; }
-.brand span { color: var(--fg-3); font-weight: 400; }
-.top a { color: var(--fg-2); font-size: 14px; text-decoration: none; border-bottom: 1px solid var(--line-strong); }
-.top a:hover { color: var(--fg); border-color: var(--fg); }
-
-h1 {
-  font-family: var(--font-display); font-weight: 600; font-size: clamp(30px, 5vw, 44px);
-  line-height: 1.12; letter-spacing: -0.025em; margin: 0 0 18px; text-wrap: balance;
-}
-.lede { font-size: 19px; color: var(--fg-2); margin: 0 0 28px; }
-h2 {
-  font-family: var(--font-display); font-weight: 600; font-size: 26px; letter-spacing: -0.015em;
-  line-height: 1.25; margin: 72px 0 14px; text-wrap: balance; scroll-margin-top: 24px;
-}
-h3 {
-  font-family: var(--font-display); font-weight: 600; font-size: 19px; letter-spacing: -0.01em;
-  margin: 40px 0 8px; display: flex; align-items: baseline; gap: 12px; scroll-margin-top: 24px;
-}
-h3 .n {
-  font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--happy);
-  background: var(--happy-bg); border-radius: 5px; padding: 1px 7px; flex: none;
-}
-p { margin: 0 0 14px; }
-a { color: inherit; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
-a:hover { text-decoration-color: currentColor; }
-:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; border-radius: 3px; }
-
-.ui { font-weight: 600; white-space: nowrap; }
-kbd {
-  font-family: var(--font-mono); font-size: 13px; background: var(--kbd-bg); border: 1px solid var(--line-strong);
-  border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px;
-}
-code {
-  font-family: var(--font-mono); font-size: 0.86em; background: var(--sunken); border: 1px solid var(--line);
-  border-radius: 5px; padding: 1px 5px; overflow-wrap: anywhere;
-}
-.say { font-family: var(--font-mono); font-size: 0.9em; }
-
-nav.index {
-  display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; color: var(--fg-3);
-  padding-block: 14px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-bottom: 8px;
-}
-nav.index a { color: var(--fg-2); text-decoration: none; }
-nav.index a:hover { color: var(--fg); }
-
-.video {
-  margin: 8px 0 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface);
-}
-.video video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; background: #000; }
-.video figcaption { font-size: 14px; color: var(--fg-3); padding: 10px 14px; border-top: 1px solid var(--line); }
-
-figure.shot { margin: 18px 0 26px; }
-figure.shot img {
-  display: block; width: 100%; max-width: 100%; height: auto;
-  border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
-}
-figure.shot figcaption { font-size: 14px; color: var(--fg-3); margin-top: 8px; }
-
-.tablewrap { overflow-x: auto; margin: 18px 0 22px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
-table { border-collapse: collapse; width: 100%; font-size: 15px; min-width: 520px; }
-th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-3); background: var(--sunken); }
-tr:last-child td { border-bottom: 0; }
-td:first-child { color: var(--fg-2); width: 42%; }
-
-ol.habits, ol.turns, ol.steps { list-style: decimal; padding-left: 22px; margin: 10px 0 18px; display: grid; gap: 10px; }
-ol.habits li::marker, ol.turns li::marker, ol.steps li::marker { font-family: var(--font-mono); color: var(--fg-3); font-size: 14px; }
-.chip { font-family: var(--font-mono); font-size: 12px; font-weight: 500; border-radius: 4px; padding: 1px 6px; letter-spacing: 0.02em; }
-.chip.happy { color: var(--happy); background: var(--happy-bg); }
-.chip.interrupt { color: var(--interrupt); background: var(--interrupt-bg); }
-
-.note {
-  border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 14px 16px; margin: 16px 0;
-  font-size: 15px; color: var(--fg-2);
-}
-.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-top: 8px; }
-.pair > div { min-width: 0; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 18px 20px 10px; }
-.pair h3 { margin-top: 0; }
-.class-grid { display: grid; gap: 4px; }
-.class-grid p strong { font-weight: 600; }
-footer { margin-top: 80px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--fg-2); font-size: 15px; }
-.mail { font-family: var(--font-mono); font-size: 14px; user-select: all; }
-
-@media (max-width: 560px) {
-  body { --text: 16px; padding-inline: 16px; }
-  header.top { margin-bottom: 36px; }
-  h2 { margin-top: 56px; }
-}
-@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
-</style>
 <div class="wrap">
   <header class="top">
     <a class="brand" href="/">flowstore <span>/ getting started</span></a>
@@ -210,7 +83,7 @@ footer { margin-top: 80px; padding-top: 22px; border-top: 1px solid var(--line);
     <h3 id="step-5"><span class="n">5</span>Add a key</h3>
     <p>Talking to the agent needs a model, and the simplest setup is one OpenRouter key.</p>
     <ol class="steps">
-      <li>Make an account at <a href="https://openrouter.ai" target="_blank" rel="noopener">openrouter.ai</a>, add a few dollars of credit, and create a key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>. You can set a credit limit on the key.</li>
+      <li>Make an account at <a href="https://openrouter.ai" target="_blank" rel="noopener">openrouter.ai</a>, add a few dollars of credit, and create a key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>. You can set a credit limit on the key. Copy the key right away, because OpenRouter shows it only once.</li>
       <li>In flowstore, click the gear icon, paste the key under <span class="ui">OpenRouter API key</span>, and click <span class="ui">Save</span> at the bottom of the dialog. Closing the dialog without saving discards the key.</li>
     </ol>
   </div>
@@ -240,17 +113,9 @@ footer { margin-top: 80px; padding-top: 22px; border-top: 1px solid var(--line);
     <h3 id="step-9"><span class="n">9</span>Test, fix, repeat</h3>
     <p>Designing in flowstore is an iterative testing loop. When a reply is off, ask the <span class="ui">Assistant</span> why, such as “Why did the agent skip the milk question?” It sees the design and the conversation, so it can make the fix. Then test again.</p>
 
-    <h3 id="step-10"><span class="n">10</span>Save to GitHub</h3>
-    <p>There is no flowstore server. The editor runs in the browser, keys stay in the browser, and model calls go straight from the browser to the provider. Work autosaves in the browser. You can also import and export files, or save to GitHub.</p>
-    <p>To save, add a GitHub token in Settings. The hint under the field links to the token page and lists the permissions it needs.</p>
-  </div>
-  <figure class="shot"><img src="/start/images/github-settings.png" alt="The GitHub section of Settings with a masked token and the permissions hint." width="1440" height="900" loading="lazy"><figcaption>The GitHub token in Settings.</figcaption></figure>
-  <div class="col">
-    <p>Then click <span class="ui">Save to GitHub</span> (the cloud with an up arrow) and name a new repo. Later saves go to the same repo. The cloud with a down arrow opens a project from GitHub.</p>
-  </div>
-  <figure class="shot"><img src="/start/images/github-save.png" alt="The Save to GitHub dialog with a project name, Private selected, and Create project." width="1440" height="900" loading="lazy"><figcaption>Saving a project to a new repo.</figcaption></figure>
-  <div class="col">
-    <p>A project is a folder of plain files: <code>agent.md</code>, <code>guardrails.md</code>, one markdown file per flow under <code>flows/</code>, and golds, cases and personas under <code>tests/</code>. Each save is a commit, so the repo history shows every change to the design.</p>
+    <h3 id="step-10"><span class="n">10</span>Save your work</h3>
+    <p>There is no flowstore server. The editor runs in the browser, keys stay in the browser, and model calls go straight from the browser to the provider. Work autosaves in the browser, but only in that browser. You can download your project as a file, or save it to GitHub to share it or hand it in.</p>
+    <p class="note">Read our GitHub setup guide: <a href="/github/"><strong>Saving with GitHub →</strong></a></p>
 
     <h2 id="next">Next steps</h2>
   </div>
@@ -281,7 +146,7 @@ footer { margin-top: 80px; padding-top: 22px; border-top: 1px solid var(--line);
     <p>To test with real users, deploy the agent on a platform like Retell, or through a planned flowstore share link.</p>
 
     <h3>How do I collaborate?</h3>
-    <p>Through GitHub. Save the project to a repo, and the <span class="ui">Share</span> button adds collaborators. Each save is a commit, so the history shows who changed what. New repos are private by default, so to share a project more widely, make the repo public and send the link.</p>
+    <p>Through GitHub (see <a href="/github/">Saving with GitHub</a>). Save the project to a repo, and the <span class="ui">Share</span> button adds collaborators. Each save is a commit, so the history shows who changed what. New repos are private by default, so to share a project more widely, make the repo public and send the link.</p>
     <p>Because a project is plain files in a repo, you can also clone it and work on it with your own coding agent, such as Claude Code, Codex or Copilot.</p>
 
     <footer>
