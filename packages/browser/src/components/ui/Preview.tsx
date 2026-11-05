@@ -74,7 +74,7 @@ export function Preview() {
       <div className="mx-auto flex max-w-4xl flex-col gap-8">
         <header className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="fs-display text-text-primary">Flowstore design system</h1>
+            <h1 className="fs-display text-text-primary">flowstore design system</h1>
             <p className="fs-body mt-1 text-text-secondary">
               Foundation layer — tokens, Geist, Phosphor icons, core atoms.
             </p>

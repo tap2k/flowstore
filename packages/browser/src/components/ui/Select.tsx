@@ -14,7 +14,7 @@ export interface SelectProps
 }
 
 /**
- * Native select with Flowstore chrome. Native rather than a custom listbox: the
+ * Native select with flowstore chrome. Native rather than a custom listbox: the
  * OS popup is keyboard- and screen-reader-correct for free, and this system has
  * no visual opinion about the open menu that would justify rebuilding it.
  */
