@@ -15,6 +15,7 @@ import {
   CodeBlock,
   DataChip,
   Dialog,
+  DisclosureCaret,
   DropdownMenu,
   FieldRow,
   Icon,
@@ -23,8 +24,10 @@ import {
   Kbd,
   MetricStat,
   Panel,
+  RunButton,
   Select,
   StatusIcon,
+  StopButton,
   Switch,
   Tabs,
   Textarea,
@@ -68,6 +71,7 @@ export function Preview() {
   const [checked, setChecked] = useState(true);
   const [on, setOn] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [disclosed, setDisclosed] = useState(true);
 
   return (
     <div className="fs-root min-h-screen p-8">
@@ -180,6 +184,30 @@ export function Preview() {
               { label: "Delete", icon: Trash, tone: "destructive", onSelect: () => {} },
             ]}
           />
+        </Row>
+
+        <Row title="Run / stop">
+          <RunButton label="Run all cases" />
+          <StopButton />
+          <RunButton label="Run case" size="sm" />
+          <StopButton size="sm" />
+          <RunButton label="Run unavailable" disabled />
+        </Row>
+
+        <Row title="Disclosure">
+          <button
+            type="button"
+            onClick={() => setDisclosed((d) => !d)}
+            aria-expanded={disclosed}
+            className="flex items-center gap-1.5 fs-ui text-text-secondary"
+          >
+            <DisclosureCaret open={disclosed} />
+            Section header
+          </button>
+          <span className="flex items-center gap-1.5 fs-ui text-text-secondary">
+            <DisclosureCaret open={false} />
+            Collapsed
+          </span>
         </Row>
 
         <Row title="Inputs">
