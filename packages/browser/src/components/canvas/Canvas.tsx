@@ -12,6 +12,7 @@ import {
   useReactFlow,
   type Edge,
   type Node,
+  type OnConnectEnd,
   type ReactFlowInstance,
 } from "@xyflow/react";
 import type { Spec } from "@flowstore/core/schema/v0";
@@ -19,7 +20,7 @@ import { isFlowGoto } from "@flowstore/core/schema/v0";
 import { FlowNode, type FlowNodeData } from "./FlowNode";
 import { ParallelEdge } from "./ParallelEdge";
 import { isCalcRouteJunction } from "@flowstore/core/schema/flowJunction";
-import { autoLayout } from "./layout";
+import { autoLayout, NODE_HEIGHT } from "./layout";
 import { resolvePositions } from "./placement";
 import { loadPositions, savePositions, type Positions } from "./positions";
 import { useSpecStore } from "@/lib/store/spec";
@@ -455,6 +456,9 @@ function NewFlowButton() {
 }
 
 const MAX_ZOOM = 2;
+// Screen pixels a dangling connection must travel before release creates a
+// flow, so a click or twitch on a handle doesn't spawn one.
+const MIN_CREATE_DRAG_PX = 40;
 
 function CanvasInner({ spec }: { spec: Spec }) {
   const specId = spec.agent.id;
@@ -489,6 +493,35 @@ function CanvasInner({ spec }: { spec: Spec }) {
   useEffect(() => {
     setNodes(initial.nodes);
   }, [initial, setNodes]);
+
+  // Dropping a connection from a source handle onto empty canvas creates a
+  // flow there and routes the exit path to it.
+  const onConnectEnd: OnConnectEnd = useCallback(
+    (event, conn) => {
+      const rf = rfRef.current;
+      if (!rf || conn.toNode || !conn.fromNode || !conn.from || conn.fromHandle?.type !== "source") return;
+      const pt = "changedTouches" in event ? event.changedTouches[0] : event;
+      if (!pt) return;
+      const start = rf.flowToScreenPosition(conn.from);
+      if (Math.hypot(pt.clientX - start.x, pt.clientY - start.y) < MIN_CREATE_DRAG_PX) return;
+
+      const drop = rf.screenToFlowPosition({ x: pt.clientX, y: pt.clientY });
+      const store = useSpecStore.getState();
+      // No select flag: addFlow(true) also fires a focus request that pans
+      // away from where the user just dropped it.
+      const newId = store.addFlow();
+      // Pin every node, not just the new one: a lone pinned node would switch
+      // resolvePositions out of auto-layout mode and re-anchor the rest.
+      savePositions(specId, {
+        ...Object.fromEntries(nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }])),
+        [newId]: { x: drop.x, y: drop.y - NODE_HEIGHT / 2 },
+      });
+      store.addExitPath(conn.fromNode.id, newId);
+      // Deferred: the release also fires a pane click, which clears selection.
+      setTimeout(() => store.setSelection({ kind: "flow", id: newId }), 0);
+    },
+    [nodes, specId],
+  );
 
   useEffect(() => {
     const selectedFlowId = selection?.kind === "flow" ? selection.id : null;
@@ -580,6 +613,7 @@ function CanvasInner({ spec }: { spec: Spec }) {
             useSpecStore.getState().addExitPath(c.source, c.target, true);
           }
         }}
+        onConnectEnd={onConnectEnd}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
